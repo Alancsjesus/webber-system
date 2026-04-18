@@ -181,70 +181,148 @@ class DashboardStatsView(APIView):
     permission_classes = [IsAuthenticated, IsMultiTenant]
 
     def get(self, request):
-        org_id = request.org_id
-
         from modulo_demanda.models import DFD
         from modulo_planejamento.models import NecessidadePlanejamento
-
-        dfds = DFD.objects.filter(org_id=org_id)
-        necessidades = NecessidadePlanejamento.objects.filter(org_id=org_id)
-
-        dfd_stats = dfds.aggregate(total=Count('id'), valor_total=Sum('valor_estimado'))
-        dfd_por_status = {
-            item['status']: item['count']
-            for item in dfds.values('status').annotate(count=Count('id'))
-        }
-
-        nec_stats = necessidades.aggregate(total=Count('id'), valor_total=Sum('valor_estimado'))
-        nec_por_status = {
-            item['status']: item['count']
-            for item in necessidades.values('status').annotate(count=Count('id'))
-        }
-
-        recentes_dfds = list(
-            dfds.order_by('-created_at')[:5].values(
-                'id', 'numero_sei', 'descricao', 'status', 'valor_estimado', 'created_at'
-            )
-        )
-        recentes_nec = list(
-            necessidades.order_by('-created_at')[:5].values(
-                'id', 'titulo', 'status', 'prioridade', 'valor_estimado', 'created_at'
-            )
-        )
-
         from modulo_orcamento.models import DotacaoOrcamentaria
-        dotacoes = DotacaoOrcamentaria.objects.filter(org_id=org_id)
-        dot_stats = dotacoes.aggregate(total=Count('id'), valor_total=Sum('valor_dotado'))
-        dot_por_status = {
-            item['status']: item['count']
-            for item in dotacoes.values('status').annotate(count=Count('id'))
-        }
-        recentes_dot = list(
+        from modulo_etp.models import ETP
+        from modulo_tr.models import TR
+
+        org_id  = request.org_id
+        orgao   = Orgao.objects.filter(pk=org_id).first()
+        filhos  = list(Orgao.objects.filter(parent_id=org_id).values('id', 'sigla', 'nome'))
+        filhos_ids = [f['id'] for f in filhos]
+
+        # ── Necessidades ─────────────────────────────────────────────────────
+        nec_proprias = NecessidadePlanejamento.objects.filter(org_id=org_id)
+        nec_externas = (
+            NecessidadePlanejamento.objects.filter(org_id__in=filhos_ids, tipo_execucao='externa')
+            if filhos_ids else NecessidadePlanejamento.objects.none()
+        )
+        necessidades = (nec_proprias | nec_externas).distinct()
+
+        nec_stats      = necessidades.aggregate(total=Count('id'), valor_total=Sum('valor_estimado'))
+        nec_por_status = {i['status']: i['count'] for i in necessidades.values('status').annotate(count=Count('id'))}
+        recentes_nec   = list(
+            necessidades.order_by('-created_at')[:5].values(
+                'id', 'titulo', 'status', 'prioridade', 'valor_estimado', 'created_at', 'org_id__sigla',
+            )
+        )
+
+        # ── DFDs ─────────────────────────────────────────────────────────────
+        dfds = DFD.objects.filter(
+            Q(org_id=org_id) | Q(unidade_licitante__orgao_id=org_id) | Q(org_gestor=org_id)
+        ).distinct()
+
+        dfd_stats      = dfds.aggregate(total=Count('id'), valor_total=Sum('valor_estimado'))
+        dfd_por_status = {i['status']: i['count'] for i in dfds.values('status').annotate(count=Count('id'))}
+        recentes_dfds  = list(
+            dfds.order_by('-created_at')[:5].values(
+                'id', 'numero_sei', 'descricao', 'status', 'valor_estimado', 'created_at', 'org_id__sigla',
+            )
+        )
+
+        # ── Dotações ─────────────────────────────────────────────────────────
+        dotacoes       = DotacaoOrcamentaria.objects.filter(org_id=org_id)
+        dot_stats      = dotacoes.aggregate(total=Count('id'), valor_total=Sum('valor_dotado'))
+        dot_por_status = {i['status']: i['count'] for i in dotacoes.values('status').annotate(count=Count('id'))}
+        recentes_dot   = list(
             dotacoes.order_by('-created_at')[:5].values(
                 'id', 'exercicio_fiscal', 'status', 'valor_dotado',
                 'acao__codigo', 'acao__nome', 'elemento_despesa__codigo',
             )
         )
 
+        # ── ETPs ─────────────────────────────────────────────────────────────
+        etps = ETP.objects.filter(
+            Q(org_id=org_id) | Q(dfd__org_gestor=org_id) | Q(dfd__unidade_licitante__orgao_id=org_id)
+        ).distinct()
+        etp_stats      = etps.aggregate(total=Count('id'))
+        etp_por_status = {i['status']: i['count'] for i in etps.values('status').annotate(count=Count('id'))}
+        recentes_etps  = list(
+            etps.order_by('-created_at')[:5].values(
+                'id', 'numero_sei', 'status', 'estimativa_valor', 'created_at',
+                'dfd__org_id__sigla',
+            )
+        )
+
+        # ── TRs ──────────────────────────────────────────────────────────────
+        trs = TR.objects.filter(
+            Q(etp__org_id=org_id) |
+            Q(etp__dfd__org_gestor=org_id) |
+            Q(etp__dfd__unidade_licitante__orgao_id=org_id)
+        ).distinct()
+        tr_stats      = trs.aggregate(total=Count('id'))
+        tr_por_status = {i['status']: i['count'] for i in trs.values('status').annotate(count=Count('id'))}
+
+        # ── Aceites pendentes (necessidades de filhos aguardando aceite) ─────
+        aceites_pendentes = (
+            NecessidadePlanejamento.objects.filter(
+                org_id__in=filhos_ids, tipo_execucao='externa', aceite_pai='pendente'
+            ).count()
+            if filhos_ids else 0
+        )
+
+        # ── Breakdown por órgão (apenas quando há filhos) ────────────────────
+        por_orgao = []
+        if filhos_ids and orgao:
+            por_orgao.append({
+                'orgao_id':    org_id,
+                'orgao_sigla': orgao.sigla,
+                'orgao_nome':  orgao.nome,
+                'eh_filho':    False,
+                'necessidades_total': nec_proprias.count(),
+                'dfds_total':  DFD.objects.filter(org_id=org_id).distinct().count(),
+                'etps_total':  ETP.objects.filter(org_id=org_id).count(),
+                'trs_total':   TR.objects.filter(etp__org_id=org_id).count(),
+                'valor_total': float(nec_proprias.aggregate(v=Sum('valor_estimado'))['v'] or 0),
+                'aceites_pendentes': 0,
+            })
+            for filho in filhos:
+                fid        = filho['id']
+                nec_f_ext  = NecessidadePlanejamento.objects.filter(org_id=fid, tipo_execucao='externa')
+                por_orgao.append({
+                    'orgao_id':              fid,
+                    'orgao_sigla':           filho['sigla'],
+                    'orgao_nome':            filho['nome'],
+                    'eh_filho':              True,
+                    'necessidades_total':    nec_f_ext.count(),
+                    'dfds_total':            DFD.objects.filter(org_id=fid).count(),
+                    'etps_total':            ETP.objects.filter(org_id=fid).count(),
+                    'trs_total':             TR.objects.filter(etp__org_id=fid).count(),
+                    'valor_total':           float(nec_f_ext.aggregate(v=Sum('valor_estimado'))['v'] or 0),
+                    'aceites_pendentes':     nec_f_ext.filter(aceite_pai='pendente').count(),
+                })
+
         return Response({
-            'dfds': {
-                'total': dfd_stats['total'] or 0,
-                'valor_total': float(dfd_stats['valor_total'] or 0),
-                'por_status': dfd_por_status,
-                'recentes': recentes_dfds,
-            },
             'necessidades': {
-                'total': nec_stats['total'] or 0,
+                'total':       nec_stats['total'] or 0,
                 'valor_total': float(nec_stats['valor_total'] or 0),
-                'por_status': nec_por_status,
-                'recentes': recentes_nec,
+                'por_status':  nec_por_status,
+                'recentes':    recentes_nec,
+            },
+            'dfds': {
+                'total':       dfd_stats['total'] or 0,
+                'valor_total': float(dfd_stats['valor_total'] or 0),
+                'por_status':  dfd_por_status,
+                'recentes':    recentes_dfds,
             },
             'dotacoes': {
-                'total': dot_stats['total'] or 0,
+                'total':       dot_stats['total'] or 0,
                 'valor_total': float(dot_stats['valor_total'] or 0),
-                'por_status': dot_por_status,
-                'recentes': recentes_dot,
+                'por_status':  dot_por_status,
+                'recentes':    recentes_dot,
             },
+            'etps': {
+                'total':      etp_stats['total'] or 0,
+                'por_status': etp_por_status,
+                'recentes':   recentes_etps,
+            },
+            'trs': {
+                'total':      tr_stats['total'] or 0,
+                'por_status': tr_por_status,
+            },
+            'aceites_pendentes': aceites_pendentes,
+            'por_orgao':         por_orgao,
         })
 
 
