@@ -1,0 +1,59 @@
+# ── Python ────────────────────────────────────────────────────
+*.pyc
+*.pyo
+__pycache__/
+*.egg-info/
+*.egg
+.eggs/
+
+# Virtualenv
+venv/
+env/
+.venv/
+
+# Django
+backend/.env
+backend/db.sqlite3
+backend/staticfiles/
+backend/media/
+backend/logs/
+
+# Tests / coverage
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# ── Node / Frontend ───────────────────────────────────────────
+frontend/node_modules/
+frontend/dist/
+frontend/build/
+frontend/.env
+frontend/.env.local
+frontend/.env.production
+
+# ── Logs ──────────────────────────────────────────────────────
+logs/
+*.log
+
+# ── IDE ───────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# ── Dev container ─────────────────────────────────────────────
+.devcontainer/
+
+# ── Claude Code ───────────────────────────────────────────────
+.claude/
+
+# ── OS ────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Secrets / produção ────────────────────────────────────────
+.env.prod
+*.pem
+*.key
