@@ -54,40 +54,16 @@ export default function DFDCreate() {
   const [selecionada, setSelecionada] = useState(necessidadePreSelecionada)
   const [busca, setBusca]             = useState('')
 
-  useEffect(() => {
-    api.get('/planejamento/necessidade/', { params: { status: 'Aprovada', sem_dfd: true, page_size: 200 } })
-      .then(({ data }) => {
-        const lista = data.results ?? data
-        setDisponíveis(lista)
-        // Se veio pré-selecionada mas não está na lista (já tem DFD), mantém mesmo assim
-        if (necessidadePreSelecionada && !lista.find(n => n.id === necessidadePreSelecionada.id)) {
-          setDisponíveis(prev => [necessidadePreSelecionada, ...prev])
-        }
-      })
-      .catch(() => setDisponíveis([]))
-      .finally(() => setLoadingNec(false))
-  }, [])
-
-  // Preencher formulário quando necessidade é selecionada
-  useEffect(() => {
-    if (necReal) {
-      setForm(prev => ({
-        ...prev,
-        descricao:         necReal.descricao,
-        area_aplicacao:    necReal.area_aplicacao ?? [],
-        prazo_necessidade: necReal.prazo_desejado ?? prev.prazo_necessidade,
-      }))
-      setItens([novoItem()])
-    }
-  }, [necReal?.id])
+  // necReal: null quando 'sem' ou nada selecionado; objeto necessidade quando selecionada de verdade
+  const necReal = selecionada && selecionada !== 'sem' ? selecionada : null
 
   // --- formulário ---
   const [form, setFormState] = useState({
     numero_sei:                    '',
-    descricao:                     selecionada?.descricao ?? '',
+    descricao:                     necessidadePreSelecionada?.descricao ?? '',
     modalidade_aquisicao:          'licitacao',
-    area_aplicacao:                selecionada?.area_aplicacao ?? [],
-    prazo_necessidade:             selecionada?.prazo_desejado ?? '',
+    area_aplicacao:                necessidadePreSelecionada?.area_aplicacao ?? [],
+    prazo_necessidade:             necessidadePreSelecionada?.prazo_desejado ?? '',
     observacoes:                   '',
     local_entrega:                 '',
     justificativa_sem_planejamento: '',
@@ -103,6 +79,19 @@ export default function DFDCreate() {
   const [unidsContratante,setUnidsContratante]= useState([])
 
   useEffect(() => {
+    api.get('/planejamento/necessidade/', { params: { status: 'Aprovada', sem_dfd: true, page_size: 200 } })
+      .then(({ data }) => {
+        const lista = data.results ?? data
+        setDisponíveis(lista)
+        if (necessidadePreSelecionada && !lista.find(n => n.id === necessidadePreSelecionada.id)) {
+          setDisponíveis(prev => [necessidadePreSelecionada, ...prev])
+        }
+      })
+      .catch(() => setDisponíveis([]))
+      .finally(() => setLoadingNec(false))
+  }, [])
+
+  useEffect(() => {
     api.get('/core/unidades/', { params: { tipo: 'licitante' } })
       .then(({ data }) => setUnidsLicitante(data.results ?? data))
       .catch(() => {})
@@ -110,6 +99,19 @@ export default function DFDCreate() {
       .then(({ data }) => setUnidsContratante(data.results ?? data))
       .catch(() => {})
   }, [])
+
+  // Preencher formulário quando necessidade real é selecionada
+  useEffect(() => {
+    if (necReal) {
+      setFormState(prev => ({
+        ...prev,
+        descricao:         necReal.descricao ?? prev.descricao,
+        area_aplicacao:    necReal.area_aplicacao ?? [],
+        prazo_necessidade: necReal.prazo_desejado ?? prev.prazo_necessidade,
+      }))
+      setItens([novoItem()])
+    }
+  }, [necReal?.id])
 
   const set = (field, value) => {
     setFormState(prev => ({ ...prev, [field]: value }))
@@ -131,8 +133,6 @@ export default function DFDCreate() {
 
   // --- extrapolação ---
   const totalItens = calcularTotal(itens)
-
-  const necReal = selecionada && selecionada !== 'sem' ? selecionada : null
 
   const extrapolacao = useMemo(() => {
     if (!necReal) return { valor: false, area: false, extras: [] }
