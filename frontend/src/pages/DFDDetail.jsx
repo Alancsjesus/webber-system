@@ -23,8 +23,16 @@ const ETAPAS_PROCESSO = [
   { value: 'contrato',  label: 'Contrato' },
 ]
 
-const PAPEIS_ANALISTA = ['analista', 'gestor_contrato', 'fiscal_contrato', 'ordenador', 'admin']
+const PAPEIS_ANALISTA    = ['analista', 'gestor_planejamento', 'gestor_contrato', 'fiscal_contrato', 'ordenador', 'admin']
 const PAPEIS_SOLICITANTE = ['solicitante', 'demandante', 'responsavel_tecnico', 'admin']
+
+const MODALIDADES = [
+  { value: 'licitacao',           label: 'Licitação' },
+  { value: 'dispensa_valor',      label: 'Dispensa por Valor' },
+  { value: 'dispensa_emergencia', label: 'Dispensa por Emergência' },
+  { value: 'inexigibilidade',     label: 'Inexigibilidade' },
+  { value: 'arp_saque',           label: 'Saque de ATA de Registro de Preços' },
+]
 
 export default function DFDDetail() {
   const { id }   = useParams()
@@ -40,8 +48,11 @@ export default function DFDDetail() {
 
   const [actionLoading, setActionLoading] = useState(false)
   const [actionError, setActionError]     = useState(null)
-  const [showDevolverModal, setShowDevolverModal] = useState(false)
-  const [motivoDevolucao, setMotivoDevolucao]     = useState('')
+  const [showDevolverModal, setShowDevolverModal]   = useState(false)
+  const [motivoDevolucao, setMotivoDevolucao]       = useState('')
+  const [showDispensaModal, setShowDispensaModal]   = useState(false)
+  const [motivoDispensa, setMotivoDispensa]         = useState('')
+  const [dispensando, setDispensando]               = useState(false)
 
   // Itens
   const [itens, setItens] = useState([])
@@ -87,6 +98,7 @@ export default function DFDDetail() {
     try {
       await updateDFD(id, {
         descricao:                     form.descricao,
+        modalidade_aquisicao:          form.modalidade_aquisicao,
         area_aplicacao:                form.area_aplicacao,
         prazo_necessidade:             form.prazo_necessidade,
         observacoes:                   form.observacoes,
@@ -187,7 +199,25 @@ export default function DFDDetail() {
   const podeAnalisar = current.status === 'Submetida'   && PAPEIS_ANALISTA.includes(papel)
   const podeAprovar  = current.status === 'Em Análise'  && PAPEIS_ANALISTA.includes(papel)
   const podeDevolver = current.status === 'Em Análise'  && PAPEIS_ANALISTA.includes(papel)
-  const podeCriarEtp = current.status === 'Aprovada' && !current.etp_id
+  const podeCriarEtp    = current.status === 'Aprovada' && !current.etp_id && PAPEIS_ANALISTA.includes(papel)
+  const podeDispensarEtp = current.status === 'Aprovada' && !current.etp_id && PAPEIS_ANALISTA.includes(papel)
+
+  const handleDispensarEtp = async () => {
+    if (!motivoDispensa.trim()) return
+    setDispensando(true)
+    setActionError(null)
+    try {
+      const { data } = await api.post(`/demanda/dfd/${id}/dispensar_etp/`, { motivo: motivoDispensa })
+      setShowDispensaModal(false)
+      setMotivoDispensa('')
+      // Navega para criar TR diretamente, passando o ETP dispensado como contexto
+      navigate('/analise-tecnica/trs/novo', { state: { etp: data } })
+    } catch (err) {
+      setActionError(err.response?.data?.detail || 'Erro ao dispensar ETP.')
+    } finally {
+      setDispensando(false)
+    }
+  }
 
   const totalItens = itens.reduce((acc, i) => acc + parseFloat(i.valor_total_estimado || 0), 0)
 
@@ -214,13 +244,25 @@ export default function DFDDetail() {
               {podeCriarEtp && (
                 <button onClick={() => navigate('/etp/etps/novo', { state: { dfd: current } })}
                   className="bg-purple-600 hover:bg-purple-700 text-white text-sm px-4 py-1.5 rounded-lg transition-colors font-medium">
-                  Criar ETP
+                  + Criar ETP
                 </button>
               )}
-              {current.etp_id && (
+              {podeDispensarEtp && (
+                <button onClick={() => setShowDispensaModal(true)}
+                  className="bg-amber-100 border border-amber-300 text-amber-800 hover:bg-amber-200 text-sm px-4 py-1.5 rounded-lg transition-colors font-medium">
+                  Dispensar ETP → TR
+                </button>
+              )}
+              {current.etp_id && !current.etp_dispensado && (
                 <button onClick={() => navigate(`/etp/etps/${current.etp_id}`)}
                   className="bg-purple-50 border border-purple-200 text-purple-700 text-sm px-4 py-1.5 rounded-lg transition-colors">
                   Ver ETP
+                </button>
+              )}
+              {current.etp_id && current.etp_dispensado && (
+                <button onClick={() => navigate(`/etp/etps/${current.etp_id}`)}
+                  className="bg-amber-50 border border-amber-200 text-amber-700 text-sm px-4 py-1.5 rounded-lg transition-colors">
+                  ETP Dispensado → Ver TR
                 </button>
               )}
               {podeEditar && (
@@ -312,6 +354,30 @@ export default function DFDDetail() {
         </div>
       )}
 
+      {showDispensaModal && (
+        <div className="mb-6 bg-amber-50 border border-amber-300 rounded-xl p-4">
+          <p className="text-sm font-semibold text-amber-800 mb-1">Dispensar ETP e criar TR diretamente</p>
+          <p className="text-xs text-amber-700 mb-3">
+            Use quando a modalidade for dispensa por valor, dispensa por emergência ou saque de ARP,
+            ou quando o valor estimado estiver abaixo do limite configurado.
+          </p>
+          <textarea rows={3} value={motivoDispensa}
+            onChange={(e) => setMotivoDispensa(e.target.value)}
+            placeholder="Informe o motivo da dispensa (ex: valor abaixo do limite de R$ 62.000, ARP vigente nº ...)..."
+            className="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400 bg-white" />
+          <div className="flex gap-2 mt-2">
+            <button onClick={handleDispensarEtp} disabled={!motivoDispensa.trim() || dispensando}
+              className="bg-amber-500 hover:bg-amber-600 disabled:opacity-50 text-white text-sm font-medium px-4 py-1.5 rounded-lg transition-colors">
+              {dispensando ? '...' : 'Confirmar dispensa → Criar TR'}
+            </button>
+            <button onClick={() => { setShowDispensaModal(false); setMotivoDispensa('') }}
+              className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg transition-colors">
+              Cancelar
+            </button>
+          </div>
+        </div>
+      )}
+
       {/* Vínculo com planejamento */}
       {current.necessidade_origem ? (
         <div className="mb-5 bg-green-50 border border-green-200 rounded-xl px-4 py-3">
@@ -365,6 +431,20 @@ export default function DFDDetail() {
               className={inputCls(formErrors.descricao)} />
           ) : (
             <p className="text-sm text-gray-700">{current.descricao}</p>
+          )}
+        </DetailField>
+
+        <DetailField label="Modalidade de aquisição">
+          {editing ? (
+            <select value={form.modalidade_aquisicao || 'licitacao'}
+              onChange={(e) => setField('modalidade_aquisicao', e.target.value)}
+              className={inputCls()}>
+              {MODALIDADES.map(({ value, label }) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+          ) : (
+            <p className="text-sm text-gray-700">{current.modalidade_display || current.modalidade_aquisicao || 'Licitação'}</p>
           )}
         </DetailField>
 

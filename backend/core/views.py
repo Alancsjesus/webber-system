@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
 from django.db.models import Sum, Count, Q, Prefetch
 from django.contrib.auth.models import User
-from core.models import Orgao, UnidadeOrganizacional, UserProfile
+from core.models import Orgao, UnidadeOrganizacional, UserProfile, ParametroSistema
 from core.permissions import IsMultiTenant
 
 
@@ -175,6 +175,44 @@ class UserManagementViewSet(viewsets.ModelViewSet):
         _require_admin(self.request)
         instance.user.is_active = False
         instance.user.save()
+
+
+class ParametroSistemaSerializer(drf_serializers.ModelSerializer):
+    atualizado_por_username = drf_serializers.CharField(
+        source='atualizado_por.username', read_only=True
+    )
+
+    class Meta:
+        model  = ParametroSistema
+        fields = ['id', 'chave', 'valor', 'descricao', 'atualizado_em', 'atualizado_por_username']
+        read_only_fields = ['id', 'atualizado_em', 'atualizado_por_username']
+
+
+class ParametroSistemaViewSet(viewsets.ModelViewSet):
+    serializer_class   = ParametroSistemaSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends    = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields      = ['chave', 'descricao']
+    ordering           = ['chave']
+    queryset           = ParametroSistema.objects.all()
+
+    def _check_permissao(self, request):
+        papel       = getattr(request, 'papel', None)
+        tipo_unid   = getattr(request, 'tipo_unidade', None)
+        if papel not in ('admin', 'gestor_planejamento', 'analista') and tipo_unid != 'licitante':
+            raise PermissionDenied('Apenas administradores, gestores de planejamento e unidade licitante podem alterar parâmetros.')
+
+    def perform_create(self, serializer):
+        self._check_permissao(self.request)
+        serializer.save(atualizado_por=self.request.user)
+
+    def perform_update(self, serializer):
+        self._check_permissao(self.request)
+        serializer.save(atualizado_por=self.request.user)
+
+    def perform_destroy(self, instance):
+        self._check_permissao(self.request)
+        instance.delete()
 
 
 class DashboardStatsView(APIView):

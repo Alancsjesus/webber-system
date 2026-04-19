@@ -31,6 +31,14 @@ class DFD(BaseModel):
         'Rejeitada':  [],
     }
     
+    MODALIDADE_CHOICES = [
+        ('licitacao',           'Licitação'),
+        ('dispensa_valor',      'Dispensa por Valor'),
+        ('dispensa_emergencia', 'Dispensa por Emergência'),
+        ('inexigibilidade',     'Inexigibilidade'),
+        ('arp_saque',           'Saque de ATA de Registro de Preços'),
+    ]
+
     AREA_CHOICES = [
         ('TI', 'Tecnologia da Informação'),
         ('Formação', 'Formação e Capacitação'),
@@ -60,6 +68,10 @@ class DFD(BaseModel):
         max_length=20,
         choices=STATUS_CHOICES,
         default='Rascunho'
+    )
+    modalidade_aquisicao = models.CharField(
+        max_length=25, choices=MODALIDADE_CHOICES,
+        default='licitacao', verbose_name='Modalidade de aquisição',
     )
     observacoes                    = models.TextField(blank=True, null=True)
     local_entrega                  = models.TextField(blank=True, default='', verbose_name='Local de entrega')

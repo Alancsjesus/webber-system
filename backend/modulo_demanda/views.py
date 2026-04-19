@@ -8,7 +8,7 @@ from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from .models import DFD, HistoricoTramitacao, ItemDFD, NumeroProcesso
 from .serializers import DFDSerializer, ItemDFDSerializer, NumeroProcessoSerializer
-from core.permissions import IsMultiTenant
+from core.permissions import IsMultiTenant, PAPEIS_ANALISTA, PAPEIS_SOLICITANTE
 
 
 class DFDFilter(django_filters.FilterSet):
@@ -92,7 +92,7 @@ class DFDViewSet(viewsets.ModelViewSet):
             permission_classes=[IsAuthenticated, IsMultiTenant])
     def submeter(self, request, pk=None):
         papel = getattr(request, 'papel', None)
-        if papel not in ('solicitante', 'demandante', 'responsavel_tecnico', 'admin'):
+        if papel not in PAPEIS_SOLICITANTE:
             return Response({'detail': 'Apenas solicitantes podem submeter DFDs.'},
                             status=status.HTTP_403_FORBIDDEN)
 
@@ -158,7 +158,7 @@ class DFDViewSet(viewsets.ModelViewSet):
             permission_classes=[IsAuthenticated, IsMultiTenant])
     def iniciar_analise(self, request, pk=None):
         papel = getattr(request, 'papel', None)
-        if papel not in ('analista', 'gestor_contrato', 'ordenador', 'admin'):
+        if papel not in PAPEIS_ANALISTA:
             return Response({'detail': 'Apenas analistas podem iniciar análise.'},
                             status=status.HTTP_403_FORBIDDEN)
 
@@ -180,7 +180,7 @@ class DFDViewSet(viewsets.ModelViewSet):
             permission_classes=[IsAuthenticated, IsMultiTenant])
     def aprovar(self, request, pk=None):
         papel = getattr(request, 'papel', None)
-        if papel not in ('analista', 'gestor_contrato', 'ordenador', 'admin'):
+        if papel not in PAPEIS_ANALISTA:
             return Response({'detail': 'Apenas analistas podem aprovar DFDs.'},
                             status=status.HTTP_403_FORBIDDEN)
         return self._transicao(request, 'Aprovada',
@@ -190,7 +190,7 @@ class DFDViewSet(viewsets.ModelViewSet):
             permission_classes=[IsAuthenticated, IsMultiTenant])
     def devolver(self, request, pk=None):
         papel = getattr(request, 'papel', None)
-        if papel not in ('analista', 'gestor_contrato', 'ordenador', 'admin'):
+        if papel not in PAPEIS_ANALISTA:
             return Response({'detail': 'Apenas analistas podem devolver DFDs.'},
                             status=status.HTTP_403_FORBIDDEN)
 
@@ -201,6 +201,81 @@ class DFDViewSet(viewsets.ModelViewSet):
 
         return self._transicao(request, 'Devolvida',
                                campos_extra={'motivo_devolucao': motivo, 'motivo': motivo})
+
+    @action(detail=True, methods=['post'],
+            permission_classes=[IsAuthenticated, IsMultiTenant])
+    def dispensar_etp(self, request, pk=None):
+        """
+        Dispensa a criação do ETP e cria automaticamente um ETP com status='Dispensado',
+        permitindo que o TR seja criado diretamente a partir do DFD aprovado.
+
+        Condições permitidas (qualquer uma basta):
+        - modalidade_aquisicao in ('dispensa_valor', 'dispensa_emergencia', 'arp_saque')
+        - valor_estimado < limite configurado em ParametroSistema.valor_limite_dispensa
+        - papel in PAPEIS_ANALISTA e unidade licitante (autorização manual)
+        """
+        from modulo_etp.models import ETP
+        from core.models import ParametroSistema
+
+        papel = getattr(request, 'papel', None)
+        if papel not in PAPEIS_ANALISTA:
+            return Response({'detail': 'Apenas analistas/licitante podem dispensar o ETP.'},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        dfd = self.get_object()
+        if dfd.status != 'Aprovada':
+            return Response({'detail': 'Apenas DFDs aprovados podem ter ETP dispensado.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        if hasattr(dfd, 'etp'):
+            return Response({'detail': 'Este DFD já possui um ETP associado.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        # Verificar elegibilidade para dispensa
+        modalidades_dispensa = ('dispensa_valor', 'dispensa_emergencia', 'arp_saque')
+        limite_str = ParametroSistema.get('valor_limite_dispensa', '62000.00')
+        try:
+            limite = Decimal(limite_str)
+        except Exception:
+            limite = Decimal('62000.00')
+
+        elegivel_modalidade = dfd.modalidade_aquisicao in modalidades_dispensa
+        elegivel_valor      = dfd.valor_estimado < limite
+        autorizado_licitante = (
+            getattr(request, 'tipo_unidade', None) == 'licitante'
+            and papel in PAPEIS_ANALISTA
+        )
+
+        if not (elegivel_modalidade or elegivel_valor or autorizado_licitante):
+            return Response({
+                'detail': (
+                    'O DFD não atende as condições para dispensa de ETP. '
+                    'Condições: modalidade dispensa/ARP, valor abaixo do limite configurado, '
+                    'ou autorização manual da unidade licitante.'
+                ),
+                'codigo': 'etp_obrigatorio',
+                'valor_limite': str(limite),
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        motivo = request.data.get('motivo', '').strip()
+        if not motivo:
+            return Response({'detail': 'O motivo da dispensa é obrigatório.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        etp = ETP.objects.create(
+            dfd=dfd,
+            numero_sei=dfd.numero_sei,
+            necessidade_contratacao=dfd.descricao,
+            status='Dispensado',
+            dispensa_motivo=motivo,
+            org_id=dfd.org_id,
+            created_by=request.user,
+            updated_by=request.user,
+        )
+
+        from modulo_etp.serializers import ETPSerializer
+        serializer = ETPSerializer(etp, context={'request': request})
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
     # ------------------------------------------------------------------ #
     # actions de itens                                                     #

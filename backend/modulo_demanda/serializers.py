@@ -85,6 +85,8 @@ class DFDSerializer(serializers.ModelSerializer):
     orgao_compras_sigla      = serializers.CharField(source='orgao_compras.sigla', read_only=True)
     orgao_compras_nome       = serializers.CharField(source='orgao_compras.nome',  read_only=True)
     etp_id                   = serializers.SerializerMethodField()
+    etp_dispensado           = serializers.SerializerMethodField()
+    modalidade_display       = serializers.CharField(source='get_modalidade_aquisicao_display', read_only=True)
     unidade_demandante_nome  = serializers.SerializerMethodField()
     unidade_licitante_nome   = serializers.SerializerMethodField()
     unidade_contratante_nome = serializers.SerializerMethodField()
@@ -92,6 +94,10 @@ class DFDSerializer(serializers.ModelSerializer):
     def get_etp_id(self, obj):
         etp = getattr(obj, 'etp', None)
         return etp.pk if etp else None
+
+    def get_etp_dispensado(self, obj):
+        etp = getattr(obj, 'etp', None)
+        return etp.status == 'Dispensado' if etp else False
 
     def get_unidade_demandante_nome(self, obj):
         return str(obj.unidade_demandante) if obj.unidade_demandante_id else None
@@ -115,6 +121,8 @@ class DFDSerializer(serializers.ModelSerializer):
             'observacoes',
             'local_entrega',
             'motivo_devolucao',
+            'modalidade_aquisicao',
+            'modalidade_display',
             'justificativa_sem_planejamento',
             'necessidade_origem',
             'org_gestor',
@@ -124,6 +132,7 @@ class DFDSerializer(serializers.ModelSerializer):
             'orgao_compras_sigla',
             'orgao_compras_nome',
             'etp_id',
+            'etp_dispensado',
             'unidade_demandante',
             'unidade_demandante_nome',
             'unidade_licitante',
@@ -147,7 +156,8 @@ class DFDSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at', 'motivo_devolucao',
             'historico', 'itens', 'processos', 'necessidade_origem',
             'org_gestor', 'org_gestor_sigla', 'org_gestor_nome',
-            'orgao_compras', 'orgao_compras_sigla', 'orgao_compras_nome', 'etp_id',
+            'orgao_compras', 'orgao_compras_sigla', 'orgao_compras_nome',
+            'etp_id', 'etp_dispensado', 'modalidade_display',
             'unidade_demandante',
             'unidade_demandante_nome', 'unidade_licitante_nome', 'unidade_contratante_nome',
         ]

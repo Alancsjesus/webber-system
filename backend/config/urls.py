@@ -5,10 +5,14 @@ from rest_framework_simplejwt.views import TokenRefreshView
 from core.serializers import WebberTokenObtainPairView
 from modulo_demanda.views import DFDViewSet
 from modulo_planejamento.views import NecessidadeViewSet, PlanoOrcamentarioViewSet
-from core.views import DashboardStatsView, OrgaoViewSet, UnidadeViewSet, UserManagementViewSet, PainelOrgaoPaiView
+from core.views import (
+    DashboardStatsView, OrgaoViewSet, UnidadeViewSet,
+    UserManagementViewSet, PainelOrgaoPaiView, ParametroSistemaViewSet,
+)
 
 router = DefaultRouter()
 router.register(r'demanda/dfd', DFDViewSet, basename='dfd')
+router.register(r'core/parametros', ParametroSistemaViewSet, basename='parametro')
 router.register(r'planejamento/necessidade',       NecessidadeViewSet,       basename='necessidade')
 router.register(r'planejamento/planoorcamentario', PlanoOrcamentarioViewSet, basename='planoorcamentario')
 router.register(r'core/orgaos',    OrgaoViewSet,           basename='orgao')

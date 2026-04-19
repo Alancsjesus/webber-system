@@ -16,6 +16,7 @@ class ETP(BaseModel):
         ('Devolvido',  'Devolvido'),
         ('Aprovado',   'Aprovado'),
         ('Cancelado',  'Cancelado'),
+        ('Dispensado', 'Dispensado (ETP não obrigatório)'),
     ]
 
     TRANSICOES_PERMITIDAS = {
@@ -25,6 +26,7 @@ class ETP(BaseModel):
         'Devolvido':  ['Submetido'],
         'Aprovado':   ['Cancelado'],
         'Cancelado':  [],
+        'Dispensado': ['Cancelado'],
     }
 
     dfd = models.OneToOneField(
@@ -53,6 +55,7 @@ class ETP(BaseModel):
 
     status           = models.CharField(max_length=15, choices=STATUS_CHOICES, default='Rascunho')
     motivo_devolucao = models.TextField(blank=True, null=True, verbose_name='Motivo da devolução')
+    dispensa_motivo  = models.TextField(blank=True, null=True, verbose_name='Motivo da dispensa de ETP')
     observacoes      = models.TextField(blank=True, default='', verbose_name='Observações')
 
     class Meta(BaseModel.Meta):

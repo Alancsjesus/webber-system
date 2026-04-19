@@ -103,6 +103,30 @@ class BaseModel(models.Model):
         ]
 
 
+class ParametroSistema(models.Model):
+    """Parâmetros de configuração globais do sistema — editáveis por admin/licitante."""
+    chave       = models.CharField(max_length=100, unique=True)
+    valor       = models.CharField(max_length=500)
+    descricao   = models.CharField(max_length=300, blank=True)
+    atualizado_em  = models.DateTimeField(auto_now=True)
+    atualizado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+
+    class Meta:
+        ordering = ['chave']
+        verbose_name = 'Parâmetro do Sistema'
+        verbose_name_plural = 'Parâmetros do Sistema'
+
+    def __str__(self):
+        return f'{self.chave} = {self.valor}'
+
+    @classmethod
+    def get(cls, chave, default=None):
+        try:
+            return cls.objects.get(chave=chave).valor
+        except cls.DoesNotExist:
+            return default
+
+
 class AuditLog(models.Model):
     """Immutable audit trail"""
     ACTION_CHOICES = [

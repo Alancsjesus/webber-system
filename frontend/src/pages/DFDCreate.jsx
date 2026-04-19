@@ -5,6 +5,14 @@ import usePlanejamentoStore from '../stores/planejamentoStore'
 import useAuthStore from '../stores/authStore'
 import api from '../services/api'
 
+const MODALIDADES = [
+  { value: 'licitacao',           label: 'Licitação' },
+  { value: 'dispensa_valor',      label: 'Dispensa por Valor (Art. 75, II)' },
+  { value: 'dispensa_emergencia', label: 'Dispensa por Emergência (Art. 75, VIII)' },
+  { value: 'inexigibilidade',     label: 'Inexigibilidade (Art. 74)' },
+  { value: 'arp_saque',           label: 'Saque de ATA de Registro de Preços' },
+]
+
 const AREAS = [
   { value: 'TI',        label: 'Tecnologia da Informação' },
   { value: 'Formação',  label: 'Formação' },
@@ -77,6 +85,7 @@ export default function DFDCreate() {
   const [form, setFormState] = useState({
     numero_sei:                    '',
     descricao:                     selecionada?.descricao ?? '',
+    modalidade_aquisicao:          'licitacao',
     area_aplicacao:                selecionada?.area_aplicacao ?? [],
     prazo_necessidade:             selecionada?.prazo_desejado ?? '',
     observacoes:                   '',
@@ -163,6 +172,7 @@ export default function DFDCreate() {
       const dfd = await createDFD({
         numero_sei:                    form.numero_sei,
         descricao:                     form.descricao,
+        modalidade_aquisicao:          form.modalidade_aquisicao,
         area_aplicacao:                form.area_aplicacao,
         prazo_necessidade:             form.prazo_necessidade,
         observacoes:                   form.observacoes,
@@ -310,6 +320,21 @@ export default function DFDCreate() {
               <p className="mt-1 text-amber-700">Preencha a justificativa abaixo.</p>
             </div>
           )}
+
+          <Field label="Modalidade de aquisição">
+            <select value={form.modalidade_aquisicao}
+              onChange={e => set('modalidade_aquisicao', e.target.value)}
+              className={inputCls()}>
+              {MODALIDADES.map(({ value, label }) => (
+                <option key={value} value={value}>{label}</option>
+              ))}
+            </select>
+            {['dispensa_valor', 'dispensa_emergencia', 'arp_saque'].includes(form.modalidade_aquisicao) && (
+              <p className="text-xs text-amber-600 mt-1">
+                Esta modalidade pode dispensar a elaboração do ETP. A dispensa será avaliada após aprovação do DFD.
+              </p>
+            )}
+          </Field>
 
           <Field label="Número SEI" error={errors.numero_sei}>
             <input type="text" value={form.numero_sei}

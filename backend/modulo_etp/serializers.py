@@ -52,6 +52,7 @@ class ETPSerializer(serializers.ModelSerializer):
             'sustentabilidade',
             'status',
             'motivo_devolucao',
+            'dispensa_motivo',
             'observacoes',
             'org_id',
             'org_sigla',
