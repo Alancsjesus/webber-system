@@ -38,6 +38,7 @@ export default function OrcamentoDetail() {
   const [formErrors, setFormErrors]   = useState({})
   const [showVincular, setShowVincular] = useState(false)
   const [disponiveis, setDisponiveis] = useState([])
+  const [diagnostico, setDiagnostico] = useState(null)
   const [loadingDisp, setLoadingDisp] = useState(false)
   const [loadingVinculo, setLoadingVinculo] = useState(null)
 
@@ -108,9 +109,11 @@ export default function OrcamentoDetail() {
   const handleAbrirVincular = async () => {
     setShowVincular(true)
     setLoadingDisp(true)
+    setDiagnostico(null)
     try {
-      const list = await fetchNecessidadesDisponiveis(id)
-      setDisponiveis(list)
+      const { items, diagnostico: diag } = await fetchNecessidadesDisponiveis(id)
+      setDisponiveis(items)
+      setDiagnostico(diag)
     } finally {
       setLoadingDisp(false)
     }
@@ -414,9 +417,14 @@ export default function OrcamentoDetail() {
               )}
 
               {!loadingDisp && disponiveis.length === 0 && (
-                <p className="text-sm text-gray-400">
-                  Nenhuma necessidade aprovada disponível para este exercício.
-                </p>
+                <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2">
+                  <p className="text-sm font-medium text-amber-800 mb-0.5">
+                    Nenhuma necessidade disponível para vinculação
+                  </p>
+                  {diagnostico && (
+                    <p className="text-xs text-amber-700">{diagnostico}</p>
+                  )}
+                </div>
               )}
 
               {!loadingDisp && disponiveis.length > 0 && (

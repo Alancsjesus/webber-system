@@ -9,6 +9,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from .models import DFD, HistoricoTramitacao, ItemDFD, NumeroProcesso
 from .serializers import DFDSerializer, ItemDFDSerializer, NumeroProcessoSerializer
 from core.permissions import IsMultiTenant, PAPEIS_ANALISTA, PAPEIS_SOLICITANTE
+from exportacao.pdf_utils import gerar_pdf_dfd, gerar_html, resposta_pdf, resposta_html
 
 
 class DFDFilter(django_filters.FilterSet):
@@ -280,6 +281,22 @@ class DFDViewSet(viewsets.ModelViewSet):
     # ------------------------------------------------------------------ #
     # actions de itens                                                     #
     # ------------------------------------------------------------------ #
+
+    # ------------------------------------------------------------------ #
+    # export actions                                                       #
+    # ------------------------------------------------------------------ #
+
+    @action(detail=True, methods=['get'], url_path='export/pdf')
+    def export_pdf(self, request, pk=None):
+        dfd = self.get_object()
+        pdf = gerar_pdf_dfd(dfd)
+        return resposta_pdf(pdf, f'DFD_{dfd.numero_sei}.pdf')
+
+    @action(detail=True, methods=['get'], url_path='export/html')
+    def export_html(self, request, pk=None):
+        dfd = self.get_object()
+        html = gerar_html('dfd', {'dfd': dfd})
+        return resposta_html(html, f'DFD_{dfd.numero_sei}.html')
 
     @action(detail=True, methods=['get', 'post'], url_path='itens')
     def itens(self, request, pk=None):

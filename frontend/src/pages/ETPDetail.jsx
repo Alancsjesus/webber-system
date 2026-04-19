@@ -136,6 +136,14 @@ export default function ETPDetail() {
               Ver TR
             </button>
           )}
+          <a href={`/api/etp/etp/${id}/export/pdf/`} target="_blank" rel="noreferrer"
+            className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg inline-flex items-center gap-1">
+            ↓ PDF
+          </a>
+          <a href={`/api/etp/etp/${id}/export/html/`} target="_blank" rel="noreferrer"
+            className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg inline-flex items-center gap-1">
+            ↓ HTML
+          </a>
           {!editing ? (
             podeEditar && (
               <button onClick={() => setEditing(true)}

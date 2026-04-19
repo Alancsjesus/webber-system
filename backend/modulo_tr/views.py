@@ -6,6 +6,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from .models import TR, HistoricoTR
 from .serializers import TRSerializer
 from core.permissions import IsMultiTenant, PAPEIS_ANALISTA
+from exportacao.pdf_utils import gerar_pdf_tr, gerar_html, resposta_pdf, resposta_html
 
 PAPEIS_SOLICITANTE = ('solicitante', 'demandante', 'responsavel_tecnico', 'admin')
 
@@ -45,6 +46,22 @@ class TRViewSet(viewsets.ModelViewSet):
         tr.updated_by = request.user
         tr.save()
         return Response(TRSerializer(tr, context={'request': request}).data)
+
+    # ------------------------------------------------------------------ #
+    # export actions                                                       #
+    # ------------------------------------------------------------------ #
+
+    @action(detail=True, methods=['get'], url_path='export/pdf')
+    def export_pdf(self, request, pk=None):
+        tr = self.get_object()
+        pdf = gerar_pdf_tr(tr)
+        return resposta_pdf(pdf, f'TR_{tr.numero_sei}.pdf')
+
+    @action(detail=True, methods=['get'], url_path='export/html')
+    def export_html(self, request, pk=None):
+        tr = self.get_object()
+        html = gerar_html('tr', {'tr': tr})
+        return resposta_html(html, f'TR_{tr.numero_sei}.html')
 
     @action(detail=True, methods=['post'])
     def submeter(self, request, pk=None):

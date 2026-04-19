@@ -143,6 +143,14 @@ export default function TRDetail() {
               Devolver
             </button>
           )}
+          <a href={`/api/tr/tr/${id}/export/pdf/`} target="_blank" rel="noreferrer"
+            className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg inline-flex items-center gap-1">
+            ↓ PDF
+          </a>
+          <a href={`/api/tr/tr/${id}/export/html/`} target="_blank" rel="noreferrer"
+            className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg inline-flex items-center gap-1">
+            ↓ HTML
+          </a>
           {podeEditar && !editing && (
             <button onClick={() => setEditing(true)}
               className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg">

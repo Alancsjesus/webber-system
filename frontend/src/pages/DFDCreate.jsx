@@ -212,6 +212,11 @@ export default function DFDCreate() {
       const mapped = {}
       for (const [k, v] of Object.entries(data))
         mapped[k] = Array.isArray(v) ? v.join(' ') : String(v)
+      if (!Object.keys(mapped).length) {
+        mapped._geral = err.response
+          ? `Erro ${err.response.status}: ${JSON.stringify(err.response.data)}`
+          : 'Falha na comunicação com o servidor. Verifique se o backend está rodando.'
+      }
       setErrors(mapped)
     } finally {
       setSaving(false)
@@ -308,6 +313,12 @@ export default function DFDCreate() {
       {/* Formulário aparece assim que o carregamento termina */}
       {!loadingNec && (
         <form onSubmit={handleSubmit} className="space-y-5">
+
+          {errors._geral && (
+            <div className="bg-red-50 border border-red-300 rounded-lg px-4 py-3 text-sm text-red-700">
+              {errors._geral}
+            </div>
+          )}
 
           {/* Avisos de extrapolação */}
           {necReal && (extrapolacao.valor || extrapolacao.area) && (

@@ -7,6 +7,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from core.permissions import IsMultiTenant, PAPEIS_ANALISTA
 from .models import ETP, HistoricoETP
 from .serializers import ETPSerializer
+from exportacao.pdf_utils import gerar_pdf_etp, gerar_html, resposta_pdf, resposta_html
 
 PAPEIS_SOLICITANTE = ('solicitante', 'demandante', 'responsavel_tecnico', 'admin')
 
@@ -67,6 +68,22 @@ class ETPViewSet(viewsets.ModelViewSet):
     # ------------------------------------------------------------------ #
     # workflow actions                                                     #
     # ------------------------------------------------------------------ #
+
+    # ------------------------------------------------------------------ #
+    # export actions                                                       #
+    # ------------------------------------------------------------------ #
+
+    @action(detail=True, methods=['get'], url_path='export/pdf')
+    def export_pdf(self, request, pk=None):
+        etp = self.get_object()
+        pdf = gerar_pdf_etp(etp)
+        return resposta_pdf(pdf, f'ETP_{etp.numero_sei}.pdf')
+
+    @action(detail=True, methods=['get'], url_path='export/html')
+    def export_html(self, request, pk=None):
+        etp = self.get_object()
+        html = gerar_html('etp', {'etp': etp})
+        return resposta_html(html, f'ETP_{etp.numero_sei}.html')
 
     @action(detail=True, methods=['post'])
     def submeter(self, request, pk=None):

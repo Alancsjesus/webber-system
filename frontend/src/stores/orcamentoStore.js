@@ -87,7 +87,9 @@ const useOrcamentoStore = create((set, get) => ({
 
   fetchNecessidadesDisponiveis: async (dotacaoId) => {
     const { data } = await api.get(`/orcamento/dotacao/${dotacaoId}/necessidades-disponiveis/`)
-    return data
+    // Backend retorna array direto ou { results, diagnostico } quando lista vazia
+    if (Array.isArray(data)) return { items: data, diagnostico: null }
+    return { items: data.results ?? [], diagnostico: data.diagnostico ?? null }
   },
 }))
 
