@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import useDFDStore from '../stores/dfdStore'
 import useAuthStore from '../stores/authStore'
-import api from '../services/api'
+import api, { downloadFile } from '../services/api'
 
 const STATUS_CLS = {
   Rascunho:    'bg-gray-100 text-gray-600',
@@ -271,14 +271,14 @@ export default function DFDDetail() {
                   Editar
                 </button>
               )}
-              <a href={`/api/demanda/dfd/${id}/export/pdf/`} target="_blank" rel="noreferrer"
-                className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg transition-colors inline-flex items-center gap-1">
+              <button onClick={() => downloadFile(`/demanda/dfd/${id}/export/pdf/`, `DFD_${current.numero_sei}.pdf`)}
+                className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg transition-colors">
                 ↓ PDF
-              </a>
-              <a href={`/api/demanda/dfd/${id}/export/html/`} target="_blank" rel="noreferrer"
-                className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg transition-colors inline-flex items-center gap-1">
+              </button>
+              <button onClick={() => downloadFile(`/demanda/dfd/${id}/export/html/`, `DFD_${current.numero_sei}.html`)}
+                className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg transition-colors">
                 ↓ HTML
-              </a>
+              </button>
               <button onClick={handleDelete}
                 className="border border-red-300 text-red-500 hover:bg-red-50 text-sm px-4 py-1.5 rounded-lg transition-colors">
                 Excluir

@@ -44,4 +44,19 @@ api.interceptors.response.use(
   }
 )
 
+export async function downloadFile(path, filename) {
+  const token = localStorage.getItem('access_token')
+  const res = await fetch(`/api${path}`, {
+    headers: token ? { Authorization: `Bearer ${token}` } : {},
+  })
+  if (!res.ok) throw new Error(`Erro ${res.status}`)
+  const blob = await res.blob()
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = filename
+  a.click()
+  URL.revokeObjectURL(url)
+}
+
 export default api

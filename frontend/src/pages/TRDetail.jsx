@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import useTrStore from '../stores/trStore'
 import useAuthStore from '../stores/authStore'
+import { downloadFile } from '../services/api'
 
 const STATUS_CLS = {
   Rascunho:    'bg-gray-100 text-gray-600',
@@ -143,14 +144,14 @@ export default function TRDetail() {
               Devolver
             </button>
           )}
-          <a href={`/api/tr/tr/${id}/export/pdf/`} target="_blank" rel="noreferrer"
-            className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg inline-flex items-center gap-1">
+          <button onClick={() => downloadFile(`/tr/tr/${id}/export/pdf/`, `TR_${current.numero_sei}.pdf`)}
+            className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg">
             ↓ PDF
-          </a>
-          <a href={`/api/tr/tr/${id}/export/html/`} target="_blank" rel="noreferrer"
-            className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg inline-flex items-center gap-1">
+          </button>
+          <button onClick={() => downloadFile(`/tr/tr/${id}/export/html/`, `TR_${current.numero_sei}.html`)}
+            className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg">
             ↓ HTML
-          </a>
+          </button>
           {podeEditar && !editing && (
             <button onClick={() => setEditing(true)}
               className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg">
