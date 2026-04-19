@@ -70,16 +70,16 @@ export default function DFDCreate() {
 
   // Preencher formulário quando necessidade é selecionada
   useEffect(() => {
-    if (selecionada) {
+    if (necReal) {
       setForm(prev => ({
         ...prev,
-        descricao:        selecionada.descricao,
-        area_aplicacao:   selecionada.area_aplicacao ?? [],
-        prazo_necessidade: selecionada.prazo_desejado ?? prev.prazo_necessidade,
+        descricao:         necReal.descricao,
+        area_aplicacao:    necReal.area_aplicacao ?? [],
+        prazo_necessidade: necReal.prazo_desejado ?? prev.prazo_necessidade,
       }))
       setItens([novoItem()])
     }
-  }, [selecionada?.id])
+  }, [necReal?.id])
 
   // --- formulário ---
   const [form, setFormState] = useState({
@@ -132,15 +132,18 @@ export default function DFDCreate() {
   // --- extrapolação ---
   const totalItens = calcularTotal(itens)
 
-  const extrapolacao = useMemo(() => {
-    if (!selecionada) return { valor: false, area: false, extras: [] }
-    const extraValue = selecionada.valor_estimado && totalItens > selecionada.valor_estimado * 1.10
-    const areasPlano = new Set(selecionada.area_aplicacao ?? [])
-    const extrasArea = form.area_aplicacao.filter(a => !areasPlano.has(a))
-    return { valor: extraValue, area: extrasArea.length > 0, extras: extrasArea }
-  }, [selecionada, totalItens, form.area_aplicacao])
+  const necReal = selecionada && selecionada !== 'sem' ? selecionada : null
 
-  const precisaJustificativa = !selecionada || extrapolacao.valor || extrapolacao.area
+  const extrapolacao = useMemo(() => {
+    if (!necReal) return { valor: false, area: false, extras: [] }
+    const extraValue = necReal.valor_estimado && totalItens > necReal.valor_estimado * 1.10
+    const areasPlano = new Set(necReal.area_aplicacao ?? [])
+    const extrasArea = form.area_aplicacao.filter(a => !areasPlano.has(a))
+    return { valor: !!extraValue, area: extrasArea.length > 0, extras: extrasArea }
+  }, [necReal, totalItens, form.area_aplicacao])
+
+  // Justificativa: obrigatória quando não há necessidade planejada selecionada ou quando extrapola
+  const precisaJustificativa = !necReal || extrapolacao.valor || extrapolacao.area
 
   // --- validação ---
   const validate = () => {
@@ -199,8 +202,8 @@ export default function DFDCreate() {
       )
 
       // Vincula DFD à necessidade selecionada
-      if (selecionada?.id) {
-        await updateNecessidade(selecionada.id, { dfd: dfd.id, status: 'DFD Criado' })
+      if (necReal?.id) {
+        await updateNecessidade(necReal.id, { dfd: dfd.id, status: 'DFD Criado' })
       }
 
       navigate(`/demanda/dfd/${dfd.id}`)
@@ -245,19 +248,24 @@ export default function DFDCreate() {
           </div>
         ) : (
           <>
-            {selecionada ? (
+            {necReal ? (
               <div className="flex items-start justify-between bg-green-50 border border-green-200 rounded-lg px-3 py-2">
                 <div>
-                  <p className="text-sm font-medium text-green-800">{selecionada.titulo}</p>
+                  <p className="text-sm font-medium text-green-800">{necReal.titulo}</p>
                   <p className="text-xs text-green-600 mt-0.5">
-                    {selecionada.departamento_solicitante} · Exercício {selecionada.exercicio_fiscal} ·{' '}
-                    {Number(selecionada.valor_estimado).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    {necReal.departamento_solicitante} · Exercício {necReal.exercicio_fiscal} ·{' '}
+                    {Number(necReal.valor_estimado).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                   </p>
                 </div>
-                <button onClick={() => setSelecionada(null)}
+                <button type="button" onClick={() => setSelecionada(null)}
                   className="text-xs text-green-600 hover:text-red-500 ml-3 shrink-0">
                   Alterar
                 </button>
+              </div>
+            ) : selecionada === 'sem' ? (
+              <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-700 flex items-center justify-between">
+                <span>DFD fora do planejamento — justificativa obrigatória.</span>
+                <button type="button" onClick={() => setSelecionada(null)} className="text-amber-600 hover:underline ml-2">Cancelar</button>
               </div>
             ) : (
               <>
@@ -293,26 +301,20 @@ export default function DFDCreate() {
                 </p>
               </>
             )}
-            {selecionada === 'sem' && (
-              <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 text-xs text-amber-700 mt-2 flex items-center justify-between">
-                <span>DFD fora do planejamento — justificativa obrigatória.</span>
-                <button onClick={() => setSelecionada(null)} className="text-amber-600 hover:underline ml-2">Cancelar</button>
-              </div>
-            )}
           </>
         )}
       </section>
 
-      {/* Só mostra o formulário após definir a relação com o planejamento */}
-      {(selecionada || disponíveis.length === 0) && (
+      {/* Formulário aparece assim que o carregamento termina */}
+      {!loadingNec && (
         <form onSubmit={handleSubmit} className="space-y-5">
 
           {/* Avisos de extrapolação */}
-          {selecionada && selecionada !== 'sem' && (extrapolacao.valor || extrapolacao.area) && (
+          {necReal && (extrapolacao.valor || extrapolacao.area) && (
             <div className="bg-amber-50 border border-amber-300 rounded-lg px-4 py-3 text-sm text-amber-800">
               <p className="font-semibold mb-1">Atenção: DFD extrapola o planejamento</p>
               {extrapolacao.valor && (
-                <p>• Valor estimado dos itens ({totalItens.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}) supera em mais de 10% o valor planejado ({Number(selecionada.valor_estimado).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}).</p>
+                <p>• Valor estimado dos itens ({totalItens.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}) supera em mais de 10% o valor planejado ({Number(necReal.valor_estimado).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}).</p>
               )}
               {extrapolacao.area && (
                 <p>• Áreas não previstas no planejamento: <strong>{extrapolacao.extras.join(', ')}</strong>.</p>
@@ -353,8 +355,8 @@ export default function DFDCreate() {
             <div className="flex flex-wrap gap-2">
               {AREAS.map(({ value, label }) => {
                 const selected = form.area_aplicacao.includes(value)
-                const foraDoPlan = selecionada && selecionada !== 'sem' &&
-                  !(selecionada.area_aplicacao ?? []).includes(value)
+                const foraDoPlan = necReal &&
+                  !(necReal.area_aplicacao ?? []).includes(value)
                 return (
                   <button key={value} type="button" onClick={() => toggleArea(value)}
                     className={`px-3 py-1.5 rounded-lg text-sm border font-medium transition-colors ${
@@ -369,9 +371,9 @@ export default function DFDCreate() {
                 )
               })}
             </div>
-            {selecionada && selecionada !== 'sem' && (
+            {necReal && (
               <p className="text-xs text-gray-400 mt-1">
-                Áreas planejadas: {(selecionada.area_aplicacao ?? []).join(', ') || '—'}
+                Áreas planejadas: {(necReal.area_aplicacao ?? []).join(', ') || '—'}
               </p>
             )}
           </Field>
@@ -418,9 +420,9 @@ export default function DFDCreate() {
             <div className="flex items-center justify-between mb-2">
               <p className="text-sm font-medium text-gray-700">
                 Itens da demanda
-                {selecionada && selecionada !== 'sem' && (
+                {necReal && (
                   <span className="ml-2 text-xs text-gray-400 font-normal">
-                    planejado: {Number(selecionada.valor_estimado).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                    planejado: {Number(necReal.valor_estimado).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                   </span>
                 )}
               </p>
@@ -484,7 +486,7 @@ export default function DFDCreate() {
 
             {totalItens > 0 && (
               <div className="mt-3 flex items-center justify-end gap-3">
-                {selecionada && selecionada !== 'sem' && (
+                {necReal && (
                   <span className={`text-xs font-medium px-2 py-0.5 rounded ${
                     extrapolacao.valor
                       ? 'bg-amber-100 text-amber-700'
