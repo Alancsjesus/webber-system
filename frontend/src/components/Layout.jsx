@@ -33,7 +33,7 @@ const NAV_BASE = [
     section: 'Análise Técnica',
     items: [
       { to: '/etp/etps',            label: 'ETPs' },
-      { to: '/analise-tecnica/trs', label: 'Termos de Referência' },
+      { to: '/analise-tecnica/trs', label: 'Minutas TR' },
     ],
   },
 ]

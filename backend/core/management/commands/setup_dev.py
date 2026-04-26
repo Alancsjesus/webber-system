@@ -13,7 +13,7 @@ from core.models import Orgao, UnidadeOrganizacional, UserProfile
 
 
 ORGAOS = [
-    {'sigla': 'SSP',   'nome': 'Secretaria de Segurança Pública',        'parent': None},
+    {'sigla': 'SSP',   'nome': 'Secretaria da Segurança Pública',        'parent': None},
     {'sigla': 'CBMBA', 'nome': 'Corpo de Bombeiros Militar da Bahia',    'parent': 'SSP'},
     {'sigla': 'PMBA',  'nome': 'Polícia Militar da Bahia',               'parent': 'SSP'},
 ]

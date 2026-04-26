@@ -105,7 +105,7 @@ export default function TRDetail() {
       {/* Cabeçalho */}
       <div className="flex items-start justify-between mb-6">
         <div>
-          <h1 className="text-xl font-bold text-gray-800">TR {current.numero_sei}</h1>
+          <h1 className="text-xl font-bold text-gray-800">Minuta TR {current.numero_sei}</h1>
           <div className="flex gap-2 mt-1.5">
             <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CLS[current.status] || ''}`}>
               {current.status}

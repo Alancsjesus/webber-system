@@ -437,3 +437,65 @@ class PainelOrgaoPaiView(APIView):
             })
 
         return Response(result)
+
+
+class VerificarDocumentoView(APIView):
+    """
+    Endpoint público de verificação de autenticidade de documentos gerados pelo WEBBER.
+    GET /api/verificar/<hash_code>/
+    Retorna os metadados do documento identificado pelo código de verificação.
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, hash_code):
+        from exportacao.pdf_utils import _hash_documento, _dados_hash_usuario
+        from modulo_demanda.models import DFD
+        from modulo_etp.models import ETP
+        from modulo_tr.models import TR
+        from modulo_orcamento.models import IndicacaoOrcamentaria
+
+        hash_code = hash_code.upper()
+
+        # Tenta encontrar o documento cujo hash coincide
+        for Model, tipo, campos_fn in [
+            (DFD, 'DFD', lambda o: {
+                'tipo': 'DFD', 'id': str(o.pk), 'sei': o.numero_sei,
+                'valor': str(o.valor_estimado), **_dados_hash_usuario(o),
+            }),
+            (ETP, 'ETP', lambda o: {
+                'tipo': 'ETP', 'id': str(o.pk), 'sei': o.numero_sei,
+                'valor': str(o.estimativa_valor), **_dados_hash_usuario(o),
+            }),
+            (TR, 'TR', lambda o: {
+                'tipo': 'TR', 'id': str(o.pk), 'sei': o.numero_sei,
+                'valor': str(o.estimativa_valor), **_dados_hash_usuario(o),
+            }),
+            (IndicacaoOrcamentaria, 'DOD', lambda o: {
+                'tipo': 'DOD', 'id': str(o.pk), 'numero': o.numero,
+                'exercicio': str(o.exercicio_fiscal), 'valor': str(o.valor_total),
+                **_dados_hash_usuario(o, aprovador=o.ordenador),
+            }),
+        ]:
+            for obj in Model.objects.select_related('created_by', 'org_id').all():
+                try:
+                    if _hash_documento(campos_fn(obj)) == hash_code:
+                        criador = obj.created_by
+                        return Response({
+                            'valido':      True,
+                            'tipo':        tipo,
+                            'id':          obj.pk,
+                            'orgao':       obj.org_id.nome if obj.org_id else '—',
+                            'criador':     criador.get_full_name() or criador.username if criador else '—',
+                            'criado_em':   obj.created_at.strftime('%d/%m/%Y %H:%M') if obj.created_at else '—',
+                            'status':      getattr(obj, 'status', '—'),
+                            'hash':        hash_code,
+                            'mensagem':    'Documento autêntico gerado pelo Sistema WEBBER.',
+                        })
+                except Exception:
+                    continue
+
+        return Response({
+            'valido':   False,
+            'hash':     hash_code,
+            'mensagem': 'Código de verificação não encontrado. O documento pode ter sido adulterado ou não pertence a este sistema.',
+        }, status=status.HTTP_404_NOT_FOUND)

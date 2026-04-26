@@ -12,8 +12,8 @@ export default function OrcamentoCreate() {
   const [form, setForm] = useState({
     exercicio_fiscal: ANO_ATUAL,
     acao: '',
-    elemento_despesa: '',
-    natureza_despesa: '',
+    natureza_despesa: '',   // campo primário — elemento é derivado da natureza
+    elemento_despesa: '',   // preenchido automaticamente quando natureza é selecionada
     fonte_recurso: '',
     valor_dotado: '',
     status: 'Proposta',
@@ -26,13 +26,9 @@ export default function OrcamentoCreate() {
 
   useEffect(() => {
     fetchAcoes()
-    fetchElementos()
+    fetchNaturezas()   // carrega todas as naturezas (elemento é derivado delas)
     fetchFontes()
   }, [])
-
-  useEffect(() => {
-    if (form.elemento_despesa) fetchNaturezas(form.elemento_despesa)
-  }, [form.elemento_despesa])
 
   const set = (field, value) => {
     setForm((p) => ({ ...p, [field]: value }))
@@ -41,10 +37,10 @@ export default function OrcamentoCreate() {
 
   const validate = () => {
     const e = {}
-    if (!form.exercicio_fiscal)                             e.exercicio_fiscal = 'Campo obrigatório'
-    if (!form.acao)                                         e.acao = 'Selecione uma ação'
-    if (!form.elemento_despesa)                             e.elemento_despesa = 'Selecione um elemento'
-    if (!form.fonte_recurso)                                e.fonte_recurso = 'Selecione uma fonte'
+    if (!form.exercicio_fiscal)                              e.exercicio_fiscal = 'Campo obrigatório'
+    if (!form.acao)                                          e.acao = 'Selecione uma ação'
+    if (!form.natureza_despesa && !form.elemento_despesa)    e.natureza_despesa = 'Selecione uma natureza ou um elemento'
+    if (!form.fonte_recurso)                                 e.fonte_recurso = 'Selecione uma fonte'
     if (!form.valor_dotado || isNaN(Number(form.valor_dotado))) e.valor_dotado = 'Valor inválido'
     return e
   }
@@ -56,15 +52,23 @@ export default function OrcamentoCreate() {
 
     setSaving(true)
     try {
+      // Natureza contém o elemento — backend auto-preenche elemento a partir da natureza
       const payload = {
-        ...form,
         exercicio_fiscal: Number(form.exercicio_fiscal),
-        acao: Number(form.acao),
-        elemento_despesa: Number(form.elemento_despesa),
-        fonte_recurso: Number(form.fonte_recurso),
-        valor_dotado: Number(form.valor_dotado),
+        acao:             Number(form.acao),
+        fonte_recurso:    Number(form.fonte_recurso),
+        valor_dotado:     Number(form.valor_dotado),
+        status:           form.status,
+        eixo:             form.eixo,
+        objetivo_estrategico: form.objetivo_estrategico,
+        observacoes:      form.observacoes,
       }
-      if (form.natureza_despesa) payload.natureza_despesa = Number(form.natureza_despesa)
+      if (form.natureza_despesa) {
+        payload.natureza_despesa = Number(form.natureza_despesa)
+        // elemento_despesa será auto-preenchido pelo backend via natureza
+      } else {
+        payload.elemento_despesa = Number(form.elemento_despesa)
+      }
       const dotacao = await createDotacao(payload)
       navigate(`/orcamento/dotacoes/${dotacao.id}`)
     } catch (err) {
@@ -122,33 +126,44 @@ export default function OrcamentoCreate() {
           </select>
         </Field>
 
-        <Field label="Elemento de despesa" error={errors.elemento_despesa}>
-          <select value={form.elemento_despesa}
-            onChange={(e) => { set('elemento_despesa', e.target.value); set('natureza_despesa', '') }}
-            className={inp(errors.elemento_despesa)}>
-            <option value="">Selecione um elemento...</option>
-            {elementos.map((el) => (
-              <option key={el.id} value={el.id}>
-                {String(el.codigo).padStart(2,'0')} — {el.descricao}
-              </option>
-            ))}
-          </select>
-        </Field>
-
-        <Field label="Natureza de despesa (opcional)">
+        <Field label="Natureza de despesa" error={errors.natureza_despesa}>
           <select value={form.natureza_despesa}
-            onChange={(e) => set('natureza_despesa', e.target.value)}
-            disabled={!form.elemento_despesa}
-            className={inp()}>
+            onChange={(e) => {
+              set('natureza_despesa', e.target.value)
+              set('elemento_despesa', '') // limpa seleção avulsa
+            }}
+            className={inp(errors.natureza_despesa)}>
             <option value="">Selecione uma natureza...</option>
             {naturezas.map((n) => (
               <option key={n.id} value={n.id}>
-                {n.formato} — {n.descricao}
+                {n.formato} — {n.descricao} (El. {String(n.elemento_codigo).padStart(2,'0')})
               </option>
             ))}
           </select>
-          {!form.elemento_despesa && <p className="text-xs text-gray-400 mt-1">Selecione um elemento primeiro</p>}
+          {form.natureza_despesa && (() => {
+            const nat = naturezas.find(n => String(n.id) === String(form.natureza_despesa))
+            return nat
+              ? <p className="text-xs text-blue-600 mt-1">Elemento derivado: {String(nat.elemento_codigo).padStart(2,'0')} — {nat.elemento_descricao}</p>
+              : null
+          })()}
         </Field>
+
+        {/* Elemento avulso — só aparece se não houver natureza selecionada */}
+        {!form.natureza_despesa && (
+          <Field label="Elemento de despesa *" error={errors.elemento_despesa}>
+            <select value={form.elemento_despesa}
+              onChange={(e) => set('elemento_despesa', e.target.value)}
+              className={inp(errors.elemento_despesa)}>
+              <option value="">Selecione um elemento...</option>
+              {elementos.map((el) => (
+                <option key={el.id} value={el.id}>
+                  {String(el.codigo).padStart(2,'0')} — {el.descricao}
+                </option>
+              ))}
+            </select>
+            <p className="text-xs text-gray-400 mt-1">Ou selecione uma natureza acima (recomendado — o elemento será derivado automaticamente)</p>
+          </Field>
+        )}
 
         <Field label="Fonte de recurso" error={errors.fonte_recurso}>
           <select value={form.fonte_recurso}

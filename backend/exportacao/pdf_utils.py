@@ -90,8 +90,25 @@ def _secao(titulo, estilos):
 
 
 def _hash_documento(dados: dict) -> str:
+    """Gera código de verificação robusto incluindo dados do usuário criador e aprovador.
+    O código pode ser validado no endpoint GET /api/verificar/<hash>/
+    """
     conteudo = str(sorted(dados.items())).encode('utf-8')
-    return hashlib.sha256(conteudo).hexdigest()[:16].upper()
+    return hashlib.sha256(conteudo).hexdigest()[:20].upper()
+
+
+def _dados_hash_usuario(obj, aprovador=None):
+    """Coleta dados do criador e aprovador para compor o hash de verificação."""
+    criador = getattr(obj, 'created_by', None)
+    dados = {
+        'criador_username': criador.username if criador else '',
+        'criador_org':      getattr(criador, 'userprofile', None) and criador.userprofile.org_id.sigla if criador else '',
+        'created_at':       obj.created_at.isoformat() if getattr(obj, 'created_at', None) else '',
+    }
+    if aprovador:
+        dados['aprovador_username'] = aprovador.username
+        dados['aprovador_org'] = getattr(aprovador, 'userprofile', None) and aprovador.userprofile.org_id.sigla
+    return dados
 
 
 def _rodape(canvas, doc):
@@ -212,8 +229,9 @@ def gerar_pdf_dfd(dfd) -> bytes:
 
     org_nome = dfd.org_id.nome if dfd.org_id else ''
     hash_doc = _hash_documento({
-        'tipo': 'DFD', 'sei': dfd.numero_sei, 'descricao': dfd.descricao,
+        'tipo': 'DFD', 'id': str(dfd.pk), 'sei': dfd.numero_sei,
         'valor': str(dfd.valor_estimado),
+        **_dados_hash_usuario(dfd),
     })
 
     e += _cabecalho('DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA', dfd.numero_sei, org_nome, estilos)
@@ -285,9 +303,9 @@ def gerar_pdf_etp(etp) -> bytes:
 
     org_nome = etp.org_id.nome if etp.org_id else ''
     hash_doc = _hash_documento({
-        'tipo': 'ETP', 'sei': etp.numero_sei,
-        'necessidade': etp.necessidade_contratacao,
+        'tipo': 'ETP', 'id': str(etp.pk), 'sei': etp.numero_sei,
         'valor': str(etp.estimativa_valor),
+        **_dados_hash_usuario(etp),
     })
 
     e += _cabecalho('ESTUDO TÉCNICO PRELIMINAR', etp.numero_sei, org_nome, estilos)
@@ -334,12 +352,12 @@ def gerar_pdf_tr(tr) -> bytes:
 
     org_nome = tr.org_id.nome if tr.org_id else ''
     hash_doc = _hash_documento({
-        'tipo': 'TR', 'sei': tr.numero_sei,
-        'objeto': tr.objeto_contratacao,
+        'tipo': 'TR', 'id': str(tr.pk), 'sei': tr.numero_sei,
         'valor': str(tr.estimativa_valor),
+        **_dados_hash_usuario(tr),
     })
 
-    e += _cabecalho('TERMO DE REFERÊNCIA', tr.numero_sei, org_nome, estilos)
+    e += _cabecalho('MINUTA DO TERMO DE REFERÊNCIA', tr.numero_sei, org_nome, estilos)
 
     e.append(_secao('Identificação', estilos))
     e += _campo('Status', tr.status, estilos)
@@ -408,9 +426,10 @@ def gerar_pdf_indicacao(indicacao) -> bytes:
 
     org_nome = indicacao.org_id.nome if indicacao.org_id else ''
     hash_doc = _hash_documento({
-        'tipo': 'DOD', 'numero': indicacao.numero,
+        'tipo': 'DOD', 'id': str(indicacao.pk), 'numero': indicacao.numero,
         'exercicio': str(indicacao.exercicio_fiscal),
         'valor': str(indicacao.valor_total),
+        **_dados_hash_usuario(indicacao, aprovador=indicacao.ordenador),
     })
 
     # Cabeçalho

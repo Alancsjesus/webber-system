@@ -8,6 +8,7 @@ from modulo_planejamento.views import NecessidadeViewSet, PlanoOrcamentarioViewS
 from core.views import (
     DashboardStatsView, OrgaoViewSet, UnidadeViewSet,
     UserManagementViewSet, PainelOrgaoPaiView, ParametroSistemaViewSet,
+    VerificarDocumentoView,
 )
 
 router = DefaultRouter()
@@ -25,6 +26,7 @@ urlpatterns = [
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/dashboard/stats/', DashboardStatsView.as_view(), name='dashboard_stats'),
     path('api/painel/', PainelOrgaoPaiView.as_view(), name='painel-orgao-pai'),
+    path('api/verificar/<str:hash_code>/', VerificarDocumentoView.as_view(), name='verificar-documento'),
     path('api/', include(router.urls)),
     path('api/orcamento/', include('modulo_orcamento.urls')),
     path('api/etp/',      include('modulo_etp.urls')),

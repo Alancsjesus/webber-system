@@ -68,7 +68,7 @@ export default function TRCreate() {
       <button onClick={() => navigate(-1)} className="text-sm text-gray-400 hover:text-gray-600 mb-4">
         ← Voltar
       </button>
-      <h1 className="text-xl font-bold text-gray-800 mb-1">Novo Termo de Referência</h1>
+      <h1 className="text-xl font-bold text-gray-800 mb-1">Nova Minuta do Termo de Referência</h1>
       <p className="text-sm text-gray-500 mb-6">
         ETP: <span className="font-mono font-medium text-teal-700">{etp.numero_sei}</span>
         {' · '}DFD: <span className="font-mono font-medium">{etp.dfd_numero_sei}</span>

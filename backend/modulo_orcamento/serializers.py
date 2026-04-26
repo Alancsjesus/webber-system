@@ -153,6 +153,22 @@ class DotacaoOrcamentariaSerializer(serializers.ModelSerializer):
         if fonte and str(fonte.org_id_id) != str(org_id):
             raise serializers.ValidationError({'fonte_recurso': 'Fonte de recurso não pertence à organização.'})
 
+        # Natureza contém o Elemento — auto-preenche elemento a partir da natureza
+        natureza = attrs.get('natureza_despesa')
+        elemento = attrs.get('elemento_despesa')
+        if natureza:
+            elemento_da_natureza = natureza.elemento_despesa
+            if elemento and elemento != elemento_da_natureza:
+                raise serializers.ValidationError({
+                    'natureza_despesa': (
+                        f'A natureza {natureza.formato} pertence ao elemento '
+                        f'{elemento_da_natureza.codigo:02d}, '
+                        f'não ao elemento {elemento.codigo:02d}.'
+                    )
+                })
+            # Auto-preenche elemento a partir da natureza
+            attrs['elemento_despesa'] = elemento_da_natureza
+
         necessidades = attrs.get('necessidades', [])
         for nec in necessidades:
             if str(nec.org_id_id) != str(org_id):

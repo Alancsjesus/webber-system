@@ -83,10 +83,12 @@ export default function OrcamentoDetail() {
     try {
       const payload = {
         exercicio_fiscal: Number(form.exercicio_fiscal),
-        acao: Number(form.acao),
-        elemento_despesa: Number(form.elemento_despesa),
-        natureza_despesa: form.natureza_despesa ? Number(form.natureza_despesa) : null,
-        fonte_recurso: Number(form.fonte_recurso),
+        acao:             Number(form.acao),
+        fonte_recurso:    Number(form.fonte_recurso),
+        // Natureza contém o elemento — backend auto-preenche elemento a partir da natureza
+        ...(form.natureza_despesa
+          ? { natureza_despesa: Number(form.natureza_despesa) }
+          : { elemento_despesa: Number(form.elemento_despesa) }),
         valor_dotado: Number(form.valor_dotado),
         valor_indicado: Number(form.valor_indicado),
         valor_descentralizado: Number(form.valor_descentralizado),
@@ -262,42 +264,38 @@ export default function OrcamentoDetail() {
           )}
         </DetailField>
 
-        {/* Elemento de Despesa */}
-        <DetailField label="Elemento de despesa" error={formErrors.elemento_despesa}>
-          {editing ? (
-            <select value={form.elemento_despesa}
-              onChange={(e) => { set('elemento_despesa', e.target.value); set('natureza_despesa', ''); fetchNaturezas(e.target.value) }}
-              className={inputCls(formErrors.elemento_despesa)}>
-              <option value="">Selecione...</option>
-              {elementos.map((el) => (
-                <option key={el.id} value={el.id}>{String(el.codigo).padStart(2,'0')} — {el.descricao}</option>
-              ))}
-            </select>
-          ) : (
-            <p className="text-sm text-gray-700">
-              {current.elemento_codigo} — {current.elemento_descricao}
-            </p>
-          )}
-        </DetailField>
-
-        {/* Natureza de Despesa */}
+        {/* Natureza de Despesa — campo primário; Elemento é derivado */}
         <DetailField label="Natureza de despesa" error={formErrors.natureza_despesa}>
           {editing ? (
-            <select value={form.natureza_despesa}
-              onChange={(e) => set('natureza_despesa', e.target.value)}
-              disabled={!form.elemento_despesa}
-              className={inputCls(formErrors.natureza_despesa)}>
-              <option value="">Selecione uma natureza...</option>
-              {naturezas.map((n) => (
-                <option key={n.id} value={n.id}>{n.formato} — {n.descricao}</option>
-              ))}
-            </select>
+            <>
+              <select value={form.natureza_despesa}
+                onChange={(e) => { set('natureza_despesa', e.target.value); fetchNaturezas() }}
+                className={inputCls(formErrors.natureza_despesa)}>
+                <option value="">Selecione uma natureza...</option>
+                {naturezas.map((n) => (
+                  <option key={n.id} value={n.id}>
+                    {n.formato} — {n.descricao} (El. {String(n.elemento_codigo).padStart(2,'0')})
+                  </option>
+                ))}
+              </select>
+              {form.natureza_despesa && (() => {
+                const nat = naturezas.find(n => String(n.id) === String(form.natureza_despesa))
+                return nat
+                  ? <p className="text-xs text-blue-600 mt-1">Elemento derivado: {String(nat.elemento_codigo).padStart(2,'0')} — {nat.elemento_descricao}</p>
+                  : null
+              })()}
+            </>
           ) : (
-            <p className="text-sm text-gray-700">
-              {current.natureza_formato
-                ? `${current.natureza_formato} — ${current.natureza_descricao}`
-                : <span className="text-gray-400">—</span>}
-            </p>
+            <div>
+              <p className="text-sm text-gray-700">
+                {current.natureza_formato
+                  ? <><span className="font-mono font-semibold text-blue-700">{current.natureza_formato}</span> — {current.natureza_descricao}</>
+                  : <span className="text-gray-400">—</span>}
+              </p>
+              <p className="text-xs text-gray-400 mt-0.5">
+                Elemento: {current.elemento_codigo} — {current.elemento_descricao}
+              </p>
+            </div>
           )}
         </DetailField>
 

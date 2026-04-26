@@ -30,8 +30,8 @@ export default function TRList() {
     <div className="p-8">
       <div className="flex items-center justify-between mb-6">
         <div>
-          <h1 className="text-xl font-bold text-gray-800">Termos de Referência</h1>
-          <p className="text-sm text-gray-500 mt-0.5">TRs gerados a partir de ETPs aprovados</p>
+          <h1 className="text-xl font-bold text-gray-800">Minutas do Termo de Referência</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Minutas geradas a partir de ETPs aprovados</p>
         </div>
       </div>
 
