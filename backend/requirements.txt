@@ -1,12 +1,14 @@
 Django==5.1.0
 djangorestframework==3.14.0
-djangorestframework-simplejwt==5.2.2
+djangorestframework-simplejwt==5.5.1
 django-cors-headers==4.0.0
 django-filter==25.1
 psycopg==3.1.9
 python-decouple==3.8
+whitenoise==6.7.0
+gunicorn==22.0.0
+Pillow==11.0.0
 pytest==7.3.1
 pytest-django==4.5.2
 pytest-cov==4.1.0
 reportlab==4.2.5
-#Pillow==11.0.0
