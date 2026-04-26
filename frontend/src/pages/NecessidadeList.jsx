@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import usePlanejamentoStore from '../stores/planejamentoStore'
 import useAuthStore from '../stores/authStore'
+import EmptyState from '../components/EmptyState'
+import LoadingSpinner from '../components/LoadingSpinner'
 
 const STATUS_CLS = {
   Identificada:  'bg-gray-100 text-gray-600',
@@ -104,16 +106,22 @@ export default function NecessidadeList() {
         </div>
       )}
 
-      {loading && (
-        <p className="text-sm text-gray-400 text-center py-10">Carregando...</p>
-      )}
+      {loading && <LoadingSpinner />}
 
       {!loading && (
         <>
           {necFiltradas.length === 0 ? (
-            <div className="text-center py-16 text-gray-400 text-sm">
-              Nenhuma necessidade encontrada.
-            </div>
+            <EmptyState
+              icon="clipboard"
+              title="Nenhuma necessidade encontrada"
+              description={
+                search || status || prioridade || origem
+                  ? 'Tente ajustar os filtros para encontrar o que procura.'
+                  : 'Crie a primeira necessidade para dar início ao fluxo de planejamento e contratação.'
+              }
+              actionLabel={!search && !status && !prioridade && !origem ? '+ Nova necessidade' : undefined}
+              onAction={!search && !status && !prioridade && !origem ? () => navigate('/planejamento/necessidades/nova') : undefined}
+            />
           ) : (
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
               <table className="w-full text-sm">

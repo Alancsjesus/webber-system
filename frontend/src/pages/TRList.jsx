@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useTrStore from '../stores/trStore'
+import EmptyState from '../components/EmptyState'
+import LoadingSpinner from '../components/LoadingSpinner'
 
 const STATUS_CLS = {
   Rascunho:    'bg-gray-100 text-gray-600',
@@ -49,9 +51,17 @@ export default function TRList() {
       )}
 
       {loading ? (
-        <p className="text-sm text-gray-400 text-center py-10">Carregando...</p>
+        <LoadingSpinner />
       ) : trs.length === 0 ? (
-        <div className="text-center py-16 text-gray-400 text-sm">Nenhum TR encontrado.</div>
+        <EmptyState
+          icon="fileText"
+          title="Nenhum TR encontrado"
+          description={
+            search || statusFiltro
+              ? 'Tente ajustar os filtros para encontrar o que procura.'
+              : 'Os TRs são gerados a partir de ETPs aprovados. Conclua o fluxo de análise técnica primeiro.'
+          }
+        />
       ) : (
         <>
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">

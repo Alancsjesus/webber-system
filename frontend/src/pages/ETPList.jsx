@@ -1,12 +1,17 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useEtpStore from '../stores/etpStore'
+import EmptyState from '../components/EmptyState'
+import LoadingSpinner from '../components/LoadingSpinner'
 
 const STATUS_CLS = {
   Rascunho:    'bg-gray-100 text-gray-600',
-  'Em Revisão': 'bg-yellow-100 text-yellow-700',
+  Submetido:   'bg-blue-100 text-blue-700',
+  'Em Análise':'bg-yellow-100 text-yellow-700',
+  Devolvido:   'bg-orange-100 text-orange-700',
   Aprovado:    'bg-green-100 text-green-700',
   Cancelado:   'bg-red-100 text-red-700',
+  Dispensado:  'bg-purple-100 text-purple-700',
 }
 
 export default function ETPList() {
@@ -46,8 +51,11 @@ export default function ETPList() {
         >
           <option value="">Todos os status</option>
           <option value="Rascunho">Rascunho</option>
-          <option value="Em Revisão">Em Revisão</option>
+          <option value="Submetido">Submetido</option>
+          <option value="Em Análise">Em Análise</option>
+          <option value="Devolvido">Devolvido</option>
           <option value="Aprovado">Aprovado</option>
+          <option value="Dispensado">Dispensado</option>
           <option value="Cancelado">Cancelado</option>
         </select>
       </div>
@@ -58,12 +66,20 @@ export default function ETPList() {
         </div>
       )}
 
-      {loading && <p className="text-sm text-gray-400 text-center py-10">Carregando...</p>}
+      {loading && <LoadingSpinner />}
 
       {!loading && (
         <>
           {etps.length === 0 ? (
-            <div className="text-center py-16 text-gray-400 text-sm">Nenhum ETP encontrado.</div>
+            <EmptyState
+              icon="search"
+              title="Nenhum ETP encontrado"
+              description={
+                search || status
+                  ? 'Tente ajustar os filtros para encontrar o que procura.'
+                  : 'Os ETPs são gerados a partir de DFDs aprovados. Aprove um DFD para criar o primeiro ETP.'
+              }
+            />
           ) : (
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
               <table className="w-full text-sm">

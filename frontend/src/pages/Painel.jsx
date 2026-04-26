@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../services/api'
+import EmptyState from '../components/EmptyState'
+import LoadingSpinner from '../components/LoadingSpinner'
 
 const STATUS_DFD = {
   Rascunho:    'bg-gray-100 text-gray-600',
@@ -40,7 +42,7 @@ export default function Painel() {
 
   const toggle = (key) => setExpanded(p => ({ ...p, [key]: !p[key] }))
 
-  if (loading) return <p className="p-8 text-sm text-gray-400">Carregando painel...</p>
+  if (loading) return <div className="p-8"><LoadingSpinner message="Carregando painel..." /></div>
   if (error)   return <p className="p-8 text-sm text-red-600">{error}</p>
 
   return (
@@ -212,9 +214,13 @@ export default function Painel() {
       ))}
 
       {data.length === 0 && (
-        <div className="text-center py-16 text-gray-400 text-sm">
-          Nenhum documento encontrado para o seu órgão.
-        </div>
+        <EmptyState
+          icon="clipboard"
+          title="Nenhum documento encontrado"
+          description="O painel consolida necessidades e DFDs do seu órgão e de órgãos filhos. Crie necessidades para visualizá-las aqui."
+          actionLabel="Criar necessidade"
+          onAction={() => navigate('/planejamento/necessidades/nova')}
+        />
       )}
     </div>
   )

@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useDFDStore from '../stores/dfdStore'
+import EmptyState from '../components/EmptyState'
+import LoadingSpinner from '../components/LoadingSpinner'
 
 const STATUS_LABEL = {
   Rascunho:    { cls: 'bg-gray-100 text-gray-600' },
@@ -73,17 +75,22 @@ export default function DFDList() {
         </div>
       )}
 
-      {loading && (
-        <p className="text-sm text-gray-400 text-center py-10">Carregando...</p>
-      )}
+      {loading && <LoadingSpinner />}
 
-      {/* Tabela */}
       {!loading && (
         <>
           {dfds.length === 0 ? (
-            <div className="text-center py-16 text-gray-400 text-sm">
-              Nenhum DFD encontrado.
-            </div>
+            <EmptyState
+              icon="document"
+              title="Nenhum DFD encontrado"
+              description={
+                search || status
+                  ? 'Tente ajustar os filtros para encontrar o que procura.'
+                  : 'Os DFDs são criados a partir de necessidades aprovadas. Aprove uma necessidade primeiro.'
+              }
+              actionLabel={!search && !status ? '+ Novo DFD' : undefined}
+              onAction={!search && !status ? () => navigate('/demanda/dfd/novo') : undefined}
+            />
           ) : (
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
               <table className="w-full text-sm">

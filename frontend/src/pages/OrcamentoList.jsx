@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useOrcamentoStore from '../stores/orcamentoStore'
+import EmptyState from '../components/EmptyState'
+import LoadingSpinner from '../components/LoadingSpinner'
 
 const STATUS_CLS = {
   Proposta:      'bg-gray-100 text-gray-600',
@@ -81,16 +83,22 @@ export default function OrcamentoList() {
         </div>
       )}
 
-      {loading && (
-        <p className="text-sm text-gray-400 text-center py-10">Carregando...</p>
-      )}
+      {loading && <LoadingSpinner />}
 
       {!loading && (
         <>
           {dotacoes.length === 0 ? (
-            <div className="text-center py-16 text-gray-400 text-sm">
-              Nenhuma dotação encontrada.
-            </div>
+            <EmptyState
+              icon="currency"
+              title="Nenhuma dotação encontrada"
+              description={
+                search || status || exercicio
+                  ? 'Tente ajustar os filtros para encontrar o que procura.'
+                  : 'Crie dotações orçamentárias para vincular às necessidades de planejamento aprovadas.'
+              }
+              actionLabel={!search && !status && !exercicio ? '+ Nova dotação' : undefined}
+              onAction={!search && !status && !exercicio ? () => navigate('/orcamento/dotacoes/nova') : undefined}
+            />
           ) : (
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
               <table className="w-full text-sm">

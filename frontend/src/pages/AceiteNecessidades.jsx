@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../services/api'
+import EmptyState from '../components/EmptyState'
+import LoadingSpinner from '../components/LoadingSpinner'
 
 const PRIO_CLS = {
   Alta:  'bg-red-100 text-red-700',
@@ -115,11 +117,13 @@ export default function AceiteNecessidades() {
       )}
 
       {loading ? (
-        <p className="text-sm text-gray-400">Carregando...</p>
+        <LoadingSpinner message="Carregando necessidades pendentes..." />
       ) : list.length === 0 ? (
-        <div className="text-center py-16 text-gray-400 text-sm">
-          Nenhuma necessidade aguardando aceite.
-        </div>
+        <EmptyState
+          icon="inbox"
+          title="Nenhuma necessidade aguardando aceite"
+          description="Quando órgãos filhos criarem necessidades de execução externa, elas aparecerão aqui para revisão."
+        />
       ) : (
         <>
           {/* Barra de ações */}

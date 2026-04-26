@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../services/api'
+import LoadingSpinner from '../components/LoadingSpinner'
 
 // ── Status color maps ──────────────────────────────────────────────────────────
 const CLS_NEC = {
@@ -158,7 +159,7 @@ export default function Dashboard() {
       .finally(() => setLoading(false))
   }, [])
 
-  if (loading) return <div className="p-8 text-sm text-gray-400">Carregando...</div>
+  if (loading) return <div className="p-8"><LoadingSpinner message="Carregando dashboard..." /></div>
   if (!stats)  return <div className="p-8 text-sm text-red-400">Erro ao carregar dados.</div>
 
   const nec   = stats.necessidades ?? {}
@@ -184,6 +185,33 @@ export default function Dashboard() {
         <h1 className="text-xl font-bold text-gray-800">Dashboard</h1>
         <p className="text-sm text-gray-500 mt-0.5">Visão geral do sistema</p>
       </div>
+
+      {/* Banner: onboarding quando sistema está vazio */}
+      {(nec.total ?? 0) === 0 && (dfds.total ?? 0) === 0 && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-5">
+          <div className="flex items-start gap-3">
+            <span className="text-blue-500 text-xl mt-0.5">🚀</span>
+            <div>
+              <p className="text-sm font-semibold text-blue-800 mb-2">Bem-vindo ao WEBBER System!</p>
+              <p className="text-xs text-blue-600 mb-3">O sistema está pronto. Siga os passos abaixo para começar:</p>
+              <ol className="space-y-1.5">
+                {[
+                  { step: '1', label: 'Configure os órgãos e unidades', path: '/config/orgaos', cta: 'Ir para Configurações' },
+                  { step: '2', label: 'Cadastre as ações orçamentárias', path: '/config/acoes', cta: 'Ir para Ações' },
+                  { step: '3', label: 'Crie a primeira necessidade de planejamento', path: '/planejamento/necessidades/nova', cta: 'Nova Necessidade' },
+                ].map(({ step, label, path, cta }) => (
+                  <li key={step} className="flex items-center gap-2 text-xs text-blue-700">
+                    <span className="flex-shrink-0 w-5 h-5 rounded-full bg-blue-200 text-blue-800 font-bold flex items-center justify-center text-[10px]">{step}</span>
+                    <span className="flex-1">{label}</span>
+                    <button onClick={() => navigate(path)}
+                      className="text-blue-600 hover:text-blue-800 font-medium hover:underline">{cta} →</button>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Banner: aceites pendentes */}
       {aceitesPendentes > 0 && (
