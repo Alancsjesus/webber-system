@@ -404,6 +404,172 @@ def resposta_pdf(pdf_bytes: bytes, filename: str) -> HttpResponse:
     return response
 
 
+def gerar_pdf_mapa(mapa) -> bytes:
+    """Gera PDF do Mapa Comparativo de Preços conforme Decreto 22.886/2024."""
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4,
+                             leftMargin=2*cm, rightMargin=2*cm,
+                             topMargin=2*cm, bottomMargin=2.5*cm)
+    estilos = _estilos()
+    e = []
+
+    def fmt(v):
+        return f'R$ {float(v):,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
+
+    org_nome = mapa.org_id.nome if mapa.org_id else ''
+    hash_doc = _hash_documento({
+        'tipo': 'MAPA', 'id': str(mapa.pk),
+        'objeto': mapa.objeto[:50],
+        'valor': str(mapa.valor_estimado_total),
+        **_dados_hash_usuario(mapa),
+    })
+
+    e += _cabecalho('MAPA COMPARATIVO DE PREÇOS', f'Mapa nº {mapa.pk}', org_nome, estilos)
+
+    # Identificação
+    e.append(_secao('Identificação', estilos))
+    e += _campo('Objeto da Pesquisa', mapa.objeto, estilos)
+    e += _campo('Exercício Fiscal', str(mapa.exercicio_fiscal), estilos)
+    e += _campo('Fundamento Legal', 'Decreto Estadual 22.886/2024 — Art. 3º e 8º', estilos)
+    e += _campo('Método de Cálculo', mapa.get_metodo_calculo_display(), estilos)
+    e += _campo('Status', mapa.get_status_display(), estilos)
+    if mapa.dfd_id:
+        e += _campo('DFD Vinculado', mapa.dfd.numero_sei, estilos)
+    if mapa.responsavel:
+        nome_resp = mapa.responsavel.get_full_name() or mapa.responsavel.username
+        e += _campo('Responsável pela Pesquisa', nome_resp, estilos)
+    if mapa.justificativa_metodologia:
+        e += _campo('Justificativa da Metodologia', mapa.justificativa_metodologia, estilos)
+
+    # Fontes consultadas
+    fontes = mapa.fontes.all()
+    if fontes.exists():
+        e.append(_secao('Fontes Consultadas (Art. 3º, III — Decreto 22.886/2024)', estilos))
+        dados_f = [['Parâmetro', 'Descrição', 'Referência', 'Data', 'Resultado']]
+        for f in fontes:
+            resultado = 'Infrutífera' if f.infrutífera else 'Coletada'
+            dados_f.append([
+                f.tipo,
+                f.descricao[:35],
+                f.referencia[:30] or '—',
+                f.data_consulta.strftime('%d/%m/%Y') if f.data_consulta else '—',
+                resultado,
+            ])
+        tf = Table(dados_f, colWidths=[2*cm, 5.5*cm, 4.5*cm, 2.5*cm, 2.5*cm])
+        tf.setStyle(TableStyle([
+            ('BACKGROUND',    (0, 0), (-1, 0),  AZUL_GOV),
+            ('TEXTCOLOR',     (0, 0), (-1, 0),  BRANCO),
+            ('FONTNAME',      (0, 0), (-1, 0),  'Helvetica-Bold'),
+            ('FONTSIZE',      (0, 0), (-1, -1), 7),
+            ('ROWBACKGROUNDS',(0, 1), (-1, -1), [BRANCO, AZUL_CLARO]),
+            ('GRID',          (0, 0), (-1, -1), 0.5, CINZA_BD),
+            ('VALIGN',        (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING',    (0, 0), (-1, -1), 3),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ]))
+        e.append(tf)
+
+    # Itens e preços coletados
+    for item in mapa.itens.select_related().prefetch_related('precos__fonte').all():
+        e.append(_secao(f'Item {item.ordem}: {item.descricao[:60]}', estilos))
+        if item.codigo_simpas:
+            e += _campo('Código SIMPAS', item.codigo_simpas, estilos)
+        e += _campo('Quantidade', f'{item.quantidade} {item.unidade_medida}', estilos)
+
+        # Tabela de preços coletados
+        precos = item.precos.all()
+        if precos.exists():
+            dados_p = [['Origem', 'Parâmetro', 'Órgão / Empresa', 'Data', 'Valor Unit.', 'Status']]
+            for p in precos:
+                status_txt = '✓ Válido' if p.valido else f'✗ {p.get_motivo_exclusao_display() or "Excluído"}'
+                sugestao = f' ⚠ {p.sugestao_exclusao}' if p.sugestao_exclusao and p.valido else ''
+                dados_p.append([
+                    p.fonte.descricao[:25],
+                    p.fonte.tipo,
+                    p.origem_orgao_empresa[:25] or '—',
+                    p.data_referencia.strftime('%d/%m/%Y') if p.data_referencia else '—',
+                    fmt(p.valor_unitario),
+                    status_txt + sugestao,
+                ])
+            tp = Table(dados_p, colWidths=[3.5*cm, 1.5*cm, 3.5*cm, 2*cm, 2.5*cm, 4*cm])
+            tp.setStyle(TableStyle([
+                ('BACKGROUND',    (0, 0), (-1, 0),  AZUL_GOV),
+                ('TEXTCOLOR',     (0, 0), (-1, 0),  BRANCO),
+                ('FONTNAME',      (0, 0), (-1, 0),  'Helvetica-Bold'),
+                ('FONTSIZE',      (0, 0), (-1, -1), 7),
+                ('ROWBACKGROUNDS',(0, 1), (-1, -1), [BRANCO, AZUL_CLARO]),
+                ('GRID',          (0, 0), (-1, -1), 0.5, CINZA_BD),
+                ('VALIGN',        (0, 0), (-1, -1), 'MIDDLE'),
+                ('TOPPADDING',    (0, 0), (-1, -1), 3),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ]))
+            e.append(tp)
+
+        # Resultado do item
+        if item.valor_unitario_calculado:
+            e.append(Spacer(1, 0.2*cm))
+            resultado_dados = [
+                ['Método utilizado', item.get_metodo_aplicado_display() or item.metodo_aplicado,
+                 'Nº preços válidos', str(item.qtd_precos_validos),
+                 'Valor unit. calculado', fmt(item.valor_unitario_calculado)],
+                ['', '', 'Quantidade', str(item.quantidade),
+                 'VALOR TOTAL DO ITEM', fmt(item.valor_total_calculado or 0)],
+            ]
+            tr_item = Table(resultado_dados, colWidths=[3*cm, 3.5*cm, 2.5*cm, 1.5*cm, 3.5*cm, 3*cm])
+            tr_item.setStyle(TableStyle([
+                ('BACKGROUND', (4, 1), (5, 1), AZUL_CLARO),
+                ('FONTNAME',   (4, 1), (5, 1), 'Helvetica-Bold'),
+                ('FONTSIZE',   (0, 0), (-1, -1), 8),
+                ('GRID',       (0, 0), (-1, -1), 0.5, CINZA_BD),
+                ('VALIGN',     (0, 0), (-1, -1), 'MIDDLE'),
+                ('TOPPADDING', (0, 0), (-1, -1), 3),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ]))
+            e.append(tr_item)
+        if item.alerta:
+            e.append(Paragraph(f'⚠ {item.alerta}', estilos['aviso']))
+        if item.justificativa_item:
+            e += _campo('Justificativa', item.justificativa_item, estilos)
+
+    # Resumo geral
+    e.append(_secao('Resumo Geral', estilos))
+    resumo = [['Item', 'Descrição', 'Qtd', 'Unid.', 'Valor Unit.', 'Valor Total', 'Preços', 'Método']]
+    for item in mapa.itens.all():
+        resumo.append([
+            str(item.ordem),
+            item.descricao[:40],
+            str(item.quantidade),
+            item.unidade_medida,
+            fmt(item.valor_unitario_calculado) if item.valor_unitario_calculado else '—',
+            fmt(item.valor_total_calculado) if item.valor_total_calculado else '—',
+            str(item.qtd_precos_validos),
+            item.metodo_aplicado or '—',
+        ])
+    resumo.append(['', '', '', '', '', fmt(mapa.valor_estimado_total), '', ''])
+    tr_resumo = Table(resumo, colWidths=[0.8*cm, 5*cm, 1*cm, 1.2*cm, 2.5*cm, 2.5*cm, 1.2*cm, 2.8*cm])
+    tr_resumo.setStyle(TableStyle([
+        ('BACKGROUND',    (0, 0), (-1, 0),   AZUL_GOV),
+        ('TEXTCOLOR',     (0, 0), (-1, 0),   BRANCO),
+        ('FONTNAME',      (0, 0), (-1, 0),   'Helvetica-Bold'),
+        ('BACKGROUND',    (0, -1),(-1, -1),  AZUL_CLARO),
+        ('FONTNAME',      (4, -1),(5, -1),   'Helvetica-Bold'),
+        ('FONTSIZE',      (0, 0), (-1, -1),  7),
+        ('ROWBACKGROUNDS',(0, 1), (-1, -2),  [BRANCO, AZUL_CLARO]),
+        ('GRID',          (0, 0), (-1, -1),  0.5, CINZA_BD),
+        ('VALIGN',        (0, 0), (-1, -1),  'MIDDLE'),
+        ('TOPPADDING',    (0, 0), (-1, -1),  3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1),  3),
+    ]))
+    e.append(tr_resumo)
+
+    if mapa.observacoes:
+        e += _campo('Observações Gerais', mapa.observacoes, estilos)
+
+    e += _bloco_assinaturas(mapa, estilos, hash_doc)
+    doc.build(e, onFirstPage=_rodape, onLaterPages=_rodape)
+    return buf.getvalue()
+
+
 def resposta_html(html: str, filename: str) -> HttpResponse:
     response = HttpResponse(html, content_type='text/html; charset=utf-8')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'

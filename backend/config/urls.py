@@ -29,6 +29,7 @@ urlpatterns = [
     path('api/verificar/<str:hash_code>/', VerificarDocumentoView.as_view(), name='verificar-documento'),
     path('api/', include(router.urls)),
     path('api/orcamento/', include('modulo_orcamento.urls')),
-    path('api/etp/',      include('modulo_etp.urls')),
-    path('api/tr/',       include('modulo_tr.urls')),
+    path('api/etp/',       include('modulo_etp.urls')),
+    path('api/tr/',        include('modulo_tr.urls')),
+    path('api/pesquisa/',  include('modulo_mapa_precos.urls')),
 ]

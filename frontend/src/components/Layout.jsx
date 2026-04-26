@@ -24,6 +24,12 @@ const NAV_BASE = [
     ],
   },
   {
+    section: 'Pesquisa de Preços',
+    items: [
+      { to: '/pesquisa/mapa', label: 'Mapa Comparativo' },
+    ],
+  },
+  {
     section: 'Demanda',
     items: [
       { to: '/demanda/dfd', label: 'DFDs' },

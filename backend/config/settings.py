@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     'modulo_orcamento',
     'modulo_etp',
     'modulo_tr',
+    'modulo_mapa_precos',
 ]
 
 MIDDLEWARE = [

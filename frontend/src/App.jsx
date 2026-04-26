@@ -10,6 +10,9 @@ import NecessidadeList from './pages/NecessidadeList'
 import NecessidadeCreate from './pages/NecessidadeCreate'
 import NecessidadeDetail from './pages/NecessidadeDetail'
 import AceiteNecessidades from './pages/AceiteNecessidades'
+import MapaList from './pages/MapaList'
+import MapaCreate from './pages/MapaCreate'
+import MapaDetail from './pages/MapaDetail'
 import OrcamentoList from './pages/OrcamentoList'
 import OrcamentoCreate from './pages/OrcamentoCreate'
 import OrcamentoDetail from './pages/OrcamentoDetail'
@@ -59,6 +62,11 @@ export default function App() {
           <Route path="planejamento/necessidades/nova"  element={<NecessidadeCreate />} />
           <Route path="planejamento/necessidades/:id"   element={<NecessidadeDetail />} />
           <Route path="planejamento/aceite"             element={<AceiteNecessidades />} />
+
+          {/* Pesquisa de Preços */}
+          <Route path="pesquisa/mapa"       element={<MapaList />} />
+          <Route path="pesquisa/mapa/novo"  element={<MapaCreate />} />
+          <Route path="pesquisa/mapa/:id"   element={<MapaDetail />} />
 
           {/* Orçamento */}
           <Route path="orcamento/dotacoes"          element={<OrcamentoList />} />
