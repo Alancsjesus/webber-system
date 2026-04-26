@@ -16,10 +16,11 @@ from modulo_planejamento.serializers import NecessidadeSerializer
 logger = logging.getLogger(__name__)
 
 from .filters import AcaoOrcamentariaFilter, FonteRecursoFilter, DotacaoOrcamentariaFilter
-from .models import AcaoOrcamentaria, ElementoDespesa, FonteRecurso, DotacaoOrcamentaria
+from .models import AcaoOrcamentaria, ElementoDespesa, NaturezaDespesa, FonteRecurso, DotacaoOrcamentaria
 from .serializers import (
     AcaoOrcamentariaSerializer,
     ElementoDespesaSerializer,
+    NaturezaDespesaSerializer,
     FonteRecursoSerializer,
     DotacaoOrcamentariaSerializer,
     VincularNecessidadeSerializer,
@@ -39,20 +40,87 @@ class AcaoOrcamentariaViewSet(viewsets.ModelViewSet):
         return AcaoOrcamentaria.objects.filter(org_id=self.request.org_id)
 
 
-class ElementoDespesaViewSet(viewsets.ReadOnlyModelViewSet):
+class ElementoDespesaViewSet(viewsets.ModelViewSet):
     """
-    Global expense elements — standardized by law, read-only via API.
-    Populated via management command.
+    Elementos de despesa (código 2 dígitos: 30, 39, 52...).
+    Gerenciados pela Unidade de Planejamento ou Admin.
     """
     serializer_class = ElementoDespesaSerializer
     permission_classes = [IsAuthenticated]
     filter_backends = [filters.SearchFilter, filters.OrderingFilter]
-    search_fields = ['descricao']
+    search_fields = ['descricao', 'codigo']
     ordering_fields = ['codigo']
     ordering = ['codigo']
 
     def get_queryset(self):
-        return ElementoDespesa.objects.filter(ativo=True)
+        mostrar_inativos = self.request.query_params.get('inativos') == 'true'
+        qs = ElementoDespesa.objects.all()
+        if not mostrar_inativos:
+            qs = qs.filter(ativo=True)
+        return qs
+
+    def _check_permissao(self, request):
+        papel = getattr(request, 'papel', None)
+        tipo_unidade = getattr(request, 'tipo_unidade', None)
+        if papel not in ('admin', 'gestor_planejamento') and tipo_unidade != 'planejamento':
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('Apenas Planejamento ou Admin podem gerenciar elementos de despesa.')
+
+    def perform_create(self, serializer):
+        self._check_permissao(self.request)
+        serializer.save()
+
+    def perform_update(self, serializer):
+        self._check_permissao(self.request)
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        self._check_permissao(self.request)
+        instance.ativo = False
+        instance.save()
+
+
+class NaturezaDespesaViewSet(viewsets.ModelViewSet):
+    """
+    Naturezas de despesa no formato 3.3.90.30 (ex: 339030, 339039, 449052).
+    Gerenciadas pela Unidade de Planejamento ou Admin.
+    """
+    serializer_class = NaturezaDespesaSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['codigo', 'descricao']
+    ordering_fields = ['codigo']
+    ordering = ['codigo']
+
+    def get_queryset(self):
+        qs = NaturezaDespesa.objects.select_related('elemento_despesa')
+        elemento = self.request.query_params.get('elemento_despesa')
+        if elemento:
+            qs = qs.filter(elemento_despesa_id=elemento)
+        mostrar_inativas = self.request.query_params.get('inativas') == 'true'
+        if not mostrar_inativas:
+            qs = qs.filter(ativa=True)
+        return qs
+
+    def _check_permissao(self, request):
+        papel = getattr(request, 'papel', None)
+        tipo_unidade = getattr(request, 'tipo_unidade', None)
+        if papel not in ('admin', 'gestor_planejamento') and tipo_unidade != 'planejamento':
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('Apenas Planejamento ou Admin podem gerenciar naturezas de despesa.')
+
+    def perform_create(self, serializer):
+        self._check_permissao(self.request)
+        serializer.save()
+
+    def perform_update(self, serializer):
+        self._check_permissao(self.request)
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        self._check_permissao(self.request)
+        instance.ativa = False
+        instance.save()
 
 
 class FonteRecursoViewSet(viewsets.ModelViewSet):

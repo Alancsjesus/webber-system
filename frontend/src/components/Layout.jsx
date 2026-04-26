@@ -49,11 +49,13 @@ const NAV_ACEITE = {
 const NAV_CONFIG_ADMIN = {
   section: 'Configurações',
   items: [
-    { to: '/config/orgaos',   label: 'Órgãos' },
-    { to: '/config/unidades', label: 'Unidades' },
-    { to: '/config/usuarios', label: 'Usuários' },
-    { to: '/config/acoes',    label: 'Ações Orçamentárias' },
-    { to: '/config/fontes',   label: 'Fontes de Recurso' },
+    { to: '/config/orgaos',    label: 'Órgãos' },
+    { to: '/config/unidades',  label: 'Unidades' },
+    { to: '/config/usuarios',  label: 'Usuários' },
+    { to: '/config/acoes',     label: 'Ações Orçamentárias' },
+    { to: '/config/elementos', label: 'Elementos de Despesa' },
+    { to: '/config/naturezas', label: 'Naturezas de Despesa' },
+    { to: '/config/fontes',    label: 'Fontes de Recurso' },
   ],
 }
 
@@ -61,8 +63,10 @@ const NAV_CONFIG_ADMIN = {
 const NAV_CONFIG_PLANEJAMENTO = {
   section: 'Configurações',
   items: [
-    { to: '/config/acoes',  label: 'Ações Orçamentárias' },
-    { to: '/config/fontes', label: 'Fontes de Recurso' },
+    { to: '/config/acoes',     label: 'Ações Orçamentárias' },
+    { to: '/config/elementos', label: 'Elementos de Despesa' },
+    { to: '/config/naturezas', label: 'Naturezas de Despesa' },
+    { to: '/config/fontes',    label: 'Fontes de Recurso' },
   ],
 }
 

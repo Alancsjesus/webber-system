@@ -6,13 +6,14 @@ const ANO_ATUAL = new Date().getFullYear()
 
 export default function OrcamentoCreate() {
   const navigate = useNavigate()
-  const { createDotacao, fetchAcoes, fetchElementos, fetchFontes, acoes, elementos, fontes } =
+  const { createDotacao, fetchAcoes, fetchElementos, fetchNaturezas, fetchFontes, acoes, elementos, naturezas, fontes } =
     useOrcamentoStore()
 
   const [form, setForm] = useState({
     exercicio_fiscal: ANO_ATUAL,
     acao: '',
     elemento_despesa: '',
+    natureza_despesa: '',
     fonte_recurso: '',
     valor_dotado: '',
     status: 'Proposta',
@@ -28,6 +29,10 @@ export default function OrcamentoCreate() {
     fetchElementos()
     fetchFontes()
   }, [])
+
+  useEffect(() => {
+    if (form.elemento_despesa) fetchNaturezas(form.elemento_despesa)
+  }, [form.elemento_despesa])
 
   const set = (field, value) => {
     setForm((p) => ({ ...p, [field]: value }))
@@ -51,14 +56,16 @@ export default function OrcamentoCreate() {
 
     setSaving(true)
     try {
-      const dotacao = await createDotacao({
+      const payload = {
         ...form,
         exercicio_fiscal: Number(form.exercicio_fiscal),
         acao: Number(form.acao),
         elemento_despesa: Number(form.elemento_despesa),
         fonte_recurso: Number(form.fonte_recurso),
         valor_dotado: Number(form.valor_dotado),
-      })
+      }
+      if (form.natureza_despesa) payload.natureza_despesa = Number(form.natureza_despesa)
+      const dotacao = await createDotacao(payload)
       navigate(`/orcamento/dotacoes/${dotacao.id}`)
     } catch (err) {
       const data = err.response?.data || {}
@@ -117,15 +124,30 @@ export default function OrcamentoCreate() {
 
         <Field label="Elemento de despesa" error={errors.elemento_despesa}>
           <select value={form.elemento_despesa}
-            onChange={(e) => set('elemento_despesa', e.target.value)}
+            onChange={(e) => { set('elemento_despesa', e.target.value); set('natureza_despesa', '') }}
             className={inp(errors.elemento_despesa)}>
             <option value="">Selecione um elemento...</option>
             {elementos.map((el) => (
               <option key={el.id} value={el.id}>
-                {el.codigo} — {el.descricao}
+                {String(el.codigo).padStart(2,'0')} — {el.descricao}
               </option>
             ))}
           </select>
+        </Field>
+
+        <Field label="Natureza de despesa (opcional)">
+          <select value={form.natureza_despesa}
+            onChange={(e) => set('natureza_despesa', e.target.value)}
+            disabled={!form.elemento_despesa}
+            className={inp()}>
+            <option value="">Selecione uma natureza...</option>
+            {naturezas.map((n) => (
+              <option key={n.id} value={n.id}>
+                {n.formato} — {n.descricao}
+              </option>
+            ))}
+          </select>
+          {!form.elemento_despesa && <p className="text-xs text-gray-400 mt-1">Selecione um elemento primeiro</p>}
         </Field>
 
         <Field label="Fonte de recurso" error={errors.fonte_recurso}>

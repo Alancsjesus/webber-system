@@ -23,6 +23,8 @@ import OrgaoAdmin from './pages/config/OrgaoAdmin'
 import UnidadeAdmin from './pages/config/UnidadeAdmin'
 import UsuarioAdmin from './pages/config/UsuarioAdmin'
 import AcaoAdmin from './pages/config/AcaoAdmin'
+import ElementoAdmin from './pages/config/ElementoAdmin'
+import NaturezaAdmin from './pages/config/NaturezaAdmin'
 import FonteAdmin from './pages/config/FonteAdmin'
 import Ajuda from './pages/Ajuda'
 import Painel from './pages/Painel'
@@ -78,6 +80,8 @@ export default function App() {
           <Route path="config/unidades"  element={<UnidadeAdmin />} />
           <Route path="config/usuarios"  element={<UsuarioAdmin />} />
           <Route path="config/acoes"     element={<AcaoAdmin />} />
+          <Route path="config/elementos" element={<ElementoAdmin />} />
+          <Route path="config/naturezas" element={<NaturezaAdmin />} />
           <Route path="config/fontes"    element={<FonteAdmin />} />
 
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from modulo_planejamento.models import NecessidadePlanejamento
-from .models import AcaoOrcamentaria, ElementoDespesa, FonteRecurso, DotacaoOrcamentaria
+from .models import AcaoOrcamentaria, ElementoDespesa, NaturezaDespesa, FonteRecurso, DotacaoOrcamentaria
 
 
 class AcaoOrcamentariaSerializer(serializers.ModelSerializer):
@@ -34,7 +34,20 @@ class ElementoDespesaSerializer(serializers.ModelSerializer):
     class Meta:
         model = ElementoDespesa
         fields = ['id', 'codigo', 'descricao', 'ativo']
-        read_only_fields = ['id', 'codigo', 'descricao', 'ativo']
+
+
+class NaturezaDespesaSerializer(serializers.ModelSerializer):
+    elemento_codigo = serializers.IntegerField(source='elemento_despesa.codigo', read_only=True)
+    elemento_descricao = serializers.CharField(source='elemento_despesa.descricao', read_only=True)
+    formato = serializers.CharField(read_only=True)
+
+    class Meta:
+        model = NaturezaDespesa
+        fields = [
+            'id', 'codigo', 'formato', 'descricao', 'ativa',
+            'elemento_despesa', 'elemento_codigo', 'elemento_descricao',
+        ]
+        read_only_fields = ['id', 'formato']
 
 
 class FonteRecursoSerializer(serializers.ModelSerializer):
@@ -65,7 +78,6 @@ class FonteRecursoSerializer(serializers.ModelSerializer):
 
 
 class NecessidadeResumoSerializer(serializers.ModelSerializer):
-    """Resumo de NecessidadePlanejamento para exibição em dotações."""
     class Meta:
         model = NecessidadePlanejamento
         fields = ['id', 'titulo', 'status', 'prioridade', 'valor_estimado', 'exercicio_fiscal']
@@ -83,6 +95,9 @@ class DotacaoOrcamentariaSerializer(serializers.ModelSerializer):
 
     elemento_codigo = serializers.IntegerField(source='elemento_despesa.codigo', read_only=True)
     elemento_descricao = serializers.CharField(source='elemento_despesa.descricao', read_only=True)
+
+    natureza_formato = serializers.CharField(source='natureza_despesa.formato', read_only=True)
+    natureza_descricao = serializers.CharField(source='natureza_despesa.descricao', read_only=True)
 
     fonte_codigo = serializers.IntegerField(source='fonte_recurso.codigo', read_only=True)
     fonte_nome = serializers.CharField(source='fonte_recurso.nome', read_only=True)
@@ -105,8 +120,9 @@ class DotacaoOrcamentariaSerializer(serializers.ModelSerializer):
             'exercicio_fiscal',
             'acao', 'acao_codigo', 'acao_nome', 'acao_tipo',
             'elemento_despesa', 'elemento_codigo', 'elemento_descricao',
+            'natureza_despesa', 'natureza_formato', 'natureza_descricao',
             'fonte_recurso', 'fonte_codigo', 'fonte_nome', 'fonte_tipo',
-            'valor_dotado',
+            'valor_dotado', 'valor_indicado', 'valor_descentralizado', 'valor_concedido',
             'status',
             'eixo',
             'objetivo_estrategico',
@@ -126,17 +142,14 @@ class DotacaoOrcamentariaSerializer(serializers.ModelSerializer):
         request = self.context['request']
         org_id = request.org_id
 
-        # Validate acao belongs to same org
         acao = attrs.get('acao')
         if acao and str(acao.org_id_id) != str(org_id):
             raise serializers.ValidationError({'acao': 'Ação não pertence à organização.'})
 
-        # Validate fonte_recurso belongs to same org
         fonte = attrs.get('fonte_recurso')
         if fonte and str(fonte.org_id_id) != str(org_id):
             raise serializers.ValidationError({'fonte_recurso': 'Fonte de recurso não pertence à organização.'})
 
-        # Validate all linked necessidades belong to same org
         necessidades = attrs.get('necessidades', [])
         for nec in necessidades:
             if str(nec.org_id_id) != str(org_id):

@@ -9,6 +9,7 @@ const useOrcamentoStore = create((set, get) => ({
   current: null,
   acoes: [],
   elementos: [],
+  naturezas: [],
   fontes: [],
 
   fetchDotacoes: async (params = {}) => {
@@ -59,8 +60,17 @@ const useOrcamentoStore = create((set, get) => ({
 
   fetchElementos: async () => {
     try {
-      const { data } = await api.get('/orcamento/elemento-despesa/', { params: { page_size: 100 } })
+      const { data } = await api.get('/orcamento/elemento-despesa/', { params: { page_size: 200 } })
       set({ elementos: data.results ?? data })
+    } catch { /* silent */ }
+  },
+
+  fetchNaturezas: async (elementoId) => {
+    try {
+      const params = { page_size: 200 }
+      if (elementoId) params.elemento_despesa = elementoId
+      const { data } = await api.get('/orcamento/natureza-despesa/', { params })
+      set({ naturezas: data.results ?? data })
     } catch { /* silent */ }
   },
 

@@ -27,8 +27,8 @@ export default function OrcamentoDetail() {
   const {
     current, loading, error,
     fetchDotacao, updateDotacao, deleteDotacao,
-    fetchAcoes, fetchElementos, fetchFontes,
-    acoes, elementos, fontes,
+    fetchAcoes, fetchElementos, fetchNaturezas, fetchFontes,
+    acoes, elementos, naturezas, fontes,
     vincularNecessidade, desvincularNecessidade, fetchNecessidadesDisponiveis,
   } = useOrcamentoStore()
 
@@ -50,13 +50,18 @@ export default function OrcamentoDetail() {
         exercicio_fiscal: current.exercicio_fiscal,
         acao: current.acao,
         elemento_despesa: current.elemento_despesa,
+        natureza_despesa: current.natureza_despesa || '',
         fonte_recurso: current.fonte_recurso,
         valor_dotado: current.valor_dotado,
+        valor_indicado: current.valor_indicado ?? 0,
+        valor_descentralizado: current.valor_descentralizado ?? 0,
+        valor_concedido: current.valor_concedido ?? 0,
         status: current.status,
         eixo: current.eixo || '',
         objetivo_estrategico: current.objetivo_estrategico || '',
         observacoes: current.observacoes || '',
       })
+      if (current.elemento_despesa) fetchNaturezas(current.elemento_despesa)
     }
   }, [current])
 
@@ -76,17 +81,22 @@ export default function OrcamentoDetail() {
   const handleSave = async () => {
     setSaving(true)
     try {
-      await updateDotacao(id, {
+      const payload = {
         exercicio_fiscal: Number(form.exercicio_fiscal),
         acao: Number(form.acao),
         elemento_despesa: Number(form.elemento_despesa),
+        natureza_despesa: form.natureza_despesa ? Number(form.natureza_despesa) : null,
         fonte_recurso: Number(form.fonte_recurso),
         valor_dotado: Number(form.valor_dotado),
+        valor_indicado: Number(form.valor_indicado),
+        valor_descentralizado: Number(form.valor_descentralizado),
+        valor_concedido: Number(form.valor_concedido),
         status: form.status,
         eixo: form.eixo,
         objetivo_estrategico: form.objetivo_estrategico,
         observacoes: form.observacoes,
-      })
+      }
+      await updateDotacao(id, payload)
       setEditing(false)
     } catch (err) {
       const data = err.response?.data || {}
@@ -256,16 +266,37 @@ export default function OrcamentoDetail() {
         <DetailField label="Elemento de despesa" error={formErrors.elemento_despesa}>
           {editing ? (
             <select value={form.elemento_despesa}
-              onChange={(e) => set('elemento_despesa', e.target.value)}
+              onChange={(e) => { set('elemento_despesa', e.target.value); set('natureza_despesa', ''); fetchNaturezas(e.target.value) }}
               className={inputCls(formErrors.elemento_despesa)}>
               <option value="">Selecione...</option>
               {elementos.map((el) => (
-                <option key={el.id} value={el.id}>{el.codigo} — {el.descricao}</option>
+                <option key={el.id} value={el.id}>{String(el.codigo).padStart(2,'0')} — {el.descricao}</option>
               ))}
             </select>
           ) : (
             <p className="text-sm text-gray-700">
               {current.elemento_codigo} — {current.elemento_descricao}
+            </p>
+          )}
+        </DetailField>
+
+        {/* Natureza de Despesa */}
+        <DetailField label="Natureza de despesa" error={formErrors.natureza_despesa}>
+          {editing ? (
+            <select value={form.natureza_despesa}
+              onChange={(e) => set('natureza_despesa', e.target.value)}
+              disabled={!form.elemento_despesa}
+              className={inputCls(formErrors.natureza_despesa)}>
+              <option value="">Selecione uma natureza...</option>
+              {naturezas.map((n) => (
+                <option key={n.id} value={n.id}>{n.formato} — {n.descricao}</option>
+              ))}
+            </select>
+          ) : (
+            <p className="text-sm text-gray-700">
+              {current.natureza_formato
+                ? `${current.natureza_formato} — ${current.natureza_descricao}`
+                : <span className="text-gray-400">—</span>}
             </p>
           )}
         </DetailField>
@@ -288,18 +319,31 @@ export default function OrcamentoDetail() {
           )}
         </DetailField>
 
-        {/* Valor dotado */}
-        <DetailField label="Valor dotado" error={formErrors.valor_dotado}>
-          {editing ? (
-            <input type="number" min="0" step="0.01" value={form.valor_dotado}
-              onChange={(e) => set('valor_dotado', e.target.value)}
-              className={inputCls(formErrors.valor_dotado)} />
-          ) : (
-            <p className="text-sm text-gray-700 font-medium">
-              {Number(current.valor_dotado).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-            </p>
-          )}
-        </DetailField>
+        {/* Pipeline de Valores */}
+        <div className="bg-gray-50 rounded-xl border border-gray-200 p-4">
+          <p className="text-xs font-semibold text-gray-400 uppercase mb-3">Pipeline Orçamentário</p>
+          <div className="grid grid-cols-2 gap-3">
+            {[
+              { key: 'valor_dotado',        label: 'Dotado',         color: 'text-gray-800' },
+              { key: 'valor_indicado',      label: 'Indicado',       color: 'text-blue-700' },
+              { key: 'valor_descentralizado', label: 'Descentralizado', color: 'text-amber-700' },
+              { key: 'valor_concedido',     label: 'Concedido',      color: 'text-green-700' },
+            ].map(({ key, label, color }) => (
+              <div key={key}>
+                <p className="text-xs text-gray-500 mb-1">{label}</p>
+                {editing ? (
+                  <input type="number" min="0" step="0.01" value={form[key]}
+                    onChange={(e) => set(key, e.target.value)}
+                    className={inputCls(formErrors[key])} />
+                ) : (
+                  <p className={`text-sm font-semibold ${color}`}>
+                    {Number(current[key] ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
 
         {/* Eixo */}
         <DetailField label="Eixo" error={formErrors.eixo}>
