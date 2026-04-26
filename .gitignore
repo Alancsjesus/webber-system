@@ -42,6 +42,9 @@ logs/
 *.swp
 *.swo
 
+# ── Documentos de referência local ───────────────────────────
+documentos_webber/
+
 # ── Claude Code ───────────────────────────────────────────────
 .claude/
 
