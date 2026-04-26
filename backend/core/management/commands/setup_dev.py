@@ -9,7 +9,7 @@ Uso:
 """
 from django.core.management.base import BaseCommand
 from django.contrib.auth.models import User
-from core.models import Orgao, UnidadeOrganizacional, UserProfile
+from core.models import Orgao, UnidadeOrganizacional, UserProfile, ParametroSistema
 
 
 ORGAOS = [
@@ -36,6 +36,34 @@ UNIDADES = [
     # PMBA
     {'orgao': 'PMBA', 'sigla': 'DEM_PM',   'nome': 'Unidade Demandante PM',                'tipo': 'demandante'},
     {'orgao': 'PMBA', 'sigla': 'DEPLAN',   'nome': 'Departamento de Planejamento PM',      'tipo': 'planejamento'},
+]
+
+PARAMETROS = [
+    {
+        'chave': 'valor_limite_dispensa_etp',
+        'valor': '62000.00',
+        'descricao': 'Valor máximo (R$) para dispensa de ETP em contratações diretas (art. 75, Lei 14.133/2021). Editável anualmente pela Unidade Licitante.',
+    },
+    {
+        'chave': 'prazo_entrega_padrao_dias',
+        'valor': '30',
+        'descricao': 'Prazo padrão de entrega em dias corridos após empenho, conforme padrão SSP-BA.',
+    },
+    {
+        'chave': 'percentual_maximo_extrapolacao_dfd',
+        'valor': '10',
+        'descricao': 'Percentual máximo (%) de extrapolação do valor estimado no DFD em relação ao planejado. Acima deste valor exige justificativa.',
+    },
+    {
+        'chave': 'exercicio_fiscal_corrente',
+        'valor': '2026',
+        'descricao': 'Exercício fiscal corrente utilizado como padrão nos formulários de cadastro.',
+    },
+    {
+        'chave': 'orgao_nome_completo',
+        'valor': 'Secretaria da Segurança Pública',
+        'descricao': 'Nome completo do órgão pai para uso nos documentos gerados (DFD, ETP, TR, DOD).',
+    },
 ]
 
 USUARIOS = [
@@ -112,6 +140,20 @@ class Command(BaseCommand):
             profile.unidade = unidade
             profile.papel   = papel
             profile.save()
+
+        # Cria parâmetros do sistema
+        admin_user = User.objects.filter(is_superuser=True).first()
+        for cfg in PARAMETROS:
+            param, created = ParametroSistema.objects.get_or_create(
+                chave=cfg['chave'],
+                defaults={
+                    'valor': cfg['valor'],
+                    'descricao': cfg['descricao'],
+                    'atualizado_por': admin_user,
+                },
+            )
+            label = 'criado' if created else 'existente'
+            self.stdout.write(f'Parâmetro {label}: {param.chave} = {param.valor}')
 
         self.stdout.write('')
         self.stdout.write(self.style.SUCCESS('=== Setup concluído ==='))

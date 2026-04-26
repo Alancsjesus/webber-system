@@ -50,9 +50,11 @@ const NAV_ACEITE = {
 const NAV_CONFIG_ADMIN = {
   section: 'Configurações',
   items: [
+    { to: '/config/perfis',    label: 'Perfis e Permissões' },
     { to: '/config/orgaos',    label: 'Órgãos' },
     { to: '/config/unidades',  label: 'Unidades' },
     { to: '/config/usuarios',  label: 'Usuários' },
+    { to: '/config/parametros',label: 'Parâmetros do Sistema' },
     { to: '/config/acoes',     label: 'Ações Orçamentárias' },
     { to: '/config/elementos', label: 'Elementos de Despesa' },
     { to: '/config/naturezas', label: 'Naturezas de Despesa' },
@@ -60,14 +62,23 @@ const NAV_CONFIG_ADMIN = {
   ],
 }
 
-// Planejamento vê apenas tabelas orçamentárias
+// Planejamento vê tabelas orçamentárias e parâmetros
 const NAV_CONFIG_PLANEJAMENTO = {
   section: 'Configurações',
   items: [
+    { to: '/config/parametros',label: 'Parâmetros do Sistema' },
     { to: '/config/acoes',     label: 'Ações Orçamentárias' },
     { to: '/config/elementos', label: 'Elementos de Despesa' },
     { to: '/config/naturezas', label: 'Naturezas de Despesa' },
     { to: '/config/fontes',    label: 'Fontes de Recurso' },
+  ],
+}
+
+// Licitante vê parâmetros de licitação (ex: limite dispensa ETP)
+const NAV_CONFIG_LICITANTE = {
+  section: 'Configurações',
+  items: [
+    { to: '/config/parametros', label: 'Parâmetros do Sistema' },
   ],
 }
 
@@ -91,6 +102,8 @@ function buildSections(papel, tipoUnidade) {
     sections.push(NAV_CONFIG_ADMIN)
   } else if (papel === 'gestor_planejamento' || tipoUnidade === 'planejamento') {
     sections.push(NAV_CONFIG_PLANEJAMENTO)
+  } else if (tipoUnidade === 'licitante') {
+    sections.push(NAV_CONFIG_LICITANTE)
   }
 
   return sections

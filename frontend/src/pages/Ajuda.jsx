@@ -4,35 +4,35 @@ export default function Ajuda() {
       <h1 className="text-2xl font-bold text-gray-800 mb-2">Central de Ajuda — WEBBER</h1>
       <p className="text-sm text-gray-500 mb-8">
         Orientações sobre fluxos, ações disponíveis e regras de negócio do sistema.
+        Baseado na Lei 14.133/2021 e Decreto Estadual 22.886/2024.
       </p>
 
       <div className="space-y-8">
 
-        {/* Hierarquia de Órgãos */}
         <Section title="Hierarquia de Órgãos">
-          <p>O sistema suporta uma hierarquia de órgãos pai/filho.</p>
+          <p>O sistema suporta hierarquia de órgãos pai/filho.</p>
           <ul className="list-disc ml-5 space-y-1 mt-2">
             <li><strong>Órgão Pai (ex: SSP)</strong> — centraliza licitações e visualiza demandas de todos os filhos.</li>
             <li><strong>Órgãos Filhos (ex: PMBA, CBMBA)</strong> — criam necessidades que podem ser executadas internamente ou repassadas ao pai.</li>
           </ul>
         </Section>
 
-        {/* Perfis e Permissões */}
-        <Section title="Perfis de Usuário e Permissões">
+        <Section title="Perfis de Usuário">
           <table className="w-full text-sm border border-gray-200 rounded-lg overflow-hidden">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="text-left px-4 py-2 font-medium text-gray-500">Perfil</th>
-                <th className="text-left px-4 py-2 font-medium text-gray-500">Pode fazer</th>
+                <th className="text-left px-4 py-2 font-medium text-gray-500">Responsabilidade principal</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
               {[
-                ['Solicitante / Demandante', 'Cadastrar necessidades, submeter e corrigir DFDs e ETPs devolvidos'],
-                ['Gestor de Planejamento', 'Aprovar/rejeitar necessidades, cadastrar e editar Plano Orçamentário, vincular demandas, bloquear necessidades sem plano'],
-                ['Analista / Gestor de Contrato', 'Iniciar análise, aprovar e devolver DFDs e ETPs'],
-                ['Ordenador', 'Aprovar dotações e DFDs'],
-                ['Administrador', 'Acesso total + gestão de órgãos, unidades e usuários'],
+                ['Solicitante / Demandante', 'Cadastra necessidades, cria DFD, ETP e Minuta TR'],
+                ['Gestor de Planejamento', 'Aprova necessidades, gerencia plano orçamentário e dotações'],
+                ['Analista', 'Analisa, aprova e devolve DFDs e ETPs'],
+                ['Ordenador de Despesa', 'Aprova indicações orçamentárias (emite DOD)'],
+                ['Licitante', 'Conduz licitações e configura parâmetros do sistema'],
+                ['Administrador', 'Acesso total, gestão de órgãos, usuários e parâmetros'],
               ].map(([papel, desc]) => (
                 <tr key={papel} className="hover:bg-gray-50">
                   <td className="px-4 py-2 font-medium text-gray-700 whitespace-nowrap">{papel}</td>
@@ -41,74 +41,103 @@ export default function Ajuda() {
               ))}
             </tbody>
           </table>
+          <Info>Acesse <strong>Configurações → Perfis e Permissões</strong> para ver o detalhamento completo de cada perfil.</Info>
         </Section>
 
-        {/* Fluxo de Necessidade */}
+        <Section title="Fluxo Completo de Contratação">
+          <ol className="space-y-2 mt-2">
+            {[
+              { n: '1', label: 'Necessidade', desc: 'Demandante identifica e cadastra a necessidade com tipo de execução.' },
+              { n: '2', label: 'Plano Orçamentário', desc: 'Planejamento vincula a necessidade ao plano orçamentário e às dotações.' },
+              { n: '3', label: 'DFD', desc: 'Demandante formaliza a demanda com itens, valores e modalidade.' },
+              { n: '4', label: 'ETP', desc: 'Demandante elabora o Estudo Técnico Preliminar (pode ser dispensado).' },
+              { n: '5', label: 'Indicação / DOD', desc: 'Planejamento indica os recursos e o Ordenador emite a DOD.' },
+              { n: '6', label: 'Minuta TR', desc: 'Demandante elabora a Minuta do Termo de Referência.' },
+              { n: '7', label: 'Licitação', desc: 'Documentos exportados para o SEI e processo licitatório iniciado.' },
+            ].map(({ n, label, desc }) => (
+              <li key={n} className="flex gap-3 items-start">
+                <span className="shrink-0 w-6 h-6 rounded-full bg-blue-600 text-white text-xs font-bold flex items-center justify-center mt-0.5">{n}</span>
+                <div>
+                  <span className="font-semibold text-gray-800">{label}</span>
+                  <span className="text-gray-600"> — {desc}</span>
+                </div>
+              </li>
+            ))}
+          </ol>
+        </Section>
+
         <Section title="Fluxo da Necessidade de Planejamento">
           <Flow steps={[
-            { status: 'Identificada', desc: 'Demandante cadastra a necessidade com tipo de execução (interna ou externa ao órgão).' },
-            { status: 'Em Análise', desc: 'Unidade de Planejamento analisa e pode solicitar ajustes.' },
-            { status: 'Aprovada', desc: 'Planejamento aprova. A necessidade pode agora originar um DFD.' },
-            { status: 'DFD Criado', desc: 'Demandante criou o DFD vinculado a esta necessidade.' },
-            { status: 'Cancelada', desc: 'Planejamento bloqueou a necessidade (sem orçamento ou planejamento inadequado).' },
+            { status: 'Identificada', desc: 'Demandante cadastra com tipo de execução (interna ou externa).' },
+            { status: 'Em Análise', desc: 'Unidade de Planejamento analisa.' },
+            { status: 'Aprovada', desc: 'Planejamento aprova. A necessidade pode originar um DFD.' },
+            { status: 'DFD Criado', desc: 'DFD foi gerado e vinculado a esta necessidade.' },
+            { status: 'Cancelada', desc: 'Planejamento bloqueou (sem orçamento ou planejamento inadequado).' },
           ]} />
-          <Info>Para necessidades com <strong>Execução Externa</strong>, o sistema automaticamente vincula ao órgão pai e exibe a necessidade no painel da SSP com badge "Herdada".</Info>
+          <Info>Para necessidades com <strong>Execução Externa</strong>, o órgão pai visualiza na fila de aceite e pode aceitar ou recusar em lote.</Info>
         </Section>
 
-        {/* Plano Orçamentário */}
-        <Section title="Plano Orçamentário">
-          <ul className="list-disc ml-5 space-y-1 text-sm text-gray-700">
-            <li>Criado pela <strong>Unidade de Planejamento</strong> do órgão.</li>
-            <li>Vincula necessidades com classificação de origem: <em>Demanda Própria</em> ou <em>Demanda de Órgão Filho</em>.</li>
-            <li>Uma necessidade sem plano orçamentário vinculado bloqueia a submissão do DFD (a menos que haja justificativa).</li>
-            <li>A dotação total do plano é comparada com a soma dos valores das necessidades vinculadas.</li>
-          </ul>
-        </Section>
-
-        {/* Fluxo DFD */}
-        <Section title="Fluxo do DFD (Documento de Formalização de Demanda)">
+        <Section title="Fluxo do DFD">
           <Flow steps={[
             { status: 'Rascunho', desc: 'Demandante cria o DFD, vincula à necessidade aprovada e preenche itens.' },
             { status: 'Submetida', desc: 'DFD submetido para análise da unidade licitante.' },
             { status: 'Em Análise', desc: 'Analista iniciou análise. Órgão de compras é registrado.' },
             { status: 'Aprovada', desc: 'DFD aprovado. Habilita a criação do ETP.' },
-            { status: 'Devolvida', desc: 'DFD devolvido ao demandante para ajuste (motivo registrado no histórico).' },
-            { status: 'Rejeitada', desc: 'DFD rejeitado definitivamente.' },
+            { status: 'Devolvida', desc: 'DFD devolvido com motivo. Demandante corrige e resubmete.' },
           ]} />
-          <Info>O <strong>número SEI do DFD</strong> é pre-preenchido no ETP ao criá-lo, mas pode ser alterado — o histórico de alterações é mantido.</Info>
         </Section>
 
-        {/* Fluxo ETP */}
-        <Section title="Fluxo do ETP (Estudo Técnico Preliminar)">
+        <Section title="Fluxo do ETP">
           <Flow steps={[
-            { status: 'Rascunho', desc: 'Demandante cria o ETP a partir de um DFD aprovado e preenche as seções.' },
+            { status: 'Rascunho', desc: 'Demandante cria o ETP a partir de um DFD aprovado.' },
             { status: 'Submetido', desc: 'ETP submetido para análise.' },
             { status: 'Em Análise', desc: 'Analista iniciou análise do ETP.' },
-            { status: 'Aprovado', desc: 'ETP aprovado. Habilita a elaboração do Termo de Referência.' },
-            { status: 'Devolvido', desc: 'ETP devolvido para ajuste (motivo registrado no histórico).' },
+            { status: 'Aprovado', desc: 'ETP aprovado. Habilita a Minuta TR.' },
+            { status: 'Devolvido', desc: 'ETP devolvido com motivo.' },
+            { status: 'Dispensado', desc: 'ETP dispensado automaticamente (contratação direta ≤ limite ou ARP).' },
+          ]} />
+          <Info>O limite de dispensa de ETP é configurável em <strong>Configurações → Parâmetros do Sistema</strong> (padrão: R$ 62.000 — art. 75, Lei 14.133/2021).</Info>
+        </Section>
+
+        <Section title="Fluxo da Indicação Orçamentária / DOD">
+          <Flow steps={[
+            { status: 'Rascunho', desc: 'Planejamento cria a indicação e vincula uma ou mais dotações com valores específicos.' },
+            { status: 'Submetida', desc: 'Indicação submetida ao Ordenador de Despesa para aprovação.' },
+            { status: 'Aprovada', desc: 'Ordenador aprova — DOD gerada. PDF disponível para download.' },
+            { status: 'Cancelada', desc: 'Indicação cancelada com motivo registrado no histórico.' },
+          ]} />
+          <Info>A DOD pode ter uma ou mais dotações. Ao aprovar, o sistema atualiza automaticamente o <strong>valor indicado</strong> em cada dotação vinculada.</Info>
+        </Section>
+
+        <Section title="Fluxo da Minuta do Termo de Referência">
+          <Flow steps={[
+            { status: 'Rascunho', desc: 'Demandante elabora a Minuta TR a partir de um ETP aprovado.' },
+            { status: 'Submetido', desc: 'Minuta submetida para análise.' },
+            { status: 'Em Análise', desc: 'Analista analisa a Minuta TR.' },
+            { status: 'Aprovado', desc: 'Minuta TR aprovada. Disponível para exportação em PDF/HTML para o SEI.' },
+            { status: 'Devolvido', desc: 'Devolvido para ajuste com motivo.' },
           ]} />
         </Section>
 
-        {/* Regras de Negócio */}
-        <Section title="Regras de Negócio Importantes">
+        <Section title="Autenticidade dos Documentos">
           <ul className="list-disc ml-5 space-y-2 text-sm text-gray-700">
-            <li>Necessidade com <strong>tipo_execucao = externa</strong> é automaticamente vinculada ao órgão pai como executor.</li>
-            <li>O DFD não pode ser submetido se a necessidade não estiver em um plano orçamentário (exige justificativa).</li>
-            <li>O DFD não pode ser submetido se o valor extrapolar em mais de 10% o planejado (exige justificativa).</li>
-            <li>O ETP só pode ser criado para DFDs com status <strong>Aprovada</strong>.</li>
-            <li>Cada DFD pode ter apenas um ETP.</li>
-            <li>Motivos de devolução ficam registrados no histórico de tramitação de DFDs e ETPs.</li>
-            <li>Alterações no número SEI do ETP geram histórico rastreável com motivo.</li>
+            <li>Todos os documentos gerados (DFD, ETP, Minuta TR, DOD) incluem um <strong>Código de Verificação</strong> no rodapé.</li>
+            <li>O código pode ser validado no endpoint <code className="bg-gray-100 px-1 rounded text-xs">/api/verificar/&lt;código&gt;/</code>.</li>
+            <li>O SEI pode utilizar o código para validar o documento como <strong>externo autenticado</strong>.</li>
+            <li>O código inclui dados do criador, aprovador, órgão e timestamps — garantindo rastreabilidade.</li>
           </ul>
         </Section>
 
-        {/* Painel Órgão Pai */}
-        <Section title="Painel do Órgão Pai">
-          <p className="text-sm text-gray-700">
-            Disponível no menu <strong>Painel</strong>, exibe todas as necessidades, DFDs e ETPs
-            organizados por órgão e unidade demandante. Necessidades herdadas de órgãos filhos
-            aparecem com badge <span className="inline-block px-1.5 py-0.5 rounded text-xs bg-indigo-100 text-indigo-700 font-medium">Herdada</span>.
-          </p>
+        <Section title="Regras de Negócio Importantes">
+          <ul className="list-disc ml-5 space-y-2 text-sm text-gray-700">
+            <li>Necessidade com <strong>execução externa</strong> vai para fila de aceite do órgão pai.</li>
+            <li>DFD não pode ser submetido sem necessidade em plano orçamentário (exige justificativa).</li>
+            <li>DFD não pode ser submetido com valor acima de <strong>{'{percentual}'}%</strong> do planejado sem justificativa.</li>
+            <li>ETP dispensado automaticamente para contratações diretas abaixo do limite configurável.</li>
+            <li>A Natureza de Despesa (ex: 3.3.90.30) define automaticamente o Elemento (ex: 30).</li>
+            <li>Indicação orçamentária com múltiplas dotações — valor indicado de cada dotação é registrado separadamente.</li>
+            <li>Todos os documentos têm histórico imutável de tramitações com usuário, data e motivo.</li>
+          </ul>
         </Section>
 
       </div>
@@ -146,6 +175,7 @@ const STATUS_CLS = {
   Devolvido:    'bg-orange-100 text-orange-700',
   Rejeitada:    'bg-red-100 text-red-700',
   Aprovado:     'bg-green-100 text-green-700',
+  Dispensado:   'bg-purple-100 text-purple-700',
 }
 
 function Flow({ steps }) {
