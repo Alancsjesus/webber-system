@@ -19,7 +19,8 @@ const NAV_BASE = [
   {
     section: 'Orçamento',
     items: [
-      { to: '/orcamento/dotacoes', label: 'Dotações' },
+      { to: '/orcamento/dotacoes',   label: 'Dotações' },
+      { to: '/orcamento/indicacoes', label: 'Indicações / DOD' },
     ],
   },
   {

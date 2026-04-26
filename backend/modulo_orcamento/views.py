@@ -16,7 +16,10 @@ from modulo_planejamento.serializers import NecessidadeSerializer
 logger = logging.getLogger(__name__)
 
 from .filters import AcaoOrcamentariaFilter, FonteRecursoFilter, DotacaoOrcamentariaFilter
-from .models import AcaoOrcamentaria, ElementoDespesa, NaturezaDespesa, FonteRecurso, DotacaoOrcamentaria
+from .models import (
+    AcaoOrcamentaria, ElementoDespesa, NaturezaDespesa, FonteRecurso,
+    DotacaoOrcamentaria, IndicacaoOrcamentaria, IndicacaoDotacao, HistoricoIndicacao,
+)
 from .serializers import (
     AcaoOrcamentariaSerializer,
     ElementoDespesaSerializer,
@@ -24,6 +27,8 @@ from .serializers import (
     FonteRecursoSerializer,
     DotacaoOrcamentariaSerializer,
     VincularNecessidadeSerializer,
+    IndicacaoOrcamentariaSerializer,
+    VincularDotacaoSerializer,
 )
 
 
@@ -256,3 +261,154 @@ class DotacaoOrcamentariaViewSet(viewsets.ModelViewSet):
 
         serializer = NecessidadeSerializer(disponiveis, many=True, context={'request': request})
         return Response(serializer.data)
+
+
+class IndicacaoOrcamentariaViewSet(viewsets.ModelViewSet):
+    """Indicações Orçamentárias / DOD."""
+    serializer_class   = IndicacaoOrcamentariaSerializer
+    permission_classes = [IsAuthenticated, IsMultiTenant]
+    filter_backends    = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields      = ['numero', 'observacoes', 'dfd__numero_sei', 'necessidade__titulo']
+    ordering_fields    = ['exercicio_fiscal', 'status', 'created_at']
+    ordering           = ['-exercicio_fiscal', '-created_at']
+
+    def get_queryset(self):
+        qs = IndicacaoOrcamentaria.objects.filter(
+            org_id=self.request.org_id
+        ).select_related('dfd', 'necessidade', 'ordenador', 'org_id', 'created_by')
+        exercicio = self.request.query_params.get('exercicio_fiscal')
+        stat      = self.request.query_params.get('status')
+        if exercicio:
+            qs = qs.filter(exercicio_fiscal=exercicio)
+        if stat:
+            qs = qs.filter(status=stat)
+        return qs
+
+    def _check_planejamento(self, request):
+        papel      = getattr(request, 'papel', None)
+        tipo_unid  = getattr(request, 'tipo_unidade', None)
+        from rest_framework.exceptions import PermissionDenied
+        if papel not in ('admin', 'gestor_planejamento', 'ordenador') and tipo_unid != 'planejamento':
+            raise PermissionDenied('Apenas Planejamento, Ordenador ou Admin podem gerenciar indicações.')
+
+    def perform_create(self, serializer):
+        self._check_planejamento(self.request)
+        serializer.save()
+
+    def perform_update(self, serializer):
+        self._check_planejamento(self.request)
+        serializer.save()
+
+    def _transicao(self, indicacao, novo_status, usuario, motivo=None):
+        permitidos = IndicacaoOrcamentaria.TRANSICOES_PERMITIDAS.get(indicacao.status, [])
+        if novo_status not in permitidos:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError(
+                f'Transição "{indicacao.status}" → "{novo_status}" não permitida.'
+            )
+        anterior = indicacao.status
+        indicacao.status = novo_status
+        indicacao.updated_by = usuario
+        indicacao.save()
+        HistoricoIndicacao.objects.create(
+            indicacao=indicacao, status_anterior=anterior,
+            status_novo=novo_status, usuario=usuario, motivo=motivo,
+        )
+
+    @action(detail=True, methods=['post'])
+    def submeter(self, request, pk=None):
+        indicacao = self.get_object()
+        if not indicacao.itens.exists():
+            return Response(
+                {'detail': 'Vincule ao menos uma dotação antes de submeter.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        self._transicao(indicacao, 'Submetida', request.user)
+        return Response({'detail': 'Indicação submetida com sucesso.'})
+
+    @action(detail=True, methods=['post'])
+    def aprovar(self, request, pk=None):
+        papel = getattr(request, 'papel', None)
+        if papel not in ('admin', 'ordenador'):
+            return Response(
+                {'detail': 'Apenas o Ordenador de Despesa pode aprovar indicações.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        indicacao = self.get_object()
+        self._transicao(indicacao, 'Aprovada', request.user)
+        from datetime import date
+        indicacao.ordenador       = request.user
+        indicacao.data_aprovacao  = date.today()
+        indicacao.save()
+        # Atualiza valor_indicado nas dotações vinculadas
+        for item in indicacao.itens.select_related('dotacao'):
+            dot = item.dotacao
+            dot.valor_indicado = item.valor_indicado
+            dot.save(update_fields=['valor_indicado'])
+        return Response({'detail': 'DOD emitida. Indicação aprovada com sucesso.'})
+
+    @action(detail=True, methods=['post'])
+    def cancelar(self, request, pk=None):
+        indicacao = self.get_object()
+        motivo = request.data.get('motivo', '').strip()
+        if not motivo:
+            return Response(
+                {'detail': 'Motivo do cancelamento é obrigatório.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        self._transicao(indicacao, 'Cancelada', request.user, motivo)
+        indicacao.motivo_cancelamento = motivo
+        indicacao.save(update_fields=['motivo_cancelamento'])
+        return Response({'detail': 'Indicação cancelada.'})
+
+    @action(detail=True, methods=['post'], url_path='vincular-dotacao')
+    def vincular_dotacao(self, request, pk=None):
+        indicacao = self.get_object()
+        if indicacao.status not in ('Rascunho',):
+            return Response(
+                {'detail': 'Só é possível vincular dotações em Rascunho.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        serializer = VincularDotacaoSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        dotacao_id     = serializer.validated_data['dotacao_id']
+        valor_indicado = serializer.validated_data['valor_indicado']
+
+        dotacao = get_object_or_404(
+            DotacaoOrcamentaria, id=dotacao_id, org_id=request.org_id
+        )
+        item, created = IndicacaoDotacao.objects.update_or_create(
+            indicacao=indicacao, dotacao=dotacao,
+            defaults={'valor_indicado': valor_indicado},
+        )
+        # Recalcular valor total
+        total = sum(i.valor_indicado for i in indicacao.itens.all())
+        indicacao.valor_total = total
+        indicacao.save(update_fields=['valor_total'])
+
+        return Response({
+            'detail': f'Dotação vinculada com R$ {valor_indicado:,.2f}.',
+            'valor_total': float(indicacao.valor_total),
+        })
+
+    @action(detail=True, methods=['post'], url_path='desvincular-dotacao')
+    def desvincular_dotacao(self, request, pk=None):
+        indicacao = self.get_object()
+        if indicacao.status not in ('Rascunho',):
+            return Response(
+                {'detail': 'Só é possível desvincular dotações em Rascunho.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        dotacao_id = request.data.get('dotacao_id')
+        IndicacaoDotacao.objects.filter(indicacao=indicacao, dotacao_id=dotacao_id).delete()
+        total = sum(i.valor_indicado for i in indicacao.itens.all())
+        indicacao.valor_total = total
+        indicacao.save(update_fields=['valor_total'])
+        return Response({'detail': 'Dotação desvinculada.', 'valor_total': float(total)})
+
+    @action(detail=True, methods=['get'], url_path='export/pdf')
+    def export_pdf(self, request, pk=None):
+        indicacao = self.get_object()
+        from exportacao.pdf_utils import gerar_pdf_indicacao, resposta_pdf
+        pdf = gerar_pdf_indicacao(indicacao)
+        return resposta_pdf(pdf, f'DOD-{indicacao.numero}.pdf')

@@ -1,4 +1,5 @@
 from django.db import models
+from django.contrib.auth.models import User
 from core.models import BaseModel
 
 
@@ -208,3 +209,115 @@ class DotacaoOrcamentaria(BaseModel):
             f'{self.acao.codigo} / {self.elemento_despesa.codigo} / '
             f'{self.fonte_recurso.codigo}'
         )
+
+
+# ── Indicação Orçamentária / DOD ───────────────────────────────────────────────
+
+class IndicacaoOrcamentaria(BaseModel):
+    """
+    Indicação orçamentária que formaliza a alocação de recursos de uma ou mais
+    dotações para uma demanda (DFD ou Necessidade). Quando aprovada pelo
+    Ordenador de Despesa, gera a DOD — Declaração do Ordenador de Despesa.
+    """
+    STATUS_CHOICES = [
+        ('Rascunho',  'Rascunho'),
+        ('Submetida', 'Submetida'),
+        ('Aprovada',  'Aprovada (DOD emitida)'),
+        ('Cancelada', 'Cancelada'),
+    ]
+
+    TRANSICOES_PERMITIDAS = {
+        'Rascunho':  ['Submetida'],
+        'Submetida': ['Aprovada', 'Cancelada'],
+        'Aprovada':  ['Cancelada'],
+        'Cancelada': [],
+    }
+
+    numero           = models.CharField(max_length=20, verbose_name='Número')
+    exercicio_fiscal = models.IntegerField(verbose_name='Exercício fiscal')
+    dfd              = models.ForeignKey(
+        'modulo_demanda.DFD',
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='indicacoes',
+        verbose_name='DFD vinculado',
+    )
+    necessidade = models.ForeignKey(
+        'modulo_planejamento.NecessidadePlanejamento',
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='indicacoes',
+        verbose_name='Necessidade vinculada',
+    )
+    valor_total = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0,
+        verbose_name='Valor total indicado (R$)',
+    )
+    status = models.CharField(
+        max_length=15, choices=STATUS_CHOICES, default='Rascunho',
+        verbose_name='Status',
+    )
+    observacoes     = models.TextField(blank=True, default='', verbose_name='Observações')
+    ordenador       = models.ForeignKey(
+        User, null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='indicacoes_ordenadas',
+        verbose_name='Ordenador de despesa',
+    )
+    data_aprovacao  = models.DateField(null=True, blank=True, verbose_name='Data de aprovação')
+    motivo_cancelamento = models.TextField(
+        blank=True, default='', verbose_name='Motivo do cancelamento',
+    )
+    dotacoes = models.ManyToManyField(
+        DotacaoOrcamentaria,
+        through='IndicacaoDotacao',
+        blank=True,
+        related_name='indicacoes',
+        verbose_name='Dotações indicadas',
+    )
+
+    class Meta(BaseModel.Meta):
+        ordering = ['-exercicio_fiscal', '-created_at']
+        unique_together = [['org_id', 'numero']]
+        verbose_name = 'Indicação Orçamentária'
+        verbose_name_plural = 'Indicações Orçamentárias'
+
+    def __str__(self):
+        return f'{self.numero} — {self.status} ({self.exercicio_fiscal})'
+
+
+class IndicacaoDotacao(models.Model):
+    """Vínculo entre Indicação e Dotação com o valor indicado para cada dotação."""
+    indicacao      = models.ForeignKey(
+        IndicacaoOrcamentaria, on_delete=models.CASCADE, related_name='itens',
+    )
+    dotacao        = models.ForeignKey(
+        DotacaoOrcamentaria, on_delete=models.PROTECT, related_name='itens_indicacao',
+    )
+    valor_indicado = models.DecimalField(
+        max_digits=15, decimal_places=2, verbose_name='Valor indicado (R$)',
+    )
+
+    class Meta:
+        unique_together = [['indicacao', 'dotacao']]
+        verbose_name = 'Item de Indicação'
+        verbose_name_plural = 'Itens de Indicação'
+
+    def __str__(self):
+        return f'{self.indicacao.numero} ← {self.dotacao} = R$ {self.valor_indicado}'
+
+
+class HistoricoIndicacao(models.Model):
+    """Trilha imutável de transições de status da Indicação Orçamentária."""
+    indicacao       = models.ForeignKey(
+        IndicacaoOrcamentaria, on_delete=models.CASCADE, related_name='historico',
+    )
+    status_anterior = models.CharField(max_length=15)
+    status_novo     = models.CharField(max_length=15)
+    usuario         = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    motivo          = models.TextField(blank=True, null=True)
+    criado_em       = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-criado_em']
+        verbose_name = 'Histórico de Indicação'

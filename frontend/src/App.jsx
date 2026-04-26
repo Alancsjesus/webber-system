@@ -13,6 +13,9 @@ import AceiteNecessidades from './pages/AceiteNecessidades'
 import OrcamentoList from './pages/OrcamentoList'
 import OrcamentoCreate from './pages/OrcamentoCreate'
 import OrcamentoDetail from './pages/OrcamentoDetail'
+import IndicacaoList from './pages/IndicacaoList'
+import IndicacaoCreate from './pages/IndicacaoCreate'
+import IndicacaoDetail from './pages/IndicacaoDetail'
 import ETPList from './pages/ETPList'
 import ETPCreate from './pages/ETPCreate'
 import ETPDetail from './pages/ETPDetail'
@@ -56,9 +59,12 @@ export default function App() {
           <Route path="planejamento/aceite"             element={<AceiteNecessidades />} />
 
           {/* Orçamento */}
-          <Route path="orcamento/dotacoes"       element={<OrcamentoList />} />
-          <Route path="orcamento/dotacoes/nova"  element={<OrcamentoCreate />} />
-          <Route path="orcamento/dotacoes/:id"   element={<OrcamentoDetail />} />
+          <Route path="orcamento/dotacoes"          element={<OrcamentoList />} />
+          <Route path="orcamento/dotacoes/nova"     element={<OrcamentoCreate />} />
+          <Route path="orcamento/dotacoes/:id"      element={<OrcamentoDetail />} />
+          <Route path="orcamento/indicacoes"        element={<IndicacaoList />} />
+          <Route path="orcamento/indicacoes/nova"   element={<IndicacaoCreate />} />
+          <Route path="orcamento/indicacoes/:id"    element={<IndicacaoDetail />} />
 
           {/* Demanda */}
           <Route path="demanda/dfd"       element={<DFDList />} />

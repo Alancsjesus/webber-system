@@ -106,65 +106,85 @@ def _rodape(canvas, doc):
     canvas.restoreState()
 
 
-def _bloco_assinaturas(obj, estilos, hash_doc):
+def _get_papel_org(usuario):
+    """Retorna (papel_display, org_nome) do UserProfile do usuário."""
+    if not usuario:
+        return ('—', '—')
+    try:
+        profile = usuario.userprofile
+        papel = profile.get_papel_display() if hasattr(profile, 'get_papel_display') else (profile.papel or '—')
+        org   = profile.org_id.nome if profile.org_id else '—'
+        return (papel, org)
+    except Exception:
+        return ('—', '—')
+
+
+def _bloco_assinaturas(obj, estilos, hash_doc, aprovador_override=None, data_aprovacao_override=None):
     """Gera bloco de assinaturas com criador e aprovador."""
     elementos = []
     elementos.append(Spacer(1, 0.5 * cm))
     elementos.append(_secao('Assinaturas', estilos))
     elementos.append(Spacer(1, 0.3 * cm))
     elementos.append(Paragraph(
-        '⚠  Este documento requer assinatura digital pelo GOV.BR ou SEI para ter validade jurídica.',
+        'Este documento requer assinatura física ou digital (GOV.BR / SEI) para ter validade jurídica.',
         estilos['aviso'],
     ))
 
-    def _celula_assinatura(usuario, papel, data, titulo):
+    def _celula(titulo, nome, papel_str, org_str, data_str):
         linhas = [
-            Paragraph(titulo, ParagraphStyle('tt', fontSize=8, textColor=CINZA_TXT,
-                                              alignment=TA_CENTER, fontName='Helvetica-Bold')),
-            Spacer(1, 0.3 * cm),
-            HRFlowable(width='80%', thickness=1, color=CINZA_BD, hAlign='CENTER'),
+            Paragraph(titulo, ParagraphStyle(
+                'tt', fontSize=8, textColor=CINZA_TXT,
+                alignment=TA_CENTER, fontName='Helvetica-Bold'
+            )),
+            Spacer(1, 0.4 * cm),
+            HRFlowable(width='90%', thickness=1, color=PRETO, hAlign='CENTER'),
             Spacer(1, 0.15 * cm),
-            Paragraph(usuario, ParagraphStyle('nm', fontSize=10, alignment=TA_CENTER,
-                                               fontName='Helvetica-Bold')),
-            Paragraph(papel, ParagraphStyle('cg', fontSize=8, textColor=CINZA_TXT,
-                                             alignment=TA_CENTER)),
-            Paragraph(data, ParagraphStyle('dt', fontSize=8, textColor=CINZA_TXT,
-                                            alignment=TA_CENTER)),
+            Paragraph(nome, ParagraphStyle('nm', fontSize=10, alignment=TA_CENTER, fontName='Helvetica-Bold')),
+            Paragraph(papel_str, ParagraphStyle('cg', fontSize=8, textColor=CINZA_TXT, alignment=TA_CENTER)),
+            Paragraph(org_str,   ParagraphStyle('og', fontSize=8, textColor=CINZA_TXT, alignment=TA_CENTER)),
+            Paragraph(data_str,  ParagraphStyle('dt', fontSize=8, textColor=CINZA_TXT, alignment=TA_CENTER)),
         ]
         return linhas
 
-    criador = getattr(obj, 'created_by', None)
+    criador      = getattr(obj, 'created_by', None)
     nome_criador = criador.get_full_name() or criador.username if criador else '—'
-    data_criacao = obj.created_at.strftime('%d/%m/%Y %H:%M') if obj.created_at else '—'
+    papel_c, org_c = _get_papel_org(criador)
+    data_criacao = obj.created_at.strftime('%d/%m/%Y %H:%M') if getattr(obj, 'created_at', None) else '—'
 
-    aprovador = None
-    data_aprovacao = '—'
-    for h in obj.historico.all():
-        if h.status_novo in ('Aprovada', 'Aprovado'):
-            aprovador = h.usuario
-            data_aprovacao = h.criado_em.strftime('%d/%m/%Y %H:%M')
-            break
+    # Aprovador: pode vir de override (DOD) ou do histórico
+    if aprovador_override:
+        aprovador    = aprovador_override
+        data_aprov   = data_aprovacao_override or '—'
+    else:
+        aprovador    = None
+        data_aprov   = '—'
+        for h in obj.historico.all():
+            if h.status_novo in ('Aprovada', 'Aprovado'):
+                aprovador  = h.usuario
+                data_aprov = h.criado_em.strftime('%d/%m/%Y %H:%M')
+                break
 
-    nome_aprovador = aprovador.get_full_name() or aprovador.username if aprovador else 'Pendente'
-
-    celula_criador  = _celula_assinatura(nome_criador,   'Criador do Documento',   data_criacao,   'ELABORADO POR')
-    celula_aprovador = _celula_assinatura(nome_aprovador, 'Aprovador do Documento', data_aprovacao, 'APROVADO POR')
+    nome_aprov   = aprovador.get_full_name() or aprovador.username if aprovador else 'Pendente de aprovação'
+    papel_a, org_a = _get_papel_org(aprovador) if aprovador else ('—', '—')
 
     tabela = Table(
-        [[celula_criador, celula_aprovador]],
+        [[_celula('ELABORADO POR', nome_criador, papel_c, org_c, data_criacao),
+          _celula('APROVADO POR',  nome_aprov,   papel_a, org_a, data_aprov)]],
         colWidths=[8 * cm, 8 * cm],
         hAlign='CENTER',
     )
     tabela.setStyle(TableStyle([
-        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
-        ('LEFTPADDING', (0, 0), (-1, -1), 12),
-        ('RIGHTPADDING', (0, 0), (-1, -1), 12),
+        ('VALIGN',        (0, 0), (-1, -1), 'TOP'),
+        ('LEFTPADDING',   (0, 0), (-1, -1), 12),
+        ('RIGHTPADDING',  (0, 0), (-1, -1), 12),
+        ('BOX',           (0, 0), (0, 0),   0.5, CINZA_BD),
+        ('BOX',           (1, 0), (1, 0),   0.5, CINZA_BD),
     ]))
     elementos.append(tabela)
 
     elementos.append(Spacer(1, 0.4 * cm))
     elementos.append(Paragraph(
-        f'Código de verificação do documento: <b>{hash_doc}</b>',
+        f'Código de verificação: <b>{hash_doc}</b>',
         ParagraphStyle('hash', fontSize=7, textColor=CINZA_TXT, alignment=TA_CENTER),
     ))
     return elementos
@@ -370,3 +390,108 @@ def resposta_html(html: str, filename: str) -> HttpResponse:
     response = HttpResponse(html, content_type='text/html; charset=utf-8')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'
     return response
+
+
+# ── DOD / Indicação Orçamentária ──────────────────────────────────────────────
+
+def gerar_pdf_indicacao(indicacao) -> bytes:
+    """Gera PDF da Declaração do Ordenador de Despesa (DOD)."""
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4,
+                             leftMargin=2*cm, rightMargin=2*cm,
+                             topMargin=2*cm, bottomMargin=2.5*cm)
+    estilos = _estilos()
+    e = []
+
+    def fmt(v):
+        return f'R$ {v:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
+
+    org_nome = indicacao.org_id.nome if indicacao.org_id else ''
+    hash_doc = _hash_documento({
+        'tipo': 'DOD', 'numero': indicacao.numero,
+        'exercicio': str(indicacao.exercicio_fiscal),
+        'valor': str(indicacao.valor_total),
+    })
+
+    # Cabeçalho
+    e += _cabecalho('DECLARAÇÃO DO ORDENADOR DE DESPESA', indicacao.numero, org_nome, estilos)
+
+    # Identificação
+    e.append(_secao('Identificação', estilos))
+    e += _campo('Número', indicacao.numero, estilos)
+    e += _campo('Exercício Fiscal', str(indicacao.exercicio_fiscal), estilos)
+    e += _campo('Status', indicacao.get_status_display(), estilos)
+    if indicacao.data_aprovacao:
+        e += _campo('Data de Aprovação', indicacao.data_aprovacao.strftime('%d/%m/%Y'), estilos)
+    if indicacao.ordenador:
+        nome_ord = indicacao.ordenador.get_full_name() or indicacao.ordenador.username
+        e += _campo('Ordenador de Despesa', nome_ord, estilos)
+
+    # Demanda vinculada
+    e.append(_secao('Demanda Vinculada', estilos))
+    if indicacao.dfd_id:
+        e += _campo('DFD', indicacao.dfd.numero_sei, estilos)
+        if indicacao.dfd.descricao:
+            e += _campo('Descrição', indicacao.dfd.descricao, estilos)
+    elif indicacao.necessidade_id:
+        e += _campo('Necessidade', indicacao.necessidade.titulo, estilos)
+        e += _campo('Exercício da Necessidade', str(indicacao.necessidade.exercicio_fiscal), estilos)
+    else:
+        e += _campo('Demanda', 'Não vinculada a DFD ou Necessidade', estilos)
+
+    if indicacao.observacoes:
+        e += _campo('Observações', indicacao.observacoes, estilos)
+
+    # Dotações indicadas
+    itens = indicacao.itens.select_related(
+        'dotacao__acao', 'dotacao__elemento_despesa',
+        'dotacao__natureza_despesa', 'dotacao__fonte_recurso'
+    ).all()
+
+    if itens.exists():
+        e.append(_secao('Dotações Indicadas', estilos))
+        cabecalho_tab = [['Ação', 'Elemento', 'Natureza', 'Fonte', 'Valor Indicado']]
+        dados_tab = list(cabecalho_tab)
+        for item in itens:
+            d = item.dotacao
+            nd = d.natureza_despesa
+            dados_tab.append([
+                f'{d.acao.codigo} — {d.acao.nome}'[:40],
+                f'{d.elemento_despesa.codigo:02d} — {d.elemento_despesa.descricao}'[:30],
+                f'{nd.formato}' if nd else '—',
+                f'{d.fonte_recurso.codigo} — {d.fonte_recurso.nome}'[:25],
+                fmt(item.valor_indicado),
+            ])
+        # Linha de total
+        dados_tab.append(['', '', '', 'TOTAL', fmt(indicacao.valor_total)])
+
+        t = Table(dados_tab, colWidths=[4.5*cm, 3.5*cm, 2*cm, 3*cm, 2.5*cm])
+        t.setStyle(TableStyle([
+            ('BACKGROUND',    (0, 0), (-1, 0),  AZUL_GOV),
+            ('TEXTCOLOR',     (0, 0), (-1, 0),  BRANCO),
+            ('FONTNAME',      (0, 0), (-1, 0),  'Helvetica-Bold'),
+            ('FONTSIZE',      (0, 0), (-1, -1), 8),
+            ('ROWBACKGROUNDS',(0, 1), (-1, -2), [BRANCO, AZUL_CLARO]),
+            ('BACKGROUND',    (0, -1),(-1, -1), colors.HexColor('#E8F0FE')),
+            ('FONTNAME',      (3, -1),(-1, -1), 'Helvetica-Bold'),
+            ('GRID',          (0, 0), (-1, -1), 0.5, CINZA_BD),
+            ('ALIGN',         (4, 0), (4, -1),  'RIGHT'),
+            ('VALIGN',        (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING',    (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        e.append(t)
+
+    # Bloco de assinaturas com ordenador como aprovador
+    aprov_override = indicacao.ordenador
+    data_aprov_str = (
+        indicacao.data_aprovacao.strftime('%d/%m/%Y') if indicacao.data_aprovacao else None
+    )
+    e += _bloco_assinaturas(
+        indicacao, estilos, hash_doc,
+        aprovador_override=aprov_override,
+        data_aprovacao_override=data_aprov_str,
+    )
+
+    doc.build(e, onFirstPage=_rodape, onLaterPages=_rodape)
+    return buf.getvalue()
