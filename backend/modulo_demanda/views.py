@@ -118,11 +118,16 @@ class DFDViewSet(viewsets.ModelViewSet):
                      'codigo': 'necessidade_nao_aprovada'},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            # Necessidade deve estar vinculada a um plano orçamentário
-            if not necessidade.itens_plano.exists() and not just:
+            # Necessidade deve ter vínculo orçamentário (plano OU dotação)
+            tem_vinculo_orcamentario = (
+                necessidade.itens_plano.exists() or
+                necessidade.dotacoes.exists()
+            )
+            if not tem_vinculo_orcamentario and not just:
                 return Response(
-                    {'detail': 'A necessidade não está vinculada a nenhum plano orçamentário. '
-                               'Preencha a justificativa ou solicite inclusão no plano.',
+                    {'detail': 'A necessidade não possui vínculo orçamentário. '
+                               'Vincule-a a um plano orçamentário ou a uma dotação antes de submeter, '
+                               'ou preencha a justificativa.',
                      'codigo': 'sem_plano_orcamentario'},
                     status=status.HTTP_400_BAD_REQUEST,
                 )

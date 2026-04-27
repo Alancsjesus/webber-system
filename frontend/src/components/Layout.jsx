@@ -24,15 +24,15 @@ const NAV_BASE = [
     ],
   },
   {
-    section: 'Pesquisa de Preços',
-    items: [
-      { to: '/pesquisa/mapa', label: 'Mapa Comparativo' },
-    ],
-  },
-  {
     section: 'Demanda',
     items: [
       { to: '/demanda/dfd', label: 'DFDs' },
+    ],
+  },
+  {
+    section: 'Pesquisa de Preços',
+    items: [
+      { to: '/pesquisa/mapa', label: 'Mapa Comparativo' },
     ],
   },
   {
@@ -61,6 +61,7 @@ const NAV_CONFIG_ADMIN = {
     { to: '/config/unidades',  label: 'Unidades' },
     { to: '/config/usuarios',  label: 'Usuários' },
     { to: '/config/parametros',label: 'Parâmetros do Sistema' },
+    { to: '/config/areas',     label: 'Áreas de Atuação' },
     { to: '/config/acoes',     label: 'Ações Orçamentárias' },
     { to: '/config/elementos', label: 'Elementos de Despesa' },
     { to: '/config/naturezas', label: 'Naturezas de Despesa' },
@@ -73,6 +74,7 @@ const NAV_CONFIG_PLANEJAMENTO = {
   section: 'Configurações',
   items: [
     { to: '/config/parametros',label: 'Parâmetros do Sistema' },
+    { to: '/config/areas',     label: 'Áreas de Atuação' },
     { to: '/config/acoes',     label: 'Ações Orçamentárias' },
     { to: '/config/elementos', label: 'Elementos de Despesa' },
     { to: '/config/naturezas', label: 'Naturezas de Despesa' },

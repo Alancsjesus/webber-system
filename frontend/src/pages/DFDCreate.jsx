@@ -389,8 +389,9 @@ export default function DFDCreate() {
             )}
           </Field>
 
-          <Field label="Prazo de necessidade" error={errors.prazo_necessidade}>
+          <Field label="Prazo de necessidade *" error={errors.prazo_necessidade}>
             <input type="date" value={form.prazo_necessidade}
+              min={new Date().toISOString().split('T')[0]}
               onChange={e => set('prazo_necessidade', e.target.value)}
               className={inputCls(errors.prazo_necessidade)} />
           </Field>

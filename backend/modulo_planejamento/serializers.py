@@ -1,3 +1,4 @@
+from datetime import date
 from django.db.models import Sum
 from rest_framework import serializers
 from .models import NecessidadePlanejamento, PlanoOrcamentario, ItemPlanoOrcamentario
@@ -73,6 +74,13 @@ class NecessidadeSerializer(serializers.ModelSerializer):
             'orgao_executor_sigla', 'orgao_executor_nome',
             'dfd_numero_sei', 'itens_plano_count', 'planos_ids', 'origem',
         ]
+
+    def validate_prazo_desejado(self, value):
+        if value and value < date.today():
+            raise serializers.ValidationError(
+                'O prazo desejado deve ser uma data futura (maior que hoje).'
+            )
+        return value
 
     def validate_area_aplicacao(self, value):
         if not value:

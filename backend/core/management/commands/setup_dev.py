@@ -1,6 +1,6 @@
 """
 Cria dados iniciais para desenvolvimento:
-  - Hierarquia de órgãos: SSP (pai) → CBMBA, PMBA (filhos)
+  - Hierarquia de órgãos: SSP (pai) >CBMBA, PMBA (filhos)
   - Unidades organizacionais por tipo (demandante, licitante, contratante, planejamento)
   - Usuários de exemplo para cada perfil
 
@@ -9,7 +9,7 @@ Uso:
 """
 from django.core.management.base import BaseCommand
 from django.contrib.auth.models import User
-from core.models import Orgao, UnidadeOrganizacional, UserProfile, ParametroSistema
+from core.models import Orgao, UnidadeOrganizacional, UserProfile, ParametroSistema, AreaAtuacao
 
 
 ORGAOS = [
@@ -200,17 +200,33 @@ class Command(BaseCommand):
             label = 'criado' if created else 'existente'
             self.stdout.write(f'Parâmetro {label}: {param.chave} = {param.valor}')
 
+        # Cria áreas de atuação
+        areas_iniciais = [
+            ('TI',        'Tecnologia da Informação'),
+            ('Formação',  'Formação e Capacitação'),
+            ('Ops',       'Operações'),
+            ('Rede',      'Rede Física'),
+            ('Frota',     'Frota'),
+            ('Derivados', 'Derivados de Petróleo'),
+        ]
+        for codigo, nome in areas_iniciais:
+            area, created = AreaAtuacao.objects.get_or_create(
+                codigo=codigo, defaults={'nome': nome, 'ativa': True}
+            )
+            label = 'criada' if created else 'existente'
+            self.stdout.write(f'Área {label}: {area}')
+
         self.stdout.write('')
         self.stdout.write(self.style.SUCCESS('=== Setup concluído ==='))
-        self.stdout.write(f'  Órgãos:   SSP (pai) → CBMBA, PMBA (filhos)')
+        self.stdout.write(f'  Orgaos:   SSP (pai) > CBMBA, PMBA (filhos)')
         self.stdout.write(f'  Unidades: 11 unidades (demandante/licitante/contratante/planejamento)')
         self.stdout.write('')
-        self.stdout.write(f'  admin          / {pw}  → SSP/CLIC   (licitante),    admin')
-        self.stdout.write(f'  analista_ssp   / {pw}  → SSP/CLIC   (licitante),    analista')
-        self.stdout.write(f'  plan_ssp       / {pw}  → SSP/CPLAM  (planejamento), gestor_planejamento')
-        self.stdout.write(f'  plan_cbm       / {pw}  → CBM/DEPLAN (planejamento), gestor_planejamento')
-        self.stdout.write(f'  plan_pm        / {pw}  → PM/DEPLAN  (planejamento), gestor_planejamento')
-        self.stdout.write(f'  solicitante    / {pw}  → CBM/DEM_CBM(demandante),   solicitante')
-        self.stdout.write(f'  solicitante_pm / {pw}  → PM/DEM_PM  (demandante),   solicitante')
-        self.stdout.write(f'  gestor         / {pw}  → SSP/CCC    (contratante),  gestor_contrato')
-        self.stdout.write(f'  dem_ssp        / {pw}  → SSP/CMP    (demandante),   solicitante')
+        self.stdout.write(f'  admin          / {pw}  >SSP/CLIC   (licitante),    admin')
+        self.stdout.write(f'  analista_ssp   / {pw}  >SSP/CLIC   (licitante),    analista')
+        self.stdout.write(f'  plan_ssp       / {pw}  >SSP/CPLAM  (planejamento), gestor_planejamento')
+        self.stdout.write(f'  plan_cbm       / {pw}  >CBM/DEPLAN (planejamento), gestor_planejamento')
+        self.stdout.write(f'  plan_pm        / {pw}  >PM/DEPLAN  (planejamento), gestor_planejamento')
+        self.stdout.write(f'  solicitante    / {pw}  >CBM/DEM_CBM(demandante),   solicitante')
+        self.stdout.write(f'  solicitante_pm / {pw}  >PM/DEM_PM  (demandante),   solicitante')
+        self.stdout.write(f'  gestor         / {pw}  >SSP/CCC    (contratante),  gestor_contrato')
+        self.stdout.write(f'  dem_ssp        / {pw}  >SSP/CMP    (demandante),   solicitante')

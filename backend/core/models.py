@@ -136,6 +136,24 @@ class ParametroSistema(models.Model):
             return default
 
 
+class AreaAtuacao(models.Model):
+    """
+    Áreas de atuação configuráveis — substituem o AREA_CHOICES hardcoded.
+    Global, não org-scoped (todas as orgs compartilham as mesmas áreas).
+    """
+    codigo = models.CharField(max_length=50, unique=True, verbose_name='Código')
+    nome   = models.CharField(max_length=100, verbose_name='Nome')
+    ativa  = models.BooleanField(default=True, verbose_name='Ativa')
+
+    class Meta:
+        ordering = ['nome']
+        verbose_name = 'Área de Atuação'
+        verbose_name_plural = 'Áreas de Atuação'
+
+    def __str__(self):
+        return f'{self.codigo} — {self.nome}'
+
+
 class AuditLog(models.Model):
     """Immutable audit trail"""
     ACTION_CHOICES = [

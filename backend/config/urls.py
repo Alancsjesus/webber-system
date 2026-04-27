@@ -8,7 +8,7 @@ from modulo_planejamento.views import NecessidadeViewSet, PlanoOrcamentarioViewS
 from core.views import (
     DashboardStatsView, OrgaoViewSet, UnidadeViewSet,
     UserManagementViewSet, PainelOrgaoPaiView, ParametroSistemaViewSet,
-    VerificarDocumentoView,
+    VerificarDocumentoView, AreaAtuacaoViewSet,
 )
 
 router = DefaultRouter()
@@ -19,6 +19,7 @@ router.register(r'planejamento/planoorcamentario', PlanoOrcamentarioViewSet, bas
 router.register(r'core/orgaos',    OrgaoViewSet,           basename='orgao')
 router.register(r'core/unidades',  UnidadeViewSet,         basename='unidade')
 router.register(r'core/usuarios',  UserManagementViewSet,  basename='usuario')
+router.register(r'core/areas',     AreaAtuacaoViewSet,      basename='area-atuacao')
 
 urlpatterns = [
     path('admin/', admin.site.urls),

@@ -34,6 +34,7 @@ import NaturezaAdmin from './pages/config/NaturezaAdmin'
 import FonteAdmin from './pages/config/FonteAdmin'
 import ParametroAdmin from './pages/config/ParametroAdmin'
 import PerfilAdmin from './pages/config/PerfilAdmin'
+import AreaAdmin from './pages/config/AreaAdmin'
 import Ajuda from './pages/Ajuda'
 import Painel from './pages/Painel'
 
@@ -97,6 +98,7 @@ export default function App() {
           <Route path="config/usuarios"  element={<UsuarioAdmin />} />
           <Route path="config/perfis"     element={<PerfilAdmin />} />
           <Route path="config/parametros" element={<ParametroAdmin />} />
+          <Route path="config/areas"      element={<AreaAdmin />} />
           <Route path="config/acoes"     element={<AcaoAdmin />} />
           <Route path="config/elementos" element={<ElementoAdmin />} />
           <Route path="config/naturezas" element={<NaturezaAdmin />} />

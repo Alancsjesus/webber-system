@@ -3,6 +3,9 @@ import { useNavigate } from 'react-router-dom'
 import usePlanejamentoStore from '../stores/planejamentoStore'
 import useAuthStore from '../stores/authStore'
 import api from '../services/api'
+import FormErrors from '../components/FormErrors'
+
+const TODAY = new Date().toISOString().split('T')[0]
 
 const AREAS = [
   { value: 'TI',        label: 'Tecnologia da Informação' },
@@ -72,6 +75,8 @@ export default function NecessidadeCreate() {
     if (form.area_aplicacao.length === 0)
       e.area_aplicacao = 'Selecione ao menos uma área'
     if (!form.exercicio_fiscal)                 e.exercicio_fiscal = 'Campo obrigatório'
+    if (form.prazo_desejado && form.prazo_desejado < TODAY)
+      e.prazo_desejado = 'O prazo deve ser uma data futura'
     return e
   }
 
@@ -113,7 +118,9 @@ export default function NecessidadeCreate() {
 
       <form onSubmit={handleSubmit} className="space-y-5">
 
-        <Field label="Título" error={errors.titulo}>
+        <FormErrors errors={errors} />
+
+        <Field label="Título *" error={errors.titulo}>
           <input type="text" value={form.titulo}
             onChange={(e) => set('titulo', e.target.value)}
             className={inp(errors.titulo)} />
@@ -219,10 +226,10 @@ export default function NecessidadeCreate() {
           </div>
         </Field>
 
-        <Field label="Prazo desejado (opcional)">
-          <input type="date" value={form.prazo_desejado}
+        <Field label="Prazo desejado (opcional)" error={errors.prazo_desejado}>
+          <input type="date" value={form.prazo_desejado} min={TODAY}
             onChange={(e) => set('prazo_desejado', e.target.value)}
-            className={inp()} />
+            className={inp(errors.prazo_desejado)} />
         </Field>
 
         <Field label="Observações (opcional)">

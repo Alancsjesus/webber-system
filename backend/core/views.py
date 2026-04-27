@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
 from django.db.models import Sum, Count, Q, Prefetch
 from django.contrib.auth.models import User
-from core.models import Orgao, UnidadeOrganizacional, UserProfile, ParametroSistema
+from core.models import Orgao, UnidadeOrganizacional, UserProfile, ParametroSistema, AreaAtuacao
 from core.permissions import IsMultiTenant
 
 
@@ -441,6 +441,45 @@ class PainelOrgaoPaiView(APIView):
             })
 
         return Response(result)
+
+
+class AreaAtuacaoSerializer(drf_serializers.ModelSerializer):
+    class Meta:
+        model  = AreaAtuacao
+        fields = ['id', 'codigo', 'nome', 'ativa']
+
+
+class AreaAtuacaoViewSet(viewsets.ModelViewSet):
+    serializer_class   = AreaAtuacaoSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends    = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields      = ['codigo', 'nome']
+    ordering           = ['nome']
+
+    def get_queryset(self):
+        mostrar_inativas = self.request.query_params.get('inativas') == 'true'
+        qs = AreaAtuacao.objects.all()
+        if not mostrar_inativas:
+            qs = qs.filter(ativa=True)
+        return qs
+
+    def _check_perm(self, request):
+        if getattr(request, 'papel', None) not in ('admin', 'gestor_planejamento') \
+                and getattr(request, 'tipo_unidade', None) != 'planejamento':
+            raise PermissionDenied('Apenas Admin ou Planejamento podem gerenciar áreas de atuação.')
+
+    def perform_create(self, serializer):
+        self._check_perm(self.request)
+        serializer.save()
+
+    def perform_update(self, serializer):
+        self._check_perm(self.request)
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        self._check_perm(self.request)
+        instance.ativa = False
+        instance.save()
 
 
 class VerificarDocumentoView(APIView):
