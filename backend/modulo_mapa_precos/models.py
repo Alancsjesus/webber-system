@@ -30,9 +30,31 @@ METODO_CALCULO_CHOICES = [
 
 STATUS_MAPA_CHOICES = [
     ('Rascunho',   'Rascunho'),
-    ('Finalizado', 'Finalizado'),
+    ('Submetido',  'Submetido para aprovação'),
+    ('Em Análise', 'Em análise pela Unidade Licitante'),
+    ('Aprovado',   'Aprovado'),
+    ('Devolvido',  'Devolvido para correção'),
     ('Cancelado',  'Cancelado'),
 ]
+
+TRANSICOES_MAPA = {
+    'Rascunho':   ['Submetido', 'Cancelado'],
+    'Submetido':  ['Em Análise', 'Rascunho', 'Cancelado'],
+    'Em Análise': ['Aprovado', 'Devolvido', 'Cancelado'],
+    'Devolvido':  ['Submetido', 'Cancelado'],
+    'Aprovado':   ['Cancelado'],
+    'Cancelado':  [],
+}
+
+# Mapeamento tipo_fonte → chave do parâmetro de prazo (meses)
+PRAZO_PARAM_KEYS = {
+    'I':    'prazo_validade_parametro_i_meses',
+    'II':   'prazo_validade_parametro_ii_meses',
+    'III':  'prazo_validade_parametro_iii_meses',
+    'IV':   'prazo_validade_parametro_iv_meses',
+    'V':    'prazo_validade_parametro_v_meses',
+    'HIST': None,  # Histórico interno — sem prazo de vencimento
+}
 
 MOTIVO_EXCLUSAO_CHOICES = [
     ('excessivo',   'Valor excessivamente elevado (acima de +30% da mediana)'),
@@ -75,6 +97,16 @@ class MapaComparativoPrecos(BaseModel):
         related_name='mapas_responsavel',
         verbose_name='Responsável pela pesquisa',
     )
+    aprovador = models.ForeignKey(
+        User, null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='mapas_aprovados',
+        verbose_name='Aprovador (Unidade Licitante)',
+    )
+    data_aprovacao = models.DateField(null=True, blank=True, verbose_name='Data de aprovação')
+    motivo_devolucao = models.TextField(
+        blank=True, default='', verbose_name='Motivo da devolução',
+    )
     justificativa_metodologia = models.TextField(
         blank=True, default='',
         verbose_name='Justificativa da metodologia adotada',
@@ -89,6 +121,39 @@ class MapaComparativoPrecos(BaseModel):
     def __str__(self):
         return f'Mapa {self.pk} — {self.objeto[:50]} ({self.exercicio_fiscal})'
 
+    def validar_prazo_cotacoes(self):
+        """
+        Verifica e invalida automaticamente preços cuja data_referencia
+        está fora do prazo definido nos Parâmetros do Sistema.
+        Retorna lista de preços invalidados.
+        """
+        from core.models import ParametroSistema
+        from datetime import date, timedelta
+
+        invalidados = []
+        hoje = date.today()
+
+        for item in self.itens.all():
+            for preco in item.precos.all():
+                chave = PRAZO_PARAM_KEYS.get(preco.fonte.tipo)
+                if not chave:
+                    continue  # HIST não tem prazo
+                prazo_meses = int(ParametroSistema.get(chave, 12))
+                limite = hoje - timedelta(days=prazo_meses * 30)
+                if preco.data_referencia < limite:
+                    if preco.valido:
+                        preco.valido = False
+                        preco.motivo_exclusao = 'desatualizado'
+                        preco.sugestao_exclusao = (
+                            f'Data {preco.data_referencia.strftime("%d/%m/%Y")} '
+                            f'excede o prazo de {prazo_meses} meses '
+                            f'({preco.fonte.get_tipo_display()}) — '
+                            f'parâmetro {chave}'
+                        )
+                        preco.save(update_fields=['valido', 'motivo_exclusao', 'sugestao_exclusao'])
+                        invalidados.append(preco)
+        return invalidados
+
     def recalcular_total(self):
         total = sum(
             item.valor_unitario_calculado * item.quantidade
@@ -97,6 +162,20 @@ class MapaComparativoPrecos(BaseModel):
         )
         self.valor_estimado_total = total
         self.save(update_fields=['valor_estimado_total'])
+
+
+class HistoricoMapa(models.Model):
+    """Trilha imutável de transições de status do Mapa."""
+    mapa            = models.ForeignKey(MapaComparativoPrecos, on_delete=models.CASCADE, related_name='historico')
+    status_anterior = models.CharField(max_length=15)
+    status_novo     = models.CharField(max_length=15)
+    usuario         = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    motivo          = models.TextField(blank=True, null=True)
+    criado_em       = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-criado_em']
+        verbose_name = 'Histórico do Mapa'
 
 
 class FonteConsultada(models.Model):

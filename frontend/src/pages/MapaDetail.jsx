@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import useMapaStore from '../stores/mapaStore'
+import useAuthStore from '../stores/authStore'
 import LoadingSpinner from '../components/LoadingSpinner'
 
 const fmt = (v) => Number(v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -22,31 +23,53 @@ const MOTIVOS_EXCLUSAO = [
   { value: 'manual',       label: 'Excluído manualmente' },
 ]
 
+const METODOS = [
+  { value: 'media',        label: 'Média aritmética',  desc: 'Indicada quando preços são homogêneos (variação ≤10%).' },
+  { value: 'mediana',      label: 'Mediana',           desc: 'Indicada quando há variação alta ou valores extremos (outliers).' },
+  { value: 'menor_valido', label: 'Menor preço válido', desc: 'Permite adotar o menor preço após exclusão de inexequíveis.' },
+]
+
 export default function MapaDetail() {
-  const { id } = useParams()
+  const { id }   = useParams()
   const navigate = useNavigate()
+  const papel      = useAuthStore((s) => s.papel)
+  const tipoUnidade = useAuthStore((s) => s.tipoUnidade)
+  const isLicitante = tipoUnidade === 'licitante' || papel === 'admin'
+
   const {
     current, loading, error,
-    fetchMapa, fetchMetadados, updateMapa, deleteMapa,
-    finalizar, recalcular, fetchHistoricoWebber,
+    fetchMapa, fetchMetadados, deleteMapa,
+    analisar, salvarMetodo, recalcular, validarPrazos,
+    submeter, iniciarAnalise, aprovar, devolver, cancelar,
+    fetchHistoricoWebber,
     addFonte, deleteFonte,
     addItem, deleteItem,
     addPreco, updatePreco, deletePreco,
     metadados,
   } = useMapaStore()
 
-  const [msg, setMsg]               = useState(null)
-  const [saving, setSaving]         = useState(false)
-  const [activeTab, setActiveTab]   = useState('fontes') // 'fontes' | 'itens' | 'historico'
-  const [historicoWB, setHistoricoWB] = useState(null)
-  const [loadingHist, setLoadingHist] = useState(false)
-
-  // Forms locais
-  const [fonteForm, setFonteForm]   = useState(null)
-  const [itemForm, setItemForm]     = useState(null)
-  const [precoForms, setPrecoForms] = useState({}) // keyed by itemId
+  const [msg, setMsg]             = useState(null)
+  const [saving, setSaving]       = useState(false)
+  const [activeTab, setActiveTab] = useState('fontes')
+  const [historicoWB, setHistoricoWB]   = useState(null)
+  const [loadingHist, setLoadingHist]   = useState(false)
+  const [analise, setAnalise]           = useState(null)
+  const [loadingAnalise, setLoadingAnalise] = useState(false)
+  const [metodoForm, setMetodoForm]     = useState({ metodo_calculo: 'media', justificativa_metodologia: '' })
+  const [showDevolver, setShowDevolver] = useState(false)
+  const [motivoDevolucao, setMotivoDevolucao] = useState('')
+  const [showCancelar, setShowCancelar] = useState(false)
+  const [motivoCancelar, setMotivoCancelar]   = useState('')
 
   useEffect(() => { fetchMapa(id); fetchMetadados() }, [id])
+  useEffect(() => {
+    if (current) {
+      setMetodoForm({
+        metodo_calculo:           current.metodo_calculo || 'media',
+        justificativa_metodologia: current.justificativa_metodologia || '',
+      })
+    }
+  }, [current])
 
   const act = async (fn, successMsg) => {
     setSaving(true); setMsg(null)
@@ -59,6 +82,17 @@ export default function MapaDetail() {
     } finally { setSaving(false) }
   }
 
+  const loadAnalise = async () => {
+    setLoadingAnalise(true)
+    try {
+      const data = await analisar(id)
+      setAnalise(data)
+      if (data.metodo_sugerido_global) {
+        setMetodoForm(p => ({ ...p, metodo_calculo: data.metodo_sugerido_global }))
+      }
+    } finally { setLoadingAnalise(false) }
+  }
+
   const loadHistoricoWB = async () => {
     setLoadingHist(true)
     try { setHistoricoWB(await fetchHistoricoWebber(id)) }
@@ -69,8 +103,9 @@ export default function MapaDetail() {
   if (error)   return <div className="p-8 text-sm text-red-600">{error}</div>
   if (!current) return null
 
-  const isRascunho  = current.status === 'Rascunho'
-  const isFinalizado = current.status === 'Finalizado'
+  const isEditavel  = ['Rascunho', 'Submetido', 'Devolvido'].includes(current.status)
+  const isAprovado  = current.status === 'Aprovado'
+  const isDevolvido = current.status === 'Devolvido'
 
   return (
     <div className="p-8 max-w-5xl">
@@ -95,23 +130,58 @@ export default function MapaDetail() {
           </div>
         </div>
         <div className="flex gap-2 flex-wrap justify-end">
-          {isRascunho && (
+          {isEditavel && (
             <>
-              <button onClick={() => act(() => recalcular(id), 'Valores recalculados.')} disabled={saving}
-                className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg">
-                Recalcular
+              <button onClick={() => act(() => validarPrazos(id), 'Prazos verificados.')} disabled={saving}
+                className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-3 py-1.5 rounded-lg">
+                Verificar Prazos
               </button>
-              <button onClick={() => act(() => finalizar(id), 'Mapa finalizado.')} disabled={saving}
-                className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm px-4 py-1.5 rounded-lg">
-                Finalizar Mapa
+              <button onClick={() => act(() => recalcular(id), 'Valores recalculados.')} disabled={saving}
+                className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-3 py-1.5 rounded-lg">
+                Recalcular
               </button>
             </>
           )}
-          {isFinalizado && (
+          {/* Submeter — quem elaborou o mapa */}
+          {['Rascunho', 'Devolvido'].includes(current.status) && (
+            <button onClick={() => act(() => submeter(id), 'Mapa submetido para a Unidade Licitante.')} disabled={saving}
+              className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm px-4 py-1.5 rounded-lg">
+              Submeter para Aprovação
+            </button>
+          )}
+          {/* Iniciar análise — licitante */}
+          {current.status === 'Submetido' && isLicitante && (
+            <button onClick={() => act(() => iniciarAnalise(id), 'Análise iniciada.')} disabled={saving}
+              className="bg-yellow-500 hover:bg-yellow-600 disabled:opacity-50 text-white text-sm px-4 py-1.5 rounded-lg">
+              Iniciar Análise
+            </button>
+          )}
+          {/* Aprovar / Devolver — licitante */}
+          {current.status === 'Em Análise' && isLicitante && (
+            <>
+              <button onClick={() => act(() => aprovar(id), 'Mapa aprovado pela Unidade Licitante.')} disabled={saving}
+                className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm px-4 py-1.5 rounded-lg">
+                Aprovar
+              </button>
+              <button onClick={() => setShowDevolver(true)}
+                className="border border-orange-300 text-orange-600 hover:bg-orange-50 text-sm px-4 py-1.5 rounded-lg">
+                Devolver
+              </button>
+            </>
+          )}
+          {/* PDF — aprovado */}
+          {isAprovado && (
             <a href={`/api/pesquisa/mapa/${id}/export/pdf/`} target="_blank" rel="noreferrer"
               className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-1.5 rounded-lg inline-block">
               Baixar PDF
             </a>
+          )}
+          {/* Cancelar */}
+          {!['Aprovado', 'Cancelado'].includes(current.status) && (
+            <button onClick={() => setShowCancelar(true)}
+              className="border border-red-300 text-red-500 hover:bg-red-50 text-sm px-3 py-1.5 rounded-lg">
+              Cancelar
+            </button>
           )}
         </div>
       </div>
@@ -136,14 +206,28 @@ export default function MapaDetail() {
         </div>
       </div>
 
+      {/* Devolução / Cancelamento alerts */}
+      {isDevolvido && current.motivo_devolucao && (
+        <div className="mb-4 bg-orange-50 border border-orange-300 rounded-xl px-5 py-3">
+          <p className="text-sm font-semibold text-orange-800">Mapa devolvido pela Unidade Licitante</p>
+          <p className="text-sm text-orange-700 mt-1">{current.motivo_devolucao}</p>
+        </div>
+      )}
+
       {/* Tabs */}
-      <div className="flex border-b border-gray-200 mb-5 gap-1">
+      <div className="flex border-b border-gray-200 mb-5 gap-1 flex-wrap">
         {[
-          { key: 'fontes', label: `Fontes (${current.fontes?.length ?? 0})` },
-          { key: 'itens',  label: `Itens e Preços (${current.itens?.length ?? 0})` },
-          { key: 'historico', label: 'Histórico WEBBER' },
+          { key: 'fontes',   label: `Fontes (${current.fontes?.length ?? 0})` },
+          { key: 'itens',    label: `Itens e Preços (${current.itens?.length ?? 0})` },
+          { key: 'analise',  label: 'Análise e Método' },
+          { key: 'historico_wb', label: 'Histórico WEBBER' },
+          { key: 'historico',label: `Tramitação (${current.historico?.length ?? 0})` },
         ].map(({ key, label }) => (
-          <button key={key} onClick={() => { setActiveTab(key); if (key === 'historico' && !historicoWB) loadHistoricoWB() }}
+          <button key={key} onClick={() => {
+            setActiveTab(key)
+            if (key === 'historico_wb' && !historicoWB) loadHistoricoWB()
+            if (key === 'analise' && !analise) loadAnalise()
+          }}
             className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
               activeTab === key
                 ? 'border-b-2 border-blue-600 text-blue-700 bg-blue-50'
@@ -157,7 +241,7 @@ export default function MapaDetail() {
       {/* Tab: Fontes */}
       {activeTab === 'fontes' && (
         <div>
-          {isRascunho && (
+          {isEditavel && (
             <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-4">
               <p className="text-sm font-semibold text-gray-700 mb-3">Adicionar fonte consultada</p>
               <FonteForm
@@ -194,7 +278,7 @@ export default function MapaDetail() {
                         <p className="text-xs text-orange-700 mt-1">Justificativa: {f.justificativa_infrutífera}</p>
                       )}
                     </div>
-                    {isRascunho && (
+                    {isEditavel && (
                       <button onClick={() => act(() => deleteFonte(id, f.id), 'Fonte removida.')}
                         className="text-xs text-red-500 hover:text-red-700 ml-4 shrink-0">Remover</button>
                     )}
@@ -208,7 +292,7 @@ export default function MapaDetail() {
       {/* Tab: Itens e Preços */}
       {activeTab === 'itens' && (
         <div className="space-y-6">
-          {isRascunho && (
+          {isEditavel && (
             <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
               <p className="text-sm font-semibold text-gray-700 mb-3">Adicionar item</p>
               <ItemForm onSave={async (payload) => { await act(() => addItem(id, payload), 'Item adicionado.') }} />
@@ -233,7 +317,7 @@ export default function MapaDetail() {
                       <p className="font-semibold text-green-700 text-sm">{fmt(item.valor_unitario_calculado)}/un · Total: {fmt(item.valor_total_calculado)}</p>
                     </div>
                   )}
-                  {isRascunho && (
+                  {isEditavel && (
                     <button onClick={() => act(() => deleteItem(id, item.id), 'Item removido.')}
                       className="text-xs text-red-500 hover:text-red-700 ml-4">Remover item</button>
                   )}
@@ -264,7 +348,7 @@ export default function MapaDetail() {
                             <th className="text-right px-3 py-2 font-medium text-gray-500">Valor Unit.</th>
                             <th className="text-center px-3 py-2 font-medium text-gray-500">Válido</th>
                             <th className="text-left px-3 py-2 font-medium text-gray-500">Obs / Alerta</th>
-                            {isRascunho && <th className="px-3 py-2"></th>}
+                            {isEditavel && <th className="px-3 py-2"></th>}
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100 border border-gray-200">
@@ -283,7 +367,7 @@ export default function MapaDetail() {
                               </td>
                               <td className="px-3 py-2 text-right font-semibold text-gray-800">{fmt(p.valor_unitario)}</td>
                               <td className="px-3 py-2 text-center">
-                                {isRascunho ? (
+                                {isEditavel ? (
                                   <input type="checkbox" checked={p.valido}
                                     onChange={async (e) => {
                                       await act(
@@ -302,7 +386,7 @@ export default function MapaDetail() {
                                 {p.sugestao_exclusao && <span className="text-amber-700">⚠ {p.sugestao_exclusao}</span>}
                                 {!p.valido && p.motivo_exclusao_display && <span className="text-red-600">{p.motivo_exclusao_display}</span>}
                               </td>
-                              {isRascunho && (
+                              {isEditavel && (
                                 <td className="px-3 py-2 text-right">
                                   <button onClick={() => act(() => deletePreco(id, item.id, p.id), 'Preço removido.')}
                                     className="text-red-500 hover:text-red-700">✕</button>
@@ -316,7 +400,7 @@ export default function MapaDetail() {
                   )}
 
                   {/* Formulário novo preço */}
-                  {isRascunho && (
+                  {isEditavel && (
                     <PrecoForm
                       itemId={item.id}
                       fontes={current.fontes || []}
@@ -332,8 +416,185 @@ export default function MapaDetail() {
         </div>
       )}
 
+      {/* Tab: Análise e Método */}
+      {activeTab === 'analise' && (
+        <div>
+          <div className="flex items-center justify-between mb-4">
+            <p className="text-sm text-gray-600">
+              A variação dos preços coletados indica o método estatístico mais adequado
+              conforme o Art. 8º do Decreto 22.886/2024.
+            </p>
+            <button onClick={loadAnalise} disabled={loadingAnalise}
+              className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-3 py-1.5 rounded-lg">
+              {loadingAnalise ? 'Analisando...' : 'Reanalisar'}
+            </button>
+          </div>
+
+          {loadingAnalise && <LoadingSpinner message="Analisando distribuição dos preços..." />}
+
+          {!loadingAnalise && !analise && (
+            <button onClick={loadAnalise}
+              className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded-lg">
+              Analisar preços coletados
+            </button>
+          )}
+
+          {analise && (
+            <div className="space-y-4">
+              {/* Sugestão global */}
+              <div className={`rounded-xl p-4 border ${
+                analise.metodo_sugerido_global === 'mediana'
+                  ? 'bg-amber-50 border-amber-300'
+                  : 'bg-green-50 border-green-300'
+              }`}>
+                <p className="text-sm font-semibold mb-1">
+                  Método sugerido pelo sistema:{' '}
+                  <span className="text-blue-700">
+                    {analise.metodo_sugerido_global === 'media' ? 'Média aritmética'
+                      : analise.metodo_sugerido_global === 'mediana' ? 'Mediana'
+                      : 'Menor preço válido'}
+                  </span>
+                </p>
+                <p className="text-xs text-gray-600">{analise.nota}</p>
+                {analise.precisa_justificativa && (
+                  <p className="text-xs text-orange-700 mt-1 font-medium">
+                    ⚠ Justificativa obrigatória para um ou mais itens (§5, Art. 8º, Decreto 22.886/2024).
+                  </p>
+                )}
+              </div>
+
+              {/* Estatísticas por item */}
+              <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+                <table className="w-full text-xs">
+                  <thead className="bg-gray-50 border-b border-gray-200">
+                    <tr>
+                      <th className="text-left px-4 py-2 font-medium text-gray-500">Item</th>
+                      <th className="text-center px-3 py-2 font-medium text-gray-500">Preços válidos</th>
+                      <th className="text-right px-3 py-2 font-medium text-gray-500">Mínimo</th>
+                      <th className="text-right px-3 py-2 font-medium text-gray-500">Mediana</th>
+                      <th className="text-right px-3 py-2 font-medium text-gray-500">Média</th>
+                      <th className="text-right px-3 py-2 font-medium text-gray-500">Máximo</th>
+                      <th className="text-center px-3 py-2 font-medium text-gray-500">Variação</th>
+                      <th className="text-center px-3 py-2 font-medium text-gray-500">Outliers</th>
+                      <th className="text-left px-3 py-2 font-medium text-gray-500">Sugestão</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {analise.itens.map((item) => (
+                      <tr key={item.item_id} className={item.sem_precos_validos ? 'bg-red-50' : ''}>
+                        <td className="px-4 py-2 font-medium text-gray-800">{item.descricao}</td>
+                        <td className="px-3 py-2 text-center">
+                          <span className={`font-semibold ${item.qtd_validos < 3 ? 'text-orange-600' : 'text-green-700'}`}>
+                            {item.qtd_validos}
+                          </span>
+                          {item.qtd_invalidos > 0 && <span className="text-red-500 ml-1">({item.qtd_invalidos}✗)</span>}
+                        </td>
+                        {item.sem_precos_validos ? (
+                          <td colSpan={6} className="px-3 py-2 text-center text-red-600 text-xs">{item.motivo_sugestao}</td>
+                        ) : (
+                          <>
+                            <td className="px-3 py-2 text-right text-gray-700">{fmt(item.minimo)}</td>
+                            <td className="px-3 py-2 text-right text-blue-700 font-semibold">{fmt(item.mediana)}</td>
+                            <td className="px-3 py-2 text-right text-gray-700">{fmt(item.media)}</td>
+                            <td className="px-3 py-2 text-right text-gray-700">{fmt(item.maximo)}</td>
+                            <td className="px-3 py-2 text-center">
+                              <span className={`font-semibold ${item.variacao_pct > 30 ? 'text-red-600' : item.variacao_pct > 10 ? 'text-amber-600' : 'text-green-600'}`}>
+                                {item.variacao_pct.toFixed(1)}%
+                              </span>
+                            </td>
+                            <td className="px-3 py-2 text-center">
+                              {item.outliers > 0
+                                ? <span className="text-red-600 font-semibold">⚠ {item.outliers}</span>
+                                : <span className="text-green-600">—</span>}
+                            </td>
+                          </>
+                        )}
+                        <td className="px-3 py-2 text-xs text-blue-700 max-w-[180px]">
+                          {!item.sem_precos_validos && (
+                            <span className="font-semibold">
+                              {item.metodo_sugerido === 'media' ? 'Média' : item.metodo_sugerido === 'mediana' ? 'Mediana' : 'Menor válido'}
+                            </span>
+                          )}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Seleção do método */}
+              {isEditavel && (
+                <div className="bg-gray-50 border border-gray-200 rounded-xl p-5">
+                  <p className="text-sm font-semibold text-gray-700 mb-3">
+                    Definir método de cálculo e justificativa
+                  </p>
+                  <div className="space-y-2 mb-4">
+                    {METODOS.map(({ value, label, desc }) => {
+                      const isSugerido = value === analise.metodo_sugerido_global
+                      return (
+                        <label key={value}
+                          className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${
+                            metodoForm.metodo_calculo === value
+                              ? 'border-blue-400 bg-blue-50'
+                              : 'border-gray-200 hover:border-gray-300'
+                          }`}>
+                          <input type="radio" name="metodo" value={value}
+                            checked={metodoForm.metodo_calculo === value}
+                            onChange={() => setMetodoForm(p => ({ ...p, metodo_calculo: value }))}
+                            className="mt-0.5 accent-blue-600" />
+                          <div className="flex-1">
+                            <div className="flex items-center gap-2">
+                              <p className="text-sm font-medium text-gray-800">{label}</p>
+                              {isSugerido && (
+                                <span className="text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full font-medium">
+                                  Sugerido
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-xs text-gray-500 mt-0.5">{desc}</p>
+                          </div>
+                        </label>
+                      )
+                    })}
+                  </div>
+                  <div className="mb-4">
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Justificativa da metodologia adotada *
+                      {analise.precisa_justificativa && <span className="text-orange-600 ml-1">(obrigatória)</span>}
+                    </label>
+                    <textarea rows={3} value={metodoForm.justificativa_metodologia}
+                      onChange={e => setMetodoForm(p => ({ ...p, justificativa_metodologia: e.target.value }))}
+                      placeholder="Explique o critério adotado para escolha do método (Art. 3º, inciso VI, Decreto 22.886/2024)..."
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  </div>
+                  <button
+                    onClick={() => act(
+                      () => salvarMetodo(id, metodoForm.metodo_calculo, metodoForm.justificativa_metodologia),
+                      'Método e justificativa salvos. Execute "Recalcular" para aplicar.'
+                    )}
+                    disabled={saving}
+                    className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium px-5 py-2 rounded-lg">
+                    {saving ? 'Salvando...' : 'Salvar método e justificativa'}
+                  </button>
+                </div>
+              )}
+
+              {!isEditavel && (
+                <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
+                  <p className="text-xs font-semibold text-gray-500 uppercase mb-1">Método adotado</p>
+                  <p className="text-sm font-semibold text-gray-800">{current.metodo_display}</p>
+                  {current.justificativa_metodologia && (
+                    <p className="text-sm text-gray-600 mt-1">{current.justificativa_metodologia}</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      )}
+
       {/* Tab: Histórico WEBBER */}
-      {activeTab === 'historico' && (
+      {activeTab === 'historico_wb' && (
         <div>
           {loadingHist && <LoadingSpinner message="Consultando histórico WEBBER..." />}
           {!loadingHist && !historicoWB && (
@@ -378,6 +639,92 @@ export default function MapaDetail() {
                 )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Tab: Tramitação */}
+      {activeTab === 'historico' && (
+        <div>
+          {(current.historico || []).length === 0
+            ? <p className="text-sm text-gray-400">Nenhuma tramitação registrada.</p>
+            : (
+              <div className="space-y-2">
+                {current.historico.map((h) => (
+                  <div key={h.id} className="flex items-start gap-3 py-3 border-b border-gray-100 last:border-0">
+                    <div className="shrink-0 text-xs text-gray-400 w-36">
+                      {new Date(h.criado_em).toLocaleString('pt-BR')}
+                    </div>
+                    <div>
+                      <span className="font-medium text-gray-700">{h.usuario_nome}</span>
+                      {' · '}
+                      <span className="text-gray-500">{h.status_anterior}</span>
+                      {' → '}
+                      <span className="font-semibold text-gray-800">{h.status_novo}</span>
+                      {h.motivo && (
+                        <p className="text-xs text-gray-500 mt-0.5">{h.motivo}</p>
+                      )}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+        </div>
+      )}
+
+      {/* Modal: Devolver */}
+      {showDevolver && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
+            <h3 className="text-base font-semibold text-gray-800 mb-1">Devolver mapa para correção</h3>
+            <label className="block text-xs font-medium text-gray-600 mb-1 mt-3">Motivo *</label>
+            <textarea rows={3} value={motivoDevolucao}
+              onChange={(e) => setMotivoDevolucao(e.target.value)}
+              placeholder="Descreva o que precisa ser corrigido..."
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 mb-4" />
+            <div className="flex gap-2">
+              <button
+                disabled={!motivoDevolucao.trim() || saving}
+                onClick={async () => {
+                  await act(() => devolver(id, motivoDevolucao), 'Mapa devolvido.')
+                  setShowDevolver(false); setMotivoDevolucao('')
+                }}
+                className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg">
+                {saving ? 'Devolvendo...' : 'Confirmar devolução'}
+              </button>
+              <button onClick={() => { setShowDevolver(false); setMotivoDevolucao('') }}
+                className="border border-gray-300 text-gray-600 text-sm px-4 py-2 rounded-lg hover:bg-gray-50">
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Cancelar */}
+      {showCancelar && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
+            <h3 className="text-base font-semibold text-gray-800 mb-1">Cancelar mapa</h3>
+            <label className="block text-xs font-medium text-gray-600 mb-1 mt-3">Motivo (opcional)</label>
+            <textarea rows={2} value={motivoCancelar}
+              onChange={(e) => setMotivoCancelar(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 mb-4" />
+            <div className="flex gap-2">
+              <button
+                onClick={async () => {
+                  await act(() => cancelar(id, motivoCancelar), 'Mapa cancelado.')
+                  setShowCancelar(false); setMotivoCancelar('')
+                }}
+                disabled={saving}
+                className="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg">
+                {saving ? 'Cancelando...' : 'Confirmar cancelamento'}
+              </button>
+              <button onClick={() => { setShowCancelar(false); setMotivoCancelar('') }}
+                className="border border-gray-300 text-gray-600 text-sm px-4 py-2 rounded-lg hover:bg-gray-50">
+                Voltar
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>

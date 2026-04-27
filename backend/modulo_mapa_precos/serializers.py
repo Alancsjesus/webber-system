@@ -1,5 +1,18 @@
 from rest_framework import serializers
-from .models import MapaComparativoPrecos, FonteConsultada, ItemMapa, PrecoColetado
+from .models import MapaComparativoPrecos, HistoricoMapa, FonteConsultada, ItemMapa, PrecoColetado
+
+
+class HistoricoMapaSerializer(serializers.ModelSerializer):
+    usuario_nome = serializers.SerializerMethodField()
+
+    class Meta:
+        model  = HistoricoMapa
+        fields = ['id', 'status_anterior', 'status_novo', 'usuario_nome', 'motivo', 'criado_em']
+
+    def get_usuario_nome(self, obj):
+        if obj.usuario:
+            return obj.usuario.get_full_name() or obj.usuario.username
+        return '—'
 
 
 class PrecoColetadoSerializer(serializers.ModelSerializer):
@@ -60,8 +73,10 @@ class MapaComparativoPrecosSerializer(serializers.ModelSerializer):
     dfd_numero_sei        = serializers.CharField(source='dfd.numero_sei',       read_only=True)
     metodo_display        = serializers.CharField(source='get_metodo_calculo_display', read_only=True)
     status_display        = serializers.CharField(source='get_status_display',   read_only=True)
+    aprovador_nome        = serializers.SerializerMethodField()
     fontes                = FonteConsultadaSerializer(many=True, read_only=True)
     itens                 = ItemMapaSerializer(many=True, read_only=True)
+    historico             = HistoricoMapaSerializer(many=True, read_only=True)
     qtd_itens             = serializers.IntegerField(source='itens.count',       read_only=True)
     qtd_fontes            = serializers.IntegerField(source='fontes.count',      read_only=True)
 
@@ -74,8 +89,9 @@ class MapaComparativoPrecosSerializer(serializers.ModelSerializer):
             'metodo_calculo', 'metodo_display',
             'valor_estimado_total',
             'responsavel', 'responsavel_nome',
+            'aprovador', 'aprovador_nome', 'data_aprovacao', 'motivo_devolucao',
             'justificativa_metodologia', 'observacoes',
-            'fontes', 'itens',
+            'fontes', 'itens', 'historico',
             'qtd_itens', 'qtd_fontes',
             'org_id', 'org_nome',
             'created_by', 'created_by_username',
@@ -83,12 +99,18 @@ class MapaComparativoPrecosSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             'id', 'valor_estimado_total',
+            'aprovador', 'data_aprovacao', 'motivo_devolucao',
             'org_id', 'created_by', 'created_at', 'updated_at',
         ]
 
     def get_responsavel_nome(self, obj):
         if obj.responsavel:
             return obj.responsavel.get_full_name() or obj.responsavel.username
+        return None
+
+    def get_aprovador_nome(self, obj):
+        if obj.aprovador:
+            return obj.aprovador.get_full_name() or obj.aprovador.username
         return None
 
     def create(self, validated_data):

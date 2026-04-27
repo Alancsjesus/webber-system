@@ -63,6 +63,44 @@ PARAMETROS = [
         'chave': 'orgao_nome_completo',
         'valor': 'Secretaria da Segurança Pública',
         'descricao': 'Nome completo do órgão pai para uso nos documentos gerados (DFD, ETP, TR, DOD).',
+        'norma_base': '',
+        'data_vigencia': None,
+    },
+    # ── Prazos de validade das cotações — Decreto 22.886/2024 ──────────────────
+    {
+        'chave': 'prazo_validade_parametro_i_meses',
+        'valor': '12',
+        'descricao': 'Prazo máximo (meses) para cotações do Parâmetro I (SIMPAS / Comprasnet.BA).',
+        'norma_base': 'Decreto Estadual 22.886/2024, Art. 5º, I',
+        'data_vigencia': '2024-06-21',
+    },
+    {
+        'chave': 'prazo_validade_parametro_ii_meses',
+        'valor': '12',
+        'descricao': 'Prazo máximo (meses) para cotações do Parâmetro II (contratações similares da Administração Pública).',
+        'norma_base': 'Decreto Estadual 22.886/2024, Art. 5º, II',
+        'data_vigencia': '2024-06-21',
+    },
+    {
+        'chave': 'prazo_validade_parametro_iii_meses',
+        'valor': '6',
+        'descricao': 'Prazo máximo (meses) para cotações do Parâmetro III (mídia especializada / sítios eletrônicos).',
+        'norma_base': 'Decreto Estadual 22.886/2024, Art. 5º, III',
+        'data_vigencia': '2024-06-21',
+    },
+    {
+        'chave': 'prazo_validade_parametro_iv_meses',
+        'valor': '6',
+        'descricao': 'Prazo máximo (meses) para cotações do Parâmetro IV (pesquisa direta com fornecedores).',
+        'norma_base': 'Decreto Estadual 22.886/2024, Art. 5º, IV',
+        'data_vigencia': '2024-06-21',
+    },
+    {
+        'chave': 'prazo_validade_parametro_v_meses',
+        'valor': '12',
+        'descricao': 'Prazo máximo (meses) para cotações do Parâmetro V (base de notas fiscais eletrônicas).',
+        'norma_base': 'Decreto Estadual 22.886/2024, Art. 5º, V',
+        'data_vigencia': '2024-06-21',
     },
 ]
 
@@ -144,14 +182,21 @@ class Command(BaseCommand):
         # Cria parâmetros do sistema
         admin_user = User.objects.filter(is_superuser=True).first()
         for cfg in PARAMETROS:
+            defaults = {
+                'valor':          cfg['valor'],
+                'descricao':      cfg.get('descricao', ''),
+                'norma_base':     cfg.get('norma_base', ''),
+                'data_vigencia':  cfg.get('data_vigencia'),
+                'atualizado_por': admin_user,
+            }
             param, created = ParametroSistema.objects.get_or_create(
                 chave=cfg['chave'],
-                defaults={
-                    'valor': cfg['valor'],
-                    'descricao': cfg['descricao'],
-                    'atualizado_por': admin_user,
-                },
+                defaults=defaults,
             )
+            if not created and cfg.get('norma_base') and not param.norma_base:
+                param.norma_base = cfg['norma_base']
+                param.data_vigencia = cfg.get('data_vigencia')
+                param.save(update_fields=['norma_base', 'data_vigencia'])
             label = 'criado' if created else 'existente'
             self.stdout.write(f'Parâmetro {label}: {param.chave} = {param.valor}')
 

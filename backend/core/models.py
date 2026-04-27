@@ -104,10 +104,19 @@ class BaseModel(models.Model):
 
 
 class ParametroSistema(models.Model):
-    """Parâmetros de configuração globais do sistema — editáveis por admin/licitante."""
-    chave       = models.CharField(max_length=100, unique=True)
-    valor       = models.CharField(max_length=500)
-    descricao   = models.CharField(max_length=300, blank=True)
+    """Parâmetros de configuração globais do sistema — editáveis por admin/licitante/planejamento."""
+    chave          = models.CharField(max_length=100, unique=True)
+    valor          = models.CharField(max_length=500)
+    descricao      = models.CharField(max_length=500, blank=True)
+    norma_base     = models.CharField(
+        max_length=500, blank=True, default='',
+        verbose_name='Norma / Legislação base',
+        help_text='Ex: Decreto Estadual 22.886/2024, Art. 5º, II',
+    )
+    data_vigencia  = models.DateField(
+        null=True, blank=True,
+        verbose_name='Data de vigência da norma',
+    )
     atualizado_em  = models.DateTimeField(auto_now=True)
     atualizado_por = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
 

@@ -52,8 +52,13 @@ const useMapaStore = create((set, get) => ({
     set((s) => ({ mapas: s.mapas.filter((m) => m.id !== id) }))
   },
 
-  finalizar: async (id) => {
-    const { data } = await api.post(`/pesquisa/mapa/${id}/finalizar/`)
+  analisar: async (id) => {
+    const { data } = await api.get(`/pesquisa/mapa/${id}/analisar/`)
+    return data
+  },
+
+  salvarMetodo: async (id, metodo_calculo, justificativa_metodologia) => {
+    const { data } = await api.patch(`/pesquisa/mapa/${id}/`, { metodo_calculo, justificativa_metodologia })
     await get().fetchMapa(id)
     return data
   },
@@ -62,6 +67,41 @@ const useMapaStore = create((set, get) => ({
     const { data } = await api.post(`/pesquisa/mapa/${id}/recalcular/`)
     await get().fetchMapa(id)
     return data
+  },
+
+  validarPrazos: async (id) => {
+    const { data } = await api.post(`/pesquisa/mapa/${id}/validar_prazos/`)
+    await get().fetchMapa(id)
+    return data
+  },
+
+  submeter: async (id) => {
+    const { data } = await api.post(`/pesquisa/mapa/${id}/submeter/`)
+    await get().fetchMapa(id)
+    return data
+  },
+
+  iniciarAnalise: async (id) => {
+    const { data } = await api.post(`/pesquisa/mapa/${id}/iniciar_analise/`)
+    await get().fetchMapa(id)
+    return data
+  },
+
+  aprovar: async (id) => {
+    const { data } = await api.post(`/pesquisa/mapa/${id}/aprovar/`)
+    await get().fetchMapa(id)
+    return data
+  },
+
+  devolver: async (id, motivo) => {
+    const { data } = await api.post(`/pesquisa/mapa/${id}/devolver/`, { motivo })
+    await get().fetchMapa(id)
+    return data
+  },
+
+  cancelar: async (id, motivo) => {
+    await api.post(`/pesquisa/mapa/${id}/cancelar/`, { motivo })
+    await get().fetchMapa(id)
   },
 
   fetchHistoricoWebber: async (id) => {

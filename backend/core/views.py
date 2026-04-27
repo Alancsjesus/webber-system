@@ -184,7 +184,11 @@ class ParametroSistemaSerializer(drf_serializers.ModelSerializer):
 
     class Meta:
         model  = ParametroSistema
-        fields = ['id', 'chave', 'valor', 'descricao', 'atualizado_em', 'atualizado_por_username']
+        fields = [
+            'id', 'chave', 'valor', 'descricao',
+            'norma_base', 'data_vigencia',
+            'atualizado_em', 'atualizado_por_username',
+        ]
         read_only_fields = ['id', 'atualizado_em', 'atualizado_por_username']
 
 
