@@ -5,11 +5,16 @@ const api = axios.create({
   headers: { 'Content-Type': 'application/json' },
 })
 
-// Injeta o token em toda requisição
+// Injeta o token e corrige Content-Type para FormData
 api.interceptors.request.use((config) => {
   const token = localStorage.getItem('access_token')
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
+  }
+  // Quando o payload é FormData, o Axios precisa definir o boundary automaticamente.
+  // Remover o Content-Type fixo permite que o browser o gere corretamente.
+  if (config.data instanceof FormData) {
+    delete config.headers['Content-Type']
   }
   return config
 })
