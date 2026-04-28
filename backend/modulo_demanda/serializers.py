@@ -91,6 +91,11 @@ class DFDSerializer(serializers.ModelSerializer):
     unidade_licitante_nome   = serializers.SerializerMethodField()
     unidade_contratante_nome = serializers.SerializerMethodField()
 
+    fiscal_contrato_username = serializers.CharField(source='fiscal_contrato.username', read_only=True, default=None)
+    fiscal_suplente_username = serializers.CharField(source='fiscal_suplente.username', read_only=True, default=None)
+    gestor_contrato_username = serializers.CharField(source='gestor_contrato.username', read_only=True, default=None)
+    gestor_suplente_username = serializers.CharField(source='gestor_suplente.username', read_only=True, default=None)
+
     def get_etp_id(self, obj):
         etp = getattr(obj, 'etp', None)
         return etp.pk if etp else None
@@ -150,6 +155,14 @@ class DFDSerializer(serializers.ModelSerializer):
             'historico',
             'itens',
             'processos',
+            'fiscal_contrato',
+            'fiscal_contrato_username',
+            'fiscal_suplente',
+            'fiscal_suplente_username',
+            'gestor_contrato',
+            'gestor_contrato_username',
+            'gestor_suplente',
+            'gestor_suplente_username',
         ]
         read_only_fields = [
             'id', 'org_id', 'created_by', 'updated_by',
@@ -160,6 +173,8 @@ class DFDSerializer(serializers.ModelSerializer):
             'etp_id', 'etp_dispensado', 'modalidade_display',
             'unidade_demandante',
             'unidade_demandante_nome', 'unidade_licitante_nome', 'unidade_contratante_nome',
+            'fiscal_contrato_username', 'fiscal_suplente_username',
+            'gestor_contrato_username', 'gestor_suplente_username',
         ]
 
     def validate_area_aplicacao(self, value):

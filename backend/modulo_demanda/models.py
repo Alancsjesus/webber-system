@@ -110,7 +110,25 @@ class DFD(BaseModel):
         'core.UnidadeOrganizacional', null=True, blank=True,
         on_delete=models.SET_NULL, related_name='dfds_contratados',
     )
-    
+
+    # Responsáveis pelo contrato
+    fiscal_contrato = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='dfds_como_fiscal', verbose_name='Fiscal do contrato',
+    )
+    fiscal_suplente = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='dfds_como_fiscal_suplente', verbose_name='Fiscal suplente',
+    )
+    gestor_contrato = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='dfds_como_gestor', verbose_name='Gestor do contrato',
+    )
+    gestor_suplente = models.ForeignKey(
+        User, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='dfds_como_gestor_suplente', verbose_name='Gestor suplente',
+    )
+
     class Meta(BaseModel.Meta):
         ordering = ['-created_at']
         verbose_name = 'Documento Formalização Demanda'

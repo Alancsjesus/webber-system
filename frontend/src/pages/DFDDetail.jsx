@@ -66,6 +66,16 @@ export default function DFDDetail() {
   const [newProcesso, setNewProcesso] = useState({ numero: '', etapa: 'dfd', descricao: '', data_abertura: '' })
   const [savingProcesso, setSavingProcesso] = useState(false)
 
+  // Responsáveis pelo contrato
+  const [users, setUsers]                       = useState([])
+  const [editingResp, setEditingResp]           = useState(false)
+  const [respForm, setRespForm]                 = useState({})
+  const [savingResp, setSavingResp]             = useState(false)
+
+  useEffect(() => {
+    api.get('/core/users-list/').then(({ data }) => setUsers(data.results ?? data))
+  }, [])
+
   useEffect(() => { fetchDFD(id) }, [id])
 
   useEffect(() => {
@@ -73,6 +83,12 @@ export default function DFDDetail() {
       setForm({ ...current })
       setItens(current.itens || [])
       setProcessos(current.processos || [])
+      setRespForm({
+        fiscal_contrato:  current.fiscal_contrato  ?? '',
+        fiscal_suplente:  current.fiscal_suplente  ?? '',
+        gestor_contrato:  current.gestor_contrato  ?? '',
+        gestor_suplente:  current.gestor_suplente  ?? '',
+      })
     }
   }, [current])
 
@@ -194,13 +210,14 @@ export default function DFDDetail() {
   if (error)   return <div className="p-8 text-sm text-red-600 bg-red-50 rounded-lg m-8">{error}</div>
   if (!current || !form) return null
 
-  const podeEditar   = ['Rascunho', 'Devolvida'].includes(current.status) && !PAPEIS_ANALISTA.includes(papel)
-  const podeSubmeter = ['Rascunho', 'Devolvida'].includes(current.status) && PAPEIS_SOLICITANTE.includes(papel)
-  const podeAnalisar = current.status === 'Submetida'   && PAPEIS_ANALISTA.includes(papel)
-  const podeAprovar  = current.status === 'Em Análise'  && PAPEIS_ANALISTA.includes(papel)
-  const podeDevolver = current.status === 'Em Análise'  && PAPEIS_ANALISTA.includes(papel)
-  const podeCriarEtp    = current.status === 'Aprovada' && !current.etp_id && PAPEIS_ANALISTA.includes(papel)
-  const podeDispensarEtp = current.status === 'Aprovada' && !current.etp_id && PAPEIS_ANALISTA.includes(papel)
+  const podeEditar             = ['Rascunho', 'Devolvida'].includes(current.status) && !PAPEIS_ANALISTA.includes(papel)
+  const podeSubmeter           = ['Rascunho', 'Devolvida'].includes(current.status) && PAPEIS_SOLICITANTE.includes(papel)
+  const podeAnalisar           = current.status === 'Submetida'   && PAPEIS_ANALISTA.includes(papel)
+  const podeAprovar            = current.status === 'Em Análise'  && PAPEIS_ANALISTA.includes(papel)
+  const podeDevolver           = current.status === 'Em Análise'  && PAPEIS_ANALISTA.includes(papel)
+  const podeCriarEtp           = current.status === 'Aprovada' && !current.etp_id && PAPEIS_ANALISTA.includes(papel)
+  const podeDispensarEtp       = current.status === 'Aprovada' && !current.etp_id && PAPEIS_ANALISTA.includes(papel)
+  const podeEditarResponsaveis = ['admin', 'gestor_contrato'].includes(papel)
 
   const handleDispensarEtp = async () => {
     if (!motivoDispensa.trim()) return
@@ -216,6 +233,21 @@ export default function DFDDetail() {
       setActionError(err.response?.data?.detail || 'Erro ao dispensar ETP.')
     } finally {
       setDispensando(false)
+    }
+  }
+
+  const handleSaveResp = async () => {
+    setSavingResp(true)
+    try {
+      await updateDFD(id, {
+        fiscal_contrato: respForm.fiscal_contrato  || null,
+        fiscal_suplente: respForm.fiscal_suplente  || null,
+        gestor_contrato: respForm.gestor_contrato  || null,
+        gestor_suplente: respForm.gestor_suplente  || null,
+      })
+      setEditingResp(false)
+    } finally {
+      setSavingResp(false)
     }
   }
 
@@ -427,6 +459,69 @@ export default function DFDDetail() {
           <UnitCard label="Demandante" nome={current.unidade_demandante_nome} color="blue" />
           <UnitCard label="Licitante"  nome={current.unidade_licitante_nome}  color="yellow" />
           <UnitCard label="Contratante" nome={current.unidade_contratante_nome} color="green" />
+        </div>
+      </div>
+
+      {/* Responsáveis pelo Contrato */}
+      <div className="mb-5 border border-gray-200 rounded-xl p-4 bg-white">
+        <div className="flex items-center justify-between mb-3">
+          <p className="text-xs font-semibold text-gray-400 uppercase">Responsáveis pelo Contrato</p>
+          {podeEditarResponsaveis && !editingResp && (
+            <button onClick={() => setEditingResp(true)}
+              className="text-xs text-blue-600 hover:text-blue-800 font-medium">
+              Editar
+            </button>
+          )}
+          {editingResp && (
+            <div className="flex gap-2">
+              <button onClick={handleSaveResp} disabled={savingResp}
+                className="text-xs bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white font-medium px-3 py-1 rounded-lg">
+                {savingResp ? 'Salvando...' : 'Salvar'}
+              </button>
+              <button onClick={() => { setEditingResp(false); setRespForm({ fiscal_contrato: current.fiscal_contrato ?? '', fiscal_suplente: current.fiscal_suplente ?? '', gestor_contrato: current.gestor_contrato ?? '', gestor_suplente: current.gestor_suplente ?? '' }) }}
+                className="text-xs border border-gray-300 text-gray-600 hover:bg-gray-50 px-3 py-1 rounded-lg">
+                Cancelar
+              </button>
+            </div>
+          )}
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <RespCard
+            label="Fiscal Titular"
+            username={current.fiscal_contrato_username}
+            fieldKey="fiscal_contrato"
+            editing={editingResp}
+            value={respForm.fiscal_contrato}
+            users={users}
+            onChange={(v) => setRespForm((p) => ({ ...p, fiscal_contrato: v }))}
+          />
+          <RespCard
+            label="Fiscal Suplente"
+            username={current.fiscal_suplente_username}
+            fieldKey="fiscal_suplente"
+            editing={editingResp}
+            value={respForm.fiscal_suplente}
+            users={users}
+            onChange={(v) => setRespForm((p) => ({ ...p, fiscal_suplente: v }))}
+          />
+          <RespCard
+            label="Gestor Titular"
+            username={current.gestor_contrato_username}
+            fieldKey="gestor_contrato"
+            editing={editingResp}
+            value={respForm.gestor_contrato}
+            users={users}
+            onChange={(v) => setRespForm((p) => ({ ...p, gestor_contrato: v }))}
+          />
+          <RespCard
+            label="Gestor Suplente"
+            username={current.gestor_suplente_username}
+            fieldKey="gestor_suplente"
+            editing={editingResp}
+            value={respForm.gestor_suplente}
+            users={users}
+            onChange={(v) => setRespForm((p) => ({ ...p, gestor_suplente: v }))}
+          />
         </div>
       </div>
 
@@ -738,6 +833,32 @@ export default function DFDDetail() {
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+function RespCard({ label, username, editing, value, users, onChange }) {
+  return (
+    <div className="border border-gray-200 rounded-lg px-3 py-2 bg-gray-50">
+      <p className="text-xs font-semibold text-gray-400 uppercase mb-1">{label}</p>
+      {editing ? (
+        <select
+          value={value ?? ''}
+          onChange={(e) => onChange(e.target.value === '' ? null : Number(e.target.value))}
+          className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white"
+        >
+          <option value="">— Não definido —</option>
+          {users.map((u) => (
+            <option key={u.id} value={u.id}>
+              {u.first_name ? `${u.first_name} ${u.last_name} (${u.username})` : u.username}
+            </option>
+          ))}
+        </select>
+      ) : (
+        <p className="text-sm text-gray-700">
+          {username || <span className="italic text-gray-400">Não definido</span>}
+        </p>
+      )}
     </div>
   )
 }

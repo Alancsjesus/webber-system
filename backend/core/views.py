@@ -1,4 +1,5 @@
 from rest_framework import viewsets, serializers as drf_serializers, filters, status
+from rest_framework.generics import ListAPIView
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
@@ -217,6 +218,19 @@ class ParametroSistemaViewSet(viewsets.ModelViewSet):
     def perform_destroy(self, instance):
         self._check_permissao(self.request)
         instance.delete()
+
+
+class UserSimpleSerializer(drf_serializers.ModelSerializer):
+    class Meta:
+        model = User
+        fields = ['id', 'username', 'first_name', 'last_name']
+
+
+class UserListView(ListAPIView):
+    """Lista todos os usuários ativos — usado nos selects de fiscal/gestor."""
+    serializer_class   = UserSimpleSerializer
+    permission_classes = [IsAuthenticated]
+    queryset           = User.objects.filter(is_active=True).order_by('username')
 
 
 class DashboardStatsView(APIView):
