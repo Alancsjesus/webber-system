@@ -97,12 +97,33 @@ const TIPO_UNIDADE_BADGE = {
   planejamento: { label: 'Planejamento', cls: 'bg-orange-800 text-orange-200' },
 }
 
-function buildSections(papel, tipoUnidade) {
-  const sections = [...NAV_BASE]
+function buildSections(papel, tipoUnidade, flags) {
+  const f = flags || {}
+  let sections = [...NAV_BASE]
 
-  // Adicionar seção de aceite para planejamento (órgão pai aceita demandas externas)
-  if (tipoUnidade === 'planejamento' || ['gestor_planejamento', 'admin'].includes(papel)) {
-    sections.splice(2, 0, NAV_ACEITE) // insere após Planejamento
+  // Remove módulos desativados pelas feature flags
+  if (!f.modulo_planejamento_ativo) {
+    sections = sections.filter(s => s.section !== 'Planejamento')
+  }
+  if (!f.modulo_orcamento_ativo) {
+    sections = sections.filter(s => s.section !== 'Orçamento')
+  }
+  if (!f.modulo_etp_ativo) {
+    sections = sections.map(s =>
+      s.section === 'Análise Técnica'
+        ? { ...s, items: s.items.filter(i => !i.to.startsWith('/etp')) }
+        : s
+    ).filter(s => s.items?.length !== 0)
+  }
+  if (!f.modulo_mapa_ativo) {
+    sections = sections.filter(s => s.section !== 'Pesquisa de Preços')
+  }
+
+  // Seção de aceite: só aparece se planejamento ativo E perfil correto
+  if (f.modulo_planejamento_ativo !== false &&
+      (tipoUnidade === 'planejamento' || ['gestor_planejamento', 'admin'].includes(papel))) {
+    const planIdx = sections.findIndex(s => s.section === 'Planejamento')
+    if (planIdx >= 0) sections.splice(planIdx + 1, 0, NAV_ACEITE)
   }
 
   // Configurações por perfil
@@ -124,9 +145,10 @@ export default function Layout() {
   const orgaoSigla  = useAuthStore((s) => s.orgaoSigla)
   const orgaoNome   = useAuthStore((s) => s.orgaoNome)
   const unidadeNome = useAuthStore((s) => s.unidadeNome)
+  const flags       = useAuthStore((s) => s.flags)
   const navigate    = useNavigate()
 
-  const allSections = buildSections(papel, tipoUnidade)
+  const allSections = buildSections(papel, tipoUnidade, flags)
 
   const [open, setOpen] = useState(() =>
     Object.fromEntries(allSections.map(({ section }) => [section, true]))

@@ -102,6 +102,32 @@ PARAMETROS = [
         'norma_base': 'Decreto Estadual 22.886/2024, Art. 5º, V',
         'data_vigencia': '2024-06-21',
     },
+    # ── Feature flags de módulos ───────────────────────────────────────────────
+    {
+        'chave': 'modulo_planejamento_ativo',
+        'valor': 'true',
+        'descricao': 'Habilita o módulo de Necessidades de Planejamento (menu + validações). false = clientes que iniciam diretamente pelo DFD.',
+    },
+    {
+        'chave': 'modulo_orcamento_ativo',
+        'valor': 'true',
+        'descricao': 'Habilita o módulo de Orçamento (Dotações e Indicações/DOD). false = clientes sem gestão orçamentária integrada.',
+    },
+    {
+        'chave': 'modulo_etp_ativo',
+        'valor': 'true',
+        'descricao': 'Habilita o módulo de Estudos Técnicos Preliminares. false = clientes que usam apenas DFD + TR (com dispensa de ETP).',
+    },
+    {
+        'chave': 'modulo_mapa_ativo',
+        'valor': 'true',
+        'descricao': 'Habilita o módulo de Pesquisa de Preços (Mapa Comparativo). false = clientes que realizam pesquisa fora do sistema.',
+    },
+    {
+        'chave': 'dfd_exige_planejamento',
+        'valor': 'false',
+        'descricao': 'Se true, bloqueia a submissão de DFD sem vínculo com Necessidade de Planejamento aprovada. Aplica-se apenas quando modulo_planejamento_ativo=true.',
+    },
 ]
 
 USUARIOS = [

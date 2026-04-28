@@ -1,10 +1,18 @@
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
-from .models import Orgao
+from .models import Orgao, ParametroSistema
+
+FLAGS_MODULOS = [
+    'modulo_planejamento_ativo',
+    'modulo_orcamento_ativo',
+    'modulo_etp_ativo',
+    'modulo_mapa_ativo',
+    'dfd_exige_planejamento',
+]
 
 
 class WebberTokenObtainPairSerializer(TokenObtainPairSerializer):
-    """JWT customizado com orgao_id, unidade_id, tipo_unidade e papel."""
+    """JWT customizado com orgao_id, unidade_id, tipo_unidade, papel e feature flags."""
 
     @classmethod
     def get_token(cls, user):
@@ -46,6 +54,13 @@ class WebberTokenObtainPairSerializer(TokenObtainPairSerializer):
             token['papel'] = 'admin'
         else:
             token['papel'] = 'solicitante'
+
+        # feature flags de módulos
+        flags = {}
+        for chave in FLAGS_MODULOS:
+            param = ParametroSistema.objects.filter(chave=chave).first()
+            flags[chave] = (param.valor.lower() == 'true') if param else True
+        token['flags'] = flags
 
         return token
 

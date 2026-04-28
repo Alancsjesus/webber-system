@@ -15,6 +15,20 @@ function getFieldFromToken(field) {
   return parseJwt(token)[field] || null
 }
 
+const DEFAULT_FLAGS = {
+  modulo_planejamento_ativo: true,
+  modulo_orcamento_ativo:    true,
+  modulo_etp_ativo:          true,
+  modulo_mapa_ativo:         true,
+  dfd_exige_planejamento:    false,
+}
+
+function getFlagsFromToken() {
+  const token = localStorage.getItem('access_token')
+  if (!token) return DEFAULT_FLAGS
+  return parseJwt(token)['flags'] || DEFAULT_FLAGS
+}
+
 const useAuthStore = create((set) => ({
   user:          null,
   papel:         getFieldFromToken('papel'),
@@ -26,6 +40,7 @@ const useAuthStore = create((set) => ({
   unidadeNome:   getFieldFromToken('unidade_nome'),
   tipoUnidade:   getFieldFromToken('tipo_unidade'),
   tipoOrg:       getFieldFromToken('tipo_unidade') || 'demandante',
+  flags:         getFlagsFromToken(),
   isAuthenticated: !!localStorage.getItem('access_token'),
   error:         null,
   loading:       false,
@@ -48,6 +63,7 @@ const useAuthStore = create((set) => ({
         unidadeNome:  p.unidade_nome  || null,
         tipoUnidade:  p.tipo_unidade  || null,
         tipoOrg:      p.tipo_unidade  || 'demandante',
+        flags:        p.flags         || DEFAULT_FLAGS,
         loading: false,
       })
     } catch (err) {
@@ -65,6 +81,7 @@ const useAuthStore = create((set) => ({
       orgId: null, orgaoSigla: null, orgaoNome: null,
       unidadeId: null, unidadeSigla: null, unidadeNome: null,
       tipoUnidade: null, tipoOrg: 'demandante',
+      flags: DEFAULT_FLAGS,
     })
   },
 }))
