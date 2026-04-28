@@ -4,6 +4,7 @@ import useDFDStore from '../stores/dfdStore'
 import usePlanejamentoStore from '../stores/planejamentoStore'
 import useAuthStore from '../stores/authStore'
 import api from '../services/api'
+import FormErrors from '../components/FormErrors'
 
 const MODALIDADES = [
   { value: 'licitacao',           label: 'Licitação' },
@@ -313,6 +314,8 @@ export default function DFDCreate() {
       {/* Formulário aparece assim que o carregamento termina */}
       {!loadingNec && (
         <form onSubmit={handleSubmit} className="space-y-5">
+
+          <FormErrors errors={errors} />
 
           {errors._geral && (
             <div className="bg-red-50 border border-red-300 rounded-lg px-4 py-3 text-sm text-red-700">

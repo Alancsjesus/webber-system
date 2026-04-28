@@ -377,15 +377,15 @@ class MapaComparativoPrecosViewSet(viewsets.ModelViewSet):
     def precos(self, request, pk=None, item_pk=None):
         mapa = self.get_object()
         item = get_object_or_404(ItemMapa, pk=item_pk, mapa=mapa)
+        ctx = {'request': request}
         if request.method == 'POST':
-            serializer = PrecoColetadoSerializer(data=request.data)
+            serializer = PrecoColetadoSerializer(data=request.data, context=ctx)
             serializer.is_valid(raise_exception=True)
             preco = serializer.save(item=item)
-            # Recalcula o item após novo preço
             item.calcular(metodo=mapa.metodo_calculo)
             mapa.recalcular_total()
-            return Response(PrecoColetadoSerializer(preco).data, status=status.HTTP_201_CREATED)
-        serializer = PrecoColetadoSerializer(item.precos.all(), many=True)
+            return Response(PrecoColetadoSerializer(preco, context=ctx).data, status=status.HTTP_201_CREATED)
+        serializer = PrecoColetadoSerializer(item.precos.all(), many=True, context=ctx)
         return Response(serializer.data)
 
     @action(detail=True, methods=['patch', 'delete'],
@@ -394,12 +394,13 @@ class MapaComparativoPrecosViewSet(viewsets.ModelViewSet):
         mapa  = self.get_object()
         item  = get_object_or_404(ItemMapa, pk=item_pk, mapa=mapa)
         preco = get_object_or_404(PrecoColetado, pk=preco_pk, item=item)
+        ctx   = {'request': request}
         if request.method == 'DELETE':
             preco.delete()
             item.calcular(metodo=mapa.metodo_calculo)
             mapa.recalcular_total()
             return Response(status=status.HTTP_204_NO_CONTENT)
-        serializer = PrecoColetadoSerializer(preco, data=request.data, partial=True)
+        serializer = PrecoColetadoSerializer(preco, data=request.data, partial=True, context=ctx)
         serializer.is_valid(raise_exception=True)
         serializer.save()
         item.calcular(metodo=mapa.metodo_calculo)

@@ -21,6 +21,7 @@ class PrecoColetadoSerializer(serializers.ModelSerializer):
     motivo_exclusao_display = serializers.CharField(
         source='get_motivo_exclusao_display', read_only=True
     )
+    arquivo_url = serializers.SerializerMethodField()
 
     class Meta:
         model  = PrecoColetado
@@ -30,8 +31,17 @@ class PrecoColetadoSerializer(serializers.ModelSerializer):
             'origem_orgao_empresa', 'numero_certame', 'data_referencia',
             'valido', 'motivo_exclusao', 'motivo_exclusao_display',
             'sugestao_exclusao', 'justificativa_exclusao', 'observacao',
+            'arquivo', 'arquivo_url',
         ]
-        read_only_fields = ['id', 'sugestao_exclusao']
+        read_only_fields = ['id', 'sugestao_exclusao', 'arquivo_url']
+
+    def get_arquivo_url(self, obj):
+        if not obj.arquivo:
+            return None
+        request = self.context.get('request')
+        if request:
+            return request.build_absolute_uri(obj.arquivo.url)
+        return obj.arquivo.url
 
 
 class ItemMapaSerializer(serializers.ModelSerializer):

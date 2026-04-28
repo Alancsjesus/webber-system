@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useOrcamentoStore from '../stores/orcamentoStore'
+import FormErrors from '../components/FormErrors'
 
 const ANO_ATUAL = new Date().getFullYear()
 
@@ -91,6 +92,7 @@ export default function OrcamentoCreate() {
       <h1 className="text-xl font-bold text-gray-800 mb-6">Nova Dotação Orçamentária</h1>
 
       <form onSubmit={handleSubmit} className="space-y-5">
+        <FormErrors errors={errors} />
 
         <div className="grid grid-cols-2 gap-4">
           <Field label="Exercício fiscal" error={errors.exercicio_fiscal}>

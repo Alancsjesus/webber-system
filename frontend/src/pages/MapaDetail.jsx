@@ -385,6 +385,12 @@ export default function MapaDetail() {
                               <td className="px-3 py-2">
                                 {p.sugestao_exclusao && <span className="text-amber-700">⚠ {p.sugestao_exclusao}</span>}
                                 {!p.valido && p.motivo_exclusao_display && <span className="text-red-600">{p.motivo_exclusao_display}</span>}
+                                {p.arquivo_url && (
+                                  <a href={p.arquivo_url} target="_blank" rel="noreferrer"
+                                    className="ml-1 text-xs text-blue-600 hover:underline">
+                                    📄 Ver doc
+                                  </a>
+                                )}
                               </td>
                               {isEditavel && (
                                 <td className="px-3 py-2 text-right">
@@ -867,14 +873,29 @@ function PrecoForm({ itemId, fontes, onSave }) {
     fonte: '', valor_unitario: '', origem_orgao_empresa: '',
     numero_certame: '', data_referencia: hoje, observacao: '',
   })
+  const [arquivo, setArquivo] = useState(null)
   const [saving, setSaving] = useState(false)
 
   const handleSave = async () => {
     if (!form.fonte || !form.valor_unitario) return
     setSaving(true)
     try {
-      await onSave({ ...form, valor_unitario: Number(form.valor_unitario), fonte: Number(form.fonte) })
+      let payload
+      if (arquivo) {
+        payload = new FormData()
+        payload.append('fonte', form.fonte)
+        payload.append('valor_unitario', form.valor_unitario)
+        payload.append('origem_orgao_empresa', form.origem_orgao_empresa)
+        payload.append('numero_certame', form.numero_certame)
+        payload.append('data_referencia', form.data_referencia)
+        payload.append('observacao', form.observacao)
+        payload.append('arquivo', arquivo)
+      } else {
+        payload = { ...form, valor_unitario: Number(form.valor_unitario), fonte: Number(form.fonte) }
+      }
+      await onSave(payload)
       setForm(p => ({ ...p, valor_unitario: '', origem_orgao_empresa: '', numero_certame: '', observacao: '' }))
+      setArquivo(null)
     } finally { setSaving(false) }
   }
 
@@ -916,6 +937,13 @@ function PrecoForm({ itemId, fontes, onSave }) {
           <input type="date" value={form.data_referencia}
             onChange={(e) => setForm(p => ({ ...p, data_referencia: e.target.value }))}
             className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500" />
+        </div>
+        <div className="col-span-3">
+          <label className="block text-xs text-gray-500 mb-1">Documento comprobatório (PDF/imagem, opcional)</label>
+          <input type="file" accept=".pdf,.png,.jpg,.jpeg"
+            onChange={(e) => setArquivo(e.target.files[0] || null)}
+            className="w-full text-xs text-gray-600 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+          {arquivo && <p className="text-xs text-green-700 mt-0.5">📄 {arquivo.name}</p>}
         </div>
         <div className="col-span-3 flex justify-end">
           <button onClick={handleSave} disabled={saving || !form.fonte || !form.valor_unitario}

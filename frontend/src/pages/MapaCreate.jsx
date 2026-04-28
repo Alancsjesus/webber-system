@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import useMapaStore from '../stores/mapaStore'
 import api from '../services/api'
+import FormErrors from '../components/FormErrors'
 
 const ANO = new Date().getFullYear()
 
@@ -58,6 +59,7 @@ export default function MapaCreate() {
       </div>
 
       <form onSubmit={handleSubmit} className="space-y-5">
+        <FormErrors errors={errors} />
         <Field label="Objeto da pesquisa *" error={errors.objeto}>
           <textarea rows={3} value={form.objeto}
             onChange={(e) => set('objeto', e.target.value)}

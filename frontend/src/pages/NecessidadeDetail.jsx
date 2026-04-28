@@ -376,7 +376,7 @@ export default function NecessidadeDetail() {
 
         <DF label="Prazo desejado">
           {editing
-            ? <input type="date" value={form.prazo_desejado || ''} onChange={(e) => set('prazo_desejado', e.target.value)} className={inp()} />
+            ? <input type="date" value={form.prazo_desejado || ''} min={new Date().toISOString().split('T')[0]} onChange={(e) => set('prazo_desejado', e.target.value)} className={inp()} />
             : <p className="text-sm text-gray-700">
                 {current.prazo_desejado ? new Date(current.prazo_desejado).toLocaleDateString('pt-BR') : '—'}
               </p>}

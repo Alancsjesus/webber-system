@@ -379,6 +379,10 @@ class PrecoColetado(models.Model):
     observacao = models.TextField(
         blank=True, default='', verbose_name='Observação',
     )
+    arquivo = models.FileField(
+        upload_to='cotacoes/', null=True, blank=True,
+        verbose_name='Documento comprobatório (PDF/imagem)',
+    )
 
     class Meta:
         ordering = ['item', 'valor_unitario']

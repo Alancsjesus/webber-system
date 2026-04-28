@@ -1,5 +1,7 @@
 from django.contrib import admin
 from django.urls import path, include
+from django.conf import settings
+from django.conf.urls.static import static
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 from core.serializers import WebberTokenObtainPairView
@@ -34,4 +36,4 @@ urlpatterns = [
     path('api/etp/',       include('modulo_etp.urls')),
     path('api/tr/',        include('modulo_tr.urls')),
     path('api/pesquisa/',  include('modulo_mapa_precos.urls')),
-]
+] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
