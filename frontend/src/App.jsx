@@ -37,6 +37,9 @@ import PerfilAdmin from './pages/config/PerfilAdmin'
 import AreaAdmin from './pages/config/AreaAdmin'
 import Ajuda from './pages/Ajuda'
 import Painel from './pages/Painel'
+import ContratoList from './pages/ContratoList'
+import ContratoCreate from './pages/ContratoCreate'
+import ContratoDetail from './pages/ContratoDetail'
 
 export default function App() {
   return (
@@ -103,6 +106,11 @@ export default function App() {
           <Route path="config/elementos" element={<ElementoAdmin />} />
           <Route path="config/naturezas" element={<NaturezaAdmin />} />
           <Route path="config/fontes"    element={<FonteAdmin />} />
+
+          {/* Contratos */}
+          <Route path="contratos"        element={<ContratoList />} />
+          <Route path="contratos/novo"   element={<ContratoCreate />} />
+          <Route path="contratos/:id"    element={<ContratoDetail />} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

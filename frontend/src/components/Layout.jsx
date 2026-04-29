@@ -42,6 +42,12 @@ const NAV_BASE = [
       { to: '/analise-tecnica/trs', label: 'Minutas TR' },
     ],
   },
+  {
+    section: 'Contratos',
+    items: [
+      { to: '/contratos', label: 'Contratos' },
+    ],
+  },
 ]
 
 // Seção de aceite apenas para perfis de planejamento do órgão pai
@@ -52,41 +58,33 @@ const NAV_ACEITE = {
   ],
 }
 
-// Configurações subdivididas por perfil
-const NAV_CONFIG_ADMIN = {
-  section: 'Configurações',
+// ── Seções de Configuração por contexto ──────────────────────────────────────
+
+const NAV_CONFIG_ACESSO = {
+  section: 'Config · Acesso',
   items: [
-    { to: '/config/perfis',    label: 'Perfis e Permissões' },
-    { to: '/config/orgaos',    label: 'Órgãos' },
-    { to: '/config/unidades',  label: 'Unidades' },
-    { to: '/config/usuarios',  label: 'Usuários' },
-    { to: '/config/parametros',label: 'Parâmetros do Sistema' },
-    { to: '/config/areas',     label: 'Áreas de Atuação' },
-    { to: '/config/acoes',     label: 'Ações Orçamentárias' },
-    { to: '/config/elementos', label: 'Elementos de Despesa' },
-    { to: '/config/naturezas', label: 'Naturezas de Despesa' },
-    { to: '/config/fontes',    label: 'Fontes de Recurso' },
+    { to: '/config/perfis',   label: 'Perfis e Permissões' },
+    { to: '/config/orgaos',   label: 'Órgãos' },
+    { to: '/config/unidades', label: 'Unidades' },
+    { to: '/config/usuarios', label: 'Usuários' },
   ],
 }
 
-// Planejamento vê tabelas orçamentárias e parâmetros
-const NAV_CONFIG_PLANEJAMENTO = {
-  section: 'Configurações',
-  items: [
-    { to: '/config/parametros',label: 'Parâmetros do Sistema' },
-    { to: '/config/areas',     label: 'Áreas de Atuação' },
-    { to: '/config/acoes',     label: 'Ações Orçamentárias' },
-    { to: '/config/elementos', label: 'Elementos de Despesa' },
-    { to: '/config/naturezas', label: 'Naturezas de Despesa' },
-    { to: '/config/fontes',    label: 'Fontes de Recurso' },
-  ],
-}
-
-// Licitante vê parâmetros de licitação (ex: limite dispensa ETP)
-const NAV_CONFIG_LICITANTE = {
-  section: 'Configurações',
+const NAV_CONFIG_PARAMETROS = {
+  section: 'Config · Parâmetros',
   items: [
     { to: '/config/parametros', label: 'Parâmetros do Sistema' },
+    { to: '/config/areas',      label: 'Áreas de Atuação' },
+  ],
+}
+
+const NAV_CONFIG_ORCAMENTO = {
+  section: 'Config · Orçamento',
+  items: [
+    { to: '/config/acoes',     label: 'Ações Orçamentárias' },
+    { to: '/config/naturezas', label: 'Naturezas de Despesa' },
+    { to: '/config/elementos', label: 'Elementos de Despesa' },
+    { to: '/config/fontes',    label: 'Fontes de Recurso' },
   ],
 }
 
@@ -126,13 +124,16 @@ function buildSections(papel, tipoUnidade, flags) {
     if (planIdx >= 0) sections.splice(planIdx + 1, 0, NAV_ACEITE)
   }
 
-  // Configurações por perfil
+  // Configurações por contexto e perfil (seções separadas)
   if (papel === 'admin') {
-    sections.push(NAV_CONFIG_ADMIN)
+    sections.push(NAV_CONFIG_ACESSO)
+    sections.push(NAV_CONFIG_PARAMETROS)
+    sections.push(NAV_CONFIG_ORCAMENTO)
   } else if (papel === 'gestor_planejamento' || tipoUnidade === 'planejamento') {
-    sections.push(NAV_CONFIG_PLANEJAMENTO)
+    sections.push(NAV_CONFIG_PARAMETROS)
+    sections.push(NAV_CONFIG_ORCAMENTO)
   } else if (tipoUnidade === 'licitante') {
-    sections.push(NAV_CONFIG_LICITANTE)
+    sections.push(NAV_CONFIG_PARAMETROS)
   }
 
   return sections
