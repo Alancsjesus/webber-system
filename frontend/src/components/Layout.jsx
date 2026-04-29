@@ -1,6 +1,33 @@
 import { useState } from 'react'
-import { Outlet, NavLink, useNavigate } from 'react-router-dom'
+import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import useAuthStore from '../stores/authStore'
+
+// ── Paleta de cores por seção ─────────────────────────────────────────────────
+const SECTION_ACCENT = {
+  'Geral':              { dot: 'bg-slate-400',   ring: 'bg-slate-500/20',   text: 'text-slate-300'  },
+  'Planejamento':       { dot: 'bg-emerald-400',  ring: 'bg-emerald-500/15', text: 'text-emerald-300'},
+  'Aceite':             { dot: 'bg-amber-400',    ring: 'bg-amber-500/15',   text: 'text-amber-300'  },
+  'Orçamento':          { dot: 'bg-yellow-400',   ring: 'bg-yellow-500/15',  text: 'text-yellow-300' },
+  'Demanda':            { dot: 'bg-blue-400',     ring: 'bg-blue-500/15',    text: 'text-blue-300'   },
+  'Pesquisa de Preços': { dot: 'bg-violet-400',   ring: 'bg-violet-500/15',  text: 'text-violet-300' },
+  'Análise Técnica':    { dot: 'bg-indigo-400',   ring: 'bg-indigo-500/15',  text: 'text-indigo-300' },
+  'Contratos':          { dot: 'bg-teal-400',     ring: 'bg-teal-500/15',    text: 'text-teal-300'   },
+  'Configurações':      { dot: 'bg-gray-400',     ring: 'bg-gray-500/10',    text: 'text-gray-300'   },
+}
+
+const ACTIVE_CLS = {
+  'Geral':              'bg-slate-600 text-white',
+  'Planejamento':       'bg-emerald-700 text-white',
+  'Aceite':             'bg-amber-700 text-white',
+  'Orçamento':          'bg-yellow-700 text-white',
+  'Demanda':            'bg-blue-700 text-white',
+  'Pesquisa de Preços': 'bg-violet-700 text-white',
+  'Análise Técnica':    'bg-indigo-700 text-white',
+  'Contratos':          'bg-teal-700 text-white',
+  'Configurações':      'bg-gray-600 text-white',
+}
+
+// ── Dados de navegação ────────────────────────────────────────────────────────
 
 const NAV_BASE = [
   {
@@ -12,9 +39,7 @@ const NAV_BASE = [
   },
   {
     section: 'Planejamento',
-    items: [
-      { to: '/planejamento/necessidades', label: 'Necessidades' },
-    ],
+    items: [{ to: '/planejamento/necessidades', label: 'Necessidades' }],
   },
   {
     section: 'Orçamento',
@@ -25,15 +50,11 @@ const NAV_BASE = [
   },
   {
     section: 'Demanda',
-    items: [
-      { to: '/demanda/dfd', label: 'DFDs' },
-    ],
+    items: [{ to: '/demanda/dfd', label: 'DFDs' }],
   },
   {
     section: 'Pesquisa de Preços',
-    items: [
-      { to: '/pesquisa/mapa', label: 'Mapa Comparativo' },
-    ],
+    items: [{ to: '/pesquisa/mapa', label: 'Mapa Comparativo' }],
   },
   {
     section: 'Análise Técnica',
@@ -44,49 +65,71 @@ const NAV_BASE = [
   },
   {
     section: 'Contratos',
+    items: [{ to: '/contratos', label: 'Contratos' }],
+  },
+]
+
+const NAV_ACEITE = {
+  section: 'Aceite',
+  items: [{ to: '/planejamento/aceite', label: 'Aceite de Necessidades' }],
+}
+
+// Configurações como seção agrupada (type: 'grouped')
+const CONFIG_GROUPS_ADMIN = [
+  {
+    label: 'Acesso',
     items: [
-      { to: '/contratos', label: 'Contratos' },
+      { to: '/config/perfis',   label: 'Perfis e Permissões' },
+      { to: '/config/orgaos',   label: 'Órgãos' },
+      { to: '/config/unidades', label: 'Unidades' },
+      { to: '/config/usuarios', label: 'Usuários' },
+    ],
+  },
+  {
+    label: 'Parâmetros',
+    items: [
+      { to: '/config/parametros', label: 'Parâmetros do Sistema' },
+      { to: '/config/areas',      label: 'Áreas de Atuação' },
+    ],
+  },
+  {
+    label: 'Orçamento',
+    items: [
+      { to: '/config/acoes',     label: 'Ações Orçamentárias' },
+      { to: '/config/naturezas', label: 'Naturezas de Despesa' },
+      { to: '/config/elementos', label: 'Elementos de Despesa' },
+      { to: '/config/fontes',    label: 'Fontes de Recurso' },
     ],
   },
 ]
 
-// Seção de aceite apenas para perfis de planejamento do órgão pai
-const NAV_ACEITE = {
-  section: 'Aceite',
-  items: [
-    { to: '/planejamento/aceite', label: 'Aceite de Necessidades' },
-  ],
-}
+const CONFIG_GROUPS_PLANEJAMENTO = [
+  {
+    label: 'Parâmetros',
+    items: [
+      { to: '/config/parametros', label: 'Parâmetros do Sistema' },
+      { to: '/config/areas',      label: 'Áreas de Atuação' },
+    ],
+  },
+  {
+    label: 'Orçamento',
+    items: [
+      { to: '/config/acoes',     label: 'Ações Orçamentárias' },
+      { to: '/config/naturezas', label: 'Naturezas de Despesa' },
+      { to: '/config/elementos', label: 'Elementos de Despesa' },
+      { to: '/config/fontes',    label: 'Fontes de Recurso' },
+    ],
+  },
+]
 
-// ── Seções de Configuração por contexto ──────────────────────────────────────
-
-const NAV_CONFIG_ACESSO = {
-  section: 'Config · Acesso',
-  items: [
-    { to: '/config/perfis',   label: 'Perfis e Permissões' },
-    { to: '/config/orgaos',   label: 'Órgãos' },
-    { to: '/config/unidades', label: 'Unidades' },
-    { to: '/config/usuarios', label: 'Usuários' },
-  ],
-}
-
-const NAV_CONFIG_PARAMETROS = {
-  section: 'Config · Parâmetros',
-  items: [
-    { to: '/config/parametros', label: 'Parâmetros do Sistema' },
-    { to: '/config/areas',      label: 'Áreas de Atuação' },
-  ],
-}
-
-const NAV_CONFIG_ORCAMENTO = {
-  section: 'Config · Orçamento',
-  items: [
-    { to: '/config/acoes',     label: 'Ações Orçamentárias' },
-    { to: '/config/naturezas', label: 'Naturezas de Despesa' },
-    { to: '/config/elementos', label: 'Elementos de Despesa' },
-    { to: '/config/fontes',    label: 'Fontes de Recurso' },
-  ],
-}
+const CONFIG_GROUPS_LICITANTE = [
+  {
+    label: 'Parâmetros',
+    items: [
+      { to: '/config/parametros', label: 'Parâmetros do Sistema' },
+    ],
+  },
+]
 
 const TIPO_UNIDADE_BADGE = {
   demandante:   { label: 'Demandante',   cls: 'bg-purple-800 text-purple-200' },
@@ -95,49 +138,39 @@ const TIPO_UNIDADE_BADGE = {
   planejamento: { label: 'Planejamento', cls: 'bg-orange-800 text-orange-200' },
 }
 
+// ── buildSections ─────────────────────────────────────────────────────────────
+
 function buildSections(papel, tipoUnidade, flags) {
   const f = flags || {}
   let sections = [...NAV_BASE]
 
-  // Remove módulos desativados pelas feature flags
-  if (!f.modulo_planejamento_ativo) {
-    sections = sections.filter(s => s.section !== 'Planejamento')
-  }
-  if (!f.modulo_orcamento_ativo) {
-    sections = sections.filter(s => s.section !== 'Orçamento')
-  }
+  if (!f.modulo_planejamento_ativo) sections = sections.filter(s => s.section !== 'Planejamento')
+  if (!f.modulo_orcamento_ativo)    sections = sections.filter(s => s.section !== 'Orçamento')
+  if (!f.modulo_mapa_ativo)         sections = sections.filter(s => s.section !== 'Pesquisa de Preços')
   if (!f.modulo_etp_ativo) {
-    sections = sections.map(s =>
-      s.section === 'Análise Técnica'
-        ? { ...s, items: s.items.filter(i => !i.to.startsWith('/etp')) }
-        : s
-    ).filter(s => s.items?.length !== 0)
-  }
-  if (!f.modulo_mapa_ativo) {
-    sections = sections.filter(s => s.section !== 'Pesquisa de Preços')
+    sections = sections
+      .map(s => s.section === 'Análise Técnica' ? { ...s, items: s.items.filter(i => !i.to.startsWith('/etp')) } : s)
+      .filter(s => s.items?.length !== 0)
   }
 
-  // Seção de aceite: só aparece se planejamento ativo E perfil correto
   if (f.modulo_planejamento_ativo !== false &&
       (tipoUnidade === 'planejamento' || ['gestor_planejamento', 'admin'].includes(papel))) {
-    const planIdx = sections.findIndex(s => s.section === 'Planejamento')
-    if (planIdx >= 0) sections.splice(planIdx + 1, 0, NAV_ACEITE)
+    const idx = sections.findIndex(s => s.section === 'Planejamento')
+    if (idx >= 0) sections.splice(idx + 1, 0, NAV_ACEITE)
   }
 
-  // Configurações por contexto e perfil (seções separadas)
-  if (papel === 'admin') {
-    sections.push(NAV_CONFIG_ACESSO)
-    sections.push(NAV_CONFIG_PARAMETROS)
-    sections.push(NAV_CONFIG_ORCAMENTO)
-  } else if (papel === 'gestor_planejamento' || tipoUnidade === 'planejamento') {
-    sections.push(NAV_CONFIG_PARAMETROS)
-    sections.push(NAV_CONFIG_ORCAMENTO)
-  } else if (tipoUnidade === 'licitante') {
-    sections.push(NAV_CONFIG_PARAMETROS)
-  }
+  // Seção de configurações agrupada
+  let configGroups = null
+  if (papel === 'admin') configGroups = CONFIG_GROUPS_ADMIN
+  else if (papel === 'gestor_planejamento' || tipoUnidade === 'planejamento') configGroups = CONFIG_GROUPS_PLANEJAMENTO
+  else if (tipoUnidade === 'licitante') configGroups = CONFIG_GROUPS_LICITANTE
+
+  if (configGroups) sections.push({ section: 'Configurações', type: 'grouped', groups: configGroups })
 
   return sections
 }
+
+// ── Componente principal ──────────────────────────────────────────────────────
 
 export default function Layout() {
   const logout      = useAuthStore((s) => s.logout)
@@ -148,106 +181,151 @@ export default function Layout() {
   const unidadeNome = useAuthStore((s) => s.unidadeNome)
   const flags       = useAuthStore((s) => s.flags)
   const navigate    = useNavigate()
+  const location    = useLocation()
 
   const allSections = buildSections(papel, tipoUnidade, flags)
 
   const [open, setOpen] = useState(() =>
     Object.fromEntries(allSections.map(({ section }) => [section, true]))
   )
-  const toggle = (section) => setOpen((prev) => ({ ...prev, [section]: !prev[section] }))
+  const toggle = (section) => setOpen(p => ({ ...p, [section]: !p[section] }))
 
   return (
-    <div className="flex h-screen bg-gray-50">
+    <div className="flex h-screen bg-gray-100">
       {/* Sidebar */}
-      <aside className="w-56 bg-gray-900 flex flex-col">
-        <div className="px-5 py-4 border-b border-gray-700">
-          <span className="text-lg font-bold text-white">Webber</span>
-          <p className="text-xs text-gray-300 mt-0.5">Gestão de Contratações</p>
+      <aside className="w-60 bg-gray-950 flex flex-col shrink-0 shadow-xl">
+
+        {/* Logo + info do usuário */}
+        <div className="px-4 py-4 border-b border-gray-800">
+          <div className="flex items-center gap-2 mb-3">
+            <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center shrink-0">
+              <span className="text-white text-xs font-bold">W</span>
+            </div>
+            <div>
+              <span className="text-sm font-bold text-white">Webber</span>
+              <p className="text-[10px] text-gray-400 leading-none mt-0.5">Gestão de Contratações</p>
+            </div>
+          </div>
 
           {orgaoSigla && (
-            <div className="mt-2">
-              <p className="text-xs font-bold text-white leading-tight">{orgaoSigla}</p>
-              {orgaoNome && (
-                <p className="text-xs text-gray-400 leading-tight truncate" title={orgaoNome}>
-                  {orgaoNome}
-                </p>
+            <div className="bg-gray-900 rounded-lg px-3 py-2 space-y-1">
+              <p className="text-xs font-bold text-white leading-tight">{orgaoSigla}
+                {orgaoNome && <span className="font-normal text-gray-400 ml-1 text-[10px]">· {orgaoNome}</span>}
+              </p>
+              {unidadeNome && (
+                <div className="flex items-center justify-between gap-1">
+                  <p className="text-[10px] text-gray-400 truncate leading-tight flex-1" title={unidadeNome}>{unidadeNome}</p>
+                  {tipoUnidade && (
+                    <span className={`shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium ${TIPO_UNIDADE_BADGE[tipoUnidade]?.cls || 'bg-gray-700 text-gray-300'}`}>
+                      {TIPO_UNIDADE_BADGE[tipoUnidade]?.label || tipoUnidade}
+                    </span>
+                  )}
+                </div>
+              )}
+              {papel && (
+                <p className="text-[10px] text-gray-500 capitalize">{papel.replace(/_/g, ' ')}</p>
               )}
             </div>
-          )}
-
-          {unidadeNome && (
-            <div className="mt-1.5 flex items-start gap-1.5">
-              <div className="flex-1 min-w-0">
-                <p className="text-xs text-gray-300 truncate leading-tight" title={unidadeNome}>
-                  {unidadeNome}
-                </p>
-              </div>
-              {tipoUnidade && (
-                <span className={`shrink-0 px-1.5 py-0.5 rounded text-xs font-medium ${TIPO_UNIDADE_BADGE[tipoUnidade]?.cls || 'bg-gray-700 text-gray-300'}`}>
-                  {TIPO_UNIDADE_BADGE[tipoUnidade]?.label || tipoUnidade}
-                </span>
-              )}
-            </div>
-          )}
-
-          {papel && (
-            <p className="text-xs text-gray-500 mt-1 capitalize">{papel.replace(/_/g, ' ')}</p>
           )}
         </div>
 
-        <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
-          {allSections.map(({ section, items }) => (
-            <div key={section}>
-              <button
-                onClick={() => toggle(section)}
-                className="w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-xs font-semibold text-gray-200 uppercase tracking-wider hover:text-white transition-colors"
-              >
-                <span>{section}</span>
-                <span className={`transition-transform duration-200 ${open[section] ? 'rotate-90' : ''}`}>›</span>
-              </button>
+        {/* Nav */}
+        <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto scrollbar-thin">
+          {allSections.map((sec) => {
+            const accent = SECTION_ACCENT[sec.section] || SECTION_ACCENT['Geral']
+            const activeCls = ACTIVE_CLS[sec.section] || ACTIVE_CLS['Geral']
+            const isConfigPath = location.pathname.startsWith('/config')
 
-              {open[section] && (
-                <div className="mt-0.5 ml-2 space-y-0.5">
-                  {items.map(({ to, label, end }) => (
-                    <NavLink
-                      key={to}
-                      to={to}
-                      end={end}
-                      className={({ isActive }) =>
-                        `block px-3 py-2 rounded-lg text-sm font-medium transition-colors ${
-                          isActive
-                            ? 'bg-blue-600 text-white'
-                            : 'text-gray-300 hover:bg-gray-700 hover:text-white'
-                        }`
-                      }
-                    >
-                      {label}
-                    </NavLink>
-                  ))}
-                </div>
-              )}
-            </div>
-          ))}
+            return (
+              <div key={sec.section}>
+                {/* Cabeçalho da seção */}
+                <button
+                  onClick={() => toggle(sec.section)}
+                  className={`w-full flex items-center justify-between px-2 py-1.5 rounded-lg group transition-colors ${open[sec.section] ? accent.ring : 'hover:bg-gray-800/60'}`}
+                >
+                  <div className="flex items-center gap-2">
+                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${accent.dot}`} />
+                    <span className={`text-[11px] font-semibold uppercase tracking-widest ${accent.text}`}>
+                      {sec.section}
+                    </span>
+                  </div>
+                  <span className={`text-gray-500 text-xs transition-transform duration-200 group-hover:text-gray-300 ${open[sec.section] ? 'rotate-90' : ''}`}>›</span>
+                </button>
+
+                {open[sec.section] && (
+                  <div className="mt-0.5 mb-1">
+                    {/* Seção simples */}
+                    {sec.type !== 'grouped' && (
+                      <div className="ml-3 pl-2 border-l border-gray-800 space-y-0.5">
+                        {sec.items.map(({ to, label, end }) => (
+                          <NavLink key={to} to={to} end={end}
+                            className={({ isActive }) =>
+                              `block px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all ${
+                                isActive
+                                  ? `${activeCls} shadow-sm`
+                                  : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                              }`
+                            }>
+                            {label}
+                          </NavLink>
+                        ))}
+                      </div>
+                    )}
+
+                    {/* Seção agrupada (Configurações) */}
+                    {sec.type === 'grouped' && (
+                      <div className="ml-3 pl-2 border-l border-gray-800 space-y-2">
+                        {sec.groups.map((group) => (
+                          <div key={group.label}>
+                            <p className="px-3 py-1 text-[10px] font-semibold text-gray-600 uppercase tracking-widest">
+                              {group.label}
+                            </p>
+                            <div className="space-y-0.5">
+                              {group.items.map(({ to, label }) => (
+                                <NavLink key={to} to={to}
+                                  className={({ isActive }) =>
+                                    `block px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all ${
+                                      isActive
+                                        ? `${activeCls} shadow-sm`
+                                        : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                                    }`
+                                  }>
+                                  {label}
+                                </NavLink>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )
+          })}
         </nav>
 
-        <div className="px-3 py-3 border-t border-gray-700 space-y-1">
+        {/* Rodapé */}
+        <div className="px-2 py-2 border-t border-gray-800 space-y-0.5">
           <NavLink to="/ajuda"
             className={({ isActive }) =>
-              `block px-3 py-2 text-sm rounded-lg transition-colors ${isActive ? 'text-white bg-gray-700' : 'text-gray-400 hover:text-white hover:bg-gray-800'}`
+              `flex items-center gap-2 px-3 py-2 text-[13px] rounded-lg transition-colors ${isActive ? 'text-white bg-gray-700' : 'text-gray-500 hover:text-white hover:bg-gray-800'}`
             }>
+            <span className="text-gray-600">?</span>
             Ajuda
           </NavLink>
           <button
             onClick={() => { logout(); navigate('/login') }}
-            className="w-full text-left px-3 py-2 text-sm text-gray-200 hover:text-red-300 hover:bg-gray-800 rounded-lg transition-colors"
+            className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-gray-500 hover:text-red-400 hover:bg-gray-800/60 rounded-lg transition-colors"
           >
+            <span>↩</span>
             Sair
           </button>
         </div>
       </aside>
 
-      {/* Conteúdo */}
-      <main className="flex-1 overflow-y-auto">
+      {/* Conteúdo principal */}
+      <main className="flex-1 overflow-y-auto bg-gray-50">
         <Outlet />
       </main>
     </div>
