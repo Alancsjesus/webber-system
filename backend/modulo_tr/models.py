@@ -46,7 +46,24 @@ class TR(BaseModel):
     obrigacoes_contratante    = models.TextField(blank=True, default='', verbose_name='Obrigações da contratante')
     criterios_selecao         = models.TextField(blank=True, default='', verbose_name='Critérios de seleção do fornecedor')
     criterios_medicao         = models.TextField(blank=True, default='', verbose_name='Critérios de medição e pagamento')
-    prazo_execucao            = models.CharField(max_length=200, blank=True, default='', verbose_name='Prazo de execução')
+
+    TIPO_PRAZO_CHOICES = [
+        ('escopo',      'Por Escopo — Aquisição/entrega única (AFM, Art. 105)'),
+        ('continuo',    'Contínuo — Serviço continuado (até 5 anos prorrogável, Art. 106/107)'),
+        ('emergencial', 'Emergencial — Contratação direta emergência (até 1 ano, Art. 75, VIII)'),
+        ('direta_108',  'Contratação Direta Art. 108 — Obras/serviços especiais (até 10 anos)'),
+    ]
+    INSTRUMENTO_CHOICES = [
+        ('contrato', 'Assinatura do Contrato'),
+        ('afm',      'AFM — Autorização de Fornecimento de Material'),
+        ('aps',      'APS — Autorização de Prestação de Serviços'),
+    ]
+
+    tipo_prazo_vigencia  = models.CharField(max_length=20, choices=TIPO_PRAZO_CHOICES, blank=True, default='', verbose_name='Tipo de prazo de vigência')
+    prazo_meses          = models.PositiveIntegerField(null=True, blank=True, verbose_name='Prazo em meses')
+    instrumento_inicio   = models.CharField(max_length=10, choices=INSTRUMENTO_CHOICES, blank=True, default='', verbose_name='Instrumento de início da vigência')
+    prazo_observacao     = models.TextField(blank=True, default='', verbose_name='Redação do prazo de vigência')
+
     local_entrega             = models.TextField(blank=True, default='', verbose_name='Local de entrega')
     garantia_contrato         = models.TextField(blank=True, default='', verbose_name='Garantia contratual')
     estimativa_valor          = models.DecimalField(

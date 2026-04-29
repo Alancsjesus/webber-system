@@ -100,3 +100,38 @@ class TRViewSet(viewsets.ModelViewSet):
                             status=status.HTTP_400_BAD_REQUEST)
         return self._transicao(request, 'Devolvido',
                                campos_extra={'motivo_devolucao': motivo})
+
+    @action(detail=True, methods=['post'])
+    def reabrir(self, request, pk=None):
+        """Derruba a aprovação e retorna o TR para Devolvido (somente admin)."""
+        if getattr(request, 'papel', None) != 'admin':
+            return Response({'detail': 'Apenas administradores podem reabrir TRs aprovados.'},
+                            status=status.HTTP_403_FORBIDDEN)
+        tr = self.get_object()
+        if tr.status not in ('Aprovado', 'Cancelado'):
+            return Response({'detail': 'Apenas TRs com status Aprovado ou Cancelado podem ser reabertos.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        motivo = request.data.get('motivo', '').strip()
+        if not motivo:
+            return Response({'detail': 'O motivo da reabertura é obrigatório.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        HistoricoTR.objects.create(
+            tr=tr, status_anterior=tr.status, status_novo='Devolvido',
+            usuario=request.user, motivo=f'[REABERTURA] {motivo}',
+        )
+        tr.status = 'Devolvido'
+        tr.motivo_devolucao = f'Reabertura pelo admin: {motivo}'
+        tr.save(update_fields=['status', 'motivo_devolucao'])
+        return Response(TRSerializer(tr, context={'request': request}).data)
+
+    def perform_update(self, serializer):
+        if serializer.instance.status in ('Aprovado', 'Cancelado'):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('TRs aprovados ou cancelados não podem ser editados. Use "Reabrir" para devolvê-los.')
+        serializer.save(updated_by=self.request.user)
+
+    def perform_destroy(self, instance):
+        if instance.status not in ('Rascunho', 'Devolvido'):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('Apenas TRs em Rascunho ou Devolvido podem ser excluídos.')
+        instance.delete()

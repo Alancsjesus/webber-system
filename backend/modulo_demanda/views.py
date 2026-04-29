@@ -210,6 +210,31 @@ class DFDViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'],
             permission_classes=[IsAuthenticated, IsMultiTenant])
+    def reabrir(self, request, pk=None):
+        """Derruba a aprovação do DFD e retorna para Devolvida (somente admin)."""
+        if getattr(request, 'papel', None) != 'admin':
+            return Response({'detail': 'Apenas administradores podem reabrir DFDs aprovados.'},
+                            status=status.HTTP_403_FORBIDDEN)
+        dfd = self.get_object()
+        if dfd.status not in ('Aprovada', 'Rejeitada'):
+            return Response({'detail': 'Apenas DFDs Aprovados ou Rejeitados podem ser reabertos.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        motivo = request.data.get('motivo', '').strip()
+        if not motivo:
+            return Response({'detail': 'O motivo da reabertura é obrigatório.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        from .models import HistoricoTramitacao
+        HistoricoTramitacao.objects.create(
+            dfd=dfd, status_anterior=dfd.status, status_novo='Devolvida',
+            usuario=request.user, motivo=f'[REABERTURA] {motivo}',
+        )
+        dfd.status = 'Devolvida'
+        dfd.motivo_devolucao = f'Reabertura pelo admin: {motivo}'
+        dfd.save(update_fields=['status', 'motivo_devolucao'])
+        return Response(DFDSerializer(dfd, context={'request': request}).data)
+
+    @action(detail=True, methods=['post'],
+            permission_classes=[IsAuthenticated, IsMultiTenant])
     def dispensar_etp(self, request, pk=None):
         """
         Dispensa a criação do ETP e cria automaticamente um ETP com status='Dispensado',

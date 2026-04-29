@@ -122,3 +122,38 @@ class ETPViewSet(viewsets.ModelViewSet):
                             status=status.HTTP_400_BAD_REQUEST)
         return self._transicao(request, 'Devolvido',
                                campos_extra={'motivo_devolucao': motivo, 'motivo': motivo})
+
+    @action(detail=True, methods=['post'])
+    def reabrir(self, request, pk=None):
+        """Derruba a aprovação do ETP e retorna para Devolvido (somente admin)."""
+        if getattr(request, 'papel', None) != 'admin':
+            return Response({'detail': 'Apenas administradores podem reabrir ETPs aprovados.'},
+                            status=status.HTTP_403_FORBIDDEN)
+        etp = self.get_object()
+        if etp.status not in ('Aprovado', 'Cancelado'):
+            return Response({'detail': 'Apenas ETPs Aprovados ou Cancelados podem ser reabertos.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        motivo = request.data.get('motivo', '').strip()
+        if not motivo:
+            return Response({'detail': 'O motivo da reabertura é obrigatório.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        HistoricoETP.objects.create(
+            etp=etp, status_anterior=etp.status, status_novo='Devolvido',
+            usuario=request.user, motivo=f'[REABERTURA] {motivo}',
+        )
+        etp.status = 'Devolvido'
+        etp.motivo_devolucao = f'Reabertura pelo admin: {motivo}'
+        etp.save(update_fields=['status', 'motivo_devolucao'])
+        return Response(ETPSerializer(etp, context={'request': request}).data)
+
+    def perform_update(self, serializer):
+        if serializer.instance.status in ('Aprovado', 'Cancelado', 'Dispensado'):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('ETPs aprovados, dispensados ou cancelados não podem ser editados.')
+        serializer.save(updated_by=self.request.user)
+
+    def perform_destroy(self, instance):
+        if instance.status not in ('Rascunho', 'Devolvido'):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('Apenas ETPs em Rascunho ou Devolvido podem ser excluídos.')
+        instance.delete()

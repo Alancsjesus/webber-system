@@ -19,7 +19,7 @@ const PAPEIS_SOLICITANTE = ['solicitante', 'demandante', 'responsavel_tecnico', 
 export default function TRDetail() {
   const { id }    = useParams()
   const navigate  = useNavigate()
-  const { current, loading, error, fetchTr, updateTr, submeterTr, iniciarAnaliseTr, aprovarTr, devolverTr } = useTrStore()
+  const { current, loading, error, fetchTr, updateTr, submeterTr, iniciarAnaliseTr, aprovarTr, devolverTr, reabrirTr } = useTrStore()
   const papel     = useAuthStore((s) => s.papel)
 
   const isAnalista    = PAPEIS_ANALISTA.includes(papel)
@@ -30,7 +30,9 @@ export default function TRDetail() {
   const [saving, setSaving]         = useState(false)
   const [actionLoading, setActionLoading] = useState(false)
   const [showDevolver, setShowDevolver]   = useState(false)
+  const [showReabrir, setShowReabrir]     = useState(false)
   const [motivo, setMotivo]               = useState('')
+  const [motivoReabrir, setMotivoReabrir] = useState('')
   const [formErrors, setFormErrors]       = useState({})
 
   useEffect(() => { fetchTr(id) }, [id])
@@ -52,7 +54,10 @@ export default function TRDetail() {
         obrigacoes_contratante: form.obrigacoes_contratante,
         criterios_selecao:      form.criterios_selecao,
         criterios_medicao:      form.criterios_medicao,
-        prazo_execucao:         form.prazo_execucao,
+        tipo_prazo_vigencia:    form.tipo_prazo_vigencia,
+        prazo_meses:            form.prazo_meses ? Number(form.prazo_meses) : null,
+        instrumento_inicio:     form.instrumento_inicio,
+        prazo_observacao:       form.prazo_observacao,
         local_entrega:          form.local_entrega,
         garantia_contrato:      form.garantia_contrato,
         estimativa_valor:       form.estimativa_valor ? Number(form.estimativa_valor) : null,
@@ -95,6 +100,7 @@ export default function TRDetail() {
   const podeAnalisar  = current.status === 'Submetido' && isAnalista
   const podeAprovar   = current.status === 'Em Análise' && isAnalista
   const podeDevolver  = current.status === 'Em Análise' && isAnalista
+  const podeReabrir   = ['Aprovado', 'Cancelado'].includes(current.status) && papel === 'admin'
 
   return (
     <div className="p-8 max-w-3xl">
@@ -142,6 +148,12 @@ export default function TRDetail() {
             <button onClick={() => setShowDevolver(true)}
               className="border border-orange-300 text-orange-600 hover:bg-orange-50 text-sm px-4 py-1.5 rounded-lg font-medium">
               Devolver
+            </button>
+          )}
+          {podeReabrir && (
+            <button onClick={() => setShowReabrir(true)}
+              className="border border-red-300 text-red-600 hover:bg-red-50 text-sm px-4 py-1.5 rounded-lg font-medium">
+              Reabrir
             </button>
           )}
           <button onClick={() => downloadFile(`/tr/tr/${id}/export/pdf/`, `TR_${current.numero_sei}.pdf`)}
@@ -194,6 +206,35 @@ export default function TRDetail() {
                 {actionLoading ? 'Processando...' : 'Confirmar'}
               </button>
               <button onClick={() => { setShowDevolver(false); setMotivo('') }}
+                className="border border-gray-300 text-gray-600 text-sm px-4 py-2 rounded-lg">
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal reabrir */}
+      {showReabrir && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
+            <h3 className="text-base font-semibold mb-2">Reabrir TR</h3>
+            <p className="text-xs text-gray-500 mb-4">A aprovação será revertida e o TR voltará para status "Devolvido". Esta ação ficará registrada no histórico.</p>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Justificativa da reabertura *</label>
+            <textarea rows={3} value={motivoReabrir} onChange={(e) => setMotivoReabrir(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400 mb-4" />
+            <div className="flex gap-2">
+              <button
+                onClick={async () => {
+                  if (!motivoReabrir.trim()) return
+                  await doAction(() => reabrirTr(id, motivoReabrir))
+                  setShowReabrir(false); setMotivoReabrir('')
+                }}
+                disabled={!motivoReabrir.trim() || actionLoading}
+                className="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg">
+                {actionLoading ? 'Processando...' : 'Confirmar reabertura'}
+              </button>
+              <button onClick={() => { setShowReabrir(false); setMotivoReabrir('') }}
                 className="border border-gray-300 text-gray-600 text-sm px-4 py-2 rounded-lg">
                 Cancelar
               </button>
@@ -256,13 +297,15 @@ export default function TRDetail() {
           </Section>
         </div>
 
+        <Section label="Prazo de Vigência">
+          {editing ? (
+            <PrazoVigenciaEditor form={form} set={set} />
+          ) : (
+            <PrazoVigenciaDisplay tr={current} />
+          )}
+        </Section>
+
         <div className="grid grid-cols-2 gap-5">
-          <Section label="Prazo de execução">
-            {editing
-              ? <input type="text" value={form.prazo_execucao}
-                  onChange={(e) => set('prazo_execucao', e.target.value)} className={inp()} />
-              : <p className="text-sm text-gray-700">{current.prazo_execucao || '—'}</p>}
-          </Section>
           <Section label="Estimativa de valor">
             {editing
               ? <input type="number" step="0.01" value={form.estimativa_valor || ''}
@@ -344,3 +387,92 @@ const inp = (error) =>
   `w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 ${
     error ? 'border-red-400' : 'border-gray-300'
   }`
+
+const TIPO_PRAZO_OPTS = [
+  { value: '',           label: '— Selecione o tipo —' },
+  { value: 'escopo',     label: 'Por Escopo — Aquisição/entrega única (Art. 105)' },
+  { value: 'continuo',   label: 'Contínuo — Serviço continuado (Art. 106/107)' },
+  { value: 'emergencial',label: 'Emergencial — Contratação direta (Art. 75, VIII)' },
+  { value: 'direta_108', label: 'Contratação Direta Art. 108' },
+]
+const INSTRUMENTO_OPTS = [
+  { value: '',        label: '— Selecione —' },
+  { value: 'contrato',label: 'Assinatura do Contrato' },
+  { value: 'afm',     label: 'AFM — Autorização de Fornecimento de Material' },
+  { value: 'aps',     label: 'APS — Autorização de Prestação de Serviços' },
+]
+
+function gerarRedacao(tipo, meses, instrumento) {
+  const inst = INSTRUMENTO_OPTS.find(i => i.value === instrumento)?.label || instrumento || 'assinatura do Contrato'
+  if (tipo === 'escopo')
+    return `O prazo de vigência do Contrato é de 30 dias, a contar da data da ${inst}, observado o artigo 105 da Lei Federal n° 14.133/2021.`
+  if (tipo === 'continuo')
+    return `O prazo de vigência do Contrato é de ${meses || '___'} meses (máximo de 5 anos), a contar da data da ${inst}, prorrogável até atingir o limite de 10 anos, na forma dos artigos 106 e 107 da Lei Federal n° 14.133/2021.`
+  if (tipo === 'emergencial')
+    return `O prazo de vigência do Contrato é de ${meses || '___'} meses, podendo ser prorrogado, desde que o prazo total não ultrapasse 1 (um) ano, observado o art. 75, inc. VIII, da Lei Federal n° 14.133/2021.`
+  if (tipo === 'direta_108')
+    return `O prazo de vigência do Contrato é de ${meses || '___'} meses (máximo de 10 anos), a contar da data da ${inst}, nos termos do artigo 108 da Lei Federal n° 14.133/2021.`
+  return ''
+}
+
+function PrazoVigenciaEditor({ form, set }) {
+  const tipo = form.tipo_prazo_vigencia || ''
+  const meses = form.prazo_meses || ''
+  const instrumento = form.instrumento_inicio || ''
+  const precisaMeses = ['continuo', 'emergencial', 'direta_108'].includes(tipo)
+  const precisaInstrumento = ['escopo', 'continuo', 'direta_108'].includes(tipo)
+
+  const redacao = tipo ? gerarRedacao(tipo, meses, instrumento) : ''
+
+  return (
+    <div className="space-y-3">
+      <div>
+        <label className="block text-xs text-gray-500 mb-1">Tipo de vigência *</label>
+        <select value={tipo} onChange={e => { set('tipo_prazo_vigencia', e.target.value); set('prazo_observacao', gerarRedacao(e.target.value, meses, instrumento)) }}
+          className={inp()}>
+          {TIPO_PRAZO_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+        </select>
+      </div>
+      {precisaMeses && (
+        <div className="grid grid-cols-2 gap-3">
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">
+              Prazo em meses {tipo === 'continuo' ? '(máx. 60)' : tipo === 'emergencial' ? '(máx. 12)' : '(máx. 120)'}
+            </label>
+            <input type="number" min="1" max={tipo === 'continuo' ? 60 : tipo === 'emergencial' ? 12 : 120}
+              value={meses} onChange={e => { set('prazo_meses', e.target.value); set('prazo_observacao', gerarRedacao(tipo, e.target.value, instrumento)) }}
+              className={inp()} />
+          </div>
+        </div>
+      )}
+      {precisaInstrumento && (
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">Instrumento de início</label>
+          <select value={instrumento} onChange={e => { set('instrumento_inicio', e.target.value); set('prazo_observacao', gerarRedacao(tipo, meses, e.target.value)) }}
+            className={inp()}>
+            {INSTRUMENTO_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+          </select>
+        </div>
+      )}
+      {redacao && (
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+          <p className="text-xs font-semibold text-blue-700 mb-1">Redação gerada:</p>
+          <p className="text-xs text-blue-800 leading-relaxed">{redacao}</p>
+        </div>
+      )}
+    </div>
+  )
+}
+
+function PrazoVigenciaDisplay({ tr }) {
+  const tipo = TIPO_PRAZO_OPTS.find(o => o.value === tr.tipo_prazo_vigencia)
+  if (!tr.tipo_prazo_vigencia) return <p className="text-sm text-gray-400 italic">Não definido</p>
+  return (
+    <div className="space-y-1">
+      <p className="text-xs font-medium text-gray-600">{tipo?.label}</p>
+      {tr.prazo_observacao && (
+        <p className="text-sm text-gray-700 bg-gray-50 rounded-lg p-2 leading-relaxed">{tr.prazo_observacao}</p>
+      )}
+    </div>
+  )
+}

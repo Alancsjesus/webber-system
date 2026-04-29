@@ -66,6 +66,12 @@ const useTrStore = create((set) => ({
     return data
   },
 
+  reabrirTr: async (id, motivo) => {
+    const { data } = await api.post(`/tr/tr/${id}/reabrir/`, { motivo })
+    set((s) => ({ current: data, trs: s.trs.map((t) => (t.id === id ? data : t)) }))
+    return data
+  },
+
   deleteTr: async (id) => {
     await api.delete(`/tr/tr/${id}/`)
     set((s) => ({ trs: s.trs.filter((t) => t.id !== id) }))
