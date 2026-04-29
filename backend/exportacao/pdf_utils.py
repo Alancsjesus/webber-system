@@ -217,6 +217,258 @@ def _cabecalho(tipo_doc, numero_sei, org_nome, estilos):
     ]
 
 
+def _fmt_valor(v):
+    """Formata decimal como moeda BRL."""
+    try:
+        return f'R$ {float(v):,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
+    except (TypeError, ValueError):
+        return '—'
+
+
+# ── Seções dinâmicas ──────────────────────────────────────────────────────────
+
+def _get_secoes(tipo, modalidade=None):
+    """
+    Retorna lista de SecaoArtefato ativas para o tipo, filtradas por modalidade.
+    Retorna lista vazia se tabela não existir (fallback hardcoded será usado).
+    """
+    try:
+        from core.models import SecaoArtefato
+        qs = list(SecaoArtefato.objects.filter(tipo=tipo, ativo=True).order_by('ordem'))
+        if modalidade and qs:
+            qs = [s for s in qs if not s.aplica_modalidades or modalidade in s.aplica_modalidades]
+        return qs
+    except Exception:
+        return []
+
+
+def _valor_secao_tr(codigo, tr):
+    """Mapeia código de SecaoArtefato → valor de campo do TR."""
+    mapa = {
+        'objeto':              tr.objeto_contratacao,
+        'justificativa':       tr.justificativa,
+        'requisitos':          tr.requisitos_contratacao,
+        'obrigacoes_contratada':  tr.obrigacoes_contratada,
+        'obrigacoes_contratante': tr.obrigacoes_contratante,
+        'criterios_selecao':   tr.criterios_selecao,
+        'criterios_medicao':   tr.criterios_medicao,
+        'prazo_vigencia':      tr.prazo_observacao,
+        'local_entrega':       tr.local_entrega,
+        'garantia':            tr.garantia_contrato,
+        'estimativa_valor':    _fmt_valor(tr.estimativa_valor) if tr.estimativa_valor else None,
+        'observacoes':         tr.observacoes,
+    }
+    return mapa.get(codigo) or None
+
+
+def _valor_secao_etp(codigo, etp):
+    """Mapeia código de SecaoArtefato → valor de campo do ETP."""
+    mapa = {
+        'necessidade':         etp.necessidade_contratacao,
+        'requisitos':          etp.requisitos_contratacao,
+        'levantamento_mercado':etp.levantamento_mercado,
+        'solucao':             etp.descricao_solucao,
+        'justificativa':       etp.justificativa_solucao,
+        'estimativa_valor':    _fmt_valor(etp.estimativa_valor) if etp.estimativa_valor else None,
+        'riscos':              etp.riscos,
+        'sustentabilidade':    etp.sustentabilidade,
+        'observacoes':         etp.observacoes,
+    }
+    return mapa.get(codigo) or None
+
+
+def _renderizar_secao_dfd(codigo, dfd, estilos):
+    """
+    Retorna lista de flowables para uma seção do DFD.
+    Seções com lógica especial (itens, responsáveis) têm renderer próprio.
+    Retorna [] quando não há conteúdo.
+    """
+    e = []
+
+    if codigo == 'identificacao':
+        e += _campo('Status', dfd.status, estilos)
+        e += _campo('Modalidade', dfd.get_modalidade_aquisicao_display() if hasattr(dfd, 'get_modalidade_aquisicao_display') else dfd.modalidade_aquisicao, estilos)
+        if dfd.valor_estimado:
+            e += _campo('Valor Estimado', _fmt_valor(dfd.valor_estimado), estilos)
+
+    elif codigo == 'descricao' and dfd.descricao:
+        e += _campo('Descrição', dfd.descricao, estilos)
+
+    elif codigo == 'justificativa' and dfd.justificativa_sem_planejamento:
+        e += _campo('Justificativa', dfd.justificativa_sem_planejamento, estilos)
+
+    elif codigo == 'area_aplicacao' and dfd.area_aplicacao:
+        e += _campo('Áreas de Aplicação', ', '.join(dfd.area_aplicacao), estilos)
+
+    elif codigo == 'prazo' and dfd.prazo_necessidade:
+        e += _campo('Prazo de Necessidade', dfd.prazo_necessidade.strftime('%d/%m/%Y'), estilos)
+
+    elif codigo == 'unidades':
+        e += _campo('Unidade Demandante',  str(dfd.unidade_demandante)  if dfd.unidade_demandante_id  else '—', estilos)
+        e += _campo('Unidade Licitante',   str(dfd.unidade_licitante)   if dfd.unidade_licitante_id   else '—', estilos)
+        e += _campo('Unidade Contratante', str(dfd.unidade_contratante) if dfd.unidade_contratante_id else '—', estilos)
+
+    elif codigo == 'responsaveis':
+        def _nome(u): return (u.get_full_name() or u.username) if u else '—'
+        e += _campo('Fiscal Titular',   _nome(dfd.fiscal_contrato), estilos)
+        e += _campo('Fiscal Suplente',  _nome(dfd.fiscal_suplente), estilos)
+        e += _campo('Gestor Titular',   _nome(dfd.gestor_contrato), estilos)
+        e += _campo('Gestor Suplente',  _nome(dfd.gestor_suplente), estilos)
+
+    elif codigo == 'vinculo_orcamentario':
+        nec = getattr(dfd, 'necessidade_origem', None)
+        if nec:
+            e += _campo('Necessidade de Planejamento', nec.titulo, estilos)
+            e += _campo('Exercício', str(nec.exercicio_fiscal), estilos)
+        elif dfd.justificativa_sem_planejamento:
+            e += _campo('Situação', 'Fora do planejamento — justificativa registrada', estilos)
+
+    elif codigo == 'observacoes':
+        if dfd.observacoes:
+            e += _campo('Observações', dfd.observacoes, estilos)
+        if dfd.local_entrega:
+            e += _campo('Local de Entrega', dfd.local_entrega, estilos)
+
+    elif codigo == 'itens':
+        itens = dfd.itens.all()
+        if itens.exists():
+            dados = [['#', 'Objeto', 'Unid.', 'Qtd.', 'Valor Unit.', 'Total']]
+            for i, item in enumerate(itens, 1):
+                dados.append([str(i), item.objeto, item.unidade_medida,
+                               str(item.quantidade),
+                               _fmt_valor(item.valor_unitario_estimado),
+                               _fmt_valor(item.valor_total_estimado)])
+            t = Table(dados, colWidths=[0.8*cm, 6.5*cm, 1.5*cm, 1.5*cm, 2.5*cm, 2.5*cm])
+            t.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), AZUL_GOV),
+                ('TEXTCOLOR',  (0, 0), (-1, 0), BRANCO),
+                ('FONTNAME',   (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE',   (0, 0), (-1, -1), 8),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [BRANCO, AZUL_CLARO]),
+                ('GRID', (0, 0), (-1, -1), 0.5, CINZA_BD),
+                ('ALIGN', (2, 0), (-1, -1), 'CENTER'),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('TOPPADDING',    (0, 0), (-1, -1), 4),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+            ]))
+            e.append(t)
+
+    return e
+
+
+def _renderizar_secoes_tr(tr, estilos):
+    """Itera seções configuradas de TR e gera flowables."""
+    modalidade = getattr(tr, 'modalidade_aquisicao', None)
+    secoes = _get_secoes('TR', modalidade)
+    e = []
+
+    if secoes:
+        for secao in secoes:
+            valor = _valor_secao_tr(secao.codigo, tr)
+            if valor and str(valor).strip():
+                e.append(_secao(secao.titulo, estilos))
+                if secao.descricao:
+                    e.append(Paragraph(secao.descricao, ParagraphStyle(
+                        'orientacao', fontSize=8, textColor=CINZA_TXT,
+                        fontName='Helvetica-Oblique', spaceAfter=4,
+                    )))
+                e += _campo('', valor, estilos)
+    else:
+        # Fallback hardcoded (deploy sem setup_dev)
+        fallback = [
+            ('objeto',               'Objeto da Contratação'),
+            ('justificativa',        'Justificativa da Contratação'),
+            ('requisitos',           'Requisitos da Contratação'),
+            ('obrigacoes_contratada','Obrigações da Contratada'),
+            ('obrigacoes_contratante','Obrigações da Contratante'),
+            ('criterios_selecao',    'Critérios de Seleção'),
+            ('criterios_medicao',    'Critérios de Medição e Pagamento'),
+            ('prazo_vigencia',       'Prazo de Vigência do Contrato'),
+            ('local_entrega',        'Local de Entrega'),
+            ('garantia',             'Garantia Contratual'),
+            ('estimativa_valor',     'Estimativa de Valor'),
+            ('observacoes',          'Observações'),
+        ]
+        for codigo, titulo in fallback:
+            valor = _valor_secao_tr(codigo, tr)
+            if valor and str(valor).strip():
+                e.append(_secao(titulo, estilos))
+                e += _campo('', valor, estilos)
+
+    return e
+
+
+def _renderizar_secoes_etp(etp, estilos):
+    """Itera seções configuradas de ETP e gera flowables."""
+    secoes = _get_secoes('ETP')
+    e = []
+
+    if secoes:
+        for secao in secoes:
+            valor = _valor_secao_etp(secao.codigo, etp)
+            if valor and str(valor).strip():
+                e.append(_secao(secao.titulo, estilos))
+                e += _campo('', valor, estilos)
+    else:
+        fallback = [
+            ('necessidade',         'Necessidade da Contratação'),
+            ('requisitos',          'Requisitos da Contratação'),
+            ('levantamento_mercado','Levantamento de Mercado'),
+            ('solucao',             'Descrição da Solução'),
+            ('justificativa',       'Justificativa da Solução'),
+            ('estimativa_valor',    'Estimativa de Valor'),
+            ('riscos',              'Mapa de Riscos'),
+            ('sustentabilidade',    'Sustentabilidade'),
+            ('observacoes',         'Observações'),
+        ]
+        for codigo, titulo in fallback:
+            valor = _valor_secao_etp(codigo, etp)
+            if valor and str(valor).strip():
+                e.append(_secao(titulo, estilos))
+                e += _campo('', valor, estilos)
+
+    return e
+
+
+def _renderizar_secoes_dfd(dfd, estilos):
+    """Itera seções configuradas de DFD e gera flowables."""
+    secoes = _get_secoes('DFD')
+    e = []
+
+    if secoes:
+        for secao in secoes:
+            flowables = _renderizar_secao_dfd(secao.codigo, dfd, estilos)
+            if flowables:
+                e.append(_secao(secao.titulo, estilos))
+                e += flowables
+    else:
+        # Fallback: ordem atual do código existente
+        fallback_codigos = [
+            'identificacao', 'descricao', 'justificativa',
+            'area_aplicacao', 'prazo', 'unidades',
+            'responsaveis', 'vinculo_orcamentario', 'itens', 'observacoes',
+        ]
+        titulos_fallback = {
+            'identificacao': 'Identificação',
+            'descricao': 'Descrição da Demanda',
+            'justificativa': 'Justificativa',
+            'area_aplicacao': 'Áreas de Aplicação',
+            'prazo': 'Prazo de Necessidade',
+            'unidades': 'Unidades Responsáveis',
+            'responsaveis': 'Responsáveis pelo Contrato',
+            'vinculo_orcamentario': 'Vínculo Orçamentário',
+            'itens': 'Itens da Demanda',
+            'observacoes': 'Observações',
+        }
+        for codigo in fallback_codigos:
+            flowables = _renderizar_secao_dfd(codigo, dfd, estilos)
+            if flowables:
+                e.append(_secao(titulos_fallback.get(codigo, codigo), estilos))
+                e += flowables
+
+    return e
+
+
 # ── DFD ───────────────────────────────────────────────────────────────────────
 
 def gerar_pdf_dfd(dfd) -> bytes:
@@ -235,57 +487,7 @@ def gerar_pdf_dfd(dfd) -> bytes:
     })
 
     e += _cabecalho('DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA', dfd.numero_sei, org_nome, estilos)
-
-    e.append(_secao('Identificação', estilos))
-    e += _campo('Status', dfd.get_status_display() if hasattr(dfd, 'get_status_display') else dfd.status, estilos)
-    e += _campo('Modalidade de Aquisição', dfd.get_modalidade_aquisicao_display() if hasattr(dfd, 'get_modalidade_aquisicao_display') else dfd.modalidade_aquisicao, estilos)
-    e += _campo('Áreas de Aplicação', ', '.join(dfd.area_aplicacao) if dfd.area_aplicacao else '—', estilos)
-    e += _campo('Prazo de Necessidade', dfd.prazo_necessidade.strftime('%d/%m/%Y') if dfd.prazo_necessidade else '—', estilos)
-    e += _campo('Valor Estimado', f'R$ {dfd.valor_estimado:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.') if dfd.valor_estimado else '—', estilos)
-
-    e.append(_secao('Descrição da Demanda', estilos))
-    e += _campo('Descrição', dfd.descricao, estilos)
-    if dfd.justificativa_sem_planejamento:
-        e += _campo('Justificativa', dfd.justificativa_sem_planejamento, estilos)
-    if dfd.observacoes:
-        e += _campo('Observações', dfd.observacoes, estilos)
-    if dfd.local_entrega:
-        e += _campo('Local de Entrega', dfd.local_entrega, estilos)
-
-    # Unidades
-    e.append(_secao('Unidades Responsáveis', estilos))
-    e += _campo('Unidade Demandante',  str(dfd.unidade_demandante)  if dfd.unidade_demandante_id  else '—', estilos)
-    e += _campo('Unidade Licitante',   str(dfd.unidade_licitante)   if dfd.unidade_licitante_id   else '—', estilos)
-    e += _campo('Unidade Contratante', str(dfd.unidade_contratante) if dfd.unidade_contratante_id else '—', estilos)
-
-    # Itens
-    itens = dfd.itens.all()
-    if itens.exists():
-        e.append(_secao('Itens da Demanda', estilos))
-        dados_tabela = [['#', 'Objeto', 'Unid.', 'Qtd.', 'Valor Unit.', 'Total']]
-        for i, item in enumerate(itens, 1):
-            def fmt(v):
-                return f'R$ {v:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
-            dados_tabela.append([
-                str(i), item.objeto, item.unidade_medida,
-                str(item.quantidade), fmt(item.valor_unitario_estimado),
-                fmt(item.valor_total_estimado),
-            ])
-        t = Table(dados_tabela, colWidths=[0.8*cm, 6.5*cm, 1.5*cm, 1.5*cm, 2.5*cm, 2.5*cm])
-        t.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), AZUL_GOV),
-            ('TEXTCOLOR',  (0, 0), (-1, 0), BRANCO),
-            ('FONTNAME',   (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE',   (0, 0), (-1, -1), 8),
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [BRANCO, AZUL_CLARO]),
-            ('GRID', (0, 0), (-1, -1), 0.5, CINZA_BD),
-            ('ALIGN', (2, 0), (-1, -1), 'CENTER'),
-            ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
-            ('TOPPADDING', (0, 0), (-1, -1), 4),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-        ]))
-        e.append(t)
-
+    e += _renderizar_secoes_dfd(dfd, estilos)
     e += _bloco_assinaturas(dfd, estilos, hash_doc)
     doc.build(e, onFirstPage=_rodape, onLaterPages=_rodape)
     return buf.getvalue()
@@ -310,31 +512,16 @@ def gerar_pdf_etp(etp) -> bytes:
 
     e += _cabecalho('ESTUDO TÉCNICO PRELIMINAR', etp.numero_sei, org_nome, estilos)
 
+    # Bloco de identificação fixo (não configurável via SecaoArtefato)
     e.append(_secao('Identificação', estilos))
     e += _campo('Status', etp.status, estilos)
     e += _campo('DFD de Origem', etp.dfd.numero_sei if etp.dfd_id else '—', estilos)
     if etp.estimativa_valor:
-        def fmt(v):
-            return f'R$ {v:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
-        e += _campo('Estimativa de Valor', fmt(etp.estimativa_valor), estilos)
+        e += _campo('Estimativa de Valor', _fmt_valor(etp.estimativa_valor), estilos)
     if etp.dispensa_motivo:
         e += _campo('Motivo da Dispensa de ETP', etp.dispensa_motivo, estilos)
 
-    campos_etp = [
-        ('Necessidade da Contratação', etp.necessidade_contratacao),
-        ('Requisitos da Contratação',  etp.requisitos_contratacao),
-        ('Levantamento de Mercado',    etp.levantamento_mercado),
-        ('Descrição da Solução',       etp.descricao_solucao),
-        ('Justificativa da Solução',   etp.justificativa_solucao),
-        ('Mapa de Riscos',             etp.riscos),
-        ('Critérios de Sustentabilidade', etp.sustentabilidade),
-        ('Observações',                etp.observacoes),
-    ]
-    for label, valor in campos_etp:
-        if valor and valor.strip():
-            e.append(_secao(label, estilos))
-            e += _campo('', valor, estilos)
-
+    e += _renderizar_secoes_etp(etp, estilos)
     e += _bloco_assinaturas(etp, estilos, hash_doc)
     doc.build(e, onFirstPage=_rodape, onLaterPages=_rodape)
     return buf.getvalue()
@@ -359,34 +546,14 @@ def gerar_pdf_tr(tr) -> bytes:
 
     e += _cabecalho('MINUTA DO TERMO DE REFERÊNCIA', tr.numero_sei, org_nome, estilos)
 
+    # Bloco de identificação fixo
     e.append(_secao('Identificação', estilos))
     e += _campo('Status', tr.status, estilos)
     e += _campo('ETP de Origem', tr.etp.numero_sei if tr.etp_id else '—', estilos)
     if tr.estimativa_valor:
-        def fmt(v):
-            return f'R$ {v:,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
-        e += _campo('Estimativa de Valor', fmt(tr.estimativa_valor), estilos)
-    if tr.prazo_execucao:
-        e += _campo('Prazo de Execução', tr.prazo_execucao, estilos)
-    if tr.local_entrega:
-        e += _campo('Local de Entrega', tr.local_entrega, estilos)
+        e += _campo('Estimativa de Valor', _fmt_valor(tr.estimativa_valor), estilos)
 
-    campos_tr = [
-        ('Objeto da Contratação',          tr.objeto_contratacao),
-        ('Justificativa da Contratação',   tr.justificativa),
-        ('Requisitos da Contratação',      tr.requisitos_contratacao),
-        ('Obrigações da Contratada',       tr.obrigacoes_contratada),
-        ('Obrigações da Contratante',      tr.obrigacoes_contratante),
-        ('Critérios de Seleção',           tr.criterios_selecao),
-        ('Critérios de Medição e Pagamento', tr.criterios_medicao),
-        ('Garantia Contratual',            tr.garantia_contrato),
-        ('Observações',                    tr.observacoes),
-    ]
-    for label, valor in campos_tr:
-        if valor and str(valor).strip():
-            e.append(_secao(label, estilos))
-            e += _campo('', valor, estilos)
-
+    e += _renderizar_secoes_tr(tr, estilos)
     e += _bloco_assinaturas(tr, estilos, hash_doc)
     doc.build(e, onFirstPage=_rodape, onLaterPages=_rodape)
     return buf.getvalue()
