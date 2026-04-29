@@ -11,6 +11,7 @@ from core.views import (
     DashboardStatsView, OrgaoViewSet, UnidadeViewSet,
     UserManagementViewSet, PainelOrgaoPaiView, ParametroSistemaViewSet,
     VerificarDocumentoView, AreaAtuacaoViewSet, UserListView,
+    SecaoArtefatoViewSet,
 )
 
 router = DefaultRouter()
@@ -22,6 +23,7 @@ router.register(r'core/orgaos',    OrgaoViewSet,           basename='orgao')
 router.register(r'core/unidades',  UnidadeViewSet,         basename='unidade')
 router.register(r'core/usuarios',  UserManagementViewSet,  basename='usuario')
 router.register(r'core/areas',     AreaAtuacaoViewSet,      basename='area-atuacao')
+router.register(r'core/secoes',    SecaoArtefatoViewSet,    basename='secao-artefato')
 
 urlpatterns = [
     path('admin/', admin.site.urls),

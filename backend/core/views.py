@@ -6,7 +6,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
 from django.db.models import Sum, Count, Q, Prefetch
 from django.contrib.auth.models import User
-from core.models import Orgao, UnidadeOrganizacional, UserProfile, ParametroSistema, AreaAtuacao
+from core.models import Orgao, UnidadeOrganizacional, UserProfile, ParametroSistema, AreaAtuacao, SecaoArtefato
 from core.permissions import IsMultiTenant
 
 
@@ -493,6 +493,50 @@ class AreaAtuacaoViewSet(viewsets.ModelViewSet):
     def perform_destroy(self, instance):
         self._check_perm(self.request)
         instance.ativa = False
+        instance.save()
+
+
+class SecaoArtefatoSerializer(drf_serializers.ModelSerializer):
+    tipo_display = drf_serializers.CharField(source='get_tipo_display', read_only=True)
+
+    class Meta:
+        model  = SecaoArtefato
+        fields = ['id', 'tipo', 'tipo_display', 'codigo', 'titulo', 'descricao',
+                  'ordem', 'ativo', 'obrigatorio', 'aplica_modalidades']
+
+
+class SecaoArtefatoViewSet(viewsets.ModelViewSet):
+    serializer_class   = SecaoArtefatoSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends    = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields      = ['titulo', 'codigo']
+    ordering_fields    = ['tipo', 'ordem']
+    ordering           = ['tipo', 'ordem']
+
+    def get_queryset(self):
+        qs   = SecaoArtefato.objects.all()
+        tipo = self.request.query_params.get('tipo')
+        if tipo:
+            qs = qs.filter(tipo=tipo)
+        if self.request.query_params.get('inativas') != 'true':
+            qs = qs.filter(ativo=True)
+        return qs
+
+    def _check_perm(self, request):
+        if getattr(request, 'papel', None) != 'admin':
+            raise PermissionDenied('Apenas administradores podem gerenciar seções de artefatos.')
+
+    def perform_create(self, serializer):
+        self._check_perm(self.request)
+        serializer.save()
+
+    def perform_update(self, serializer):
+        self._check_perm(self.request)
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        self._check_perm(self.request)
+        instance.ativo = False
         instance.save()
 
 

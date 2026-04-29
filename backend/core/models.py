@@ -154,6 +154,46 @@ class AreaAtuacao(models.Model):
         return f'{self.codigo} — {self.nome}'
 
 
+class SecaoArtefato(models.Model):
+    """
+    Seções configuráveis dos artefatos documentais (DFD, ETP, TR).
+    Permite ao admin personalizar estrutura, ordem e aplicabilidade por modalidade.
+    Global — não org-scoped (compartilhado entre todos os órgãos).
+    """
+    TIPO_CHOICES = [
+        ('DFD', 'DFD — Documento de Formalização da Demanda'),
+        ('ETP', 'ETP — Estudo Técnico Preliminar'),
+        ('TR',  'TR — Minuta do Termo de Referência'),
+    ]
+    MODALIDADE_CHOICES = [
+        ('todas',              'Todas as modalidades'),
+        ('licitacao',          'Licitação'),
+        ('dispensa_valor',     'Dispensa por Valor'),
+        ('dispensa_emergencia','Dispensa por Emergência'),
+        ('inexigibilidade',    'Inexigibilidade'),
+        ('arp_saque',          'Saque de ARP'),
+    ]
+
+    tipo               = models.CharField(max_length=3, choices=TIPO_CHOICES, verbose_name='Tipo de artefato')
+    codigo             = models.CharField(max_length=60, verbose_name='Código (chave técnica)')
+    titulo             = models.CharField(max_length=200, verbose_name='Título da seção')
+    descricao          = models.TextField(blank=True, default='', verbose_name='Orientação de preenchimento')
+    ordem              = models.PositiveIntegerField(default=0, verbose_name='Ordem de exibição')
+    ativo              = models.BooleanField(default=True, verbose_name='Ativo')
+    obrigatorio        = models.BooleanField(default=False, verbose_name='Preenchimento obrigatório')
+    aplica_modalidades = models.JSONField(default=list, verbose_name='Aplica para modalidades',
+                                          help_text='Lista vazia = todas as modalidades')
+
+    class Meta:
+        unique_together = [('tipo', 'codigo')]
+        ordering        = ['tipo', 'ordem']
+        verbose_name = 'Seção de Artefato'
+        verbose_name_plural = 'Seções de Artefatos'
+
+    def __str__(self):
+        return f'[{self.tipo}] {self.titulo}'
+
+
 class AuditLog(models.Model):
     """Immutable audit trail"""
     ACTION_CHOICES = [

@@ -35,6 +35,7 @@ import FonteAdmin from './pages/config/FonteAdmin'
 import ParametroAdmin from './pages/config/ParametroAdmin'
 import PerfilAdmin from './pages/config/PerfilAdmin'
 import AreaAdmin from './pages/config/AreaAdmin'
+import ArtefatoAdmin from './pages/config/ArtefatoAdmin'
 import Ajuda from './pages/Ajuda'
 import Painel from './pages/Painel'
 import ContratoList from './pages/ContratoList'
@@ -106,6 +107,7 @@ export default function App() {
           <Route path="config/elementos" element={<ElementoAdmin />} />
           <Route path="config/naturezas" element={<NaturezaAdmin />} />
           <Route path="config/fontes"    element={<FonteAdmin />} />
+          <Route path="config/artefatos" element={<ArtefatoAdmin />} />
 
           {/* Contratos */}
           <Route path="contratos"        element={<ContratoList />} />

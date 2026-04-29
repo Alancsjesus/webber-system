@@ -101,6 +101,12 @@ const CONFIG_GROUPS_ADMIN = [
       { to: '/config/fontes',    label: 'Fontes de Recurso' },
     ],
   },
+  {
+    label: 'Documentos',
+    items: [
+      { to: '/config/artefatos', label: 'Seções de Artefatos' },
+    ],
+  },
 ]
 
 const CONFIG_GROUPS_PLANEJAMENTO = [

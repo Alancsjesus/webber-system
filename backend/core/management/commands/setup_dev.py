@@ -9,7 +9,7 @@ Uso:
 """
 from django.core.management.base import BaseCommand
 from django.contrib.auth.models import User
-from core.models import Orgao, UnidadeOrganizacional, UserProfile, ParametroSistema, AreaAtuacao
+from core.models import Orgao, UnidadeOrganizacional, UserProfile, ParametroSistema, AreaAtuacao, SecaoArtefato
 
 
 ORGAOS = [
@@ -241,6 +241,52 @@ class Command(BaseCommand):
             )
             label = 'criada' if created else 'existente'
             self.stdout.write(f'Área {label}: {area}')
+
+        # Cria seções padrão dos artefatos (DFD, ETP, TR)
+        secoes_padrao = [
+            # ── DFD ───────────────────────────────────────────────────────────
+            ('DFD', 'identificacao',       'Identificação da Demanda',          1, True,  False, []),
+            ('DFD', 'descricao',           'Descrição do Objeto',               2, True,  True,  []),
+            ('DFD', 'justificativa',       'Justificativa da Necessidade',      3, True,  True,  []),
+            ('DFD', 'area_aplicacao',      'Áreas de Aplicação',                4, True,  True,  []),
+            ('DFD', 'prazo',               'Prazo de Necessidade',              5, True,  True,  []),
+            ('DFD', 'itens',               'Itens da Demanda',                  6, True,  True,  []),
+            ('DFD', 'unidades',            'Unidades Responsáveis',             7, True,  False, []),
+            ('DFD', 'responsaveis',        'Responsáveis pelo Contrato',        8, True,  False, []),
+            ('DFD', 'vinculo_orcamentario','Vínculo Orçamentário',              9, True,  False, []),
+            ('DFD', 'observacoes',         'Observações',                      10, False, False, []),
+            # ── ETP ───────────────────────────────────────────────────────────
+            ('ETP', 'necessidade',         'Necessidade da Contratação',        1, True,  True,  []),
+            ('ETP', 'requisitos',          'Requisitos da Contratação',         2, True,  True,  []),
+            ('ETP', 'levantamento_mercado','Levantamento de Mercado',           3, True,  True,  []),
+            ('ETP', 'solucao',             'Descrição da Solução',              4, True,  True,  []),
+            ('ETP', 'justificativa',       'Justificativa da Solução',          5, True,  True,  []),
+            ('ETP', 'estimativa_valor',    'Estimativa de Valor',               6, True,  True,  []),
+            ('ETP', 'riscos',              'Mapa de Riscos',                    7, True,  False, []),
+            ('ETP', 'sustentabilidade',    'Sustentabilidade',                  8, False, False, []),
+            ('ETP', 'observacoes',         'Observações',                       9, False, False, []),
+            # ── TR ────────────────────────────────────────────────────────────
+            ('TR',  'objeto',              'Objeto da Contratação',             1, True,  True,  []),
+            ('TR',  'justificativa',       'Justificativa da Contratação',      2, True,  True,  []),
+            ('TR',  'requisitos',          'Requisitos da Contratação',         3, True,  True,  []),
+            ('TR',  'obrigacoes_contratada','Obrigações da Contratada',         4, True,  True,  []),
+            ('TR',  'obrigacoes_contratante','Obrigações da Contratante',       5, True,  True,  []),
+            ('TR',  'criterios_selecao',   'Critérios de Seleção',              6, True,  False, ['licitacao']),
+            ('TR',  'criterios_medicao',   'Critérios de Medição e Pagamento',  7, True,  True,  []),
+            ('TR',  'prazo_vigencia',      'Prazo de Vigência do Contrato',     8, True,  True,  []),
+            ('TR',  'local_entrega',       'Local de Entrega',                  9, True,  False, []),
+            ('TR',  'garantia',            'Garantia Contratual',              10, False, False, ['licitacao']),
+            ('TR',  'estimativa_valor',    'Estimativa de Valor',              11, True,  True,  []),
+            ('TR',  'observacoes',         'Observações',                      12, False, False, []),
+        ]
+        for tipo, codigo, titulo, ordem, ativo, obrig, modalidades in secoes_padrao:
+            secao, created = SecaoArtefato.objects.get_or_create(
+                tipo=tipo, codigo=codigo,
+                defaults={'titulo': titulo, 'ordem': ordem, 'ativo': ativo,
+                          'obrigatorio': obrig, 'aplica_modalidades': modalidades}
+            )
+            label = 'criada' if created else 'existente'
+            self.stdout.write(f'Seção {label}: [{tipo}] {titulo}')
 
         self.stdout.write('')
         self.stdout.write(self.style.SUCCESS('=== Setup concluído ==='))
