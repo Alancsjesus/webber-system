@@ -149,14 +149,24 @@ function OrgaoTag({ sigla, isFilho }) {
 
 export default function Dashboard() {
   const navigate = useNavigate()
-  const [stats, setStats]     = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [stats, setStats]       = useState(null)
+  const [loading, setLoading]   = useState(true)
+  const [indOrc, setIndOrc]     = useState(null)
+  const [indDev, setIndDev]     = useState(null)
 
   useEffect(() => {
     api.get('/dashboard/stats/')
       .then(({ data }) => setStats(data))
       .catch(() => {})
       .finally(() => setLoading(false))
+
+    api.get('/indicadores/orcamento/')
+      .then(({ data }) => setIndOrc(data))
+      .catch(() => {})
+
+    api.get('/indicadores/devolucoes/')
+      .then(({ data }) => setIndDev(data))
+      .catch(() => {})
   }, [])
 
   if (loading) return <div className="p-8"><LoadingSpinner message="Carregando dashboard..." /></div>
@@ -404,6 +414,125 @@ export default function Dashboard() {
             </li>
           ))}
         </RecentTable>
+
+      </div>
+
+      {/* ── Indicadores ───────────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+
+        {/* Execução Orçamentária */}
+        {indOrc && (
+          <section className="bg-white rounded-xl border border-gray-200 p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-sm font-semibold text-gray-700">Execução Orçamentária</h2>
+                {indOrc.exercicio && (
+                  <p className="text-xs text-gray-400 mt-0.5">Exercício {indOrc.exercicio}</p>
+                )}
+              </div>
+              <button onClick={() => navigate('/orcamento/dotacoes')}
+                className="text-xs text-blue-600 hover:underline">Ver dotações</button>
+            </div>
+
+            <div className="space-y-2 mb-4">
+              {[
+                { label: 'Dotado',          value: indOrc.totais.dotado,          pct: 100,                               cor: 'bg-blue-500' },
+                { label: 'Indicado',        value: indOrc.totais.indicado,        pct: indOrc.totais.pct_indicado,        cor: 'bg-yellow-500' },
+                { label: 'Descentralizado', value: indOrc.totais.descentralizado, pct: indOrc.totais.pct_descentralizado, cor: 'bg-orange-500' },
+                { label: 'Concedido',       value: indOrc.totais.concedido,       pct: indOrc.totais.pct_concedido,       cor: 'bg-green-500' },
+              ].map(({ label, value, pct, cor }) => (
+                <div key={label}>
+                  <div className="flex items-center justify-between text-xs text-gray-500 mb-0.5">
+                    <span className="font-medium">{label}</span>
+                    <span className="font-semibold text-gray-700">
+                      {fmt(value)} <span className="text-gray-400 font-normal">({pct}%)</span>
+                    </span>
+                  </div>
+                  <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+                    <div className={`h-full ${cor} rounded-full transition-all`} style={{ width: `${Math.min(pct, 100)}%` }} />
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {indOrc.por_elemento.length > 0 && (
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase mb-2">Por elemento de despesa</p>
+                <div className="space-y-1">
+                  {indOrc.por_elemento.slice(0, 5).map(el => (
+                    <div key={el.elemento_codigo} className="flex items-center justify-between text-xs">
+                      <span className="text-gray-600 truncate flex-1">
+                        <span className="font-mono text-gray-400 mr-1">{String(el.elemento_codigo).padStart(2,'0')}</span>
+                        {el.elemento_descricao}
+                      </span>
+                      <div className="flex items-center gap-2 ml-2 shrink-0">
+                        <span className="text-gray-400">{fmt(el.dotado)}</span>
+                        <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${el.pct_indicado > 0 ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-400'}`}>
+                          {el.pct_indicado}%
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </section>
+        )}
+
+        {/* Qualidade Documental */}
+        {indDev && (
+          <section className="bg-white rounded-xl border border-gray-200 p-5">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-sm font-semibold text-gray-700">Qualidade Documental</h2>
+                <p className="text-xs text-gray-400 mt-0.5">Taxa de devoluções por tipo de documento</p>
+              </div>
+            </div>
+
+            <div className="space-y-3">
+              {[
+                { tipo: 'DFD',  cor: 'bg-blue-500',   navTo: '/demanda/dfd' },
+                { tipo: 'ETP',  cor: 'bg-purple-500',  navTo: '/etp/etps' },
+                { tipo: 'TR',   cor: 'bg-teal-500',    navTo: '/analise-tecnica/trs' },
+                { tipo: 'Mapa', cor: 'bg-violet-500',  navTo: '/pesquisa/mapa' },
+              ].map(({ tipo, cor, navTo }) => {
+                const d   = indDev[tipo] || { total: 0, devolvidos: 0, taxa_devolucao: 0 }
+                const taxa = d.taxa_devolucao
+                const taxaCor = taxa === 0
+                  ? 'text-green-600 bg-green-50'
+                  : taxa < 20 ? 'text-yellow-700 bg-yellow-50' : 'text-red-600 bg-red-50'
+                return (
+                  <div key={tipo} className="flex items-center gap-3">
+                    <button onClick={() => navigate(navTo)}
+                      className={`w-12 h-6 rounded text-xs font-bold text-white flex items-center justify-center shrink-0 ${cor} hover:opacity-80`}>
+                      {tipo}
+                    </button>
+                    <div className="flex-1">
+                      <div className="flex items-center justify-between mb-0.5">
+                        <span className="text-xs text-gray-500">
+                          {d.total} doc{d.total !== 1 ? 's' : ''} · {d.devolvidos} devolvido{d.devolvidos !== 1 ? 's' : ''}
+                        </span>
+                        <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${taxaCor}`}>{taxa}%</span>
+                      </div>
+                      <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                        <div className={`h-full rounded-full transition-all ${taxa === 0 ? 'bg-green-400' : taxa < 20 ? 'bg-yellow-400' : 'bg-red-400'}`}
+                          style={{ width: `${Math.min(taxa, 100)}%` }} />
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
+            <div className="mt-4 pt-3 border-t border-gray-100">
+              <p className="text-xs text-gray-400">
+                <span className="text-green-600 font-medium">0%</span> ótimo ·
+                <span className="text-yellow-600 font-medium"> &lt;20%</span> aceitável ·
+                <span className="text-red-600 font-medium"> ≥20%</span> requer atenção
+              </p>
+            </div>
+          </section>
+        )}
 
       </div>
     </div>

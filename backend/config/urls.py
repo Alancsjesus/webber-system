@@ -13,6 +13,7 @@ from core.views import (
     VerificarDocumentoView, AreaAtuacaoViewSet, UserListView,
     SecaoArtefatoViewSet,
 )
+from core.views_indicadores import IndicadoresOrcamentoView, IndicadoresDevolucoesView
 
 router = DefaultRouter()
 router.register(r'demanda/dfd', DFDViewSet, basename='dfd')
@@ -30,6 +31,8 @@ urlpatterns = [
     path('api/token/', WebberTokenObtainPairView.as_view(), name='token_obtain_pair'),
     path('api/token/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
     path('api/dashboard/stats/', DashboardStatsView.as_view(), name='dashboard_stats'),
+    path('api/indicadores/orcamento/',   IndicadoresOrcamentoView.as_view(),   name='indicadores-orcamento'),
+    path('api/indicadores/devolucoes/',  IndicadoresDevolucoesView.as_view(),  name='indicadores-devolucoes'),
     path('api/painel/', PainelOrgaoPaiView.as_view(), name='painel-orgao-pai'),
     path('api/verificar/<str:hash_code>/', VerificarDocumentoView.as_view(), name='verificar-documento'),
     path('api/core/users-list/', UserListView.as_view(), name='user-list'),
