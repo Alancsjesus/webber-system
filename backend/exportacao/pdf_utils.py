@@ -263,6 +263,30 @@ def _valor_secao_tr(codigo, tr):
 
 def _valor_secao_etp(codigo, etp):
     """Mapeia código de SecaoArtefato → valor de campo do ETP."""
+
+    def _parcelamento_texto():
+        partes = []
+        tipo_label = dict(etp.PARCELAMENTO_CHOICES).get(etp.tipo_parcelamento, '')
+        if tipo_label:
+            partes.append(f'Tipo: {tipo_label}')
+        if etp.adjudicacao_por_item:
+            partes.append('Adjudicação: por item')
+        if etp.parcelamento_justificativa:
+            partes.append(f'Justificativa: {etp.parcelamento_justificativa}')
+        return '\n'.join(partes) if partes else None
+
+    def _cota_meepp_texto():
+        partes = []
+        if etp.reserva_cota_me_epp:
+            partes.append('Reserva de cota de 25% para ME/EPP: SIM (LC 123/2006, Art. 48, III)')
+        else:
+            partes.append('Reserva de cota de 25% para ME/EPP: NÃO')
+            if etp.reserva_cota_justificativa:
+                partes.append(f'Justificativa: {etp.reserva_cota_justificativa}')
+        if etp.licitacao_exclusiva_me_epp:
+            partes.append('Licitação exclusiva ME/EPP: SIM (até R$80.000)')
+        return '\n'.join(partes) if partes else None
+
     mapa = {
         'necessidade':         etp.necessidade_contratacao,
         'requisitos':          etp.requisitos_contratacao,
@@ -272,6 +296,8 @@ def _valor_secao_etp(codigo, etp):
         'estimativa_valor':    _fmt_valor(etp.estimativa_valor) if etp.estimativa_valor else None,
         'riscos':              etp.riscos,
         'sustentabilidade':    etp.sustentabilidade,
+        'parcelamento':        _parcelamento_texto(),
+        'cota_me_epp':         _cota_meepp_texto(),
         'observacoes':         etp.observacoes,
     }
     return mapa.get(codigo) or None

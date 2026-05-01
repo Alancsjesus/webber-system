@@ -57,6 +57,12 @@ export default function ETPDetail() {
         justificativa_solucao:   form.justificativa_solucao,
         riscos:                  form.riscos,
         sustentabilidade:        form.sustentabilidade,
+        tipo_parcelamento:          form.tipo_parcelamento          ?? '',
+        parcelamento_justificativa: form.parcelamento_justificativa ?? '',
+        adjudicacao_por_item:       form.adjudicacao_por_item       ?? false,
+        reserva_cota_me_epp:        form.reserva_cota_me_epp        ?? false,
+        reserva_cota_justificativa: form.reserva_cota_justificativa ?? '',
+        licitacao_exclusiva_me_epp: form.licitacao_exclusiva_me_epp ?? false,
         observacoes:             form.observacoes,
       }
       if (numeroSeiAlterado && motivoNumeroSEI.trim()) {
@@ -281,6 +287,102 @@ export default function ETPDetail() {
                   : '—'}
               </p>}
         </DF>
+
+        {/* ── Parcelamento e Adjudicação ── */}
+        <div className="pt-4 border-t border-gray-100">
+          <p className="text-xs font-semibold text-gray-400 uppercase mb-3">Parcelamento e Adjudicação</p>
+          <div className="space-y-4">
+
+            <DF label="Tipo de parcelamento (Lei 14.133, Art. 40, V)">
+              {editing ? (
+                <select value={form.tipo_parcelamento || ''}
+                  onChange={e => set('tipo_parcelamento', e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500">
+                  <option value="">— Selecione —</option>
+                  <option value="lote_unico">Lote único — contratação global</option>
+                  <option value="lotes">Dividido em lotes — adjudicação por lote</option>
+                  <option value="por_item">Por item — adjudicação individualizada</option>
+                </select>
+              ) : (
+                <p className="text-sm text-gray-700">
+                  {{ lote_unico: 'Lote único — contratação global', lotes: 'Dividido em lotes — adjudicação por lote', por_item: 'Por item — adjudicação individualizada' }[current.tipo_parcelamento] || '—'}
+                </p>
+              )}
+            </DF>
+
+            <DF label="Justificativa do parcelamento">
+              {editing
+                ? <textarea rows={2} value={form.parcelamento_justificativa || ''}
+                    onChange={e => set('parcelamento_justificativa', e.target.value)}
+                    placeholder="Justifique a decisão de parcelamento conforme Art. 40, V da Lei 14.133/2021..."
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                : <p className="text-sm text-gray-700 whitespace-pre-wrap">{current.parcelamento_justificativa || '—'}</p>}
+            </DF>
+
+            <div>
+              <label className={`flex items-center gap-3 cursor-pointer ${!editing ? 'opacity-70' : ''}`}>
+                <input type="checkbox"
+                  checked={editing ? (form.adjudicacao_por_item ?? false) : (current.adjudicacao_por_item ?? false)}
+                  disabled={!editing}
+                  onChange={e => set('adjudicacao_por_item', e.target.checked)}
+                  className="accent-purple-600 w-4 h-4" />
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Adjudicação por item</p>
+                  <p className="text-xs text-gray-400">Cada item do objeto será adjudicado individualmente ao vencedor de menor preço</p>
+                </div>
+              </label>
+            </div>
+          </div>
+        </div>
+
+        {/* ── Reserva de Cota ME/EPP ── */}
+        <div className="pt-4 border-t border-gray-100">
+          <div className="flex items-start gap-2 mb-1">
+            <p className="text-xs font-semibold text-gray-400 uppercase">Reserva de Cota ME/EPP</p>
+            <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-medium">LC 123/2006, Art. 48</span>
+          </div>
+          <div className="space-y-4">
+
+            <div>
+              <label className={`flex items-center gap-3 cursor-pointer ${!editing ? 'opacity-70' : ''}`}>
+                <input type="checkbox"
+                  checked={editing ? (form.reserva_cota_me_epp ?? false) : (current.reserva_cota_me_epp ?? false)}
+                  disabled={!editing}
+                  onChange={e => set('reserva_cota_me_epp', e.target.checked)}
+                  className="accent-green-600 w-4 h-4" />
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Reserva de cota de 25% para ME/EPP</p>
+                  <p className="text-xs text-gray-400">Obrigatória para objetos divisíveis — Art. 48, III, LC 123/2006</p>
+                </div>
+              </label>
+            </div>
+
+            {(editing ? !form.reserva_cota_me_epp : !current.reserva_cota_me_epp) && (
+              <DF label="Justificativa para não-reserva de cota">
+                {editing
+                  ? <textarea rows={2} value={form.reserva_cota_justificativa || ''}
+                      onChange={e => set('reserva_cota_justificativa', e.target.value)}
+                      placeholder="Justifique por que a reserva de cota não se aplica (ex: objeto indivisível, valor abaixo do limite)..."
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                  : <p className="text-sm text-gray-700 whitespace-pre-wrap">{current.reserva_cota_justificativa || '—'}</p>}
+              </DF>
+            )}
+
+            <div>
+              <label className={`flex items-center gap-3 cursor-pointer ${!editing ? 'opacity-70' : ''}`}>
+                <input type="checkbox"
+                  checked={editing ? (form.licitacao_exclusiva_me_epp ?? false) : (current.licitacao_exclusiva_me_epp ?? false)}
+                  disabled={!editing}
+                  onChange={e => set('licitacao_exclusiva_me_epp', e.target.checked)}
+                  className="accent-green-600 w-4 h-4" />
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Licitação exclusiva ME/EPP</p>
+                  <p className="text-xs text-gray-400">Para itens/lotes com valor até R$80.000 — Art. 48, I, LC 123/2006</p>
+                </div>
+              </label>
+            </div>
+          </div>
+        </div>
 
         <div className="pt-4 border-t border-gray-100 text-xs text-gray-400 space-y-1">
           <p>Criado por: {current.created_by_username} em {new Date(current.created_at).toLocaleString('pt-BR')}</p>

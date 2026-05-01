@@ -18,6 +18,12 @@ export default function ETPCreate() {
     justificativa_solucao: '',
     riscos: '',
     sustentabilidade: '',
+    tipo_parcelamento: '',
+    parcelamento_justificativa: '',
+    adjudicacao_por_item: false,
+    reserva_cota_me_epp: false,
+    reserva_cota_justificativa: '',
+    licitacao_exclusiva_me_epp: false,
     observacoes: '',
   })
   const [saving, setSaving] = useState(false)
@@ -150,6 +156,71 @@ export default function ETPCreate() {
             onChange={(e) => set('sustentabilidade', e.target.value)}
             className={inp()} />
         </Field>
+
+        {/* Parcelamento e Adjudicação */}
+        <div className="border border-gray-200 rounded-xl p-4 bg-gray-50 space-y-4">
+          <p className="text-sm font-semibold text-gray-700">Parcelamento e Adjudicação <span className="text-xs font-normal text-gray-400">(Lei 14.133, Art. 40, V)</span></p>
+
+          <Field label="Tipo de parcelamento">
+            <select value={form.tipo_parcelamento} onChange={e => set('tipo_parcelamento', e.target.value)} className={inp()}>
+              <option value="">— Selecione —</option>
+              <option value="lote_unico">Lote único — contratação global</option>
+              <option value="lotes">Dividido em lotes — adjudicação por lote</option>
+              <option value="por_item">Por item — adjudicação individualizada</option>
+            </select>
+          </Field>
+
+          <Field label="Justificativa do parcelamento">
+            <textarea rows={2} value={form.parcelamento_justificativa}
+              onChange={e => set('parcelamento_justificativa', e.target.value)}
+              placeholder="Justifique a decisão de parcelamento..."
+              className={inp()} />
+          </Field>
+
+          <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-700">
+            <input type="checkbox" checked={form.adjudicacao_por_item}
+              onChange={e => set('adjudicacao_por_item', e.target.checked)}
+              className="accent-purple-600" />
+            Adjudicação por item
+          </label>
+        </div>
+
+        {/* Reserva de Cota ME/EPP */}
+        <div className="border border-green-200 rounded-xl p-4 bg-green-50 space-y-3">
+          <div className="flex items-center gap-2">
+            <p className="text-sm font-semibold text-gray-700">Reserva de Cota ME/EPP</p>
+            <span className="text-[10px] bg-green-200 text-green-800 px-1.5 py-0.5 rounded font-medium">LC 123/2006, Art. 48</span>
+          </div>
+
+          <label className="flex items-start gap-2 cursor-pointer text-sm text-gray-700">
+            <input type="checkbox" checked={form.reserva_cota_me_epp}
+              onChange={e => set('reserva_cota_me_epp', e.target.checked)}
+              className="accent-green-600 mt-0.5" />
+            <div>
+              <p>Reserva de cota de 25% para ME/EPP</p>
+              <p className="text-xs text-gray-400">Obrigatória para objetos divisíveis — Art. 48, III</p>
+            </div>
+          </label>
+
+          {!form.reserva_cota_me_epp && (
+            <Field label="Justificativa para não-reserva de cota">
+              <textarea rows={2} value={form.reserva_cota_justificativa}
+                onChange={e => set('reserva_cota_justificativa', e.target.value)}
+                placeholder="Justifique por que a reserva de cota não se aplica..."
+                className={inp()} />
+            </Field>
+          )}
+
+          <label className="flex items-start gap-2 cursor-pointer text-sm text-gray-700">
+            <input type="checkbox" checked={form.licitacao_exclusiva_me_epp}
+              onChange={e => set('licitacao_exclusiva_me_epp', e.target.checked)}
+              className="accent-green-600 mt-0.5" />
+            <div>
+              <p>Licitação exclusiva ME/EPP</p>
+              <p className="text-xs text-gray-400">Para itens com valor até R$80.000 — Art. 48, I</p>
+            </div>
+          </label>
+        </div>
 
         <Field label="Observações">
           <textarea rows={2} value={form.observacoes}

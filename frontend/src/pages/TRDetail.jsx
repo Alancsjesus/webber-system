@@ -192,6 +192,11 @@ export default function TRDetail() {
         </div>
       )}
 
+      {/* Decisões do ETP que influenciam este TR */}
+      {current.etp && (current.etp.tipo_parcelamento || current.etp.reserva_cota_me_epp !== undefined) && (
+        <EtpDecisoesBanner etp={current.etp} />
+      )}
+
       {/* Modal devolver */}
       {showDevolver && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
@@ -368,6 +373,39 @@ export default function TRDetail() {
           <p>Criado em: {new Date(current.created_at).toLocaleString('pt-BR')}</p>
           <p>Atualizado em: {new Date(current.updated_at).toLocaleString('pt-BR')}</p>
         </div>
+      </div>
+    </div>
+  )
+}
+
+function EtpDecisoesBanner({ etp }) {
+  const PARCELAMENTO_LABELS = {
+    lote_unico: 'Lote único',
+    lotes:      'Dividido em lotes',
+    por_item:   'Por item',
+  }
+  const itens = []
+  if (etp.etp_tipo_parcelamento)
+    itens.push({ icon: '📦', label: 'Parcelamento', valor: PARCELAMENTO_LABELS[etp.etp_tipo_parcelamento] || etp.etp_tipo_parcelamento })
+  if (etp.etp_adjudicacao_por_item)
+    itens.push({ icon: '✓', label: 'Adjudicação', valor: 'Por item' })
+  if (etp.etp_reserva_cota_me_epp)
+    itens.push({ icon: '🏷️', label: 'Cota ME/EPP', valor: 'Reserva de 25% (LC 123, Art. 48)' })
+  if (etp.etp_licitacao_exclusiva_me)
+    itens.push({ icon: '⭐', label: 'Licitação exclusiva ME/EPP', valor: 'Sim (até R$80.000)' })
+
+  if (itens.length === 0) return null
+  return (
+    <div className="mb-5 bg-purple-50 border border-purple-200 rounded-xl px-4 py-3">
+      <p className="text-xs font-semibold text-purple-700 uppercase mb-2">Decisões do ETP que influenciam este TR</p>
+      <div className="flex flex-wrap gap-3">
+        {itens.map(({ icon, label, valor }) => (
+          <div key={label} className="flex items-center gap-1.5 text-xs text-purple-800">
+            <span>{icon}</span>
+            <span className="font-medium">{label}:</span>
+            <span>{valor}</span>
+          </div>
+        ))}
       </div>
     </div>
   )

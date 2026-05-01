@@ -288,7 +288,9 @@ class Command(BaseCommand):
             ('ETP', 'estimativa_valor',    'Estimativa de Valor',               6, True,  True,  []),
             ('ETP', 'riscos',              'Mapa de Riscos',                    7, True,  False, []),
             ('ETP', 'sustentabilidade',    'Sustentabilidade',                  8, False, False, []),
-            ('ETP', 'observacoes',         'Observações',                       9, False, False, []),
+            ('ETP', 'parcelamento',        'Parcelamento da Solução e Adjudicação', 9, True, False, []),
+            ('ETP', 'cota_me_epp',         'Reserva de Cota ME/EPP (LC 123/2006)', 10, True, False, []),
+            ('ETP', 'observacoes',         'Observações',                      11, False, False, []),
             # ── TR ────────────────────────────────────────────────────────────
             ('TR',  'objeto',              'Objeto da Contratação',             1, True,  True,  []),
             ('TR',  'justificativa',       'Justificativa da Contratação',      2, True,  True,  []),
