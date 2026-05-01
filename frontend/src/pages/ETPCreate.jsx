@@ -20,7 +20,6 @@ export default function ETPCreate() {
     sustentabilidade: '',
     tipo_parcelamento: '',
     parcelamento_justificativa: '',
-    adjudicacao_por_item: false,
     reserva_cota_me_epp: false,
     reserva_cota_justificativa: '',
     licitacao_exclusiva_me_epp: false,
@@ -177,12 +176,6 @@ export default function ETPCreate() {
               className={inp()} />
           </Field>
 
-          <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-700">
-            <input type="checkbox" checked={form.adjudicacao_por_item}
-              onChange={e => set('adjudicacao_por_item', e.target.checked)}
-              className="accent-purple-600" />
-            Adjudicação por item
-          </label>
         </div>
 
         {/* Reserva de Cota ME/EPP */}

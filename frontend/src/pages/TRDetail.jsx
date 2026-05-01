@@ -387,8 +387,6 @@ function EtpDecisoesBanner({ etp }) {
   const itens = []
   if (etp.etp_tipo_parcelamento)
     itens.push({ icon: '📦', label: 'Parcelamento', valor: PARCELAMENTO_LABELS[etp.etp_tipo_parcelamento] || etp.etp_tipo_parcelamento })
-  if (etp.etp_adjudicacao_por_item)
-    itens.push({ icon: '✓', label: 'Adjudicação', valor: 'Por item' })
   if (etp.etp_reserva_cota_me_epp)
     itens.push({ icon: '🏷️', label: 'Cota ME/EPP', valor: 'Reserva de 25% (LC 123, Art. 48)' })
   if (etp.etp_licitacao_exclusiva_me)

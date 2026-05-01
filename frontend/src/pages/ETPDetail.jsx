@@ -319,19 +319,6 @@ export default function ETPDetail() {
                 : <p className="text-sm text-gray-700 whitespace-pre-wrap">{current.parcelamento_justificativa || '—'}</p>}
             </DF>
 
-            <div>
-              <label className={`flex items-center gap-3 cursor-pointer ${!editing ? 'opacity-70' : ''}`}>
-                <input type="checkbox"
-                  checked={editing ? (form.adjudicacao_por_item ?? false) : (current.adjudicacao_por_item ?? false)}
-                  disabled={!editing}
-                  onChange={e => set('adjudicacao_por_item', e.target.checked)}
-                  className="accent-purple-600 w-4 h-4" />
-                <div>
-                  <p className="text-sm font-medium text-gray-700">Adjudicação por item</p>
-                  <p className="text-xs text-gray-400">Cada item do objeto será adjudicado individualmente ao vencedor de menor preço</p>
-                </div>
-              </label>
-            </div>
           </div>
         </div>
 

@@ -61,7 +61,6 @@ class ETP(BaseModel):
     ]
     tipo_parcelamento          = models.CharField(max_length=20, choices=PARCELAMENTO_CHOICES, blank=True, default='', verbose_name='Tipo de parcelamento')
     parcelamento_justificativa = models.TextField(blank=True, default='', verbose_name='Justificativa do parcelamento (Art. 40, V)')
-    adjudicacao_por_item       = models.BooleanField(default=False, verbose_name='Adjudicação por item')
 
     # ── Reserva de cota ME/EPP (LC 123/2006, Art. 48, III) ────────────────────
     reserva_cota_me_epp        = models.BooleanField(default=False, verbose_name='Reserva de cota 25% para ME/EPP')

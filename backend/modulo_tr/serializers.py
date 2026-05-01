@@ -17,7 +17,6 @@ class TRSerializer(serializers.ModelSerializer):
     etp_status                  = serializers.CharField(source='etp.status',                       read_only=True)
     dfd_numero_sei              = serializers.CharField(source='etp.dfd.numero_sei',               read_only=True)
     etp_tipo_parcelamento       = serializers.CharField(source='etp.tipo_parcelamento',            read_only=True)
-    etp_adjudicacao_por_item    = serializers.BooleanField(source='etp.adjudicacao_por_item',      read_only=True)
     etp_reserva_cota_me_epp     = serializers.BooleanField(source='etp.reserva_cota_me_epp',      read_only=True)
     etp_licitacao_exclusiva_me  = serializers.BooleanField(source='etp.licitacao_exclusiva_me_epp', read_only=True)
     org_sigla           = serializers.CharField(source='org_id.sigla',   read_only=True)
@@ -29,7 +28,7 @@ class TRSerializer(serializers.ModelSerializer):
         model  = TR
         fields = [
             'id', 'etp', 'etp_numero_sei', 'etp_status', 'dfd_numero_sei',
-            'etp_tipo_parcelamento', 'etp_adjudicacao_por_item',
+            'etp_tipo_parcelamento',
             'etp_reserva_cota_me_epp', 'etp_licitacao_exclusiva_me',
             'numero_sei',
             'objeto_contratacao', 'justificativa', 'requisitos_contratacao',
@@ -51,7 +50,7 @@ class TRSerializer(serializers.ModelSerializer):
             'updated_by', 'updated_by_username',
             'created_at', 'updated_at',
             'etp_numero_sei', 'etp_status', 'dfd_numero_sei',
-            'etp_tipo_parcelamento', 'etp_adjudicacao_por_item',
+            'etp_tipo_parcelamento',
             'etp_reserva_cota_me_epp', 'etp_licitacao_exclusiva_me',
             'motivo_devolucao', 'historico',
         ]

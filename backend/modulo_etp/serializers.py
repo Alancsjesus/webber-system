@@ -52,7 +52,6 @@ class ETPSerializer(serializers.ModelSerializer):
             'sustentabilidade',
             'tipo_parcelamento',
             'parcelamento_justificativa',
-            'adjudicacao_por_item',
             'reserva_cota_me_epp',
             'reserva_cota_justificativa',
             'licitacao_exclusiva_me_epp',
