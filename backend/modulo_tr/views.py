@@ -12,6 +12,61 @@ from exportacao.pdf_utils import gerar_pdf_tr, gerar_html, resposta_pdf, respost
 PAPEIS_SOLICITANTE = ('solicitante', 'demandante', 'responsavel_tecnico', 'admin')
 
 
+def _buscar_preco_referencia(item_dfd):
+    """
+    Retorna (valor_unitario, origem) para um ItemDFD.
+    Prioriza o Mapa de Preços aprovado vinculado ao DFD:
+    1. Match por código SIMPAS (mais preciso)
+    2. Match por descrição (icontains)
+    3. Match posicional — se DFD e Mapa têm o mesmo número de itens,
+       correlaciona ItemDFD[i] com ItemMapa[i] por ordem de criação
+    Fallback: estimativa do próprio ItemDFD.
+    """
+    if not item_dfd:
+        return None, 'dfd'
+    try:
+        from modulo_mapa_precos.models import MapaComparativoPrecos, ItemMapa
+        mapa = (
+            MapaComparativoPrecos.objects
+            .filter(dfd=item_dfd.dfd, status='Aprovado')
+            .order_by('-created_at')
+            .first()
+        )
+        if mapa:
+            item_mapa = None
+
+            # 1. Match por código SIMPAS do catálogo
+            if item_dfd.item_catalogo and item_dfd.item_catalogo.codigo_simpas:
+                item_mapa = ItemMapa.objects.filter(
+                    mapa=mapa,
+                    codigo_simpas=item_dfd.item_catalogo.codigo_simpas,
+                ).first()
+
+            # 2. Match por descrição (primeiros 20 chars, case-insensitive)
+            if not item_mapa and item_dfd.objeto:
+                item_mapa = ItemMapa.objects.filter(
+                    mapa=mapa,
+                    descricao__icontains=item_dfd.objeto[:20],
+                ).first()
+
+            # 3. Match posicional — correlaciona por índice quando contagens batem
+            if not item_mapa:
+                dfd_itens  = list(item_dfd.dfd.itens.order_by('id'))
+                mapa_itens = list(ItemMapa.objects.filter(mapa=mapa).order_by('ordem', 'id'))
+                if dfd_itens and mapa_itens and len(dfd_itens) == len(mapa_itens):
+                    try:
+                        idx = dfd_itens.index(item_dfd)
+                        item_mapa = mapa_itens[idx]
+                    except (ValueError, IndexError):
+                        pass
+
+            if item_mapa and item_mapa.valor_unitario_calculado:
+                return item_mapa.valor_unitario_calculado, 'mapa'
+    except Exception:
+        pass
+    return item_dfd.valor_unitario_estimado, 'dfd'
+
+
 class TRViewSet(viewsets.ModelViewSet):
     serializer_class   = TRSerializer
     permission_classes = [IsAuthenticated, IsMultiTenant]
@@ -182,7 +237,9 @@ class TRViewSet(viewsets.ModelViewSet):
         lote = get_object_or_404(LoteTR, pk=lote_pk, tr=tr)
         serializer = ItemLoteTRSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
-        serializer.save(lote=lote)
+        item_dfd_instance = serializer.validated_data.get('item_dfd')
+        valor_ref, origem = _buscar_preco_referencia(item_dfd_instance)
+        serializer.save(lote=lote, valor_unitario_ref=valor_ref, preco_origem=origem)
         resp = self._tr_atualizado(tr.pk, request)
         resp.status_code = status.HTTP_201_CREATED
         return resp
@@ -234,8 +291,14 @@ class TRViewSet(viewsets.ModelViewSet):
             qty_cota = (item_orig.quantidade * Decimal(percentual) / 100).quantize(
                 Decimal('0.0001'), rounding=ROUND_HALF_UP
             )
-            ItemLoteTR.objects.create(lote=lote_cota, item_dfd=item_orig.item_dfd,
-                                      quantidade=qty_cota)
+            # Herda o mesmo preço de referência do item de origem
+            ItemLoteTR.objects.create(
+                lote=lote_cota,
+                item_dfd=item_orig.item_dfd,
+                quantidade=qty_cota,
+                valor_unitario_ref=item_orig.valor_unitario_ref,
+                preco_origem=item_orig.preco_origem,
+            )
 
         resp = self._tr_atualizado(tr.pk, request)
         resp.status_code = status.HTTP_201_CREATED
@@ -265,7 +328,11 @@ class TRViewSet(viewsets.ModelViewSet):
                 created_by=request.user,
                 updated_by=request.user,
             )
-            ItemLoteTR.objects.create(lote=lote, item_dfd=item, quantidade=item.quantidade)
+            valor_ref, origem = _buscar_preco_referencia(item)
+            ItemLoteTR.objects.create(
+                lote=lote, item_dfd=item, quantidade=item.quantidade,
+                valor_unitario_ref=valor_ref, preco_origem=origem,
+            )
 
         resp = self._tr_atualizado(tr.pk, request)
         resp.status_code = status.HTTP_201_CREATED

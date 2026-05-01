@@ -12,21 +12,29 @@ class HistoricoTRSerializer(serializers.ModelSerializer):
 
 
 class ItemLoteTRSerializer(serializers.ModelSerializer):
-    item_objeto      = serializers.CharField(source='item_dfd.objeto',                   read_only=True)
-    item_unidade     = serializers.CharField(source='item_dfd.unidade_medida',           read_only=True)
-    item_valor_unit  = serializers.DecimalField(source='item_dfd.valor_unitario_estimado',
-                                                max_digits=15, decimal_places=2, read_only=True)
-    catalogo_familia = serializers.CharField(source='item_dfd.catalogo_familia',        read_only=True)
-    catalogo_nome    = serializers.CharField(source='item_dfd.catalogo_nome',           read_only=True)
-    valor_total      = serializers.SerializerMethodField()
+    item_objeto         = serializers.CharField(source='item_dfd.objeto',                   read_only=True)
+    item_unidade        = serializers.CharField(source='item_dfd.unidade_medida',           read_only=True)
+    item_valor_est      = serializers.DecimalField(source='item_dfd.valor_unitario_estimado',
+                                                   max_digits=15, decimal_places=2, read_only=True)
+    catalogo_familia    = serializers.CharField(source='item_dfd.catalogo_familia',         read_only=True)
+    catalogo_nome       = serializers.CharField(source='item_dfd.catalogo_nome',            read_only=True)
+    preco_origem_display = serializers.CharField(source='get_preco_origem_display',         read_only=True)
+    valor_unitario_efetivo = serializers.SerializerMethodField()
+    valor_total          = serializers.SerializerMethodField()
 
     class Meta:
         model  = ItemLoteTR
         fields = ['id', 'item_dfd', 'item_objeto', 'item_unidade',
-                  'item_valor_unit', 'catalogo_familia', 'catalogo_nome',
-                  'quantidade', 'valor_total']
-        read_only_fields = ['id', 'item_objeto', 'item_unidade', 'item_valor_unit',
-                            'catalogo_familia', 'catalogo_nome', 'valor_total']
+                  'item_valor_est', 'catalogo_familia', 'catalogo_nome',
+                  'quantidade', 'valor_unitario_ref', 'preco_origem',
+                  'preco_origem_display', 'valor_unitario_efetivo', 'valor_total']
+        read_only_fields = ['id', 'item_objeto', 'item_unidade', 'item_valor_est',
+                            'catalogo_familia', 'catalogo_nome', 'preco_origem_display',
+                            'valor_unitario_efetivo', 'valor_total',
+                            'valor_unitario_ref', 'preco_origem']
+
+    def get_valor_unitario_efetivo(self, obj):
+        return float(obj.valor_unitario_efetivo)
 
     def get_valor_total(self, obj):
         return float(obj.valor_total)

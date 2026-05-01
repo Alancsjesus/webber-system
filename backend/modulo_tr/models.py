@@ -141,10 +141,21 @@ class LoteTR(BaseModel):
 
 
 class ItemLoteTR(models.Model):
-    """Item vinculado a um lote do TR com quantidade específica (pode diferir do ItemDFD original)."""
-    lote      = models.ForeignKey(LoteTR, on_delete=models.CASCADE, related_name='itens')
-    item_dfd  = models.ForeignKey('modulo_demanda.ItemDFD', on_delete=models.SET_NULL, null=True, related_name='lotes_tr')
-    quantidade = models.DecimalField(max_digits=15, decimal_places=4, verbose_name='Quantidade no lote')
+    """
+    Item vinculado a um lote do TR.
+    O preço de referência prioriza o Mapa de Preços aprovado vinculado ao DFD;
+    se não houver mapa, usa a estimativa do ItemDFD.
+    """
+    PRECO_ORIGEM_CHOICES = [
+        ('mapa', 'Mapa de Preços'),
+        ('dfd',  'Estimativa DFD'),
+    ]
+
+    lote               = models.ForeignKey(LoteTR, on_delete=models.CASCADE, related_name='itens')
+    item_dfd           = models.ForeignKey('modulo_demanda.ItemDFD', on_delete=models.SET_NULL, null=True, related_name='lotes_tr')
+    quantidade         = models.DecimalField(max_digits=15, decimal_places=4, verbose_name='Quantidade no lote')
+    valor_unitario_ref = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True, verbose_name='Preço unitário de referência (R$)')
+    preco_origem       = models.CharField(max_length=5, choices=PRECO_ORIGEM_CHOICES, default='dfd', verbose_name='Origem do preço')
 
     class Meta:
         unique_together = [('lote', 'item_dfd')]
@@ -156,10 +167,17 @@ class ItemLoteTR(models.Model):
         return f'{self.lote.numero} · {obj} ({self.quantidade})'
 
     @property
-    def valor_total(self):
+    def valor_unitario_efetivo(self):
+        """Preço a usar: mapa se disponível, senão estimativa do DFD."""
+        if self.valor_unitario_ref:
+            return self.valor_unitario_ref
         if self.item_dfd:
-            return self.quantidade * self.item_dfd.valor_unitario_estimado
+            return self.item_dfd.valor_unitario_estimado
         return Decimal('0')
+
+    @property
+    def valor_total(self):
+        return self.quantidade * self.valor_unitario_efetivo
 
 
 class HistoricoTR(models.Model):

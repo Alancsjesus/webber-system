@@ -545,6 +545,7 @@ function LotesSection({ tr, podeEditar, onCriarLote, onExcluirLote, onAdicionarI
                         <th className="text-left px-4 py-1.5 font-medium text-gray-500">Item</th>
                         <th className="text-right px-4 py-1.5 font-medium text-gray-500">Qtd</th>
                         <th className="text-right px-4 py-1.5 font-medium text-gray-500">Vl. Unit.</th>
+                        <th className="text-right px-4 py-1.5 font-medium text-gray-500">Origem</th>
                         <th className="text-right px-4 py-1.5 font-medium text-gray-500">Total</th>
                         {podeEditar && <th className="w-6" />}
                       </tr>
@@ -560,7 +561,21 @@ function LotesSection({ tr, podeEditar, onCriarLote, onExcluirLote, onAdicionarI
                             <span className="ml-1 text-gray-400">({item.item_unidade})</span>
                           </td>
                           <td className="px-4 py-1.5 text-right text-gray-600">{fmtQ(item.quantidade)}</td>
-                          <td className="px-4 py-1.5 text-right text-gray-600">{fmtR(item.item_valor_unit)}</td>
+                          <td className="px-4 py-1.5 text-right text-gray-600">
+                            {fmtR(item.valor_unitario_efetivo)}
+                            {item.preco_origem === 'mapa' && item.item_valor_est && (
+                              <span className="ml-1 text-[10px] text-gray-400 line-through">{fmtR(item.item_valor_est)}</span>
+                            )}
+                          </td>
+                          <td className="px-4 py-1.5 text-right">
+                            <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+                              item.preco_origem === 'mapa'
+                                ? 'bg-green-100 text-green-700'
+                                : 'bg-gray-100 text-gray-500'
+                            }`}>
+                              {item.preco_origem === 'mapa' ? 'Mapa' : 'DFD'}
+                            </span>
+                          </td>
                           <td className="px-4 py-1.5 text-right font-semibold text-gray-800">{fmtR(item.valor_total)}</td>
                           {podeEditar && (
                             <td className="px-2 py-1.5 text-center">
