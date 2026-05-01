@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import useTrStore from '../stores/trStore'
 import useAuthStore from '../stores/authStore'
-import { downloadFile } from '../services/api'
+import api, { downloadFile } from '../services/api'
 
 const STATUS_CLS = {
   Rascunho:    'bg-gray-100 text-gray-600',
