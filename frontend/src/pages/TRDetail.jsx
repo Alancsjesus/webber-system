@@ -407,10 +407,20 @@ const fmtQ = (v) => Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 4
 const fmtR = (v) => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
 function LotesSection({ tr, podeEditar, onCriarLote, onExcluirLote, onAdicionarItem, onRemoverItem, onGerarCota, onGerarPorItem }) {
-  const [showNovoLote, setShowNovoLote] = useState(false)
-  const [novoLoteForm, setNovoLoteForm] = useState({ descricao: '', modalidade: 'ampla' })
-  const [showAddItem, setShowAddItem]   = useState(null)  // lote_pk ativo
-  const [saving, setSaving]             = useState(false)
+  const [showNovoLote, setShowNovoLote]   = useState(false)
+  const [novoLoteForm, setNovoLoteForm]   = useState({ descricao: '', modalidade: 'ampla' })
+  const [showAddItem, setShowAddItem]     = useState(null)
+  const [addItemForm, setAddItemForm]     = useState({ item_dfd: '', quantidade: '' })
+  const [itensDfd, setItensDfd]           = useState([])
+  const [saving, setSaving]               = useState(false)
+
+  // Busca os itens do DFD uma vez ao montar o componente
+  useEffect(() => {
+    if (!tr.etp_dfd_id) return
+    api.get(`/demanda/dfd/${tr.etp_dfd_id}/`)
+      .then(({ data }) => setItensDfd(data.itens || []))
+      .catch(() => {})
+  }, [tr.etp_dfd_id])
 
   const handleCriarLote = async () => {
     if (!novoLoteForm.descricao.trim()) return
@@ -419,18 +429,17 @@ function LotesSection({ tr, podeEditar, onCriarLote, onExcluirLote, onAdicionarI
     finally { setSaving(false) }
   }
 
-  // Recebe (lotePk, formData) do AddItemLoteForm
-  const handleAdicionarItem = async (lotePk, formData) => {
-    if (!formData.item_dfd || !formData.quantidade) return
+  const handleAdicionarItem = async (lotePk) => {
+    if (!addItemForm.item_dfd || !addItemForm.quantidade) return
     setSaving(true)
     try {
-      await onAdicionarItem(lotePk, { item_dfd: Number(formData.item_dfd), quantidade: Number(formData.quantidade) })
+      await onAdicionarItem(lotePk, { item_dfd: Number(addItemForm.item_dfd), quantidade: Number(addItemForm.quantidade) })
       setShowAddItem(null)
+      setAddItemForm({ item_dfd: '', quantidade: '' })
     } finally { setSaving(false) }
   }
 
-  // Itens disponíveis = itens do DFD (via etp.dfd — vêm na payload do TR)
-  const itensDisponiveis = tr.etp_dfd_itens || []
+  const itemSelecionado = itensDfd.find(i => String(i.id) === String(addItemForm.item_dfd))
 
   return (
     <div className="pt-4 border-t border-gray-100">
@@ -568,16 +577,49 @@ function LotesSection({ tr, podeEditar, onCriarLote, onExcluirLote, onAdicionarI
                   <p className="px-4 py-2 text-xs text-gray-400 italic">Nenhum item neste lote.</p>
                 )}
 
-                {/* Form adicionar item */}
+                {/* Form inline adicionar item */}
                 {showAddItem === lote.id && (
                   <div className="px-4 py-3 bg-blue-50 border-t border-blue-100">
-                    <AddItemLoteForm
-                      trId={tr.id}
-                      lotePk={lote.id}
-                      onSave={handleAdicionarItem}
-                      onCancel={() => setShowAddItem(null)}
-                      saving={saving}
-                    />
+                    <p className="text-xs font-semibold text-blue-700 mb-2">Adicionar item ao lote</p>
+                    <div className="grid grid-cols-3 gap-2">
+                      <div className="col-span-2">
+                        <label className="block text-xs text-gray-500 mb-0.5">Item do DFD *</label>
+                        <select value={addItemForm.item_dfd}
+                          onChange={e => {
+                            const item = itensDfd.find(i => String(i.id) === e.target.value)
+                            setAddItemForm({ item_dfd: e.target.value, quantidade: item ? String(item.quantidade) : '' })
+                          }}
+                          className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500">
+                          <option value="">— Selecione —</option>
+                          {itensDfd.map(i => (
+                            <option key={i.id} value={i.id}>{i.objeto} ({i.unidade_medida})</option>
+                          ))}
+                        </select>
+                        {itensDfd.length === 0 && <p className="text-[10px] text-amber-600 mt-0.5">Carregando itens do DFD...</p>}
+                      </div>
+                      <div>
+                        <label className="block text-xs text-gray-500 mb-0.5">Quantidade *</label>
+                        <input type="number" min="0" step="0.0001"
+                          value={addItemForm.quantidade}
+                          onChange={e => setAddItemForm(p => ({ ...p, quantidade: e.target.value }))}
+                          className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500" />
+                        {itemSelecionado && (
+                          <p className="text-[10px] text-gray-400 mt-0.5">Original: {itemSelecionado.quantidade} {itemSelecionado.unidade_medida}</p>
+                        )}
+                      </div>
+                      <div className="col-span-3 flex gap-2">
+                        <button
+                          onClick={() => handleAdicionarItem(lote.id)}
+                          disabled={saving || !addItemForm.item_dfd || !addItemForm.quantidade}
+                          className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-medium px-3 py-1.5 rounded-lg">
+                          {saving ? 'Salvando...' : 'Adicionar item'}
+                        </button>
+                        <button onClick={() => { setShowAddItem(null); setAddItemForm({ item_dfd: '', quantidade: '' }) }}
+                          className="border border-gray-300 text-gray-600 text-xs px-3 py-1.5 rounded-lg hover:bg-gray-50">
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 )}
               </div>
@@ -585,56 +627,6 @@ function LotesSection({ tr, podeEditar, onCriarLote, onExcluirLote, onAdicionarI
           })}
         </div>
       )}
-    </div>
-  )
-}
-
-function AddItemLoteForm({ trId, lotePk, onSave, onCancel, saving }) {
-  const [itensDfd, setItensDfd] = useState([])
-  const [form, setForm]         = useState({ item_dfd: '', quantidade: '' })
-
-  useEffect(() => {
-    // Buscar itens do DFD: primeiro pega etp_dfd_id do TR, depois busca os itens do DFD
-    api.get(`/tr/tr/${trId}/`).then(({ data: tr }) => {
-      const dfdId = tr.etp_dfd_id
-      if (dfdId) {
-        api.get(`/demanda/dfd/${dfdId}/`).then(({ data: dfd }) => setItensDfd(dfd.itens || []))
-      }
-    }).catch(() => {})
-  }, [trId])
-
-  const itemSel = itensDfd.find(i => String(i.id) === String(form.item_dfd))
-
-  return (
-    <div className="grid grid-cols-3 gap-2">
-      <div className="col-span-2">
-        <label className="block text-xs text-gray-500 mb-0.5">Item do DFD *</label>
-        <select value={form.item_dfd}
-          onChange={e => {
-            const item = itensDfd.find(i => String(i.id) === e.target.value)
-            setForm(p => ({ ...p, item_dfd: e.target.value, quantidade: item ? String(item.quantidade) : '' }))
-          }}
-          className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs">
-          <option value="">Selecione...</option>
-          {itensDfd.map(i => (
-            <option key={i.id} value={i.id}>{i.objeto} ({i.unidade_medida})</option>
-          ))}
-        </select>
-      </div>
-      <div>
-        <label className="block text-xs text-gray-500 mb-0.5">Quantidade *</label>
-        <input type="number" min="0" step="0.0001" value={form.quantidade}
-          onChange={e => setForm(p => ({ ...p, quantidade: e.target.value }))}
-          className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs" />
-        {itemSel && <p className="text-[10px] text-gray-400 mt-0.5">Original: {itemSel.quantidade}</p>}
-      </div>
-      <div className="col-span-3 flex gap-2">
-        <button onClick={() => onSave(lotePk, form)} disabled={saving || !form.item_dfd || !form.quantidade}
-          className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-medium px-3 py-1.5 rounded-lg">
-          {saving ? '...' : 'Adicionar'}
-        </button>
-        <button onClick={onCancel} className="border border-gray-300 text-gray-600 text-xs px-3 py-1.5 rounded-lg">Cancelar</button>
-      </div>
     </div>
   )
 }
