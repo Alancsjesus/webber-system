@@ -148,6 +148,11 @@ class TRViewSet(viewsets.ModelViewSet):
                             status=status.HTTP_400_BAD_REQUEST)
         return None
 
+    def _tr_atualizado(self, pk, request):
+        """Re-busca o TR com prefetch completo após modificação de lotes."""
+        tr = self.get_queryset().get(pk=pk)
+        return Response(TRSerializer(tr, context={'request': request}).data)
+
     @action(detail=True, methods=['post'], url_path='lotes')
     def criar_lote(self, request, pk=None):
         tr = self.get_object()
@@ -156,8 +161,9 @@ class TRViewSet(viewsets.ModelViewSet):
         serializer = LoteTRSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         serializer.save(tr=tr)
-        return Response(TRSerializer(tr, context={'request': request}).data,
-                        status=status.HTTP_201_CREATED)
+        resp = self._tr_atualizado(tr.pk, request)
+        resp.status_code = status.HTTP_201_CREATED
+        return resp
 
     @action(detail=True, methods=['delete'], url_path=r'lotes/(?P<lote_pk>[^/.]+)')
     def excluir_lote(self, request, pk=None, lote_pk=None):
@@ -166,7 +172,7 @@ class TRViewSet(viewsets.ModelViewSet):
         if err: return err
         lote = get_object_or_404(LoteTR, pk=lote_pk, tr=tr)
         lote.delete()
-        return Response(TRSerializer(tr, context={'request': request}).data)
+        return self._tr_atualizado(tr.pk, request)
 
     @action(detail=True, methods=['post'], url_path=r'lotes/(?P<lote_pk>[^/.]+)/itens')
     def adicionar_item(self, request, pk=None, lote_pk=None):
@@ -177,8 +183,9 @@ class TRViewSet(viewsets.ModelViewSet):
         serializer = ItemLoteTRSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         serializer.save(lote=lote)
-        return Response(TRSerializer(tr, context={'request': request}).data,
-                        status=status.HTTP_201_CREATED)
+        resp = self._tr_atualizado(tr.pk, request)
+        resp.status_code = status.HTTP_201_CREATED
+        return resp
 
     @action(detail=True, methods=['delete'], url_path=r'lotes/(?P<lote_pk>[^/.]+)/itens/(?P<item_pk>[^/.]+)')
     def remover_item(self, request, pk=None, lote_pk=None, item_pk=None):
@@ -188,7 +195,7 @@ class TRViewSet(viewsets.ModelViewSet):
         lote    = get_object_or_404(LoteTR, pk=lote_pk, tr=tr)
         item    = get_object_or_404(ItemLoteTR, pk=item_pk, lote=lote)
         item.delete()
-        return Response(TRSerializer(tr, context={'request': request}).data)
+        return self._tr_atualizado(tr.pk, request)
 
     @action(detail=True, methods=['post'], url_path=r'lotes/(?P<lote_pk>[^/.]+)/gerar_cota')
     def gerar_cota(self, request, pk=None, lote_pk=None):
@@ -230,8 +237,9 @@ class TRViewSet(viewsets.ModelViewSet):
             ItemLoteTR.objects.create(lote=lote_cota, item_dfd=item_orig.item_dfd,
                                       quantidade=qty_cota)
 
-        return Response(TRSerializer(tr, context={'request': request}).data,
-                        status=status.HTTP_201_CREATED)
+        resp = self._tr_atualizado(tr.pk, request)
+        resp.status_code = status.HTTP_201_CREATED
+        return resp
 
     @action(detail=True, methods=['post'], url_path='gerar_por_item')
     def gerar_por_item(self, request, pk=None):
@@ -259,5 +267,6 @@ class TRViewSet(viewsets.ModelViewSet):
             )
             ItemLoteTR.objects.create(lote=lote, item_dfd=item, quantidade=item.quantidade)
 
-        return Response(TRSerializer(tr, context={'request': request}).data,
-                        status=status.HTTP_201_CREATED)
+        resp = self._tr_atualizado(tr.pk, request)
+        resp.status_code = status.HTTP_201_CREATED
+        return resp
