@@ -407,13 +407,10 @@ const fmtQ = (v) => Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 4
 const fmtR = (v) => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
 function LotesSection({ tr, podeEditar, onCriarLote, onExcluirLote, onAdicionarItem, onRemoverItem, onGerarCota, onGerarPorItem }) {
-  const [showNovoLote, setShowNovoLote]       = useState(false)
-  const [novoLoteForm, setNovoLoteForm]       = useState({ descricao: '', modalidade: 'ampla' })
-  const [showAddItem, setShowAddItem]         = useState(null)  // lote_pk ativo
-  const [newItemForm, setNewItemForm]         = useState({ item_dfd: '', quantidade: '' })
-  const [saving, setSaving]                   = useState(false)
-
-  const itensDfd = tr.etp?.dfd ? [] : []  // será populado via props se necessário
+  const [showNovoLote, setShowNovoLote] = useState(false)
+  const [novoLoteForm, setNovoLoteForm] = useState({ descricao: '', modalidade: 'ampla' })
+  const [showAddItem, setShowAddItem]   = useState(null)  // lote_pk ativo
+  const [saving, setSaving]             = useState(false)
 
   const handleCriarLote = async () => {
     if (!novoLoteForm.descricao.trim()) return
@@ -422,12 +419,13 @@ function LotesSection({ tr, podeEditar, onCriarLote, onExcluirLote, onAdicionarI
     finally { setSaving(false) }
   }
 
-  const handleAdicionarItem = async (lotePk) => {
-    if (!newItemForm.item_dfd || !newItemForm.quantidade) return
+  // Recebe (lotePk, formData) do AddItemLoteForm
+  const handleAdicionarItem = async (lotePk, formData) => {
+    if (!formData.item_dfd || !formData.quantidade) return
     setSaving(true)
     try {
-      await onAdicionarItem(lotePk, { item_dfd: Number(newItemForm.item_dfd), quantidade: Number(newItemForm.quantidade) })
-      setShowAddItem(null); setNewItemForm({ item_dfd: '', quantidade: '' })
+      await onAdicionarItem(lotePk, { item_dfd: Number(formData.item_dfd), quantidade: Number(formData.quantidade) })
+      setShowAddItem(null)
     } finally { setSaving(false) }
   }
 
@@ -596,16 +594,13 @@ function AddItemLoteForm({ trId, lotePk, onSave, onCancel, saving }) {
   const [form, setForm]         = useState({ item_dfd: '', quantidade: '' })
 
   useEffect(() => {
-    // Buscar itens do DFD via API do TR
-    import('../services/api').then(({ default: api }) => {
-      api.get(`/tr/tr/${trId}/`).then(({ data }) => {
-        // Itens vêm via etp.dfd.itens — precisamos da API do DFD
-        const dfdId = data.etp_dfd_id
-        if (dfdId) {
-          api.get(`/demanda/dfd/${dfdId}/`).then(({ data: dfd }) => setItensDfd(dfd.itens || []))
-        }
-      })
-    })
+    // Buscar itens do DFD: primeiro pega etp_dfd_id do TR, depois busca os itens do DFD
+    api.get(`/tr/tr/${trId}/`).then(({ data: tr }) => {
+      const dfdId = tr.etp_dfd_id
+      if (dfdId) {
+        api.get(`/demanda/dfd/${dfdId}/`).then(({ data: dfd }) => setItensDfd(dfd.itens || []))
+      }
+    }).catch(() => {})
   }, [trId])
 
   const itemSel = itensDfd.find(i => String(i.id) === String(form.item_dfd))
