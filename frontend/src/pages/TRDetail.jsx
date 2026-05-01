@@ -96,8 +96,8 @@ export default function TRDetail() {
   if (error)   return <p className="p-8 text-sm text-red-600">{error}</p>
   if (!current || !form) return null
 
-  const podeEditar    = ['Rascunho', 'Devolvido'].includes(current.status) && !isAnalista
-  const podeSubmeter  = podeEditar && isSolicitante
+  const podeEditar    = !['Aprovado', 'Cancelado'].includes(current.status) && isSolicitante
+  const podeSubmeter  = ['Rascunho', 'Devolvido'].includes(current.status) && isSolicitante
   const podeAnalisar  = current.status === 'Submetido' && isAnalista
   const podeAprovar   = current.status === 'Em Análise' && isAnalista
   const podeDevolver  = current.status === 'Em Análise' && isAnalista
