@@ -299,7 +299,7 @@ class Command(BaseCommand):
             ('TR',  'obrigacoes_contratante','Obrigações da Contratante',       5, True,  True,  []),
             ('TR',  'criterios_selecao',   'Critérios de Seleção',              6, True,  False, ['licitacao']),
             ('TR',  'criterios_medicao',   'Critérios de Medição e Pagamento',  7, True,  True,  []),
-            ('TR',  'prazo_vigencia',      'Prazo de Vigência do Contrato',     8, True,  True,  []),
+            ('TR',  'prazo_vigencia',      'Forma de Execução do Contrato',     8, True,  True,  []),
             ('TR',  'local_entrega',       'Local de Entrega',                  9, True,  False, []),
             ('TR',  'garantia',            'Garantia Contratual',              10, False, False, ['licitacao']),
             ('TR',  'estimativa_valor',    'Estimativa de Valor',              11, True,  True,  []),

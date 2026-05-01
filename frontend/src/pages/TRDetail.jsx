@@ -302,7 +302,7 @@ export default function TRDetail() {
           </Section>
         </div>
 
-        <Section label="Prazo de Vigência">
+        <Section label="Forma de Execução do Contrato">
           {editing ? (
             <PrazoVigenciaEditor form={form} set={set} />
           ) : (
@@ -425,8 +425,8 @@ const inp = (error) =>
   }`
 
 const TIPO_PRAZO_OPTS = [
-  { value: '',           label: '— Selecione o tipo —' },
-  { value: 'escopo',     label: 'Por Escopo — Aquisição/entrega única (Art. 105)' },
+  { value: '',           label: '— Selecione a forma de execução —' },
+  { value: 'escopo',     label: 'Por Escopo — Entrega/aquisição única (Art. 105)' },
   { value: 'continuo',   label: 'Contínuo — Serviço continuado (Art. 106/107)' },
   { value: 'emergencial',label: 'Emergencial — Contratação direta (Art. 75, VIII)' },
   { value: 'direta_108', label: 'Contratação Direta Art. 108' },

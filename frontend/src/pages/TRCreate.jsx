@@ -3,12 +3,12 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import useTrStore from '../stores/trStore'
 import FormErrors from '../components/FormErrors'
 
-// ── Prazo de Vigência ─────────────────────────────────────────────────────────
+// ── Forma de Execução do Contrato ─────────────────────────────────────────────
 
 const TIPO_PRAZO_OPTS = [
-  { value: '',           label: '— Selecione o tipo de vigência —' },
-  { value: 'escopo',     label: 'Por Escopo — Aquisição/entrega única (Art. 105)' },
-  { value: 'continuo',   label: 'Contínuo — Serviço continuado (Art. 106/107)' },
+  { value: '',           label: '— Selecione a forma de execução —' },
+  { value: 'escopo',     label: 'Por Escopo — Entrega/aquisição única (Art. 105)' },
+  { value: 'continuo',   label: 'Contínuo — Serviço de natureza continuada (Art. 106/107)' },
   { value: 'emergencial',label: 'Emergencial — Contratação direta emergência (Art. 75, VIII)' },
   { value: 'direta_108', label: 'Contratação Direta Art. 108' },
 ]
@@ -233,8 +233,8 @@ export default function TRCreate() {
           </F>
         </div>
 
-        {/* Prazo de Vigência — estruturado */}
-        <F label="Prazo de Vigência do Contrato">
+        {/* Forma de Execução do Contrato */}
+        <F label="Forma de Execução do Contrato">
           <PrazoVigenciaEditor form={form} set={set} />
         </F>
 
