@@ -193,9 +193,9 @@ export default function TRDetail() {
         </div>
       )}
 
-      {/* Decisões do ETP que influenciam este TR */}
-      {current.etp && (current.etp.tipo_parcelamento || current.etp.reserva_cota_me_epp !== undefined) && (
-        <EtpDecisoesBanner etp={current.etp} />
+      {/* Decisões do ETP que influenciam este TR — campos flat no objeto TR */}
+      {(current.etp_tipo_parcelamento || current.etp_reserva_cota_me_epp || current.etp_licitacao_exclusiva_me) && (
+        <EtpDecisoesBanner etp={current} />
       )}
 
       {/* Modal devolver */}
