@@ -3,8 +3,9 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
-from .models import TR, HistoricoTR
-from .serializers import TRSerializer
+from django.shortcuts import get_object_or_404
+from .models import TR, HistoricoTR, LoteTR, ItemLoteTR
+from .serializers import TRSerializer, LoteTRSerializer, ItemLoteTRSerializer
 from core.permissions import IsMultiTenant, PAPEIS_ANALISTA
 from exportacao.pdf_utils import gerar_pdf_tr, gerar_html, resposta_pdf, resposta_html
 
@@ -22,7 +23,10 @@ class TRViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         oid = self.request.org_id
-        return TR.objects.filter(org_id=oid).prefetch_related('historico')
+        return TR.objects.filter(org_id=oid).prefetch_related(
+            'historico',
+            'lotes__itens__item_dfd__item_catalogo',
+        )
 
     def _transicao(self, request, status_novo, campos_extra=None):
         tr = self.get_object()
@@ -135,3 +139,125 @@ class TRViewSet(viewsets.ModelViewSet):
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied('Apenas TRs em Rascunho ou Devolvido podem ser excluídos.')
         instance.delete()
+
+    # ── Lotes ──────────────────────────────────────────────────────────── #
+
+    def _check_editavel(self, tr):
+        if tr.status not in ('Rascunho', 'Devolvido'):
+            return Response({'detail': 'Lotes só podem ser editados em TRs em Rascunho ou Devolvido.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        return None
+
+    @action(detail=True, methods=['post'], url_path='lotes')
+    def criar_lote(self, request, pk=None):
+        tr = self.get_object()
+        err = self._check_editavel(tr)
+        if err: return err
+        serializer = LoteTRSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save(tr=tr)
+        return Response(TRSerializer(tr, context={'request': request}).data,
+                        status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['delete'], url_path=r'lotes/(?P<lote_pk>[^/.]+)')
+    def excluir_lote(self, request, pk=None, lote_pk=None):
+        tr   = self.get_object()
+        err  = self._check_editavel(tr)
+        if err: return err
+        lote = get_object_or_404(LoteTR, pk=lote_pk, tr=tr)
+        lote.delete()
+        return Response(TRSerializer(tr, context={'request': request}).data)
+
+    @action(detail=True, methods=['post'], url_path=r'lotes/(?P<lote_pk>[^/.]+)/itens')
+    def adicionar_item(self, request, pk=None, lote_pk=None):
+        tr   = self.get_object()
+        err  = self._check_editavel(tr)
+        if err: return err
+        lote = get_object_or_404(LoteTR, pk=lote_pk, tr=tr)
+        serializer = ItemLoteTRSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save(lote=lote)
+        return Response(TRSerializer(tr, context={'request': request}).data,
+                        status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['delete'], url_path=r'lotes/(?P<lote_pk>[^/.]+)/itens/(?P<item_pk>[^/.]+)')
+    def remover_item(self, request, pk=None, lote_pk=None, item_pk=None):
+        tr      = self.get_object()
+        err     = self._check_editavel(tr)
+        if err: return err
+        lote    = get_object_or_404(LoteTR, pk=lote_pk, tr=tr)
+        item    = get_object_or_404(ItemLoteTR, pk=item_pk, lote=lote)
+        item.delete()
+        return Response(TRSerializer(tr, context={'request': request}).data)
+
+    @action(detail=True, methods=['post'], url_path=r'lotes/(?P<lote_pk>[^/.]+)/gerar_cota')
+    def gerar_cota(self, request, pk=None, lote_pk=None):
+        """Gera um lote de Reserva de Cota ME/EPP (25%) a partir de um lote de ampla concorrência."""
+        tr   = self.get_object()
+        err  = self._check_editavel(tr)
+        if err: return err
+        lote_origem = get_object_or_404(LoteTR, pk=lote_pk, tr=tr)
+        if lote_origem.modalidade != 'ampla':
+            return Response({'detail': 'O lote de origem deve ser de Ampla Concorrência.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if not lote_origem.itens.exists():
+            return Response({'detail': 'O lote de origem não possui itens.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        percentual = request.data.get('percentual', 25)
+        try:
+            percentual = int(percentual)
+            assert 1 <= percentual <= 49
+        except (ValueError, AssertionError):
+            return Response({'detail': 'Percentual deve ser entre 1 e 49.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        from decimal import Decimal, ROUND_HALF_UP
+        lote_cota = LoteTR.objects.create(
+            tr=tr,
+            descricao=f'Cota ME/EPP — {percentual}% de {lote_origem.numero}',
+            modalidade='cota_me_epp',
+            percentual_cota=percentual,
+            lote_origem=lote_origem,
+            org_id=tr.org_id,
+            created_by=request.user,
+            updated_by=request.user,
+        )
+        for item_orig in lote_origem.itens.select_related('item_dfd'):
+            qty_cota = (item_orig.quantidade * Decimal(percentual) / 100).quantize(
+                Decimal('0.0001'), rounding=ROUND_HALF_UP
+            )
+            ItemLoteTR.objects.create(lote=lote_cota, item_dfd=item_orig.item_dfd,
+                                      quantidade=qty_cota)
+
+        return Response(TRSerializer(tr, context={'request': request}).data,
+                        status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'], url_path='gerar_por_item')
+    def gerar_por_item(self, request, pk=None):
+        """Cria um lote por item do DFD (tipo_parcelamento = por_item no ETP)."""
+        tr = self.get_object()
+        err = self._check_editavel(tr)
+        if err: return err
+        if tr.etp.tipo_parcelamento != 'por_item':
+            return Response({'detail': 'O ETP deve ter tipo de parcelamento "por_item".'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        itens_dfd = tr.etp.dfd.itens.all()
+        if not itens_dfd.exists():
+            return Response({'detail': 'O DFD de origem não possui itens.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        LoteTR.objects.filter(tr=tr).delete()
+        for item in itens_dfd:
+            lote = LoteTR.objects.create(
+                tr=tr,
+                descricao=item.objeto[:100],
+                modalidade='ampla',
+                org_id=tr.org_id,
+                created_by=request.user,
+                updated_by=request.user,
+            )
+            ItemLoteTR.objects.create(lote=lote, item_dfd=item, quantidade=item.quantidade)
+
+        return Response(TRSerializer(tr, context={'request': request}).data,
+                        status=status.HTTP_201_CREATED)

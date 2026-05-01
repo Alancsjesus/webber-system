@@ -76,6 +76,38 @@ const useTrStore = create((set) => ({
     await api.delete(`/tr/tr/${id}/`)
     set((s) => ({ trs: s.trs.filter((t) => t.id !== id) }))
   },
+
+  // ── Lotes ──────────────────────────────────────────────────────────────
+  criarLote: async (id, payload) => {
+    const { data } = await api.post(`/tr/tr/${id}/lotes/`, payload)
+    set((s) => ({ current: data, trs: s.trs.map((t) => t.id === id ? data : t) }))
+    return data
+  },
+  excluirLote: async (id, lotePk) => {
+    const { data } = await api.delete(`/tr/tr/${id}/lotes/${lotePk}/`)
+    set((s) => ({ current: data, trs: s.trs.map((t) => t.id === id ? data : t) }))
+    return data
+  },
+  adicionarItemLote: async (id, lotePk, payload) => {
+    const { data } = await api.post(`/tr/tr/${id}/lotes/${lotePk}/itens/`, payload)
+    set((s) => ({ current: data, trs: s.trs.map((t) => t.id === id ? data : t) }))
+    return data
+  },
+  removerItemLote: async (id, lotePk, itemPk) => {
+    const { data } = await api.delete(`/tr/tr/${id}/lotes/${lotePk}/itens/${itemPk}/`)
+    set((s) => ({ current: data, trs: s.trs.map((t) => t.id === id ? data : t) }))
+    return data
+  },
+  gerarCota: async (id, lotePk, percentual = 25) => {
+    const { data } = await api.post(`/tr/tr/${id}/lotes/${lotePk}/gerar_cota/`, { percentual })
+    set((s) => ({ current: data, trs: s.trs.map((t) => t.id === id ? data : t) }))
+    return data
+  },
+  gerarPorItem: async (id) => {
+    const { data } = await api.post(`/tr/tr/${id}/gerar_por_item/`)
+    set((s) => ({ current: data, trs: s.trs.map((t) => t.id === id ? data : t) }))
+    return data
+  },
 }))
 
 export default useTrStore

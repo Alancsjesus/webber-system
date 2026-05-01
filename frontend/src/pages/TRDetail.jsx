@@ -19,7 +19,8 @@ const PAPEIS_SOLICITANTE = ['solicitante', 'demandante', 'responsavel_tecnico', 
 export default function TRDetail() {
   const { id }    = useParams()
   const navigate  = useNavigate()
-  const { current, loading, error, fetchTr, updateTr, submeterTr, iniciarAnaliseTr, aprovarTr, devolverTr, reabrirTr } = useTrStore()
+  const { current, loading, error, fetchTr, updateTr, submeterTr, iniciarAnaliseTr, aprovarTr, devolverTr, reabrirTr,
+          criarLote, excluirLote, adicionarItemLote, removerItemLote, gerarCota, gerarPorItem } = useTrStore()
   const papel     = useAuthStore((s) => s.papel)
 
   const isAnalista    = PAPEIS_ANALISTA.includes(papel)
@@ -344,6 +345,18 @@ export default function TRDetail() {
             : <p className="text-sm text-gray-500">{current.observacoes || '—'}</p>}
         </Section>
 
+        {/* ── Lotes da Licitação ── */}
+        <LotesSection
+          tr={current}
+          podeEditar={podeEditar}
+          onCriarLote={(payload) => criarLote(id, payload)}
+          onExcluirLote={(lotePk) => excluirLote(id, lotePk)}
+          onAdicionarItem={(lotePk, payload) => adicionarItemLote(id, lotePk, payload)}
+          onRemoverItem={(lotePk, itemPk) => removerItemLote(id, lotePk, itemPk)}
+          onGerarCota={(lotePk) => gerarCota(id, lotePk)}
+          onGerarPorItem={() => gerarPorItem(id)}
+        />
+
         {/* Histórico */}
         {current.historico?.length > 0 && (
           <div className="pt-4 border-t border-gray-100">
@@ -373,6 +386,259 @@ export default function TRDetail() {
           <p>Criado em: {new Date(current.created_at).toLocaleString('pt-BR')}</p>
           <p>Atualizado em: {new Date(current.updated_at).toLocaleString('pt-BR')}</p>
         </div>
+      </div>
+    </div>
+  )
+}
+
+// ── Lotes da Licitação ────────────────────────────────────────────────────────
+
+const MODALIDADE_CLS = {
+  ampla:            { badge: 'bg-blue-100 text-blue-700',   dot: 'bg-blue-500'  },
+  cota_me_epp:      { badge: 'bg-amber-100 text-amber-700', dot: 'bg-amber-500' },
+  exclusiva_me_epp: { badge: 'bg-green-100 text-green-700', dot: 'bg-green-500' },
+}
+const MODALIDADE_LABELS = {
+  ampla:            'Ampla Concorrência',
+  cota_me_epp:      'Reserva de Cota ME/EPP',
+  exclusiva_me_epp: 'Exclusivo ME/EPP',
+}
+const fmtQ = (v) => Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 4 })
+const fmtR = (v) => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+
+function LotesSection({ tr, podeEditar, onCriarLote, onExcluirLote, onAdicionarItem, onRemoverItem, onGerarCota, onGerarPorItem }) {
+  const [showNovoLote, setShowNovoLote]       = useState(false)
+  const [novoLoteForm, setNovoLoteForm]       = useState({ descricao: '', modalidade: 'ampla' })
+  const [showAddItem, setShowAddItem]         = useState(null)  // lote_pk ativo
+  const [newItemForm, setNewItemForm]         = useState({ item_dfd: '', quantidade: '' })
+  const [saving, setSaving]                   = useState(false)
+
+  const itensDfd = tr.etp?.dfd ? [] : []  // será populado via props se necessário
+
+  const handleCriarLote = async () => {
+    if (!novoLoteForm.descricao.trim()) return
+    setSaving(true)
+    try { await onCriarLote(novoLoteForm); setShowNovoLote(false); setNovoLoteForm({ descricao: '', modalidade: 'ampla' }) }
+    finally { setSaving(false) }
+  }
+
+  const handleAdicionarItem = async (lotePk) => {
+    if (!newItemForm.item_dfd || !newItemForm.quantidade) return
+    setSaving(true)
+    try {
+      await onAdicionarItem(lotePk, { item_dfd: Number(newItemForm.item_dfd), quantidade: Number(newItemForm.quantidade) })
+      setShowAddItem(null); setNewItemForm({ item_dfd: '', quantidade: '' })
+    } finally { setSaving(false) }
+  }
+
+  // Itens disponíveis = itens do DFD (via etp.dfd — vêm na payload do TR)
+  const itensDisponiveis = tr.etp_dfd_itens || []
+
+  return (
+    <div className="pt-4 border-t border-gray-100">
+      <div className="flex items-center justify-between mb-3">
+        <p className="text-xs font-semibold text-gray-400 uppercase">Lotes da Licitação</p>
+        {podeEditar && (
+          <div className="flex gap-2">
+            {tr.etp_tipo_parcelamento === 'por_item' && (
+              <button onClick={onGerarPorItem}
+                className="text-xs bg-teal-50 border border-teal-300 text-teal-700 hover:bg-teal-100 px-3 py-1 rounded-lg font-medium">
+                Criar um lote por item
+              </button>
+            )}
+            <button onClick={() => setShowNovoLote(v => !v)}
+              className="text-xs text-blue-600 hover:text-blue-800 font-medium">
+              {showNovoLote ? 'Cancelar' : '+ Novo lote'}
+            </button>
+          </div>
+        )}
+      </div>
+
+      {/* Form novo lote */}
+      {showNovoLote && (
+        <div className="mb-3 border border-blue-200 rounded-lg p-3 bg-blue-50">
+          <div className="grid grid-cols-2 gap-2">
+            <div className="col-span-2">
+              <label className="block text-xs text-gray-500 mb-0.5">Descrição do lote *</label>
+              <input type="text" value={novoLoteForm.descricao}
+                onChange={e => setNovoLoteForm(p => ({ ...p, descricao: e.target.value }))}
+                placeholder="Ex: Lote 01 — Equipamentos de TI"
+                className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs" />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-0.5">Modalidade</label>
+              <select value={novoLoteForm.modalidade}
+                onChange={e => setNovoLoteForm(p => ({ ...p, modalidade: e.target.value }))}
+                className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs">
+                <option value="ampla">Ampla Concorrência</option>
+                <option value="exclusiva_me_epp">Exclusivo ME/EPP</option>
+              </select>
+            </div>
+          </div>
+          <div className="flex gap-2 mt-2">
+            <button onClick={handleCriarLote} disabled={saving || !novoLoteForm.descricao.trim()}
+              className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-medium px-3 py-1.5 rounded-lg">
+              {saving ? '...' : 'Criar lote'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Lista de lotes */}
+      {(!tr.lotes || tr.lotes.length === 0) ? (
+        <p className="text-xs text-gray-400 italic">Nenhum lote configurado. {podeEditar ? 'Clique em "+ Novo lote" para começar.' : ''}</p>
+      ) : (
+        <div className="space-y-3">
+          {tr.lotes.map(lote => {
+            const cls = MODALIDADE_CLS[lote.modalidade] || MODALIDADE_CLS.ampla
+            return (
+              <div key={lote.id} className={`border rounded-xl overflow-hidden ${lote.modalidade === 'ampla' ? 'border-blue-200' : lote.modalidade === 'cota_me_epp' ? 'border-amber-200' : 'border-green-200'}`}>
+                {/* Cabeçalho do lote */}
+                <div className="flex items-center justify-between px-4 py-2.5 bg-gray-50">
+                  <div className="flex items-center gap-2">
+                    <span className={`w-2 h-2 rounded-full ${cls.dot}`} />
+                    <span className="font-mono text-sm font-semibold text-gray-800">{lote.numero}</span>
+                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${cls.badge}`}>
+                      {MODALIDADE_LABELS[lote.modalidade]}
+                    </span>
+                    {lote.lote_origem_numero && (
+                      <span className="text-xs text-gray-400">← {lote.lote_origem_numero}</span>
+                    )}
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-bold text-gray-700">{fmtR(lote.valor_total_lote)}</span>
+                    {podeEditar && (
+                      <div className="flex gap-1">
+                        {lote.modalidade === 'ampla' && tr.etp_reserva_cota_me_epp && (
+                          <button onClick={() => onGerarCota(lote.id)}
+                            className="text-xs bg-amber-50 border border-amber-300 text-amber-700 hover:bg-amber-100 px-2 py-0.5 rounded font-medium">
+                            + Cota ME/EPP
+                          </button>
+                        )}
+                        <button onClick={() => setShowAddItem(showAddItem === lote.id ? null : lote.id)}
+                          className="text-xs text-blue-600 hover:underline">
+                          + Item
+                        </button>
+                        <button onClick={() => onExcluirLote(lote.id)}
+                          className="text-xs text-red-500 hover:text-red-700">✕</button>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                {lote.descricao && (
+                  <p className="px-4 py-1 text-xs text-gray-500 border-b border-gray-100">{lote.descricao}</p>
+                )}
+
+                {/* Itens do lote */}
+                {lote.itens.length > 0 && (
+                  <table className="w-full text-xs">
+                    <thead className="bg-gray-50/50">
+                      <tr>
+                        <th className="text-left px-4 py-1.5 font-medium text-gray-500">Item</th>
+                        <th className="text-right px-4 py-1.5 font-medium text-gray-500">Qtd</th>
+                        <th className="text-right px-4 py-1.5 font-medium text-gray-500">Vl. Unit.</th>
+                        <th className="text-right px-4 py-1.5 font-medium text-gray-500">Total</th>
+                        {podeEditar && <th className="w-6" />}
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-50">
+                      {lote.itens.map(item => (
+                        <tr key={item.id} className="hover:bg-gray-50">
+                          <td className="px-4 py-1.5 text-gray-700">
+                            {item.catalogo_familia && (
+                              <span className="mr-1 font-mono text-blue-600 text-[10px] bg-blue-50 px-1 rounded">{item.catalogo_familia}</span>
+                            )}
+                            {item.item_objeto}
+                            <span className="ml-1 text-gray-400">({item.item_unidade})</span>
+                          </td>
+                          <td className="px-4 py-1.5 text-right text-gray-600">{fmtQ(item.quantidade)}</td>
+                          <td className="px-4 py-1.5 text-right text-gray-600">{fmtR(item.item_valor_unit)}</td>
+                          <td className="px-4 py-1.5 text-right font-semibold text-gray-800">{fmtR(item.valor_total)}</td>
+                          {podeEditar && (
+                            <td className="px-2 py-1.5 text-center">
+                              <button onClick={() => onRemoverItem(lote.id, item.id)}
+                                className="text-red-400 hover:text-red-600">✕</button>
+                            </td>
+                          )}
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                )}
+                {lote.itens.length === 0 && (
+                  <p className="px-4 py-2 text-xs text-gray-400 italic">Nenhum item neste lote.</p>
+                )}
+
+                {/* Form adicionar item */}
+                {showAddItem === lote.id && (
+                  <div className="px-4 py-3 bg-blue-50 border-t border-blue-100">
+                    <AddItemLoteForm
+                      trId={tr.id}
+                      lotePk={lote.id}
+                      onSave={handleAdicionarItem}
+                      onCancel={() => { setShowAddItem(null); setNewItemForm({ item_dfd: '', quantidade: '' }) }}
+                      saving={saving}
+                    />
+                  </div>
+                )}
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function AddItemLoteForm({ trId, lotePk, onSave, onCancel, saving }) {
+  const [itensDfd, setItensDfd] = useState([])
+  const [form, setForm]         = useState({ item_dfd: '', quantidade: '' })
+
+  useEffect(() => {
+    // Buscar itens do DFD via API do TR
+    import('../services/api').then(({ default: api }) => {
+      api.get(`/tr/tr/${trId}/`).then(({ data }) => {
+        // Itens vêm via etp.dfd.itens — precisamos da API do DFD
+        const dfdId = data.etp_dfd_id
+        if (dfdId) {
+          api.get(`/demanda/dfd/${dfdId}/`).then(({ data: dfd }) => setItensDfd(dfd.itens || []))
+        }
+      })
+    })
+  }, [trId])
+
+  const itemSel = itensDfd.find(i => String(i.id) === String(form.item_dfd))
+
+  return (
+    <div className="grid grid-cols-3 gap-2">
+      <div className="col-span-2">
+        <label className="block text-xs text-gray-500 mb-0.5">Item do DFD *</label>
+        <select value={form.item_dfd}
+          onChange={e => {
+            const item = itensDfd.find(i => String(i.id) === e.target.value)
+            setForm(p => ({ ...p, item_dfd: e.target.value, quantidade: item ? String(item.quantidade) : '' }))
+          }}
+          className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs">
+          <option value="">Selecione...</option>
+          {itensDfd.map(i => (
+            <option key={i.id} value={i.id}>{i.objeto} ({i.unidade_medida})</option>
+          ))}
+        </select>
+      </div>
+      <div>
+        <label className="block text-xs text-gray-500 mb-0.5">Quantidade *</label>
+        <input type="number" min="0" step="0.0001" value={form.quantidade}
+          onChange={e => setForm(p => ({ ...p, quantidade: e.target.value }))}
+          className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs" />
+        {itemSel && <p className="text-[10px] text-gray-400 mt-0.5">Original: {itemSel.quantidade}</p>}
+      </div>
+      <div className="col-span-3 flex gap-2">
+        <button onClick={() => onSave(lotePk, form)} disabled={saving || !form.item_dfd || !form.quantidade}
+          className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-medium px-3 py-1.5 rounded-lg">
+          {saving ? '...' : 'Adicionar'}
+        </button>
+        <button onClick={onCancel} className="border border-gray-300 text-gray-600 text-xs px-3 py-1.5 rounded-lg">Cancelar</button>
       </div>
     </div>
   )

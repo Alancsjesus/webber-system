@@ -1,3 +1,4 @@
+from decimal import Decimal
 from django.db import models
 from django.contrib.auth.models import User
 from core.models import BaseModel
@@ -85,6 +86,80 @@ class TR(BaseModel):
 
     def __str__(self):
         return f"TR {self.numero_sei} (ETP {self.etp.numero_sei}) — {self.status}"
+
+
+class LoteTR(BaseModel):
+    """
+    Lote de licitação dentro de um TR.
+    Cada lote tem um único vencedor (adjudicação global por lote).
+    Lotes de cota (25% ME/EPP) são gerados a partir de lotes de ampla concorrência.
+    """
+    MODALIDADE_CHOICES = [
+        ('ampla',            'Ampla Concorrência'),
+        ('cota_me_epp',      'Reserva de Cota ME/EPP'),
+        ('exclusiva_me_epp', 'Exclusivo ME/EPP'),
+    ]
+
+    tr              = models.ForeignKey(TR, on_delete=models.CASCADE, related_name='lotes')
+    numero          = models.CharField(max_length=20, editable=False, verbose_name='Número do lote')
+    descricao       = models.CharField(max_length=200, blank=True, default='', verbose_name='Descrição do lote')
+    modalidade      = models.CharField(max_length=20, choices=MODALIDADE_CHOICES, default='ampla', verbose_name='Modalidade de participação')
+    percentual_cota = models.PositiveIntegerField(default=25, verbose_name='Percentual da cota (%)')
+    lote_origem     = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL, related_name='lotes_cota', verbose_name='Lote de origem (para cotas)')
+    ordem           = models.PositiveIntegerField(default=0, verbose_name='Ordem de exibição')
+    observacoes     = models.TextField(blank=True, default='', verbose_name='Observações')
+
+    class Meta(BaseModel.Meta):
+        ordering = ['tr', 'ordem', 'numero']
+        verbose_name = 'Lote do TR'
+        verbose_name_plural = 'Lotes do TR'
+
+    def __str__(self):
+        return f'{self.numero} ({self.get_modalidade_display()}) — TR {self.tr_id}'
+
+    def save(self, *args, **kwargs):
+        if not self.numero:
+            seq = LoteTR.objects.filter(tr=self.tr).count() + 1
+            if self.modalidade == 'cota_me_epp':
+                sufixo = '-Cota'
+            elif self.modalidade == 'exclusiva_me_epp':
+                sufixo = '-Excl'
+            else:
+                sufixo = ''
+            self.numero = f'Lote {seq:02d}{sufixo}'
+        if not self.ordem:
+            self.ordem = LoteTR.objects.filter(tr=self.tr).count() + 1
+        super().save(*args, **kwargs)
+
+    @property
+    def valor_total(self):
+        total = Decimal('0')
+        for item in self.itens.select_related('item_dfd'):
+            if item.item_dfd:
+                total += item.quantidade * item.item_dfd.valor_unitario_estimado
+        return total
+
+
+class ItemLoteTR(models.Model):
+    """Item vinculado a um lote do TR com quantidade específica (pode diferir do ItemDFD original)."""
+    lote      = models.ForeignKey(LoteTR, on_delete=models.CASCADE, related_name='itens')
+    item_dfd  = models.ForeignKey('modulo_demanda.ItemDFD', on_delete=models.SET_NULL, null=True, related_name='lotes_tr')
+    quantidade = models.DecimalField(max_digits=15, decimal_places=4, verbose_name='Quantidade no lote')
+
+    class Meta:
+        unique_together = [('lote', 'item_dfd')]
+        verbose_name = 'Item do Lote TR'
+        verbose_name_plural = 'Itens dos Lotes TR'
+
+    def __str__(self):
+        obj = self.item_dfd.objeto if self.item_dfd else '—'
+        return f'{self.lote.numero} · {obj} ({self.quantidade})'
+
+    @property
+    def valor_total(self):
+        if self.item_dfd:
+            return self.quantidade * self.item_dfd.valor_unitario_estimado
+        return Decimal('0')
 
 
 class HistoricoTR(models.Model):
