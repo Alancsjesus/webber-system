@@ -159,6 +159,11 @@ class DFD(BaseModel):
 class ItemDFD(BaseModel):
     """Item individual de uma demanda — objeto, quantidade e valor estimado."""
     dfd = models.ForeignKey(DFD, on_delete=models.CASCADE, related_name='itens')
+    item_catalogo = models.ForeignKey(
+        'core.ItemCatalogo', null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='itens_dfd',
+        verbose_name='Item do catálogo',
+    )
     objeto = models.CharField(max_length=500)
     justificativa = models.CharField(max_length=500, default='')
     unidade_medida = models.CharField(max_length=50)

@@ -1,8 +1,10 @@
 """
 Endpoints de indicadores para o Dashboard WEBBER.
-- GET /api/indicadores/orcamento/   — execução orçamentária por elemento
-- GET /api/indicadores/devolucoes/  — taxa de devoluções por tipo de documento
+- GET /api/indicadores/orcamento/    — execução orçamentária por elemento
+- GET /api/indicadores/devolucoes/   — taxa de devoluções por tipo de documento
+- GET /api/indicadores/agrupamento/  — sugestão de agrupamento por família SIMPAS
 """
+from decimal import Decimal
 from django.db.models import Sum, Count, Q
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -188,4 +190,106 @@ class IndicadoresDevolucoesView(APIView):
             'ETP':  _item(etp_total,  etp_dev),
             'TR':   _item(tr_total,   tr_dev),
             'Mapa': _item(mapa_total, mapa_dev),
+        })
+
+
+class IndicadoresAgrupamentoView(APIView):
+    """
+    Sugestão de agrupamento de itens por família SIMPAS.
+    Analisa ItemDFD com item_catalogo em DFDs não aprovados, agrupa por família
+    e sugere modalidade de aquisição com base no limite de dispensa configurado.
+
+    GET /api/indicadores/agrupamento/
+    Parâmetros opcionais: ?familia=42.40  (filtra família específica)
+    """
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        from modulo_demanda.models import ItemDFD
+        from core.models import ParametroSistema
+
+        org_id = request.org_id
+
+        # Limite de dispensa configurado
+        limite_str = ParametroSistema.get('valor_limite_dispensa_etp', '62000.00')
+        try:
+            limite_dispensa = Decimal(str(limite_str))
+        except Exception:
+            limite_dispensa = Decimal('62000.00')
+
+        familia_filtro = request.query_params.get('familia')
+
+        # Busca itens com catálogo vinculado, de DFDs não aprovados
+        qs = (
+            ItemDFD.objects
+            .filter(
+                dfd__org_id=org_id,
+                item_catalogo__isnull=False,
+            )
+            .exclude(dfd__status__in=['Aprovada', 'Rejeitada', 'Cancelada'])
+            .select_related('item_catalogo', 'dfd')
+        )
+
+        if familia_filtro:
+            qs = qs.filter(item_catalogo__familia=familia_filtro)
+
+        # Agrupa por família
+        familias: dict = {}
+        for item in qs:
+            fam = item.item_catalogo.familia or 'Sem família'
+            if fam not in familias:
+                familias[fam] = {
+                    'familia':        fam,
+                    'total_itens':    0,
+                    'valor_total':    Decimal('0'),
+                    'dfds_ids':       set(),
+                    'itens':          [],
+                }
+            g = familias[fam]
+            g['total_itens']  += 1
+            g['valor_total']  += item.valor_total_estimado or Decimal('0')
+            g['dfds_ids'].add(item.dfd_id)
+            g['itens'].append({
+                'item_id':        item.id,
+                'catalogo_codigo': item.item_catalogo.codigo_interno,
+                'catalogo_nome':   item.item_catalogo.nome,
+                'dfd_sei':        item.dfd.numero_sei,
+                'dfd_status':     item.dfd.status,
+                'quantidade':     float(item.quantidade),
+                'valor_total':    float(item.valor_total_estimado or 0),
+            })
+
+        resultado = []
+        for fam, g in sorted(familias.items()):
+            valor = g['valor_total']
+            qtd_dfds = len(g['dfds_ids'])
+            # Sugestão de modalidade
+            if valor > limite_dispensa:
+                sugestao    = 'pregao_eletronico'
+                sugestao_label = 'Pregão Eletrônico'
+                sugestao_motivo = f'Valor total R$ {float(valor):,.2f} supera o limite de dispensa (R$ {float(limite_dispensa):,.2f})'
+            elif qtd_dfds > 1:
+                sugestao    = 'dispensa_agrupada'
+                sugestao_label = 'Dispensa por Valor (agrupada)'
+                sugestao_motivo = f'{qtd_dfds} DFDs com itens da mesma família — agrupamento recomendado'
+            else:
+                sugestao    = 'dispensa_valor'
+                sugestao_label = 'Dispensa por Valor'
+                sugestao_motivo = f'Valor total R$ {float(valor):,.2f} dentro do limite de dispensa'
+
+            resultado.append({
+                'familia':         fam,
+                'total_itens':     g['total_itens'],
+                'total_dfds':      qtd_dfds,
+                'valor_total':     float(valor),
+                'sugestao':        sugestao,
+                'sugestao_label':  sugestao_label,
+                'sugestao_motivo': sugestao_motivo,
+                'itens':           g['itens'],
+            })
+
+        return Response({
+            'limite_dispensa': float(limite_dispensa),
+            'familias':        resultado,
+            'total_familias':  len(resultado),
         })

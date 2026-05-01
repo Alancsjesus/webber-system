@@ -6,7 +6,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
 from django.db.models import Sum, Count, Q, Prefetch
 from django.contrib.auth.models import User
-from core.models import Orgao, UnidadeOrganizacional, UserProfile, ParametroSistema, AreaAtuacao, SecaoArtefato
+from core.models import Orgao, UnidadeOrganizacional, UserProfile, ParametroSistema, AreaAtuacao, SecaoArtefato, ItemCatalogo
 from core.permissions import IsMultiTenant
 
 
@@ -493,6 +493,49 @@ class AreaAtuacaoViewSet(viewsets.ModelViewSet):
     def perform_destroy(self, instance):
         self._check_perm(self.request)
         instance.ativa = False
+        instance.save()
+
+
+class ItemCatalogoSerializer(drf_serializers.ModelSerializer):
+    class Meta:
+        model  = ItemCatalogo
+        fields = ['id', 'codigo_interno', 'codigo_simpas', 'familia',
+                  'nome', 'descricao', 'unidade_medida', 'ativo']
+        read_only_fields = ['id', 'codigo_interno', 'familia']
+
+
+class ItemCatalogoViewSet(viewsets.ModelViewSet):
+    serializer_class   = ItemCatalogoSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends    = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields      = ['codigo_interno', 'codigo_simpas', 'familia', 'nome']
+    ordering_fields    = ['familia', 'nome', 'codigo_interno']
+    ordering           = ['familia', 'nome']
+
+    def get_queryset(self):
+        qs = ItemCatalogo.objects.all()
+        if self.request.query_params.get('inativas') != 'true':
+            qs = qs.filter(ativo=True)
+        familia = self.request.query_params.get('familia')
+        if familia:
+            qs = qs.filter(familia=familia)
+        return qs
+
+    def _check_perm(self, request):
+        if getattr(request, 'papel', None) not in ('admin', 'analista', 'gestor_planejamento'):
+            raise PermissionDenied('Apenas administradores e analistas podem gerenciar o catálogo.')
+
+    def perform_create(self, serializer):
+        self._check_perm(self.request)
+        serializer.save()
+
+    def perform_update(self, serializer):
+        self._check_perm(self.request)
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        self._check_perm(self.request)
+        instance.ativo = False
         instance.save()
 
 

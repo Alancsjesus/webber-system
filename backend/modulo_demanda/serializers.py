@@ -19,16 +19,27 @@ class HistoricoTramitacaoSerializer(serializers.ModelSerializer):
 
 
 class ItemDFDSerializer(serializers.ModelSerializer):
-    valor_total_estimado = serializers.DecimalField(max_digits=15, decimal_places=2, read_only=True)
+    valor_total_estimado    = serializers.DecimalField(max_digits=15, decimal_places=2, read_only=True)
+    catalogo_codigo_interno = serializers.CharField(source='item_catalogo.codigo_interno', read_only=True)
+    catalogo_codigo_simpas  = serializers.CharField(source='item_catalogo.codigo_simpas',  read_only=True)
+    catalogo_familia        = serializers.CharField(source='item_catalogo.familia',         read_only=True)
+    catalogo_nome           = serializers.CharField(source='item_catalogo.nome',            read_only=True)
 
     class Meta:
         model = ItemDFD
         fields = [
-            'id', 'objeto', 'unidade_medida', 'quantidade',
+            'id', 'item_catalogo',
+            'catalogo_codigo_interno', 'catalogo_codigo_simpas',
+            'catalogo_familia', 'catalogo_nome',
+            'objeto', 'unidade_medida', 'quantidade',
             'valor_unitario_estimado', 'valor_total_estimado', 'observacao',
             'created_at', 'updated_at',
         ]
-        read_only_fields = ['id', 'valor_total_estimado', 'created_at', 'updated_at']
+        read_only_fields = [
+            'id', 'valor_total_estimado', 'created_at', 'updated_at',
+            'catalogo_codigo_interno', 'catalogo_codigo_simpas',
+            'catalogo_familia', 'catalogo_nome',
+        ]
 
     def create(self, validated_data):
         validated_data['org_id_id'] = self.context['request'].org_id

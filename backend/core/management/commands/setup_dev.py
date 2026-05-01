@@ -9,7 +9,7 @@ Uso:
 """
 from django.core.management.base import BaseCommand
 from django.contrib.auth.models import User
-from core.models import Orgao, UnidadeOrganizacional, UserProfile, ParametroSistema, AreaAtuacao, SecaoArtefato
+from core.models import Orgao, UnidadeOrganizacional, UserProfile, ParametroSistema, AreaAtuacao, SecaoArtefato, ItemCatalogo
 
 
 ORGAOS = [
@@ -241,6 +241,30 @@ class Command(BaseCommand):
             )
             label = 'criada' if created else 'existente'
             self.stdout.write(f'Área {label}: {area}')
+
+        # Cria itens de catálogo de exemplo (SIMPAS)
+        itens_catalogo = [
+            # (codigo_simpas, nome, unidade_medida)
+            ('42.40.20.00016900-5', 'Kit IFAK Individual First Aid Kit',          'UN'),
+            ('42.40.20.00016901-3', 'Torniquete Militar CAT Gen 7',               'UN'),
+            ('42.40.20.00016902-1', 'Bandagem Israelense 6"',                     'UN'),
+            ('65.10.19.00120553-6', 'Notebook Dell Latitude 5540 i5/16GB/512GB',  'UN'),
+            ('65.10.19.00120554-4', 'Monitor 24" Full HD IPS',                    'UN'),
+            ('65.10.19.00120555-2', 'Mouse Óptico USB',                           'UN'),
+            ('65.10.19.00120556-0', 'Teclado ABNT2 USB',                          'UN'),
+            ('20.10.01.00084400-2', 'Capacitação em Gestão de Contratos Lei 14.133/2021', 'TURMA'),
+            ('20.10.01.00084401-0', 'Treinamento em Pregão Eletrônico',           'TURMA'),
+            ('38.20.15.00030100-1', 'Câmera de Videomonitoramento IP 4MP',        'UN'),
+            ('38.20.15.00030101-9', 'Switch PoE 24 Portas',                       'UN'),
+            ('38.20.15.00030102-7', 'NVR 32 Canais 4K',                          'UN'),
+        ]
+        for codigo_simpas, nome, unidade in itens_catalogo:
+            item, created = ItemCatalogo.objects.get_or_create(
+                codigo_simpas=codigo_simpas,
+                defaults={'nome': nome, 'unidade_medida': unidade, 'ativo': True}
+            )
+            label = 'criado' if created else 'existente'
+            self.stdout.write(f'Item {label}: {item.codigo_interno} [{item.familia}] {nome[:40]}')
 
         # Cria seções padrão dos artefatos (DFD, ETP, TR)
         secoes_padrao = [

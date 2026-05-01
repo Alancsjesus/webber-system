@@ -102,6 +102,12 @@ const CONFIG_GROUPS_ADMIN = [
     ],
   },
   {
+    label: 'Catálogo',
+    items: [
+      { to: '/config/catalogo',  label: 'Itens e Famílias SIMPAS' },
+    ],
+  },
+  {
     label: 'Documentos',
     items: [
       { to: '/config/artefatos', label: 'Seções de Artefatos' },

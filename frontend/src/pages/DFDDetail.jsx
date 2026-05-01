@@ -55,10 +55,12 @@ export default function DFDDetail() {
   const [dispensando, setDispensando]               = useState(false)
 
   // Itens
-  const [itens, setItens] = useState([])
+  const [itens, setItens]           = useState([])
   const [showAddItem, setShowAddItem] = useState(false)
-  const [newItem, setNewItem] = useState({ objeto: '', unidade_medida: '', quantidade: '', valor_unitario_estimado: '', observacao: '' })
+  const [newItem, setNewItem]       = useState({ item_catalogo: '', objeto: '', unidade_medida: '', quantidade: '', valor_unitario_estimado: '', observacao: '' })
   const [savingItem, setSavingItem] = useState(false)
+  const [catalogo, setCatalogo]     = useState([])
+  const [buscaCatalogo, setBuscaCatalogo] = useState('')
 
   // Processos SEI
   const [processos, setProcessos] = useState([])
@@ -74,6 +76,7 @@ export default function DFDDetail() {
 
   useEffect(() => {
     api.get('/core/users-list/').then(({ data }) => setUsers(data.results ?? data))
+    api.get('/core/catalogo/', { params: { page_size: 500 } }).then(({ data }) => setCatalogo(data.results ?? data))
   }, [])
 
   useEffect(() => { fetchDFD(id) }, [id])
@@ -165,15 +168,18 @@ export default function DFDDetail() {
         !parseFloat(newItem.quantidade) || !parseFloat(newItem.valor_unitario_estimado)) return
     setSavingItem(true)
     try {
-      const { data } = await api.post(`/demanda/dfd/${id}/itens/`, {
+      const payload = {
         objeto: newItem.objeto,
         unidade_medida: newItem.unidade_medida,
         quantidade: parseFloat(newItem.quantidade),
         valor_unitario_estimado: parseFloat(newItem.valor_unitario_estimado),
         observacao: newItem.observacao,
-      })
+      }
+      if (newItem.item_catalogo) payload.item_catalogo = Number(newItem.item_catalogo)
+      const { data } = await api.post(`/demanda/dfd/${id}/itens/`, payload)
       setItens((prev) => [...prev, data])
-      setNewItem({ objeto: '', unidade_medida: '', quantidade: '', valor_unitario_estimado: '', observacao: '' })
+      setNewItem({ item_catalogo: '', objeto: '', unidade_medida: '', quantidade: '', valor_unitario_estimado: '', observacao: '' })
+      setBuscaCatalogo('')
       setShowAddItem(false)
       fetchDFD(id)
     } finally {
@@ -647,7 +653,12 @@ export default function DFDDetail() {
                 <tbody>
                   {itens.map((item) => (
                     <tr key={item.id} className="border-b border-gray-50 hover:bg-gray-50">
-                      <td className="py-1.5 pr-3 text-gray-700">{item.objeto}</td>
+                      <td className="py-1.5 pr-3 text-gray-700">
+                        {item.catalogo_familia && (
+                          <span className="mr-1 bg-blue-100 text-blue-700 text-[10px] font-mono px-1 py-0.5 rounded">{item.catalogo_familia}</span>
+                        )}
+                        {item.objeto}
+                      </td>
                       <td className="py-1.5 pr-3 text-gray-500">{item.unidade_medida}</td>
                       <td className="py-1.5 pr-3 text-right text-gray-700">{Number(item.quantidade).toLocaleString('pt-BR')}</td>
                       <td className="py-1.5 pr-3 text-right text-gray-700">{Number(item.valor_unitario_estimado).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</td>
@@ -679,6 +690,46 @@ export default function DFDDetail() {
             <div className="mt-3 border border-blue-200 rounded-lg p-3 bg-blue-50">
               <p className="text-xs font-semibold text-blue-700 mb-2">Novo item</p>
               <div className="grid grid-cols-2 gap-2">
+                {/* Busca no catálogo */}
+                <div className="col-span-2">
+                  <label className="block text-xs text-gray-500 mb-0.5">Buscar no catálogo (opcional)</label>
+                  <input type="text" value={buscaCatalogo}
+                    onChange={e => setBuscaCatalogo(e.target.value)}
+                    placeholder="Digite para buscar por nome, SIMPAS ou código..."
+                    className={inputCls()} />
+                  {buscaCatalogo.length >= 2 && (
+                    <div className="mt-1 bg-white border border-blue-200 rounded-lg shadow-sm max-h-40 overflow-y-auto">
+                      {catalogo.filter(c =>
+                        c.nome.toLowerCase().includes(buscaCatalogo.toLowerCase()) ||
+                        c.codigo_simpas.includes(buscaCatalogo) ||
+                        c.codigo_interno.includes(buscaCatalogo)
+                      ).slice(0, 8).map(c => (
+                        <button key={c.id} type="button"
+                          onClick={() => {
+                            setNewItem(p => ({ ...p, item_catalogo: c.id, objeto: c.nome, unidade_medida: c.unidade_medida }))
+                            setBuscaCatalogo('')
+                          }}
+                          className="w-full text-left px-3 py-2 text-xs hover:bg-blue-50 border-b border-gray-50 last:border-0">
+                          <span className="font-mono text-blue-700 mr-1">{c.codigo_interno}</span>
+                          {c.familia && <span className="bg-blue-100 text-blue-600 text-[10px] px-1 rounded mr-1">{c.familia}</span>}
+                          {c.nome}
+                        </button>
+                      ))}
+                      {catalogo.filter(c =>
+                        c.nome.toLowerCase().includes(buscaCatalogo.toLowerCase()) ||
+                        c.codigo_simpas.includes(buscaCatalogo)
+                      ).length === 0 && (
+                        <p className="px-3 py-2 text-xs text-gray-400 italic">Nenhum item encontrado no catálogo.</p>
+                      )}
+                    </div>
+                  )}
+                  {newItem.item_catalogo && (
+                    <div className="mt-1 flex items-center gap-2 text-xs text-blue-700 bg-blue-50 rounded px-2 py-1">
+                      <span>Vinculado ao catálogo</span>
+                      <button type="button" onClick={() => setNewItem(p => ({ ...p, item_catalogo: '' }))} className="text-red-500 hover:underline">remover</button>
+                    </div>
+                  )}
+                </div>
                 <div className="col-span-2">
                   <label className="block text-xs text-gray-500 mb-0.5">Objeto</label>
                   <input type="text" value={newItem.objeto}

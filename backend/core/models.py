@@ -154,6 +154,49 @@ class AreaAtuacao(models.Model):
         return f'{self.codigo} — {self.nome}'
 
 
+class ItemCatalogo(models.Model):
+    """
+    Catálogo de itens com código interno WEBBER e código SIMPAS.
+    A família é derivada automaticamente dos dois primeiros segmentos do SIMPAS.
+    Formato SIMPAS: 42.40.20.00016900-5  →  família: 42.40
+    """
+    codigo_interno = models.CharField(max_length=20, unique=True, editable=False, verbose_name='Código interno')
+    codigo_simpas  = models.CharField(max_length=40, blank=True, default='', verbose_name='Código SIMPAS')
+    familia        = models.CharField(max_length=15, blank=True, default='', verbose_name='Família SIMPAS', db_index=True)
+    nome           = models.CharField(max_length=300, verbose_name='Descrição do item')
+    descricao      = models.TextField(blank=True, default='', verbose_name='Especificação complementar')
+    unidade_medida = models.CharField(max_length=20, verbose_name='Unidade de medida')
+    ativo          = models.BooleanField(default=True, verbose_name='Ativo')
+
+    class Meta:
+        ordering = ['familia', 'nome']
+        verbose_name = 'Item do Catálogo'
+        verbose_name_plural = 'Itens do Catálogo'
+
+    def __str__(self):
+        return f'{self.codigo_interno} — {self.nome}'
+
+    @staticmethod
+    def extrair_familia(codigo_simpas: str) -> str:
+        """Extrai a família dos dois primeiros segmentos do código SIMPAS."""
+        if not codigo_simpas:
+            return ''
+        partes = codigo_simpas.strip().split('.')
+        if len(partes) >= 2:
+            return f'{partes[0]}.{partes[1]}'
+        return ''
+
+    def save(self, *args, **kwargs):
+        # Deriva família do SIMPAS
+        if self.codigo_simpas:
+            self.familia = self.extrair_familia(self.codigo_simpas)
+        # Gera código interno sequencial
+        if not self.codigo_interno:
+            ultimo = ItemCatalogo.objects.count() + 1
+            self.codigo_interno = f'WBR-{ultimo:05d}'
+        super().save(*args, **kwargs)
+
+
 class SecaoArtefato(models.Model):
     """
     Seções configuráveis dos artefatos documentais (DFD, ETP, TR).

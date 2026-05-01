@@ -11,9 +11,9 @@ from core.views import (
     DashboardStatsView, OrgaoViewSet, UnidadeViewSet,
     UserManagementViewSet, PainelOrgaoPaiView, ParametroSistemaViewSet,
     VerificarDocumentoView, AreaAtuacaoViewSet, UserListView,
-    SecaoArtefatoViewSet,
+    SecaoArtefatoViewSet, ItemCatalogoViewSet,
 )
-from core.views_indicadores import IndicadoresOrcamentoView, IndicadoresDevolucoesView
+from core.views_indicadores import IndicadoresOrcamentoView, IndicadoresDevolucoesView, IndicadoresAgrupamentoView
 
 router = DefaultRouter()
 router.register(r'demanda/dfd', DFDViewSet, basename='dfd')
@@ -25,6 +25,7 @@ router.register(r'core/unidades',  UnidadeViewSet,         basename='unidade')
 router.register(r'core/usuarios',  UserManagementViewSet,  basename='usuario')
 router.register(r'core/areas',     AreaAtuacaoViewSet,      basename='area-atuacao')
 router.register(r'core/secoes',    SecaoArtefatoViewSet,    basename='secao-artefato')
+router.register(r'core/catalogo',  ItemCatalogoViewSet,     basename='item-catalogo')
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -33,6 +34,7 @@ urlpatterns = [
     path('api/dashboard/stats/', DashboardStatsView.as_view(), name='dashboard_stats'),
     path('api/indicadores/orcamento/',   IndicadoresOrcamentoView.as_view(),   name='indicadores-orcamento'),
     path('api/indicadores/devolucoes/',  IndicadoresDevolucoesView.as_view(),  name='indicadores-devolucoes'),
+    path('api/indicadores/agrupamento/', IndicadoresAgrupamentoView.as_view(), name='indicadores-agrupamento'),
     path('api/painel/', PainelOrgaoPaiView.as_view(), name='painel-orgao-pai'),
     path('api/verificar/<str:hash_code>/', VerificarDocumentoView.as_view(), name='verificar-documento'),
     path('api/core/users-list/', UserListView.as_view(), name='user-list'),
