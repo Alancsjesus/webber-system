@@ -153,6 +153,8 @@ export default function Dashboard() {
   const [loading, setLoading]   = useState(true)
   const [indOrc, setIndOrc]     = useState(null)
   const [indDev, setIndDev]     = useState(null)
+  const [indAgrup, setIndAgrup] = useState(null)
+  const [expandedFamilia, setExpandedFamilia] = useState(null)
 
   useEffect(() => {
     api.get('/dashboard/stats/')
@@ -166,6 +168,10 @@ export default function Dashboard() {
 
     api.get('/indicadores/devolucoes/')
       .then(({ data }) => setIndDev(data))
+      .catch(() => {})
+
+    api.get('/indicadores/agrupamento/')
+      .then(({ data }) => setIndAgrup(data))
       .catch(() => {})
   }, [])
 
@@ -535,6 +541,108 @@ export default function Dashboard() {
         )}
 
       </div>
+
+      {/* ── Sugestão de Agrupamento por Família SIMPAS ─────────────────── */}
+      {indAgrup && indAgrup.total_familias > 0 && (
+        <section className="bg-white rounded-xl border border-gray-200 p-5">
+          <div className="flex items-start justify-between mb-4">
+            <div>
+              <h2 className="text-sm font-semibold text-gray-700">Sugestão de Agrupamento por Família SIMPAS</h2>
+              <p className="text-xs text-gray-400 mt-0.5">
+                Itens de DFDs em aberto agrupados por família — limite de dispensa: {fmt(indAgrup.limite_dispensa)}
+              </p>
+            </div>
+            <button onClick={() => navigate('/config/catalogo')}
+              className="text-xs text-blue-600 hover:underline shrink-0">Ver catálogo</button>
+          </div>
+
+          <div className="space-y-3">
+            {indAgrup.familias.map(g => {
+              const cor = g.sugestao === 'pregao_eletronico'
+                ? { badge: 'bg-blue-100 text-blue-700', border: 'border-blue-200', dot: 'bg-blue-500' }
+                : g.sugestao === 'dispensa_agrupada'
+                  ? { badge: 'bg-amber-100 text-amber-700', border: 'border-amber-200', dot: 'bg-amber-500' }
+                  : { badge: 'bg-green-100 text-green-700', border: 'border-green-200', dot: 'bg-green-500' }
+              const expanded = expandedFamilia === g.familia
+
+              return (
+                <div key={g.familia} className={`border rounded-xl overflow-hidden ${cor.border}`}>
+                  <button
+                    className="w-full flex items-center justify-between px-4 py-3 hover:bg-gray-50 transition-colors"
+                    onClick={() => setExpandedFamilia(expanded ? null : g.familia)}
+                  >
+                    <div className="flex items-center gap-3">
+                      <span className={`w-2 h-2 rounded-full shrink-0 ${cor.dot}`} />
+                      <div className="text-left">
+                        <div className="flex items-center gap-2">
+                          <span className="font-mono text-sm font-semibold text-gray-800">{g.familia}</span>
+                          <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${cor.badge}`}>
+                            {g.sugestao_label}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          {g.total_itens} item{g.total_itens !== 1 ? 'ns' : ''} em {g.total_dfds} DFD{g.total_dfds !== 1 ? 's' : ''}
+                          {' · '}{g.sugestao_motivo}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-3 shrink-0">
+                      <span className="text-sm font-bold text-gray-700">{fmt(g.valor_total)}</span>
+                      <span className={`text-gray-400 text-xs transition-transform duration-200 ${expanded ? 'rotate-90' : ''}`}>›</span>
+                    </div>
+                  </button>
+
+                  {expanded && (
+                    <div className="px-4 pb-3 border-t border-gray-100">
+                      <table className="w-full text-xs mt-2">
+                        <thead>
+                          <tr className="text-gray-400 uppercase">
+                            <th className="text-left pb-1 font-medium">Item</th>
+                            <th className="text-left pb-1 font-medium">DFD</th>
+                            <th className="text-left pb-1 font-medium">Status</th>
+                            <th className="text-right pb-1 font-medium">Qtd</th>
+                            <th className="text-right pb-1 font-medium">Valor Total</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-gray-50">
+                          {g.itens.map(item => (
+                            <tr key={item.item_id} className="hover:bg-gray-50">
+                              <td className="py-1.5 pr-3 max-w-xs">
+                                <span className="font-mono text-blue-700 mr-1">{item.catalogo_codigo}</span>
+                                <span className="text-gray-700 truncate">{item.catalogo_nome}</span>
+                              </td>
+                              <td className="py-1.5 font-mono text-gray-600 pr-2">{item.dfd_sei}</td>
+                              <td className="py-1.5 pr-2">
+                                <span className="px-1.5 py-0.5 rounded text-[10px] bg-gray-100 text-gray-600">
+                                  {item.dfd_status}
+                                </span>
+                              </td>
+                              <td className="py-1.5 text-right text-gray-600">{item.quantidade}</td>
+                              <td className="py-1.5 text-right font-semibold text-gray-800">{fmt(item.valor_total)}</td>
+                            </tr>
+                          ))}
+                        </tbody>
+                        <tfoot>
+                          <tr className="border-t border-gray-200">
+                            <td colSpan={4} className="pt-2 text-right text-gray-400 font-medium uppercase text-[10px]">Total família</td>
+                            <td className="pt-2 text-right font-bold text-gray-800">{fmt(g.valor_total)}</td>
+                          </tr>
+                        </tfoot>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+
+          <div className="mt-4 pt-3 border-t border-gray-100 text-xs text-gray-400">
+            <span className="text-green-600 font-medium">Verde</span> Dispensa por Valor ·
+            <span className="text-amber-600 font-medium"> Âmbar</span> Dispensa Agrupada (múltiplos DFDs) ·
+            <span className="text-blue-600 font-medium"> Azul</span> Pregão Eletrônico recomendado
+          </div>
+        </section>
+      )}
     </div>
   )
 }
