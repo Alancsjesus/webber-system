@@ -216,7 +216,7 @@ export default function DFDDetail() {
   if (error)   return <div className="p-8 text-sm text-red-600 bg-red-50 rounded-lg m-8">{error}</div>
   if (!current || !form) return null
 
-  const podeEditar             = ['Rascunho', 'Devolvida'].includes(current.status) && !PAPEIS_ANALISTA.includes(papel)
+  const podeEditar             = ['Rascunho', 'Devolvida'].includes(current.status) && PAPEIS_SOLICITANTE.includes(papel)
   const podeSubmeter           = ['Rascunho', 'Devolvida'].includes(current.status) && PAPEIS_SOLICITANTE.includes(papel)
   const podeAnalisar           = current.status === 'Submetida'   && PAPEIS_ANALISTA.includes(papel)
   const podeAprovar            = current.status === 'Em Análise'  && PAPEIS_ANALISTA.includes(papel)
