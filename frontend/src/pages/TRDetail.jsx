@@ -575,7 +575,7 @@ function LotesSection({ tr, podeEditar, onCriarLote, onExcluirLote, onAdicionarI
                       trId={tr.id}
                       lotePk={lote.id}
                       onSave={handleAdicionarItem}
-                      onCancel={() => { setShowAddItem(null); setNewItemForm({ item_dfd: '', quantidade: '' }) }}
+                      onCancel={() => setShowAddItem(null)}
                       saving={saving}
                     />
                   </div>
