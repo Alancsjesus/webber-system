@@ -427,7 +427,7 @@ class IndicacaoOrcamentariaViewSet(viewsets.ModelViewSet):
         from decimal import Decimal
 
         indicacao = self.get_object()
-        if indicacao.status != 'Aprovada (DOD emitida)':
+        if indicacao.status != 'Aprovada':
             return Response({'detail': 'NPOs só podem ser registradas em indicações aprovadas.'},
                             status=status.HTTP_400_BAD_REQUEST)
 
@@ -503,7 +503,7 @@ class IndicacaoOrcamentariaViewSet(viewsets.ModelViewSet):
         from decimal import Decimal
 
         indicacao = self.get_object()
-        if indicacao.status != 'Aprovada (DOD emitida)':
+        if indicacao.status != 'Aprovada':
             return Response({'detail': 'Concessões só podem ser registradas em indicações aprovadas.'},
                             status=status.HTTP_400_BAD_REQUEST)
 
