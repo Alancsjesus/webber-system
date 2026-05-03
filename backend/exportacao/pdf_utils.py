@@ -13,9 +13,15 @@ from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import cm
+import os as _os
 from reportlab.platypus import (
-    HRFlowable, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+    HRFlowable, Image as RLImage, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 )
+
+_LOGO_DIR = _os.path.join(_os.path.dirname(_os.path.dirname(__file__)), 'static', 'logos')
+_LOGOS_ORG = {
+    'SSP': _os.path.join(_LOGO_DIR, 'sspba_brasao.png'),
+}
 
 
 # ── Paleta de cores ────────────────────────────────────────────────────────────
@@ -207,14 +213,35 @@ def _bloco_assinaturas(obj, estilos, hash_doc, aprovador_override=None, data_apr
     return elementos
 
 
-def _cabecalho(tipo_doc, numero_sei, org_nome, estilos):
-    return [
+def _logo_cabecalho(org_sigla):
+    """Retorna Image do ReportLab para o logo da organização, ou None."""
+    path = _LOGOS_ORG.get((org_sigla or '').upper())
+    if path and _os.path.exists(path):
+        return RLImage(path, width=2*cm, height=2*cm, kind='proportional')
+    return None
+
+
+def _cabecalho(tipo_doc, numero_sei, org_nome, estilos, org_sigla=None):
+    logo = _logo_cabecalho(org_sigla)
+    texto = [
         Paragraph(org_nome.upper() or 'WEBBER', estilos['subtitulo']),
         Paragraph(tipo_doc, estilos['titulo_doc']),
         Paragraph(f'Número SEI: {numero_sei}', estilos['subtitulo']),
-        HRFlowable(width='100%', thickness=2, color=AZUL_GOV),
-        Spacer(1, 0.4 * cm),
     ]
+    elementos = []
+    if logo:
+        tabela = Table([[logo, texto]], colWidths=[2.5*cm, None])
+        tabela.setStyle(TableStyle([
+            ('VALIGN',       (0, 0), (-1, -1), 'MIDDLE'),
+            ('ALIGN',        (1, 0), (1, 0),   'CENTER'),
+            ('LEFTPADDING',  (0, 0), (0, 0),   0),
+            ('RIGHTPADDING', (0, 0), (0, 0),   8),
+        ]))
+        elementos.append(tabela)
+    else:
+        elementos.extend(texto)
+    elementos += [HRFlowable(width='100%', thickness=2, color=AZUL_GOV), Spacer(1, 0.4*cm)]
+    return elementos
 
 
 def _fmt_valor(v):
@@ -512,7 +539,8 @@ def gerar_pdf_dfd(dfd) -> bytes:
         **_dados_hash_usuario(dfd),
     })
 
-    e += _cabecalho('DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA', dfd.numero_sei, org_nome, estilos)
+    e += _cabecalho('DOCUMENTO DE FORMALIZAÇÃO DE DEMANDA', dfd.numero_sei, org_nome, estilos,
+                    org_sigla=dfd.org_id.sigla if dfd.org_id else None)
     e += _renderizar_secoes_dfd(dfd, estilos)
     e += _bloco_assinaturas(dfd, estilos, hash_doc)
     doc.build(e, onFirstPage=_rodape, onLaterPages=_rodape)
@@ -536,7 +564,8 @@ def gerar_pdf_etp(etp) -> bytes:
         **_dados_hash_usuario(etp),
     })
 
-    e += _cabecalho('ESTUDO TÉCNICO PRELIMINAR', etp.numero_sei, org_nome, estilos)
+    e += _cabecalho('ESTUDO TÉCNICO PRELIMINAR', etp.numero_sei, org_nome, estilos,
+                    org_sigla=etp.org_id.sigla if etp.org_id else None)
 
     # Bloco de identificação fixo (não configurável via SecaoArtefato)
     e.append(_secao('Identificação', estilos))
@@ -570,7 +599,8 @@ def gerar_pdf_tr(tr) -> bytes:
         **_dados_hash_usuario(tr),
     })
 
-    e += _cabecalho('MINUTA DO TERMO DE REFERÊNCIA', tr.numero_sei, org_nome, estilos)
+    e += _cabecalho('MINUTA DO TERMO DE REFERÊNCIA', tr.numero_sei, org_nome, estilos,
+                    org_sigla=tr.org_id.sigla if tr.org_id else None)
 
     # Bloco de identificação fixo
     e.append(_secao('Identificação', estilos))
@@ -617,7 +647,8 @@ def gerar_pdf_mapa(mapa) -> bytes:
         **_dados_hash_usuario(mapa),
     })
 
-    e += _cabecalho('MAPA COMPARATIVO DE PREÇOS', f'Mapa nº {mapa.pk}', org_nome, estilos)
+    e += _cabecalho('MAPA COMPARATIVO DE PREÇOS', f'Mapa nº {mapa.pk}', org_nome, estilos,
+                    org_sigla=mapa.org_id.sigla if mapa.org_id else None)
 
     # Identificação
     e.append(_secao('Identificação', estilos))
@@ -792,7 +823,8 @@ def gerar_pdf_indicacao(indicacao) -> bytes:
     })
 
     # Cabeçalho
-    e += _cabecalho('DECLARAÇÃO DO ORDENADOR DE DESPESA', indicacao.numero, org_nome, estilos)
+    e += _cabecalho('DECLARAÇÃO DO ORDENADOR DE DESPESA', indicacao.numero, org_nome, estilos,
+                    org_sigla=indicacao.org_id.sigla if indicacao.org_id else None)
 
     # Identificação
     e.append(_secao('Identificação', estilos))

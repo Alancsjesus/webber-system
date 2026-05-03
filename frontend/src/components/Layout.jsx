@@ -210,9 +210,14 @@ export default function Layout() {
         {/* Logo + info do usuário */}
         <div className="px-4 py-4 border-b border-gray-800">
           <div className="flex items-center gap-2 mb-3">
-            <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center shrink-0">
-              <span className="text-white text-xs font-bold">W</span>
-            </div>
+            {orgaoSigla === 'SSP' ? (
+              <img src="/logos/sspba_brasao.png" alt="SSP-BA"
+                className="w-8 h-8 object-contain shrink-0 drop-shadow" />
+            ) : (
+              <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center shrink-0">
+                <span className="text-white text-xs font-bold">W</span>
+              </div>
+            )}
             <div>
               <span className="text-sm font-bold text-white">Webber</span>
               <p className="text-[10px] text-gray-400 leading-none mt-0.5">Gestão de Contratações</p>
