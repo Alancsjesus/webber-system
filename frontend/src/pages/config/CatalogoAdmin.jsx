@@ -82,7 +82,7 @@ export default function CatalogoAdmin() {
       <div className="mb-6">
         <h1 className="text-xl font-bold text-gray-800">Catálogo de Itens</h1>
         <p className="text-sm text-gray-500 mt-0.5">
-          Itens com código interno WEBBER e código SIMPAS. A família é extraída automaticamente dos dois primeiros segmentos do SIMPAS.
+          Itens com código interno WEBBER e código externo. Para SSP e órgãos vinculados (PMBA, CBMBA), o código externo é o <strong>SIMPAS</strong>. A família é extraída automaticamente dos dois primeiros segmentos.
         </p>
       </div>
 
@@ -99,7 +99,7 @@ export default function CatalogoAdmin() {
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Código SIMPAS</label>
+            <label className="block text-xs font-medium text-gray-600 mb-1">Código Externo (SIMPAS)</label>
             <input value={form.codigo_simpas}
               onChange={e => setForm(p => ({ ...p, codigo_simpas: e.target.value }))}
               placeholder="Ex: 42.40.20.00016900-5"
@@ -173,7 +173,7 @@ export default function CatalogoAdmin() {
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="text-left px-4 py-3 font-medium text-gray-500">Código</th>
-                <th className="text-left px-4 py-3 font-medium text-gray-500">SIMPAS / Família</th>
+                <th className="text-left px-4 py-3 font-medium text-gray-500">Cód. Externo (SIMPAS) / Família</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-500">Descrição</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-500">Unid.</th>
                 <th className="text-left px-4 py-3 font-medium text-gray-500">Status</th>

@@ -303,7 +303,9 @@ class Command(BaseCommand):
             ('TR',  'local_entrega',       'Local de Entrega',                  9, True,  False, []),
             ('TR',  'garantia',            'Garantia Contratual',              10, False, False, ['licitacao']),
             ('TR',  'estimativa_valor',    'Estimativa de Valor',              11, True,  True,  []),
-            ('TR',  'observacoes',         'Observações',                      12, False, False, []),
+            ('TR',  'parcelamento_etp',    'Parcelamento e Adjudicação (ETP)', 12, True,  False, []),
+            ('TR',  'lotes',               'Formação de Lotes da Licitação',   13, True,  False, []),
+            ('TR',  'observacoes',         'Observações',                      14, False, False, []),
         ]
         for tipo, codigo, titulo, ordem, ativo, obrig, modalidades in secoes_padrao:
             secao, created = SecaoArtefato.objects.get_or_create(

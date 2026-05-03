@@ -284,6 +284,7 @@ def _valor_secao_tr(codigo, tr):
         'garantia':            tr.garantia_contrato,
         'estimativa_valor':    _fmt_valor(tr.estimativa_valor) if tr.estimativa_valor else None,
         'observacoes':         tr.observacoes,
+        'parcelamento_etp':    _valor_parcelamento_etp(tr),
     }
     return mapa.get(codigo) or None
 
@@ -296,8 +297,6 @@ def _valor_secao_etp(codigo, etp):
         tipo_label = dict(etp.PARCELAMENTO_CHOICES).get(etp.tipo_parcelamento, '')
         if tipo_label:
             partes.append(f'Tipo: {tipo_label}')
-        if etp.adjudicacao_por_item:
-            partes.append('Adjudicação: por item')
         if etp.parcelamento_justificativa:
             partes.append(f'Justificativa: {etp.parcelamento_justificativa}')
         return '\n'.join(partes) if partes else None
@@ -409,23 +408,93 @@ def _renderizar_secao_dfd(codigo, dfd, estilos):
     return e
 
 
+def _renderizar_lotes_tr(tr, estilos):
+    """Gera flowables com a tabela de lotes do TR e seus itens."""
+    e = []
+    lotes = list(getattr(tr, 'lotes', None).prefetch_related('itens__item_dfd').all()) if hasattr(tr, 'lotes') else []
+    if not lotes:
+        return e
+    for lote in lotes:
+        MODAL = {'ampla': 'Ampla Concorrência', 'cota_me_epp': 'Reserva de Cota ME/EPP', 'exclusiva_me_epp': 'Exclusivo ME/EPP'}
+        titulo_lote = f'{lote.numero} — {MODAL.get(lote.modalidade, lote.modalidade)}'
+        if lote.lote_origem:
+            titulo_lote += f' (25% de {lote.lote_origem.numero})'
+        e.append(Paragraph(titulo_lote, ParagraphStyle(
+            'lote_titulo', fontSize=10, fontName='Helvetica-Bold',
+            textColor=AZUL_GOV, spaceBefore=8, spaceAfter=3,
+        )))
+        itens = list(lote.itens.select_related('item_dfd').all())
+        if itens:
+            dados = [['Item', 'Unid.', 'Qtd.', 'Vl. Unit.', 'Total', 'Origem']]
+            for item in itens:
+                obj = item.item_dfd.objeto if item.item_dfd else '—'
+                un  = item.item_dfd.unidade_medida if item.item_dfd else '—'
+                vlu = _fmt_valor(item.valor_unitario_efetivo)
+                tot = _fmt_valor(item.valor_total)
+                orig = 'Mapa' if item.preco_origem == 'mapa' else 'DFD'
+                dados.append([obj[:45], un, str(item.quantidade), vlu, tot, orig])
+            t = Table(dados, colWidths=[5.5*cm, 1.2*cm, 1.5*cm, 2.5*cm, 2.5*cm, 1.3*cm])
+            t.setStyle(TableStyle([
+                ('BACKGROUND', (0, 0), (-1, 0), AZUL_CLARO),
+                ('FONTNAME',   (0, 0), (-1, 0), 'Helvetica-Bold'),
+                ('FONTSIZE',   (0, 0), (-1, -1), 8),
+                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [BRANCO, AZUL_CLARO]),
+                ('GRID', (0, 0), (-1, -1), 0.5, CINZA_BD),
+                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('TOPPADDING', (0, 0), (-1, -1), 3),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ]))
+            e.append(t)
+        e += _campo('Valor total do lote', _fmt_valor(lote.valor_total), estilos)
+    return e
+
+
+def _valor_parcelamento_etp(tr):
+    """Retorna texto com as decisões de parcelamento do ETP vinculado."""
+    etp = getattr(tr, 'etp', None)
+    if not etp:
+        return None
+    TIPOS = {'lote_unico': 'Lote único', 'lotes': 'Dividido em lotes', 'por_item': 'Por item'}
+    partes = []
+    if etp.tipo_parcelamento:
+        partes.append(f'Tipo: {TIPOS.get(etp.tipo_parcelamento, etp.tipo_parcelamento)}')
+    if etp.parcelamento_justificativa:
+        partes.append(f'Justificativa: {etp.parcelamento_justificativa}')
+    if etp.reserva_cota_me_epp:
+        partes.append('Reserva de cota de 25% para ME/EPP: SIM (LC 123/2006, Art. 48, III)')
+        if etp.licitacao_exclusiva_me_epp:
+            partes.append('Licitação exclusiva ME/EPP: SIM (até R$80.000)')
+    elif hasattr(etp, 'reserva_cota_justificativa') and etp.reserva_cota_justificativa:
+        partes.append(f'Reserva de cota ME/EPP: NÃO — {etp.reserva_cota_justificativa}')
+    return '\n'.join(partes) if partes else None
+
+
 def _renderizar_secoes_tr(tr, estilos):
     """Itera seções configuradas de TR e gera flowables."""
     modalidade = getattr(tr, 'modalidade_aquisicao', None)
     secoes = _get_secoes('TR', modalidade)
     e = []
 
+    # Códigos que retornam flowables diretos (não texto)
+    FLOWABLE_CODES = {'lotes'}
+
     if secoes:
         for secao in secoes:
-            valor = _valor_secao_tr(secao.codigo, tr)
-            if valor and str(valor).strip():
-                e.append(_secao(secao.titulo, estilos))
-                if secao.descricao:
-                    e.append(Paragraph(secao.descricao, ParagraphStyle(
-                        'orientacao', fontSize=8, textColor=CINZA_TXT,
-                        fontName='Helvetica-Oblique', spaceAfter=4,
-                    )))
-                e += _campo('', valor, estilos)
+            if secao.codigo in FLOWABLE_CODES:
+                flowables = _renderizar_lotes_tr(tr, estilos)
+                if flowables:
+                    e.append(_secao(secao.titulo, estilos))
+                    e += flowables
+            else:
+                valor = _valor_secao_tr(secao.codigo, tr)
+                if valor and str(valor).strip():
+                    e.append(_secao(secao.titulo, estilos))
+                    if secao.descricao:
+                        e.append(Paragraph(secao.descricao, ParagraphStyle(
+                            'orientacao', fontSize=8, textColor=CINZA_TXT,
+                            fontName='Helvetica-Oblique', spaceAfter=4,
+                        )))
+                    e += _campo('', valor, estilos)
     else:
         # Fallback hardcoded (deploy sem setup_dev)
         fallback = [
@@ -436,17 +505,35 @@ def _renderizar_secoes_tr(tr, estilos):
             ('obrigacoes_contratante','Obrigações da Contratante'),
             ('criterios_selecao',    'Critérios de Seleção'),
             ('criterios_medicao',    'Critérios de Medição e Pagamento'),
-            ('prazo_vigencia',       'Prazo de Vigência do Contrato'),
+            ('prazo_vigencia',       'Forma de Execução do Contrato'),
+            ('parcelamento_etp',     'Parcelamento e Adjudicação (ETP)'),
             ('local_entrega',        'Local de Entrega'),
             ('garantia',             'Garantia Contratual'),
             ('estimativa_valor',     'Estimativa de Valor'),
-            ('observacoes',          'Observações'),
         ]
         for codigo, titulo in fallback:
-            valor = _valor_secao_tr(codigo, tr)
-            if valor and str(valor).strip():
-                e.append(_secao(titulo, estilos))
-                e += _campo('', valor, estilos)
+            if codigo in FLOWABLE_CODES:
+                flowables = _renderizar_lotes_tr(tr, estilos)
+                if flowables:
+                    e.append(_secao(titulo, estilos))
+                    e += flowables
+            else:
+                valor = _valor_secao_tr(codigo, tr)
+                if valor and str(valor).strip():
+                    e.append(_secao(titulo, estilos))
+                    e += _campo('', valor, estilos)
+
+        # Lotes sempre ao final do fallback
+        lotes_fl = _renderizar_lotes_tr(tr, estilos)
+        if lotes_fl:
+            e.append(_secao('Formação de Lotes da Licitação', estilos))
+            e += lotes_fl
+
+        # Observações por último
+        obs = _valor_secao_tr('observacoes', tr)
+        if obs and obs.strip():
+            e.append(_secao('Observações', estilos))
+            e += _campo('', obs, estilos)
 
     return e
 
@@ -472,6 +559,8 @@ def _renderizar_secoes_etp(etp, estilos):
             ('estimativa_valor',    'Estimativa de Valor'),
             ('riscos',              'Mapa de Riscos'),
             ('sustentabilidade',    'Sustentabilidade'),
+            ('parcelamento',        'Parcelamento da Solução e Adjudicação'),
+            ('cota_me_epp',         'Reserva de Cota ME/EPP (LC 123/2006)'),
             ('observacoes',         'Observações'),
         ]
         for codigo, titulo in fallback:
