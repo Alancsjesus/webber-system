@@ -307,6 +307,77 @@ class IndicacaoDotacao(models.Model):
         return f'{self.indicacao.numero} ← {self.dotacao} = R$ {self.valor_indicado}'
 
 
+class DescentralizacaoOrcamentaria(models.Model):
+    """
+    NPO — Nota de Programação Orçamentária.
+    Registra cada descentralização de recursos de uma dotação indicada.
+    Uma NPO por dotação; múltiplas NPOs podem acumular no mesmo indicação_dotacao.
+    Ao salvar: dotacao.valor_descentralizado += valor
+    Ao cancelar: dotacao.valor_descentralizado -= valor
+    Restrição de cancelamento: descentralizado - valor >= concedido
+    """
+    from decimal import Decimal
+
+    indicacao_dotacao = models.ForeignKey(
+        IndicacaoDotacao, on_delete=models.PROTECT,
+        related_name='descentralizacoes',
+        verbose_name='Item de indicação (dotação)',
+    )
+    numero_npo        = models.CharField(max_length=50, verbose_name='Número da NPO (sistema financeiro)')
+    data_emissao      = models.DateField(verbose_name='Data de emissão')
+    valor             = models.DecimalField(max_digits=15, decimal_places=2, verbose_name='Valor descentralizado (R$)')
+    cancelada         = models.BooleanField(default=False, verbose_name='Cancelada')
+    data_cancelamento = models.DateField(null=True, blank=True, verbose_name='Data do cancelamento')
+    motivo_cancelamento = models.TextField(blank=True, default='', verbose_name='Motivo do cancelamento')
+    observacoes       = models.TextField(blank=True, default='', verbose_name='Observações')
+    registrada_por    = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='npos_registradas')
+    criado_em         = models.DateTimeField(auto_now_add=True)
+    atualizado_em     = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-data_emissao', '-criado_em']
+        verbose_name = 'Descentralização Orçamentária (NPO)'
+        verbose_name_plural = 'Descentralizações Orçamentárias (NPO)'
+
+    def __str__(self):
+        status = '[CANCELADA] ' if self.cancelada else ''
+        return f'{status}NPO {self.numero_npo} — R$ {self.valor} ({self.data_emissao})'
+
+
+class ConcessaoOrcamentaria(models.Model):
+    """
+    Concessão orçamentária — documento externo que formaliza a execução
+    dos recursos descentralizados.
+    Ao salvar: dotacao.valor_concedido += valor
+    Ao cancelar: dotacao.valor_concedido -= valor
+    Restrição: valor_concedido <= valor_descentralizado
+    """
+    indicacao_dotacao = models.ForeignKey(
+        IndicacaoDotacao, on_delete=models.PROTECT,
+        related_name='concessoes',
+        verbose_name='Item de indicação (dotação)',
+    )
+    numero_doc        = models.CharField(max_length=50, verbose_name='Número do documento (sistema financeiro)')
+    data_emissao      = models.DateField(verbose_name='Data de emissão')
+    valor             = models.DecimalField(max_digits=15, decimal_places=2, verbose_name='Valor concedido (R$)')
+    cancelada         = models.BooleanField(default=False, verbose_name='Cancelada')
+    data_cancelamento = models.DateField(null=True, blank=True, verbose_name='Data do cancelamento')
+    motivo_cancelamento = models.TextField(blank=True, default='', verbose_name='Motivo do cancelamento')
+    observacoes       = models.TextField(blank=True, default='', verbose_name='Observações')
+    registrada_por    = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='concessoes_registradas')
+    criado_em         = models.DateTimeField(auto_now_add=True)
+    atualizado_em     = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-data_emissao', '-criado_em']
+        verbose_name = 'Concessão Orçamentária'
+        verbose_name_plural = 'Concessões Orçamentárias'
+
+    def __str__(self):
+        status = '[CANCELADA] ' if self.cancelada else ''
+        return f'{status}Concessão {self.numero_doc} — R$ {self.valor} ({self.data_emissao})'
+
+
 class HistoricoIndicacao(models.Model):
     """Trilha imutável de transições de status da Indicação Orçamentária."""
     indicacao       = models.ForeignKey(

@@ -412,3 +412,164 @@ class IndicacaoOrcamentariaViewSet(viewsets.ModelViewSet):
         from exportacao.pdf_utils import gerar_pdf_indicacao, resposta_pdf
         pdf = gerar_pdf_indicacao(indicacao)
         return resposta_pdf(pdf, f'DOD-{indicacao.numero}.pdf')
+
+    # ── NPO / Descentralização ──────────────────────────────────────────────── #
+
+    @action(detail=True, methods=['post'], url_path='registrar-npos')
+    def registrar_npos(self, request, pk=None):
+        """
+        Registra NPOs em bloco para todas as dotações de uma indicação aprovada.
+        Payload: { "npos": [{"indicacao_dotacao_id": X, "numero_npo": "...", "data_emissao": "YYYY-MM-DD", "valor": 1000.00, "observacoes": ""}, ...] }
+        Ignora itens sem numero_npo ou valor.
+        """
+        from .models import DescentralizacaoOrcamentaria, IndicacaoDotacao
+        from .serializers import DescentralizacaoSerializer
+        from decimal import Decimal
+
+        indicacao = self.get_object()
+        if indicacao.status != 'Aprovada (DOD emitida)':
+            return Response({'detail': 'NPOs só podem ser registradas em indicações aprovadas.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        npos_data = request.data.get('npos', [])
+        criados = []
+        for item in npos_data:
+            ind_dot_id  = item.get('indicacao_dotacao_id')
+            numero_npo  = (item.get('numero_npo') or '').strip()
+            valor       = item.get('valor')
+            data_emis   = item.get('data_emissao')
+            obs         = item.get('observacoes', '')
+            if not (ind_dot_id and numero_npo and valor and data_emis):
+                continue
+            ind_dot = get_object_or_404(IndicacaoDotacao, pk=ind_dot_id, indicacao=indicacao)
+            npo = DescentralizacaoOrcamentaria.objects.create(
+                indicacao_dotacao=ind_dot,
+                numero_npo=numero_npo,
+                data_emissao=data_emis,
+                valor=Decimal(str(valor)),
+                observacoes=obs,
+                registrada_por=request.user,
+            )
+            # Atualizar valor_descentralizado da dotação
+            ind_dot.dotacao.valor_descentralizado = (
+                ind_dot.dotacao.valor_descentralizado + Decimal(str(valor))
+            )
+            ind_dot.dotacao.save(update_fields=['valor_descentralizado'])
+            criados.append(npo.id)
+
+        serializer = self._indicacao_serializer(indicacao)
+        return Response({'detail': f'{len(criados)} NPO(s) registrada(s).', **serializer}, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'], url_path=r'cancelar-npo/(?P<npo_pk>[^/.]+)')
+    def cancelar_npo(self, request, pk=None, npo_pk=None):
+        from .models import DescentralizacaoOrcamentaria
+        from decimal import Decimal
+        from django.shortcuts import get_object_or_404 as goo
+        indicacao = self.get_object()
+        npo = goo(DescentralizacaoOrcamentaria, pk=npo_pk,
+                  indicacao_dotacao__indicacao=indicacao, cancelada=False)
+        motivo = request.data.get('motivo', '').strip()
+        if not motivo:
+            return Response({'detail': 'O motivo do cancelamento é obrigatório.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        dotacao = npo.indicacao_dotacao.dotacao
+        concedido = dotacao.valor_concedido
+        novo_desc = dotacao.valor_descentralizado - npo.valor
+        if novo_desc < concedido:
+            return Response({
+                'detail': f'Não é possível cancelar: R$ {float(concedido):,.2f} já foram concedidos contra este saldo descentralizado.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        from datetime import date
+        npo.cancelada = True
+        npo.data_cancelamento = date.today()
+        npo.motivo_cancelamento = motivo
+        npo.save()
+        dotacao.valor_descentralizado = novo_desc
+        dotacao.save(update_fields=['valor_descentralizado'])
+        serializer = self._indicacao_serializer(indicacao)
+        return Response({'detail': 'NPO cancelada.', **serializer})
+
+    # ── Concessão ───────────────────────────────────────────────────────────── #
+
+    @action(detail=True, methods=['post'], url_path='registrar-concessoes')
+    def registrar_concessoes(self, request, pk=None):
+        """
+        Registra concessões em bloco.
+        Payload: { "concessoes": [{"indicacao_dotacao_id": X, "numero_doc": "...", "data_emissao": "...", "valor": ..., "observacoes": ""}, ...] }
+        Valida: valor_concedido + novo_valor <= valor_descentralizado.
+        """
+        from .models import ConcessaoOrcamentaria, IndicacaoDotacao
+        from decimal import Decimal
+
+        indicacao = self.get_object()
+        if indicacao.status != 'Aprovada (DOD emitida)':
+            return Response({'detail': 'Concessões só podem ser registradas em indicações aprovadas.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        conc_data = request.data.get('concessoes', [])
+        criados = []
+        erros   = []
+        for item in conc_data:
+            ind_dot_id = item.get('indicacao_dotacao_id')
+            numero_doc = (item.get('numero_doc') or '').strip()
+            valor      = item.get('valor')
+            data_emis  = item.get('data_emissao')
+            obs        = item.get('observacoes', '')
+            if not (ind_dot_id and numero_doc and valor and data_emis):
+                continue
+            ind_dot = get_object_or_404(IndicacaoDotacao, pk=ind_dot_id, indicacao=indicacao)
+            dotacao = ind_dot.dotacao
+            novo_valor = Decimal(str(valor))
+            if dotacao.valor_concedido + novo_valor > dotacao.valor_descentralizado:
+                erros.append(f'Dotação {dotacao.id}: valor concedido superaria o descentralizado.')
+                continue
+            ConcessaoOrcamentaria.objects.create(
+                indicacao_dotacao=ind_dot,
+                numero_doc=numero_doc,
+                data_emissao=data_emis,
+                valor=novo_valor,
+                observacoes=obs,
+                registrada_por=request.user,
+            )
+            dotacao.valor_concedido = dotacao.valor_concedido + novo_valor
+            dotacao.save(update_fields=['valor_concedido'])
+            criados.append(ind_dot_id)
+
+        serializer = self._indicacao_serializer(indicacao)
+        msg = f'{len(criados)} concessão(ões) registrada(s).'
+        if erros:
+            msg += ' Erros: ' + ' | '.join(erros)
+        return Response({'detail': msg, **serializer}, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'], url_path=r'cancelar-concessao/(?P<conc_pk>[^/.]+)')
+    def cancelar_concessao(self, request, pk=None, conc_pk=None):
+        from .models import ConcessaoOrcamentaria
+        from decimal import Decimal
+        from django.shortcuts import get_object_or_404 as goo
+        indicacao = self.get_object()
+        conc = goo(ConcessaoOrcamentaria, pk=conc_pk,
+                   indicacao_dotacao__indicacao=indicacao, cancelada=False)
+        motivo = request.data.get('motivo', '').strip()
+        if not motivo:
+            return Response({'detail': 'O motivo do cancelamento é obrigatório.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        from datetime import date
+        conc.cancelada = True
+        conc.data_cancelamento = date.today()
+        conc.motivo_cancelamento = motivo
+        conc.save()
+        dotacao = conc.indicacao_dotacao.dotacao
+        dotacao.valor_concedido = dotacao.valor_concedido - conc.valor
+        dotacao.save(update_fields=['valor_concedido'])
+        serializer = self._indicacao_serializer(indicacao)
+        return Response({'detail': 'Concessão cancelada.', **serializer})
+
+    def _indicacao_serializer(self, indicacao):
+        """Re-busca a indicação com prefetch completo e retorna os dados serializados."""
+        from .serializers import IndicacaoOrcamentariaSerializer
+        ind = IndicacaoOrcamentaria.objects.prefetch_related(
+            'itens__descentralizacoes', 'itens__concessoes',
+            'historico', 'itens__dotacao',
+        ).get(pk=indicacao.pk)
+        return IndicacaoOrcamentariaSerializer(ind, context={'request': self.request}).data

@@ -75,6 +75,30 @@ const useIndicacaoStore = create((set, get) => ({
     await api.post(`/orcamento/indicacao/${id}/desvincular-dotacao/`, { dotacao_id: dotacaoId })
     await get().fetchIndicacao(id)
   },
+
+  registrarNpos: async (id, npos) => {
+    const { data } = await api.post(`/orcamento/indicacao/${id}/registrar-npos/`, { npos })
+    set({ current: data })
+    return data
+  },
+
+  cancelarNpo: async (id, npoPk, motivo) => {
+    const { data } = await api.post(`/orcamento/indicacao/${id}/cancelar-npo/${npoPk}/`, { motivo })
+    set({ current: data })
+    return data
+  },
+
+  registrarConcessoes: async (id, concessoes) => {
+    const { data } = await api.post(`/orcamento/indicacao/${id}/registrar-concessoes/`, { concessoes })
+    set({ current: data })
+    return data
+  },
+
+  cancelarConcessao: async (id, concPk, motivo) => {
+    const { data } = await api.post(`/orcamento/indicacao/${id}/cancelar-concessao/${concPk}/`, { motivo })
+    set({ current: data })
+    return data
+  },
 }))
 
 export default useIndicacaoStore

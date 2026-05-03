@@ -3,6 +3,7 @@ from modulo_planejamento.models import NecessidadePlanejamento
 from .models import (
     AcaoOrcamentaria, ElementoDespesa, NaturezaDespesa, FonteRecurso,
     DotacaoOrcamentaria, IndicacaoOrcamentaria, IndicacaoDotacao, HistoricoIndicacao,
+    DescentralizacaoOrcamentaria, ConcessaoOrcamentaria,
 )
 
 
@@ -202,6 +203,28 @@ class VincularNecessidadeSerializer(serializers.Serializer):
 
 # ── Indicação Orçamentária / DOD ───────────────────────────────────────────────
 
+class DescentralizacaoSerializer(serializers.ModelSerializer):
+    registrada_por_username = serializers.CharField(source='registrada_por.username', read_only=True)
+
+    class Meta:
+        model  = DescentralizacaoOrcamentaria
+        fields = ['id', 'numero_npo', 'data_emissao', 'valor',
+                  'cancelada', 'data_cancelamento', 'motivo_cancelamento',
+                  'observacoes', 'registrada_por_username', 'criado_em']
+        read_only_fields = ['id', 'cancelada', 'data_cancelamento', 'registrada_por_username', 'criado_em']
+
+
+class ConcessaoSerializer(serializers.ModelSerializer):
+    registrada_por_username = serializers.CharField(source='registrada_por.username', read_only=True)
+
+    class Meta:
+        model  = ConcessaoOrcamentaria
+        fields = ['id', 'numero_doc', 'data_emissao', 'valor',
+                  'cancelada', 'data_cancelamento', 'motivo_cancelamento',
+                  'observacoes', 'registrada_por_username', 'criado_em']
+        read_only_fields = ['id', 'cancelada', 'data_cancelamento', 'registrada_por_username', 'criado_em']
+
+
 class IndicacaoDotacaoSerializer(serializers.ModelSerializer):
     acao_codigo        = serializers.CharField(source='dotacao.acao.codigo',       read_only=True)
     acao_nome          = serializers.CharField(source='dotacao.acao.nome',         read_only=True)
@@ -212,15 +235,21 @@ class IndicacaoDotacaoSerializer(serializers.ModelSerializer):
     fonte_codigo       = serializers.IntegerField(source='dotacao.fonte_recurso.codigo', read_only=True)
     fonte_nome         = serializers.CharField(source='dotacao.fonte_recurso.nome', read_only=True)
     dotacao_id         = serializers.IntegerField(source='dotacao.id',             read_only=True)
+    valor_descentralizado = serializers.SerializerMethodField()
+    valor_concedido       = serializers.SerializerMethodField()
+    descentralizacoes     = DescentralizacaoSerializer(many=True, read_only=True)
+    concessoes            = ConcessaoSerializer(many=True, read_only=True)
 
     class Meta:
         model  = IndicacaoDotacao
         fields = [
             'id', 'dotacao_id', 'valor_indicado',
+            'valor_descentralizado', 'valor_concedido',
             'acao_codigo', 'acao_nome',
             'elemento_codigo', 'elemento_descricao',
             'natureza_formato', 'natureza_descricao',
             'fonte_codigo', 'fonte_nome',
+            'descentralizacoes', 'concessoes',
         ]
 
     def get_natureza_formato(self, obj):
@@ -230,6 +259,20 @@ class IndicacaoDotacaoSerializer(serializers.ModelSerializer):
     def get_natureza_descricao(self, obj):
         nd = obj.dotacao.natureza_despesa
         return nd.descricao if nd else None
+
+    def get_valor_descentralizado(self, obj):
+        from decimal import Decimal
+        total = sum(
+            d.valor for d in obj.descentralizacoes.filter(cancelada=False)
+        )
+        return float(total)
+
+    def get_valor_concedido(self, obj):
+        from decimal import Decimal
+        total = sum(
+            c.valor for c in obj.concessoes.filter(cancelada=False)
+        )
+        return float(total)
 
 
 class HistoricoIndicacaoSerializer(serializers.ModelSerializer):
