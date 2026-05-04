@@ -178,18 +178,32 @@ class IndicadoresDevolucoesView(APIView):
             .values('mapa').distinct().count()
         )
 
-        def _item(total, devolvidos):
+        def _por_categoria(qs):
+            from django.db.models import Count
+            cats = (qs.filter(categoria_motivo__gt='')
+                      .values('categoria_motivo')
+                      .annotate(total=Count('id'))
+                      .order_by('-total'))
+            return {c['categoria_motivo']: c['total'] for c in cats}
+
+        def _item(total, devolvidos, por_cat):
             return {
                 'total':          total,
                 'devolvidos':     devolvidos,
                 'taxa_devolucao': _pct(devolvidos, total) if total else 0,
+                'por_categoria':  por_cat,
             }
 
+        dfd_cats  = _por_categoria(HistoricoTramitacao.objects.filter(dfd__org_id=org_id, status_novo='Devolvida'))
+        etp_cats  = _por_categoria(HistoricoETP.objects.filter(etp__org_id=org_id, status_novo='Devolvido'))
+        tr_cats   = _por_categoria(HistoricoTR.objects.filter(tr__org_id=org_id, status_novo='Devolvido'))
+        mapa_cats = _por_categoria(HistoricoMapa.objects.filter(mapa__org_id=org_id, status_novo='Devolvido'))
+
         return Response({
-            'DFD':  _item(dfd_total,  dfd_dev),
-            'ETP':  _item(etp_total,  etp_dev),
-            'TR':   _item(tr_total,   tr_dev),
-            'Mapa': _item(mapa_total, mapa_dev),
+            'DFD':  _item(dfd_total,  dfd_dev,  dfd_cats),
+            'ETP':  _item(etp_total,  etp_dev,  etp_cats),
+            'TR':   _item(tr_total,   tr_dev,   tr_cats),
+            'Mapa': _item(mapa_total, mapa_dev, mapa_cats),
         })
 
 

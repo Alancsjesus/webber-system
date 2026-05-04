@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import ModalDevolver, { MOTIVOS_DFD } from '../components/ModalDevolver'
 import useDFDStore from '../stores/dfdStore'
 import useAuthStore from '../stores/authStore'
 import api, { downloadFile } from '../services/api'
@@ -155,11 +156,9 @@ export default function DFDDetail() {
     }
   }
 
-  const handleDevolver = async () => {
-    if (!motivoDevolucao.trim()) return
-    await runAction(() => devolver(id, motivoDevolucao))
+  const handleDevolver = async (motivo, categoria) => {
+    await runAction(() => devolver(id, motivo, categoria))
     setShowDevolverModal(false)
-    setMotivoDevolucao('')
   }
 
   // --- Itens ---
@@ -380,25 +379,14 @@ export default function DFDDetail() {
         </div>
       )}
 
-      {showDevolverModal && (
-        <div className="mb-6 bg-orange-50 border border-orange-200 rounded-xl p-4">
-          <p className="text-sm font-semibold text-orange-800 mb-2">Informe o motivo da devolução</p>
-          <textarea rows={3} value={motivoDevolucao}
-            onChange={(e) => setMotivoDevolucao(e.target.value)}
-            placeholder="Descreva o que precisa ser ajustado..."
-            className="w-full border border-orange-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white" />
-          <div className="flex gap-2 mt-2">
-            <button onClick={handleDevolver} disabled={!motivoDevolucao.trim() || actionLoading}
-              className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-sm font-medium px-4 py-1.5 rounded-lg transition-colors">
-              {actionLoading ? '...' : 'Confirmar devolução'}
-            </button>
-            <button onClick={() => { setShowDevolverModal(false); setMotivoDevolucao('') }}
-              className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg transition-colors">
-              Cancelar
-            </button>
-          </div>
-        </div>
-      )}
+      <ModalDevolver
+        show={showDevolverModal}
+        onClose={() => setShowDevolverModal(false)}
+        onConfirm={handleDevolver}
+        loading={actionLoading}
+        titulo="Devolver DFD para ajuste"
+        categorias={MOTIVOS_DFD}
+      />
 
       {showDispensaModal && (
         <div className="mb-6 bg-amber-50 border border-amber-300 rounded-xl p-4">

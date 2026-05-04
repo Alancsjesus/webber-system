@@ -74,12 +74,14 @@ class DFDViewSet(viewsets.ModelViewSet):
         dfd.updated_by = request.user
         dfd.save()
 
+        categoria = (campos_extra or {}).get('categoria_motivo', '')
         HistoricoTramitacao.objects.create(
             dfd=dfd,
             status_anterior=status_anterior,
             status_novo=status_novo,
             usuario=request.user,
             motivo=motivo,
+            categoria_motivo=categoria,
         )
 
         serializer = self.get_serializer(dfd)
@@ -205,8 +207,10 @@ class DFDViewSet(viewsets.ModelViewSet):
             return Response({'detail': 'O motivo da devolução é obrigatório.'},
                             status=status.HTTP_400_BAD_REQUEST)
 
+        categoria = request.data.get('categoria_motivo', '')
         return self._transicao(request, 'Devolvida',
-                               campos_extra={'motivo_devolucao': motivo, 'motivo': motivo})
+                               campos_extra={'motivo_devolucao': motivo, 'motivo': motivo,
+                                             'categoria_motivo': categoria})
 
     @action(detail=True, methods=['post'],
             permission_classes=[IsAuthenticated, IsMultiTenant])

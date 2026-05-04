@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import useTrStore from '../stores/trStore'
 import useAuthStore from '../stores/authStore'
 import api, { downloadFile } from '../services/api'
+import ModalDevolver, { MOTIVOS_TR } from '../components/ModalDevolver'
 
 const STATUS_CLS = {
   Rascunho:    'bg-gray-100 text-gray-600',
@@ -85,10 +86,8 @@ export default function TRDetail() {
     }
   }
 
-  const handleDevolver = async () => {
-    if (!motivo.trim()) return
-    await doAction(() => devolverTr(id, motivo))
-    setMotivo('')
+  const handleDevolver = async (motivo, categoria) => {
+    await doAction(() => devolverTr(id, motivo, categoria))
     setShowDevolver(false)
   }
 
@@ -199,26 +198,14 @@ export default function TRDetail() {
       )}
 
       {/* Modal devolver */}
-      {showDevolver && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
-            <h3 className="text-base font-semibold mb-4">Devolver TR</h3>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Motivo da devolução *</label>
-            <textarea rows={3} value={motivo} onChange={(e) => setMotivo(e.target.value)}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 mb-4" />
-            <div className="flex gap-2">
-              <button onClick={handleDevolver} disabled={!motivo.trim() || actionLoading}
-                className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg">
-                {actionLoading ? 'Processando...' : 'Confirmar'}
-              </button>
-              <button onClick={() => { setShowDevolver(false); setMotivo('') }}
-                className="border border-gray-300 text-gray-600 text-sm px-4 py-2 rounded-lg">
-                Cancelar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ModalDevolver
+        show={showDevolver}
+        onClose={() => setShowDevolver(false)}
+        onConfirm={handleDevolver}
+        loading={actionLoading}
+        titulo="Devolver TR para ajuste"
+        categorias={MOTIVOS_TR}
+      />
 
       {/* Modal reabrir */}
       {showReabrir && (

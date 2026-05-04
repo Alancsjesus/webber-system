@@ -209,14 +209,25 @@ class NumeroProcesso(BaseModel):
         return f"{self.numero} ({self.get_etapa_display()})"
 
 
+MOTIVOS_DEVOLUCAO_DFD = [
+    ('documentacao_incompleta',  'Documentação incompleta'),
+    ('valor_incorreto',          'Valor estimado incorreto'),
+    ('areas_inconsistentes',     'Áreas de aplicação inconsistentes'),
+    ('especificacao_inadequada', 'Especificação inadequada'),
+    ('sem_vinculo_orcamentario', 'Sem vinculação orçamentária'),
+    ('outro',                    'Outro'),
+]
+
+
 class HistoricoTramitacao(models.Model):
     """Registro imutável de cada transição de status do DFD"""
-    dfd            = models.ForeignKey(DFD, on_delete=models.CASCADE, related_name='historico')
+    dfd             = models.ForeignKey(DFD, on_delete=models.CASCADE, related_name='historico')
     status_anterior = models.CharField(max_length=20)
     status_novo     = models.CharField(max_length=20)
-    usuario        = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
-    motivo         = models.TextField(blank=True, null=True)
-    criado_em      = models.DateTimeField(auto_now_add=True)
+    usuario         = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    motivo          = models.TextField(blank=True, null=True)
+    categoria_motivo = models.CharField(max_length=40, choices=MOTIVOS_DEVOLUCAO_DFD, blank=True, default='', verbose_name='Categoria do motivo')
+    criado_em       = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ['-criado_em']

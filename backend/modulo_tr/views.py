@@ -91,12 +91,14 @@ class TRViewSet(viewsets.ModelViewSet):
                 {'detail': f'Transição "{tr.status}" → "{status_novo}" não permitida.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        categoria = (campos_extra or {}).get('categoria_motivo', '')
         HistoricoTR.objects.create(
             tr=tr,
             status_anterior=tr.status,
             status_novo=status_novo,
             usuario=request.user,
             motivo=campos_extra.get('motivo_devolucao') if campos_extra else None,
+            categoria_motivo=categoria,
         )
         tr.status = status_novo
         if campos_extra:
@@ -157,8 +159,10 @@ class TRViewSet(viewsets.ModelViewSet):
         if not motivo:
             return Response({'detail': 'O motivo da devolução é obrigatório.'},
                             status=status.HTTP_400_BAD_REQUEST)
+        categoria = request.data.get('categoria_motivo', '')
         return self._transicao(request, 'Devolvido',
-                               campos_extra={'motivo_devolucao': motivo})
+                               campos_extra={'motivo_devolucao': motivo,
+                                             'categoria_motivo': categoria})
 
     @action(detail=True, methods=['post'])
     def reabrir(self, request, pk=None):

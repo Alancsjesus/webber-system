@@ -45,7 +45,7 @@ class MapaComparativoPrecosViewSet(viewsets.ModelViewSet):
             'metodos_calculo':  [{'value': v, 'label': l} for v, l in METODO_CALCULO_CHOICES],
         })
 
-    def _transicao(self, mapa, novo_status, usuario, motivo=None):
+    def _transicao(self, mapa, novo_status, usuario, motivo=None, categoria_motivo=''):
         """Valida e executa transição de status, registrando no histórico."""
         permitidos = TRANSICOES_MAPA.get(mapa.status, [])
         if novo_status not in permitidos:
@@ -59,6 +59,7 @@ class MapaComparativoPrecosViewSet(viewsets.ModelViewSet):
         HistoricoMapa.objects.create(
             mapa=mapa, status_anterior=anterior,
             status_novo=novo_status, usuario=usuario, motivo=motivo,
+            categoria_motivo=categoria_motivo,
         )
 
     @action(detail=True, methods=['post'])
@@ -122,8 +123,9 @@ class MapaComparativoPrecosViewSet(viewsets.ModelViewSet):
         if not motivo:
             return Response({'detail': 'Motivo da devolução é obrigatório.'},
                             status=status.HTTP_400_BAD_REQUEST)
+        categoria = request.data.get('categoria_motivo', '')
         mapa = self.get_object()
-        self._transicao(mapa, 'Devolvido', request.user, motivo)
+        self._transicao(mapa, 'Devolvido', request.user, motivo, categoria_motivo=categoria)
         mapa.motivo_devolucao = motivo
         mapa.save(update_fields=['motivo_devolucao'])
         return Response({'detail': 'Mapa devolvido para correção.'})

@@ -8,7 +8,7 @@ class HistoricoTRSerializer(serializers.ModelSerializer):
 
     class Meta:
         model  = HistoricoTR
-        fields = ['id', 'status_anterior', 'status_novo', 'usuario_username', 'motivo', 'criado_em']
+        fields = ['id', 'status_anterior', 'status_novo', 'usuario_username', 'motivo', 'categoria_motivo', 'criado_em']
 
 
 class ItemLoteTRSerializer(serializers.ModelSerializer):

@@ -69,8 +69,8 @@ const useEtpStore = create((set) => ({
     return data
   },
 
-  devolverEtp: async (id, motivo) => {
-    const { data } = await api.post(`/etp/etp/${id}/devolver/`, { motivo })
+  devolverEtp: async (id, motivo, categoria = '') => {
+    const { data } = await api.post(`/etp/etp/${id}/devolver/`, { motivo, categoria_motivo: categoria })
     set((s) => ({
       current: data,
       etps: s.etps.map((e) => (e.id === id ? data : e)),

@@ -93,8 +93,8 @@ const useMapaStore = create((set, get) => ({
     return data
   },
 
-  devolver: async (id, motivo) => {
-    const { data } = await api.post(`/pesquisa/mapa/${id}/devolver/`, { motivo })
+  devolver: async (id, motivo, categoria = '') => {
+    const { data } = await api.post(`/pesquisa/mapa/${id}/devolver/`, { motivo, categoria_motivo: categoria })
     await get().fetchMapa(id)
     return data
   },

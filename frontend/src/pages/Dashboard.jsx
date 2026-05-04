@@ -524,6 +524,15 @@ export default function Dashboard() {
                         <div className={`h-full rounded-full transition-all ${taxa === 0 ? 'bg-green-400' : taxa < 20 ? 'bg-yellow-400' : 'bg-red-400'}`}
                           style={{ width: `${Math.min(taxa, 100)}%` }} />
                       </div>
+                      {d.por_categoria && Object.keys(d.por_categoria).length > 0 && (
+                        <div className="flex flex-wrap gap-1 mt-1">
+                          {Object.entries(d.por_categoria).map(([cat, count]) => (
+                            <span key={cat} className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full">
+                              {cat.replace(/_/g, ' ')}: {count}
+                            </span>
+                          ))}
+                        </div>
+                      )}
                     </div>
                   </div>
                 )

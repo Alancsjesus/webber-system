@@ -164,14 +164,24 @@ class MapaComparativoPrecos(BaseModel):
         self.save(update_fields=['valor_estimado_total'])
 
 
+MOTIVOS_DEVOLUCAO_MAPA = [
+    ('fontes_inadequadas',       'Fontes de pesquisa inadequadas'),
+    ('cotacoes_fora_prazo',      'Cotações fora do prazo'),
+    ('qtd_insuficiente',         'Número insuficiente de cotações'),
+    ('metodo_inadequado',        'Método de cálculo inadequado'),
+    ('outro',                    'Outro'),
+]
+
+
 class HistoricoMapa(models.Model):
     """Trilha imutável de transições de status do Mapa."""
-    mapa            = models.ForeignKey(MapaComparativoPrecos, on_delete=models.CASCADE, related_name='historico')
-    status_anterior = models.CharField(max_length=15)
-    status_novo     = models.CharField(max_length=15)
-    usuario         = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
-    motivo          = models.TextField(blank=True, null=True)
-    criado_em       = models.DateTimeField(auto_now_add=True)
+    mapa             = models.ForeignKey(MapaComparativoPrecos, on_delete=models.CASCADE, related_name='historico')
+    status_anterior  = models.CharField(max_length=15)
+    status_novo      = models.CharField(max_length=15)
+    usuario          = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    motivo           = models.TextField(blank=True, null=True)
+    categoria_motivo = models.CharField(max_length=40, choices=MOTIVOS_DEVOLUCAO_MAPA, blank=True, default='', verbose_name='Categoria do motivo')
+    criado_em        = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ['-criado_em']

@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import ModalDevolver, { MOTIVOS_ETP } from '../components/ModalDevolver'
 import { useNavigate, useParams } from 'react-router-dom'
 import useEtpStore from '../stores/etpStore'
 import useAuthStore from '../stores/authStore'
@@ -91,11 +92,9 @@ export default function ETPDetail() {
     }
   }
 
-  const handleDevolver = async () => {
-    if (!motivoDevolucao.trim()) return
-    await runAction(() => devolverEtp(id, motivoDevolucao))
+  const handleDevolver = async (motivo, categoria) => {
+    await runAction(() => devolverEtp(id, motivo, categoria))
     setShowDevolverModal(false)
-    setMotivoDevolucao('')
   }
 
   if (loading) return <p className="p-8 text-sm text-gray-400">Carregando...</p>
@@ -217,25 +216,14 @@ export default function ETPDetail() {
         </div>
       )}
 
-      {showDevolverModal && (
-        <div className="mb-6 bg-orange-50 border border-orange-200 rounded-xl p-4">
-          <p className="text-sm font-semibold text-orange-800 mb-2">Motivo da devolução</p>
-          <textarea rows={3} value={motivoDevolucao}
-            onChange={(e) => setMotivoDevolucao(e.target.value)}
-            placeholder="Descreva o que precisa ser ajustado..."
-            className="w-full border border-orange-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 bg-white" />
-          <div className="flex gap-2 mt-2">
-            <button onClick={handleDevolver} disabled={!motivoDevolucao.trim() || actionLoading}
-              className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-sm font-medium px-4 py-1.5 rounded-lg">
-              {actionLoading ? '...' : 'Confirmar'}
-            </button>
-            <button onClick={() => { setShowDevolverModal(false); setMotivoDevolucao('') }}
-              className="border border-gray-300 text-gray-600 text-sm px-4 py-1.5 rounded-lg">
-              Cancelar
-            </button>
-          </div>
-        </div>
-      )}
+      <ModalDevolver
+        show={showDevolverModal}
+        onClose={() => setShowDevolverModal(false)}
+        onConfirm={handleDevolver}
+        loading={actionLoading}
+        titulo="Devolver ETP para ajuste"
+        categorias={MOTIVOS_ETP}
+      />
 
       {/* Fields */}
       <div className="space-y-5">

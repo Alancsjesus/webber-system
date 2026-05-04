@@ -55,12 +55,14 @@ class ETPViewSet(viewsets.ModelViewSet):
         etp.updated_by = request.user
         etp.save()
 
+        categoria = (campos_extra or {}).get('categoria_motivo', '')
         HistoricoETP.objects.create(
             etp=etp,
             status_anterior=status_anterior,
             status_novo=status_novo,
             usuario=request.user,
             motivo=motivo,
+            categoria_motivo=categoria,
         )
 
         return Response(self.get_serializer(etp).data)
@@ -120,8 +122,10 @@ class ETPViewSet(viewsets.ModelViewSet):
         if not motivo:
             return Response({'detail': 'O motivo da devolução é obrigatório.'},
                             status=status.HTTP_400_BAD_REQUEST)
+        categoria = request.data.get('categoria_motivo', '')
         return self._transicao(request, 'Devolvido',
-                               campos_extra={'motivo_devolucao': motivo, 'motivo': motivo})
+                               campos_extra={'motivo_devolucao': motivo, 'motivo': motivo,
+                                             'categoria_motivo': categoria})
 
     @action(detail=True, methods=['post'])
     def reabrir(self, request, pk=None):

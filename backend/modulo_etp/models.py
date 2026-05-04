@@ -84,14 +84,24 @@ class ETP(BaseModel):
         return f"ETP {self.numero_sei} (DFD {self.dfd.numero_sei}) — {self.status}"
 
 
+MOTIVOS_DEVOLUCAO_ETP = [
+    ('alternativas_insuficientes',  'Alternativas insuficientes'),
+    ('estimativa_sem_referencia',   'Estimativa de valor sem referência'),
+    ('requisitos_incompletos',      'Requisitos técnicos incompletos'),
+    ('fontes_inadequadas',          'Fontes de pesquisa inadequadas'),
+    ('outro',                       'Outro'),
+]
+
+
 class HistoricoETP(models.Model):
     """Registro imutável de cada transição de status do ETP."""
-    etp             = models.ForeignKey(ETP, on_delete=models.CASCADE, related_name='historico')
-    status_anterior = models.CharField(max_length=15)
-    status_novo     = models.CharField(max_length=15)
-    usuario         = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
-    motivo          = models.TextField(blank=True, null=True)
-    criado_em       = models.DateTimeField(auto_now_add=True)
+    etp              = models.ForeignKey(ETP, on_delete=models.CASCADE, related_name='historico')
+    status_anterior  = models.CharField(max_length=15)
+    status_novo      = models.CharField(max_length=15)
+    usuario          = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
+    motivo           = models.TextField(blank=True, null=True)
+    categoria_motivo = models.CharField(max_length=40, choices=MOTIVOS_DEVOLUCAO_ETP, blank=True, default='', verbose_name='Categoria do motivo')
+    criado_em        = models.DateTimeField(auto_now_add=True)
 
     class Meta:
         ordering = ['-criado_em']

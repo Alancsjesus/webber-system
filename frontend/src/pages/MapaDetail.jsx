@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import ModalDevolver, { MOTIVOS_MAPA } from '../components/ModalDevolver'
 import { useNavigate, useParams } from 'react-router-dom'
 import useMapaStore from '../stores/mapaStore'
 import useAuthStore from '../stores/authStore'
@@ -678,33 +679,17 @@ export default function MapaDetail() {
       )}
 
       {/* Modal: Devolver */}
-      {showDevolver && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
-            <h3 className="text-base font-semibold text-gray-800 mb-1">Devolver mapa para correção</h3>
-            <label className="block text-xs font-medium text-gray-600 mb-1 mt-3">Motivo *</label>
-            <textarea rows={3} value={motivoDevolucao}
-              onChange={(e) => setMotivoDevolucao(e.target.value)}
-              placeholder="Descreva o que precisa ser corrigido..."
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 mb-4" />
-            <div className="flex gap-2">
-              <button
-                disabled={!motivoDevolucao.trim() || saving}
-                onClick={async () => {
-                  await act(() => devolver(id, motivoDevolucao), 'Mapa devolvido.')
-                  setShowDevolver(false); setMotivoDevolucao('')
-                }}
-                className="bg-orange-500 hover:bg-orange-600 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg">
-                {saving ? 'Devolvendo...' : 'Confirmar devolução'}
-              </button>
-              <button onClick={() => { setShowDevolver(false); setMotivoDevolucao('') }}
-                className="border border-gray-300 text-gray-600 text-sm px-4 py-2 rounded-lg hover:bg-gray-50">
-                Cancelar
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <ModalDevolver
+        show={showDevolver}
+        onClose={() => setShowDevolver(false)}
+        onConfirm={async (motivo, categoria) => {
+          await act(() => devolver(id, motivo, categoria), 'Mapa devolvido.')
+          setShowDevolver(false)
+        }}
+        loading={saving}
+        titulo="Devolver mapa para correção"
+        categorias={MOTIVOS_MAPA}
+      />
 
       {/* Modal: Cancelar */}
       {showCancelar && (

@@ -66,8 +66,8 @@ const useDFDStore = create((set, get) => ({
     return data
   },
 
-  devolver: async (id, motivo) => {
-    const { data } = await api.post(`/demanda/dfd/${id}/devolver/`, { motivo })
+  devolver: async (id, motivo, categoria = '') => {
+    const { data } = await api.post(`/demanda/dfd/${id}/devolver/`, { motivo, categoria_motivo: categoria })
     set((s) => ({ current: data, dfds: s.dfds.map((d) => (d.id === id ? data : d)) }))
     return data
   },

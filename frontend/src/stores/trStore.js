@@ -60,8 +60,8 @@ const useTrStore = create((set) => ({
     return data
   },
 
-  devolverTr: async (id, motivo) => {
-    const { data } = await api.post(`/tr/tr/${id}/devolver/`, { motivo })
+  devolverTr: async (id, motivo, categoria = '') => {
+    const { data } = await api.post(`/tr/tr/${id}/devolver/`, { motivo, categoria_motivo: categoria })
     set((s) => ({ current: data, trs: s.trs.map((t) => (t.id === id ? data : t)) }))
     return data
   },

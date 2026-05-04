@@ -7,7 +7,7 @@ class HistoricoMapaSerializer(serializers.ModelSerializer):
 
     class Meta:
         model  = HistoricoMapa
-        fields = ['id', 'status_anterior', 'status_novo', 'usuario_nome', 'motivo', 'criado_em']
+        fields = ['id', 'status_anterior', 'status_novo', 'usuario_nome', 'motivo', 'categoria_motivo', 'criado_em']
 
     def get_usuario_nome(self, obj):
         if obj.usuario:
