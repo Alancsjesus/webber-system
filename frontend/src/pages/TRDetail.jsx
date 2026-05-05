@@ -197,6 +197,14 @@ export default function TRDetail() {
         <EtpDecisoesBanner etp={current} />
       )}
 
+      {/* Alerta de cota ME/EPP não configurada */}
+      {current.alerta_cota_me_epp && (
+        <div className="flex items-start gap-3 bg-amber-50 border border-amber-300 rounded-xl p-3 text-sm text-amber-800">
+          <span className="text-lg leading-none">⚠️</span>
+          <p>{current.alerta_cota_me_epp}</p>
+        </div>
+      )}
+
       {/* Modal devolver */}
       <ModalDevolver
         show={showDevolver}
@@ -395,7 +403,7 @@ const fmtR = (v) => Number(v).toLocaleString('pt-BR', { style: 'currency', curre
 
 function LotesSection({ tr, podeEditar, onCriarLote, onExcluirLote, onAdicionarItem, onRemoverItem, onGerarCota, onGerarPorItem }) {
   const [showNovoLote, setShowNovoLote]   = useState(false)
-  const [novoLoteForm, setNovoLoteForm]   = useState({ descricao: '', modalidade: 'ampla' })
+  const [novoLoteForm, setNovoLoteForm]   = useState({ descricao: '', modalidade: 'ampla', justificativa_agrupamento: '' })
   const [showAddItem, setShowAddItem]     = useState(null)
   const [addItemForm, setAddItemForm]     = useState({ item_dfd: '', quantidade: '' })
   const [itensDfd, setItensDfd]           = useState([])
@@ -412,7 +420,7 @@ function LotesSection({ tr, podeEditar, onCriarLote, onExcluirLote, onAdicionarI
   const handleCriarLote = async () => {
     if (!novoLoteForm.descricao.trim()) return
     setSaving(true)
-    try { await onCriarLote(novoLoteForm); setShowNovoLote(false); setNovoLoteForm({ descricao: '', modalidade: 'ampla' }) }
+    try { await onCriarLote(novoLoteForm); setShowNovoLote(false); setNovoLoteForm({ descricao: '', modalidade: 'ampla', justificativa_agrupamento: '' }) }
     finally { setSaving(false) }
   }
 
@@ -468,6 +476,15 @@ function LotesSection({ tr, podeEditar, onCriarLote, onExcluirLote, onAdicionarI
                 <option value="exclusiva_me_epp">Exclusivo ME/EPP</option>
               </select>
             </div>
+            <div className="col-span-2">
+              <label className="block text-xs text-gray-500 mb-0.5">
+                Justificativa de agrupamento <span className="text-gray-400">(obrigatória se lote tiver mais de 1 item)</span>
+              </label>
+              <input type="text" value={novoLoteForm.justificativa_agrupamento}
+                onChange={e => setNovoLoteForm(p => ({ ...p, justificativa_agrupamento: e.target.value }))}
+                placeholder="Ex: Itens interdependentes — padronização de equipamentos"
+                className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs" />
+            </div>
           </div>
           <div className="flex gap-2 mt-2">
             <button onClick={handleCriarLote} disabled={saving || !novoLoteForm.descricao.trim()}
@@ -498,6 +515,9 @@ function LotesSection({ tr, podeEditar, onCriarLote, onExcluirLote, onAdicionarI
                     {lote.lote_origem_numero && (
                       <span className="text-xs text-gray-400">← {lote.lote_origem_numero}</span>
                     )}
+                    {lote.alerta_agrupamento && (
+                      <span title={lote.alerta_agrupamento} className="text-amber-500 cursor-help text-sm">⚠️</span>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-bold text-gray-700">{fmtR(lote.valor_total_lote)}</span>
@@ -522,6 +542,14 @@ function LotesSection({ tr, podeEditar, onCriarLote, onExcluirLote, onAdicionarI
 
                 {lote.descricao && (
                   <p className="px-4 py-1 text-xs text-gray-500 border-b border-gray-100">{lote.descricao}</p>
+                )}
+
+                {/* Justificativa de agrupamento — exibe quando lote tem > 1 item */}
+                {lote.itens.length > 1 && (
+                  <div className={`px-4 py-1.5 border-b text-xs ${lote.justificativa_agrupamento ? 'bg-green-50 border-green-100 text-green-700' : 'bg-amber-50 border-amber-100 text-amber-700'}`}>
+                    <span className="font-medium">Justificativa de agrupamento: </span>
+                    {lote.justificativa_agrupamento || 'Não informada — obrigatória para lotes com múltiplos itens.'}
+                  </div>
                 )}
 
                 {/* Itens do lote */}
@@ -639,7 +667,13 @@ function EtpDecisoesBanner({ etp }) {
     lotes:      'Dividido em lotes',
     por_item:   'Por item',
   }
+  const TIPO_OBJETO_LABELS = {
+    bens: 'Bens', servicos: 'Serviços Comuns',
+    servicos_engenharia: 'Serviços de Engenharia', obras: 'Obras',
+  }
   const itens = []
+  if (etp.etp_tipo_objeto)
+    itens.push({ icon: '🏗️', label: 'Tipo de objeto', valor: TIPO_OBJETO_LABELS[etp.etp_tipo_objeto] || etp.etp_tipo_objeto })
   if (etp.etp_tipo_parcelamento)
     itens.push({ icon: '📦', label: 'Parcelamento', valor: PARCELAMENTO_LABELS[etp.etp_tipo_parcelamento] || etp.etp_tipo_parcelamento })
   if (etp.etp_reserva_cota_me_epp)

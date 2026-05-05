@@ -58,6 +58,7 @@ export default function ETPDetail() {
         justificativa_solucao:   form.justificativa_solucao,
         riscos:                  form.riscos,
         sustentabilidade:        form.sustentabilidade,
+        tipo_objeto:                form.tipo_objeto                ?? '',
         tipo_parcelamento:          form.tipo_parcelamento          ?? '',
         parcelamento_justificativa: form.parcelamento_justificativa ?? '',
         adjudicacao_por_item:       form.adjudicacao_por_item       ?? false,
@@ -280,6 +281,24 @@ export default function ETPDetail() {
         <div className="pt-4 border-t border-gray-100">
           <p className="text-xs font-semibold text-gray-400 uppercase mb-3">Parcelamento e Adjudicação</p>
           <div className="space-y-4">
+
+            <DF label="Tipo de objeto">
+              {editing ? (
+                <select value={form.tipo_objeto || ''}
+                  onChange={e => set('tipo_objeto', e.target.value)}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500">
+                  <option value="">— Selecione —</option>
+                  <option value="bens">Bens</option>
+                  <option value="servicos">Serviços Comuns</option>
+                  <option value="servicos_engenharia">Serviços de Engenharia</option>
+                  <option value="obras">Obras</option>
+                </select>
+              ) : (
+                <p className="text-sm text-gray-700">
+                  {{ bens: 'Bens', servicos: 'Serviços Comuns', servicos_engenharia: 'Serviços de Engenharia', obras: 'Obras' }[current.tipo_objeto] || '—'}
+                </p>
+              )}
+            </DF>
 
             <DF label="Tipo de parcelamento (Lei 14.133, Art. 40, V)">
               {editing ? (

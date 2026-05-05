@@ -48,18 +48,18 @@ const useIndicacaoStore = create((set, get) => ({
   },
 
   submeter: async (id) => {
-    await api.post(`/orcamento/indicacao/${id}/submeter/`)
-    await get().fetchIndicacao(id)
+    const { data } = await api.post(`/orcamento/indicacao/${id}/submeter/`)
+    set({ current: data })
   },
 
   aprovar: async (id) => {
-    await api.post(`/orcamento/indicacao/${id}/aprovar/`)
-    await get().fetchIndicacao(id)
+    const { data } = await api.post(`/orcamento/indicacao/${id}/aprovar/`)
+    set({ current: data })
   },
 
   cancelar: async (id, motivo) => {
-    await api.post(`/orcamento/indicacao/${id}/cancelar/`, { motivo })
-    await get().fetchIndicacao(id)
+    const { data } = await api.post(`/orcamento/indicacao/${id}/cancelar/`, { motivo })
+    set({ current: data })
   },
 
   vincularDotacao: async (id, dotacaoId, valorIndicado) => {
@@ -67,13 +67,14 @@ const useIndicacaoStore = create((set, get) => ({
       dotacao_id:     dotacaoId,
       valor_indicado: valorIndicado,
     })
-    await get().fetchIndicacao(id)
+    // Backend now returns the full updated indicação — update current directly
+    set({ current: data })
     return data
   },
 
   desvincularDotacao: async (id, dotacaoId) => {
-    await api.post(`/orcamento/indicacao/${id}/desvincular-dotacao/`, { dotacao_id: dotacaoId })
-    await get().fetchIndicacao(id)
+    const { data } = await api.post(`/orcamento/indicacao/${id}/desvincular-dotacao/`, { dotacao_id: dotacaoId })
+    set({ current: data })
   },
 
   registrarNpos: async (id, npos) => {

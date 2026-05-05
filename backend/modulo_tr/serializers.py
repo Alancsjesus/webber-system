@@ -41,21 +41,30 @@ class ItemLoteTRSerializer(serializers.ModelSerializer):
 
 
 class LoteTRSerializer(serializers.ModelSerializer):
-    itens              = ItemLoteTRSerializer(many=True, read_only=True)
-    modalidade_display = serializers.CharField(source='get_modalidade_display', read_only=True)
-    lote_origem_numero = serializers.CharField(source='lote_origem.numero',     read_only=True)
-    valor_total_lote   = serializers.SerializerMethodField()
+    itens                    = ItemLoteTRSerializer(many=True, read_only=True)
+    modalidade_display       = serializers.CharField(source='get_modalidade_display', read_only=True)
+    lote_origem_numero       = serializers.CharField(source='lote_origem.numero',     read_only=True)
+    valor_total_lote         = serializers.SerializerMethodField()
+    alerta_agrupamento       = serializers.SerializerMethodField()
 
     class Meta:
         model  = LoteTR
         fields = ['id', 'numero', 'descricao', 'modalidade', 'modalidade_display',
                   'percentual_cota', 'lote_origem', 'lote_origem_numero',
-                  'ordem', 'observacoes', 'valor_total_lote', 'itens']
+                  'ordem', 'justificativa_agrupamento', 'observacoes',
+                  'valor_total_lote', 'alerta_agrupamento', 'itens']
         read_only_fields = ['id', 'numero', 'modalidade_display',
-                            'lote_origem_numero', 'valor_total_lote', 'itens']
+                            'lote_origem_numero', 'valor_total_lote',
+                            'alerta_agrupamento', 'itens']
 
     def get_valor_total_lote(self, obj):
         return float(obj.valor_total)
+
+    def get_alerta_agrupamento(self, obj):
+        """Sinaliza se o lote tem > 1 item sem justificativa de agrupamento."""
+        if obj.itens.count() > 1 and not obj.justificativa_agrupamento:
+            return 'Lote com múltiplos itens requer justificativa de agrupamento (padronização, economia de escala ou interdependência).'
+        return None
 
     def create(self, validated_data):
         req = self.context['request']
@@ -73,11 +82,13 @@ class TRSerializer(serializers.ModelSerializer):
     etp_status                  = serializers.CharField(source='etp.status',                       read_only=True)
     dfd_numero_sei              = serializers.CharField(source='etp.dfd.numero_sei',               read_only=True)
     etp_tipo_parcelamento       = serializers.CharField(source='etp.tipo_parcelamento',            read_only=True)
+    etp_tipo_objeto             = serializers.CharField(source='etp.tipo_objeto',                  read_only=True)
     etp_reserva_cota_me_epp     = serializers.BooleanField(source='etp.reserva_cota_me_epp',      read_only=True)
     etp_licitacao_exclusiva_me  = serializers.BooleanField(source='etp.licitacao_exclusiva_me_epp', read_only=True)
     org_sigla           = serializers.CharField(source='org_id.sigla',   read_only=True)
     historico           = HistoricoTRSerializer(many=True, read_only=True)
     lotes               = LoteTRSerializer(many=True, read_only=True)
+    alerta_cota_me_epp  = serializers.SerializerMethodField()
     # Optional on create — defaults to ETP's numero_sei when omitted
     numero_sei          = serializers.CharField(required=False, allow_blank=True, default='')
 
@@ -85,8 +96,9 @@ class TRSerializer(serializers.ModelSerializer):
         model  = TR
         fields = [
             'id', 'etp', 'etp_numero_sei', 'etp_status', 'etp_dfd_id', 'dfd_numero_sei',
-            'etp_tipo_parcelamento',
+            'etp_tipo_parcelamento', 'etp_tipo_objeto',
             'etp_reserva_cota_me_epp', 'etp_licitacao_exclusiva_me',
+            'alerta_cota_me_epp',
             'numero_sei',
             'objeto_contratacao', 'justificativa', 'requisitos_contratacao',
             'obrigacoes_contratada', 'obrigacoes_contratante',
@@ -108,10 +120,39 @@ class TRSerializer(serializers.ModelSerializer):
             'updated_by', 'updated_by_username',
             'created_at', 'updated_at',
             'etp_numero_sei', 'etp_status', 'etp_dfd_id', 'dfd_numero_sei',
-            'etp_tipo_parcelamento',
+            'etp_tipo_parcelamento', 'etp_tipo_objeto',
             'etp_reserva_cota_me_epp', 'etp_licitacao_exclusiva_me',
+            'alerta_cota_me_epp',
             'motivo_devolucao', 'historico', 'lotes',
         ]
+
+    def get_alerta_cota_me_epp(self, obj):
+        """Sinaliza quando o ETP tem valor estimado > R$80k sem reserva de cota configurada."""
+        etp = obj.etp
+        if (
+            not etp.reserva_cota_me_epp
+            and not etp.licitacao_exclusiva_me_epp
+            and etp.estimativa_valor
+            and etp.estimativa_valor > 80000
+            and not etp.reserva_cota_justificativa
+        ):
+            return 'ETP com estimativa acima de R$80.000 sem reserva de cota ME/EPP e sem justificativa para não reserva.'
+        return None
+
+    def validate(self, data):
+        instrumento = data.get('instrumento_inicio', getattr(self.instance, 'instrumento_inicio', ''))
+        etp = data.get('etp', getattr(self.instance, 'etp', None))
+        tipo_objeto = etp.tipo_objeto if etp else ''
+        if instrumento and tipo_objeto:
+            if instrumento == 'afm' and tipo_objeto not in ('bens',):
+                raise serializers.ValidationError({
+                    'instrumento_inicio': 'AFM é exclusivo para objetos do tipo "Bens".'
+                })
+            if instrumento == 'aps' and tipo_objeto not in ('servicos', 'servicos_engenharia'):
+                raise serializers.ValidationError({
+                    'instrumento_inicio': 'APS é exclusivo para "Serviços Comuns" ou "Serviços de Engenharia".'
+                })
+        return data
 
     def validate_etp(self, etp):
         if etp.status != 'Aprovado':

@@ -107,6 +107,7 @@ class LoteTR(BaseModel):
     percentual_cota = models.PositiveIntegerField(default=25, verbose_name='Percentual da cota (%)')
     lote_origem     = models.ForeignKey('self', null=True, blank=True, on_delete=models.SET_NULL, related_name='lotes_cota', verbose_name='Lote de origem (para cotas)')
     ordem           = models.PositiveIntegerField(default=0, verbose_name='Ordem de exibição')
+    justificativa_agrupamento = models.TextField(blank=True, default='', verbose_name='Justificativa do agrupamento de itens')
     observacoes     = models.TextField(blank=True, default='', verbose_name='Observações')
 
     class Meta(BaseModel.Meta):

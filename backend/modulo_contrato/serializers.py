@@ -51,6 +51,7 @@ class ContratoSerializer(serializers.ModelSerializer):
             'orgao_executor', 'orgao_executor_sigla', 'orgao_executor_nome',
             'objeto', 'tipo_origem', 'tipo_origem_display',
             'dfd', 'dfd_numero_sei',
+            'lotes', 'numero_processo_sei',
             'valor_contrato',
             'data_assinatura', 'data_vigencia_inicio', 'data_vigencia_fim',
             'status',

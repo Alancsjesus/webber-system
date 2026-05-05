@@ -50,6 +50,7 @@ class ETPSerializer(serializers.ModelSerializer):
             'justificativa_solucao',
             'riscos',
             'sustentabilidade',
+            'tipo_objeto',
             'tipo_parcelamento',
             'parcelamento_justificativa',
             'reserva_cota_me_epp',

@@ -18,6 +18,7 @@ export default function ETPCreate() {
     justificativa_solucao: '',
     riscos: '',
     sustentabilidade: '',
+    tipo_objeto: '',
     tipo_parcelamento: '',
     parcelamento_justificativa: '',
     reserva_cota_me_epp: false,
@@ -155,6 +156,20 @@ export default function ETPCreate() {
             onChange={(e) => set('sustentabilidade', e.target.value)}
             className={inp()} />
         </Field>
+
+        {/* Tipo de Objeto */}
+        <div className="border border-gray-200 rounded-xl p-4 bg-gray-50 space-y-4">
+          <p className="text-sm font-semibold text-gray-700">Natureza do Objeto</p>
+          <Field label="Tipo de objeto">
+            <select value={form.tipo_objeto} onChange={e => set('tipo_objeto', e.target.value)} className={inp()}>
+              <option value="">— Selecione —</option>
+              <option value="bens">Bens</option>
+              <option value="servicos">Serviços Comuns</option>
+              <option value="servicos_engenharia">Serviços de Engenharia</option>
+              <option value="obras">Obras</option>
+            </select>
+          </Field>
+        </div>
 
         {/* Parcelamento e Adjudicação */}
         <div className="border border-gray-200 rounded-xl p-4 bg-gray-50 space-y-4">

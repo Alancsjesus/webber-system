@@ -324,6 +324,7 @@ class DescentralizacaoOrcamentaria(models.Model):
         verbose_name='Item de indicação (dotação)',
     )
     numero_npo        = models.CharField(max_length=50, verbose_name='Número da NPO (sistema financeiro)')
+    numero_ne         = models.CharField(max_length=50, blank=True, default='', verbose_name='Número da NE (FIPLAN)')
     data_emissao      = models.DateField(verbose_name='Data de emissão')
     valor             = models.DecimalField(max_digits=15, decimal_places=2, verbose_name='Valor descentralizado (R$)')
     cancelada         = models.BooleanField(default=False, verbose_name='Cancelada')

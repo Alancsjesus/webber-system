@@ -26,6 +26,8 @@ class Contrato(BaseModel):
     objeto               = models.TextField(verbose_name='Objeto do contrato')
     tipo_origem          = models.CharField(max_length=20, choices=TIPO_ORIGEM_CHOICES, verbose_name='Origem do contrato')
     dfd                  = models.ForeignKey('modulo_demanda.DFD', null=True, blank=True, on_delete=models.SET_NULL, related_name='contratos', verbose_name='DFD de origem')
+    lotes                = models.ManyToManyField('modulo_tr.LoteTR', blank=True, related_name='contratos', verbose_name='Lotes de origem')
+    numero_processo_sei  = models.CharField(max_length=50, blank=True, default='', verbose_name='Número do processo SEI do contrato')
     valor_contrato       = models.DecimalField(max_digits=15, decimal_places=2, verbose_name='Valor do contrato (R$)')
     data_assinatura      = models.DateField(null=True, blank=True, verbose_name='Data de assinatura')
     data_vigencia_inicio = models.DateField(null=True, blank=True, verbose_name='Início da vigência')

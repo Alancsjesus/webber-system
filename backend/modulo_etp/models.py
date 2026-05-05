@@ -53,6 +53,18 @@ class ETP(BaseModel):
     riscos                  = models.TextField(blank=True, default='', verbose_name='Mapa de riscos')
     sustentabilidade        = models.TextField(blank=True, default='', verbose_name='Critérios de sustentabilidade')
 
+    # ── Tipo de objeto (Lei 14.133/2021) ─────────────────────────────────────
+    TIPO_OBJETO_CHOICES = [
+        ('bens',                 'Bens'),
+        ('servicos',             'Serviços Comuns'),
+        ('servicos_engenharia',  'Serviços de Engenharia'),
+        ('obras',                'Obras'),
+    ]
+    tipo_objeto = models.CharField(
+        max_length=25, choices=TIPO_OBJETO_CHOICES, blank=True, default='',
+        verbose_name='Tipo de objeto',
+    )
+
     # ── Parcelamento e adjudicação (Lei 14.133/2021, Art. 40, V) ──────────────
     PARCELAMENTO_CHOICES = [
         ('lote_unico', 'Lote único — contratação global'),

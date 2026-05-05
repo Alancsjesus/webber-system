@@ -324,7 +324,8 @@ class IndicacaoOrcamentariaViewSet(viewsets.ModelViewSet):
                 status=status.HTTP_400_BAD_REQUEST,
             )
         self._transicao(indicacao, 'Submetida', request.user)
-        return Response({'detail': 'Indicação submetida com sucesso.'})
+        serializer = self._indicacao_serializer(indicacao)
+        return Response({'detail': 'Indicação submetida com sucesso.', **serializer})
 
     @action(detail=True, methods=['post'])
     def aprovar(self, request, pk=None):
@@ -345,7 +346,8 @@ class IndicacaoOrcamentariaViewSet(viewsets.ModelViewSet):
             dot = item.dotacao
             dot.valor_indicado = item.valor_indicado
             dot.save(update_fields=['valor_indicado'])
-        return Response({'detail': 'DOD emitida. Indicação aprovada com sucesso.'})
+        serializer = self._indicacao_serializer(indicacao)
+        return Response({'detail': 'DOD emitida. Indicação aprovada com sucesso.', **serializer})
 
     @action(detail=True, methods=['post'])
     def cancelar(self, request, pk=None):
@@ -359,7 +361,8 @@ class IndicacaoOrcamentariaViewSet(viewsets.ModelViewSet):
         self._transicao(indicacao, 'Cancelada', request.user, motivo)
         indicacao.motivo_cancelamento = motivo
         indicacao.save(update_fields=['motivo_cancelamento'])
-        return Response({'detail': 'Indicação cancelada.'})
+        serializer = self._indicacao_serializer(indicacao)
+        return Response({'detail': 'Indicação cancelada.', **serializer})
 
     @action(detail=True, methods=['post'], url_path='vincular-dotacao')
     def vincular_dotacao(self, request, pk=None):
@@ -386,10 +389,8 @@ class IndicacaoOrcamentariaViewSet(viewsets.ModelViewSet):
         indicacao.valor_total = total
         indicacao.save(update_fields=['valor_total'])
 
-        return Response({
-            'detail': f'Dotação vinculada com R$ {valor_indicado:,.2f}.',
-            'valor_total': float(indicacao.valor_total),
-        })
+        serializer = self._indicacao_serializer(indicacao)
+        return Response({'detail': f'Dotação vinculada com R$ {valor_indicado:,.2f}.', **serializer})
 
     @action(detail=True, methods=['post'], url_path='desvincular-dotacao')
     def desvincular_dotacao(self, request, pk=None):
@@ -404,7 +405,8 @@ class IndicacaoOrcamentariaViewSet(viewsets.ModelViewSet):
         total = sum(i.valor_indicado for i in indicacao.itens.all())
         indicacao.valor_total = total
         indicacao.save(update_fields=['valor_total'])
-        return Response({'detail': 'Dotação desvinculada.', 'valor_total': float(total)})
+        serializer = self._indicacao_serializer(indicacao)
+        return Response({'detail': 'Dotação desvinculada.', **serializer})
 
     @action(detail=True, methods=['get'], url_path='export/pdf')
     def export_pdf(self, request, pk=None):
