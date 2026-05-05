@@ -706,6 +706,116 @@ def gerar_pdf_tr(tr) -> bytes:
 
 # ── HTML ──────────────────────────────────────────────────────────────────────
 
+def gerar_pdf_plano_compras(dados: dict, org_nome: str, org_sigla: str = None) -> bytes:
+    """
+    Gera PDF do Relatório de Plano de Compras por família SIMPAS.
+    dados = resultado de PlanoComprasView.get()
+    """
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4,
+                             leftMargin=2*cm, rightMargin=2*cm,
+                             topMargin=2*cm, bottomMargin=2.5*cm)
+    estilos = _estilos()
+    e = []
+
+    exercicio = dados.get('exercicio', '')
+    titulo    = f'PLANO DE COMPRAS{" — " + str(exercicio) if exercicio else ""}'
+    e += _cabecalho(titulo, 'Relatório por Família SIMPAS', org_nome, estilos, org_sigla=org_sigla)
+
+    # Totais gerais
+    e.append(_secao('Resumo Geral', estilos))
+    e += _campo('Total de Famílias',  str(dados.get('total_familias', 0)), estilos)
+    e += _campo('Valor Total Estimado', _fmt_valor(dados.get('valor_total', 0)), estilos)
+    e += _campo('Limite de Dispensa',   _fmt_valor(dados.get('limite_dispensa', 62000)), estilos)
+
+    MODAL_COR = {
+        'pregao_eletronico': colors.HexColor('#1351B4'),
+        'dispensa_agrupada': colors.HexColor('#856404'),
+        'dispensa_valor':    colors.HexColor('#155724'),
+    }
+
+    for fam in dados.get('familias', []):
+        cor_modal = MODAL_COR.get(fam.get('sugestao'), CINZA_TXT)
+        titulo_fam = f"Família {fam['familia']} — {fam['sugestao_label']}"
+        e.append(Paragraph(f'  {titulo_fam}', ParagraphStyle(
+            'fam_titulo', fontSize=11, fontName='Helvetica-Bold',
+            textColor=BRANCO, backColor=cor_modal,
+            spaceBefore=12, spaceAfter=4, leftIndent=-6, rightIndent=-6,
+            borderPadding=(4, 6, 4, 6),
+        )))
+
+        # Info da família
+        info = (f"{fam['total_dfds']} DFD(s) · "
+                f"Qtd. total: {fam['qtd_total']} · "
+                f"Valor estimado: {_fmt_valor(fam['valor_total'])}")
+        e.append(Paragraph(info, ParagraphStyle(
+            'fam_info', fontSize=8, textColor=CINZA_TXT, spaceAfter=4,
+        )))
+
+        # Tabela de itens consolidados
+        itens = fam.get('itens_consolidados', [])
+        if itens:
+            cabecalho = [['Código', 'Descrição', 'SIMPAS', 'Unid.', 'Qtd. Total', 'Vl. Unit.', 'Vl. Total', 'DFDs']]
+            linhas = list(cabecalho)
+            for it in itens:
+                linhas.append([
+                    it.get('catalogo_codigo', '—'),
+                    (it.get('catalogo_nome', '—'))[:45],
+                    (it.get('catalogo_simpas', '—'))[:20],
+                    it.get('unidade_medida', '—'),
+                    str(round(it.get('quantidade_total', 0), 2)),
+                    _fmt_valor(it.get('valor_unitario', 0)),
+                    _fmt_valor(it.get('valor_total_consolidado', 0)),
+                    ', '.join(it.get('dfds', []))[:25],
+                ])
+            # Linha de total da família
+            linhas.append([
+                '', 'TOTAL DA FAMÍLIA', '', '', '', '',
+                _fmt_valor(fam['valor_total']), '',
+            ])
+
+            t = Table(linhas, colWidths=[1.8*cm, 4.5*cm, 2.5*cm, 1.2*cm, 1.5*cm, 2*cm, 2*cm, 2*cm])
+            t.setStyle(TableStyle([
+                ('BACKGROUND',    (0, 0),  (-1, 0),   AZUL_GOV),
+                ('TEXTCOLOR',     (0, 0),  (-1, 0),   BRANCO),
+                ('FONTNAME',      (0, 0),  (-1, 0),   'Helvetica-Bold'),
+                ('BACKGROUND',    (0, -1), (-1, -1),  AZUL_CLARO),
+                ('FONTNAME',      (1, -1), (1, -1),   'Helvetica-Bold'),
+                ('FONTSIZE',      (0, 0),  (-1, -1),  7),
+                ('ROWBACKGROUNDS',(0, 1),  (-1, -2),  [BRANCO, AZUL_CLARO]),
+                ('GRID',          (0, 0),  (-1, -1),  0.5, CINZA_BD),
+                ('VALIGN',        (0, 0),  (-1, -1),  'MIDDLE'),
+                ('TOPPADDING',    (0, 0),  (-1, -1),  3),
+                ('BOTTOMPADDING', (0, 0),  (-1, -1),  3),
+            ]))
+            e.append(t)
+
+    # Legenda de modalidades
+    e.append(Spacer(1, 0.5*cm))
+    legenda_dados = [
+        ['Legenda de Modalidades Sugeridas', ''],
+        ['Pregão Eletrônico', f'Valor total da família > R$ {_fmt_valor(dados.get("limite_dispensa", 62000))}'],
+        ['Dispensa Agrupada', 'Mesma família presente em múltiplos DFDs — agrupamento recomendado'],
+        ['Dispensa por Valor', 'Valor dentro do limite de dispensa e DFD único'],
+    ]
+    tl = Table(legenda_dados, colWidths=[5*cm, 12.5*cm])
+    tl.setStyle(TableStyle([
+        ('BACKGROUND',  (0, 0), (-1, 0),  AZUL_GOV),
+        ('TEXTCOLOR',   (0, 0), (-1, 0),  BRANCO),
+        ('SPAN',        (0, 0), (-1, 0)),
+        ('FONTNAME',    (0, 0), (-1, 0),  'Helvetica-Bold'),
+        ('FONTSIZE',    (0, 0), (-1, -1), 7),
+        ('GRID',        (0, 0), (-1, -1), 0.5, CINZA_BD),
+        ('VALIGN',      (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING',  (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+    ]))
+    e.append(tl)
+
+    doc.build(e, onFirstPage=_rodape, onLaterPages=_rodape)
+    return buf.getvalue()
+
+
 def gerar_html(tipo: str, contexto: dict) -> str:
     return render_to_string(f'exportacao/{tipo}.html', contexto)
 

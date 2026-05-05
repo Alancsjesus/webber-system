@@ -39,6 +39,7 @@ import ArtefatoAdmin from './pages/config/ArtefatoAdmin'
 import CatalogoAdmin from './pages/config/CatalogoAdmin'
 import Ajuda from './pages/Ajuda'
 import Painel from './pages/Painel'
+import PlanoCompras from './pages/PlanoCompras'
 import ContratoList from './pages/ContratoList'
 import ContratoCreate from './pages/ContratoCreate'
 import ContratoDetail from './pages/ContratoDetail'
@@ -60,8 +61,9 @@ export default function App() {
           <Route index element={<Dashboard />} />
 
           {/* Painel e Ajuda */}
-          <Route path="painel" element={<Painel />} />
-          <Route path="ajuda"  element={<Ajuda />} />
+          <Route path="painel"         element={<Painel />} />
+          <Route path="ajuda"          element={<Ajuda />} />
+          <Route path="plano-compras"  element={<PlanoCompras />} />
 
           {/* Planejamento */}
           <Route path="planejamento/necessidades"       element={<NecessidadeList />} />

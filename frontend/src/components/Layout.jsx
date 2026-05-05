@@ -33,8 +33,9 @@ const NAV_BASE = [
   {
     section: 'Geral',
     items: [
-      { to: '/',       label: 'Dashboard', end: true },
-      { to: '/painel', label: 'Painel de Demandas' },
+      { to: '/',               label: 'Dashboard',       end: true },
+      { to: '/painel',         label: 'Painel de Demandas' },
+      { to: '/plano-compras',  label: 'Plano de Compras' },
     ],
   },
   {

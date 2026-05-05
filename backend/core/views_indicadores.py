@@ -307,3 +307,154 @@ class IndicadoresAgrupamentoView(APIView):
             'familias':        resultado,
             'total_familias':  len(resultado),
         })
+
+
+class PlanoComprasView(APIView):
+    """
+    Relatório de Plano de Compras por família SIMPAS.
+    Consolida todos os itens de DFD com catálogo vinculado,
+    agrupados por família, com detalhe de itens e sugestão de modalidade.
+
+    GET /api/indicadores/plano-compras/
+    Parâmetros opcionais:
+      ?exercicio=2026          — filtra por exercício do DFD (via dotação)
+      ?status=Rascunho,Aprovada — filtra por status do DFD (default: todos exceto Cancelada/Rejeitada)
+      ?familia=42.40            — filtra uma família específica
+    """
+    permission_classes = [IsAuthenticated, IsMultiTenant]
+
+    def get(self, request):
+        from modulo_demanda.models import ItemDFD
+        from core.models import ParametroSistema
+
+        org_id = request.org_id
+
+        limite_str = ParametroSistema.get('valor_limite_dispensa_etp', '62000.00')
+        try:
+            limite_dispensa = Decimal(str(limite_str))
+        except Exception:
+            limite_dispensa = Decimal('62000.00')
+
+        # Filtros
+        familia_filtro = request.query_params.get('familia')
+        status_param   = request.query_params.get('status', '')
+        status_list    = [s.strip() for s in status_param.split(',') if s.strip()] if status_param else None
+        exercicio      = request.query_params.get('exercicio')
+
+        # Base query — itens com catálogo
+        qs = ItemDFD.objects.filter(
+            dfd__org_id=org_id,
+            item_catalogo__isnull=False,
+        ).exclude(
+            dfd__status__in=['Rejeitada', 'Cancelada']
+        ).select_related('item_catalogo', 'dfd__org_id')
+
+        if status_list:
+            qs = qs.filter(dfd__status__in=status_list)
+        if familia_filtro:
+            qs = qs.filter(item_catalogo__familia=familia_filtro)
+
+        # Agrupar por família
+        familias: dict = {}
+        for item in qs:
+            fam  = item.item_catalogo.familia or 'Sem família'
+            nome_fam = fam
+            if fam not in familias:
+                familias[fam] = {
+                    'familia':        fam,
+                    'total_itens':    0,
+                    'qtd_total':      Decimal('0'),
+                    'valor_total':    Decimal('0'),
+                    'dfds_ids':       set(),
+                    'status_counts':  {},
+                    'itens':          [],
+                }
+            g = familias[fam]
+            g['total_itens'] += 1
+            g['qtd_total']   += item.quantidade
+            valor_item = item.quantidade * item.valor_unitario_estimado
+            g['valor_total'] += valor_item
+            g['dfds_ids'].add(item.dfd_id)
+            st = item.dfd.status
+            g['status_counts'][st] = g['status_counts'].get(st, 0) + 1
+            g['itens'].append({
+                'item_id':          item.id,
+                'catalogo_codigo':  item.item_catalogo.codigo_interno,
+                'catalogo_simpas':  item.item_catalogo.codigo_simpas,
+                'catalogo_nome':    item.item_catalogo.nome,
+                'unidade_medida':   item.item_catalogo.unidade_medida or item.unidade_medida,
+                'dfd_sei':          item.dfd.numero_sei,
+                'dfd_status':       item.dfd.status,
+                'quantidade':       float(item.quantidade),
+                'valor_unitario':   float(item.valor_unitario_estimado),
+                'valor_total':      float(valor_item),
+            })
+
+        # Consolidar por item dentro da família
+        resultado = []
+        for fam, g in sorted(familias.items()):
+            valor = g['valor_total']
+            qtd_dfds = len(g['dfds_ids'])
+
+            # Consolidar itens iguais (mesmo simpas) somando qtd
+            itens_consolidados: dict = {}
+            for it in g['itens']:
+                key = it['catalogo_simpas'] or it['catalogo_codigo']
+                if key not in itens_consolidados:
+                    itens_consolidados[key] = {
+                        **it,
+                        'dfds': [it['dfd_sei']],
+                        'quantidade_total': it['quantidade'],
+                        'valor_total_consolidado': it['valor_total'],
+                    }
+                else:
+                    itens_consolidados[key]['quantidade_total'] += it['quantidade']
+                    itens_consolidados[key]['valor_total_consolidado'] += it['valor_total']
+                    if it['dfd_sei'] not in itens_consolidados[key]['dfds']:
+                        itens_consolidados[key]['dfds'].append(it['dfd_sei'])
+
+            # Sugestão de modalidade
+            if valor > limite_dispensa:
+                sugestao       = 'pregao_eletronico'
+                sugestao_label = 'Pregão Eletrônico'
+            elif qtd_dfds > 1:
+                sugestao       = 'dispensa_agrupada'
+                sugestao_label = 'Dispensa Agrupada'
+            else:
+                sugestao       = 'dispensa_valor'
+                sugestao_label = 'Dispensa por Valor'
+
+            resultado.append({
+                'familia':         fam,
+                'total_itens':     g['total_itens'],
+                'total_dfds':      qtd_dfds,
+                'qtd_total':       float(g['qtd_total']),
+                'valor_total':     float(valor),
+                'status_counts':   g['status_counts'],
+                'sugestao':        sugestao,
+                'sugestao_label':  sugestao_label,
+                'itens_consolidados': list(itens_consolidados.values()),
+            })
+
+        # Totais gerais
+        total_geral = sum(float(g['valor_total']) for g in familias.values())
+
+        dados = {
+            'exercicio':       exercicio,
+            'limite_dispensa': float(limite_dispensa),
+            'total_familias':  len(resultado),
+            'valor_total':     total_geral,
+            'familias':        resultado,
+        }
+
+        if request.query_params.get('format') == 'pdf':
+            from exportacao.pdf_utils import gerar_pdf_plano_compras, resposta_pdf
+            from core.models import Orgao
+            orgao = Orgao.objects.filter(pk=org_id).first()
+            org_nome  = orgao.nome  if orgao else 'WEBBER'
+            org_sigla = orgao.sigla if orgao else None
+            pdf = gerar_pdf_plano_compras(dados, org_nome, org_sigla)
+            nome = f'PlanoCompras{"-" + str(exercicio) if exercicio else ""}.pdf'
+            return resposta_pdf(pdf, nome)
+
+        return Response(dados)
