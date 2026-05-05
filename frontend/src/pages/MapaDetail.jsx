@@ -607,43 +607,86 @@ export default function MapaDetail() {
           {!loadingHist && !historicoWB && (
             <button onClick={loadHistoricoWB}
               className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded-lg">
-              Consultar histórico de aquisições
+              Consultar histórico de contratações por item
             </button>
           )}
           {historicoWB && (
-            <div>
-              <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mb-4 text-sm text-blue-800">
-                <strong>Histórico WEBBER:</strong> {historicoWB.nota}
-                <span className="ml-2 font-semibold">({historicoWB.total} item(s) encontrado(s))</span>
+            <div className="space-y-4">
+              <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-sm text-blue-800">
+                {historicoWB.nota}
+                <span className="ml-2 font-semibold">({historicoWB.total} contratação(ões) encontrada(s))</span>
               </div>
-              {historicoWB.itens.length === 0
-                ? <p className="text-sm text-gray-400">Nenhum item de DFD aprovado encontrado nos últimos 2 anos para este órgão.</p>
-                : (
-                  <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-                    <table className="w-full text-sm">
-                      <thead className="bg-gray-50 border-b border-gray-200">
+
+              {(historicoWB.grupos || []).length === 0 && (
+                <p className="text-sm text-gray-400">Nenhum item configurado neste mapa.</p>
+              )}
+
+              {(historicoWB.grupos || []).map((grupo, gi) => (
+                <div key={gi} className="border border-gray-200 rounded-xl overflow-hidden">
+                  {/* Cabeçalho do item */}
+                  <div className="flex items-center justify-between px-4 py-2.5 bg-gray-50 border-b border-gray-200">
+                    <div>
+                      <span className="text-sm font-semibold text-gray-800">{grupo.item_descricao}</span>
+                      {grupo.codigo_simpas && (
+                        <span className="ml-2 text-xs font-mono text-blue-600 bg-blue-50 px-1.5 py-0.5 rounded">
+                          {grupo.codigo_simpas}
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                        grupo.match_por === 'simpas'
+                          ? 'bg-green-100 text-green-700'
+                          : grupo.match_por === 'descricao'
+                          ? 'bg-yellow-100 text-yellow-700'
+                          : 'bg-gray-100 text-gray-500'
+                      }`}>
+                        {grupo.match_por === 'simpas' ? 'Match SIMPAS ✓'
+                          : grupo.match_por === 'descricao' ? 'Match por descrição'
+                          : 'Sem histórico'}
+                      </span>
+                      <span className="text-xs text-gray-400">{grupo.total} registro(s)</span>
+                    </div>
+                  </div>
+
+                  {grupo.historico.length === 0 ? (
+                    <p className="px-4 py-3 text-sm text-gray-400 italic">
+                      Nenhuma contratação anterior encontrada para este item nos últimos 2 anos.
+                    </p>
+                  ) : (
+                    <table className="w-full text-xs">
+                      <thead className="bg-gray-50/60">
                         <tr>
-                          <th className="text-left px-4 py-2 font-medium text-gray-500">DFD</th>
-                          <th className="text-left px-4 py-2 font-medium text-gray-500">Item</th>
-                          <th className="text-left px-4 py-2 font-medium text-gray-500">Qtd</th>
+                          <th className="text-left px-4 py-2 font-medium text-gray-500">DFD (SEI)</th>
+                          <th className="text-left px-4 py-2 font-medium text-gray-500">Descrição anterior</th>
+                          <th className="text-right px-4 py-2 font-medium text-gray-500">Qtd</th>
                           <th className="text-right px-4 py-2 font-medium text-gray-500">Valor Unit.</th>
-                          <th className="text-left px-4 py-2 font-medium text-gray-500">Data</th>
+                          <th className="text-left px-4 py-2 font-medium text-gray-500">Data DFD</th>
+                          <th className="text-left px-4 py-2 font-medium text-gray-500">Contrato</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-gray-100">
-                        {historicoWB.itens.map((h, i) => (
-                          <tr key={i} className="hover:bg-gray-50">
-                            <td className="px-4 py-2 font-mono text-xs text-blue-700">{h.dfd_numero_sei}</td>
-                            <td className="px-4 py-2 text-gray-700 max-w-xs truncate">{h.item_descricao}</td>
-                            <td className="px-4 py-2 text-gray-500">{h.quantidade} {h.unidade_medida}</td>
-                            <td className="px-4 py-2 text-right font-semibold">{fmt(h.valor_unitario)}</td>
-                            <td className="px-4 py-2 text-xs text-gray-400">{h.dfd_data}</td>
+                      <tbody className="divide-y divide-gray-50">
+                        {grupo.historico.map((h, hi) => (
+                          <tr key={hi} className="hover:bg-gray-50">
+                            <td className="px-4 py-2 font-mono text-blue-700">{h.dfd_numero_sei}</td>
+                            <td className="px-4 py-2 text-gray-700 max-w-xs truncate" title={h.item_descricao}>
+                              {h.item_descricao}
+                            </td>
+                            <td className="px-4 py-2 text-right text-gray-600">{h.quantidade} {h.unidade_medida}</td>
+                            <td className="px-4 py-2 text-right font-semibold text-gray-800">{fmt(h.valor_unitario)}</td>
+                            <td className="px-4 py-2 text-gray-400">{h.dfd_data}</td>
+                            <td className="px-4 py-2 text-gray-500">
+                              {h.contrato
+                                ? <span className="text-green-700 font-medium">{h.contrato}</span>
+                                : <span className="text-gray-300">—</span>}
+                            </td>
                           </tr>
                         ))}
                       </tbody>
                     </table>
-                  </div>
-                )}
+                  )}
+                </div>
+              ))}
             </div>
           )}
         </div>

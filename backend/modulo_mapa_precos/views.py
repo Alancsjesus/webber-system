@@ -281,45 +281,107 @@ class MapaComparativoPrecosViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['get'], url_path='historico-webber')
     def historico_webber(self, request, pk=None):
         """
-        Busca preços de referência no histórico interno do WEBBER.
-        Retorna itens de DFDs aprovados com descrição similar ao objeto do mapa.
-        Inclui indicação se a aquisição foi bem-sucedida, deserta ou fracassada.
+        Para cada item do mapa, busca contratações anteriores do MESMO item
+        (por código SIMPAS ou similaridade de descrição) em DFDs aprovados.
+
+        Retorna resultados agrupados por item do mapa, permitindo ao pesquisador
+        avaliar o histórico de preços efetivamente praticados para aquele item.
         """
         from modulo_demanda.models import DFD, ItemDFD
-        mapa = self.get_object()
-
-        # Busca DFDs aprovados do mesmo órgão nos últimos 2 anos
         from django.utils import timezone
         from datetime import timedelta
-        dois_anos_atras = timezone.now() - timedelta(days=730)
+        from django.db.models import Q
 
-        dfds_aprovados = DFD.objects.filter(
-            org_id=request.org_id,
-            status='Aprovada',
-            created_at__gte=dois_anos_atras,
-        ).exclude(pk=mapa.dfd_id)
+        mapa = self.get_object()
+        dois_anos_atras = (timezone.now() - timedelta(days=730)).date()
 
-        resultados = []
-        for dfd in dfds_aprovados[:20]:  # limita para performance
-            for item in dfd.itens.all():
-                resultados.append({
-                    'dfd_id':           dfd.pk,
-                    'dfd_numero_sei':   dfd.numero_sei,
-                    'dfd_status':       dfd.status,
-                    'dfd_data':         dfd.created_at.strftime('%d/%m/%Y'),
-                    'item_descricao':   item.objeto,
-                    'valor_unitario':   float(item.valor_unitario_estimado),
-                    'unidade_medida':   item.unidade_medida,
-                    'quantidade':       float(item.quantidade),
-                    'origem':           'HIST',
-                    'origem_label':     f'Histórico WEBBER — DFD {dfd.numero_sei}',
+        # Base: DFDs aprovados (mesmo órgão + filhos), excluindo o próprio DFD do mapa
+        child_ids = list(
+            __import__('core.models', fromlist=['Orgao'])
+            .__dict__['Orgao']
+            .objects.filter(parent_id=request.org_id)
+            .values_list('id', flat=True)
+        ) if False else []
+        try:
+            from core.models import Orgao
+            child_ids = list(Orgao.objects.filter(parent_id=request.org_id).values_list('id', flat=True))
+        except Exception:
+            child_ids = []
+
+        base_qs = ItemDFD.objects.filter(
+            dfd__status='Aprovada',
+            dfd__org_id__in=[request.org_id] + child_ids,
+            dfd__created_at__date__gte=dois_anos_atras,
+        ).select_related('dfd', 'item_catalogo')
+        if mapa.dfd_id:
+            base_qs = base_qs.exclude(dfd_id=mapa.dfd_id)
+
+        itens_mapa = mapa.itens.all()
+        grupos = []
+
+        for item_mapa in itens_mapa:
+            # Buscar por SIMPAS (match exato, maior precisão)
+            matches_simpas = []
+            matches_desc   = []
+
+            if item_mapa.codigo_simpas:
+                matches_simpas = list(base_qs.filter(
+                    item_catalogo__codigo_simpas=item_mapa.codigo_simpas
+                )[:15])
+
+            # Fallback: keywords da descrição (primeiras 3 palavras significativas)
+            if not matches_simpas and item_mapa.descricao:
+                palavras = [
+                    p for p in item_mapa.descricao.split()
+                    if len(p) > 3 and p.lower() not in ('para', 'com', 'por', 'dos', 'das', 'uma')
+                ][:3]
+                if palavras:
+                    q = Q()
+                    for p in palavras:
+                        q |= Q(objeto__icontains=p)
+                    matches_desc = list(base_qs.filter(q)[:15])
+
+            historico = []
+            for it in (matches_simpas or matches_desc):
+                # Verificar se há contrato resultante deste DFD
+                contrato_info = None
+                contratos = it.dfd.contratos.filter(status='Vigente').first()
+                if contratos:
+                    contrato_info = f'{contratos.numero} (vigente até {contratos.data_vigencia_fim})'
+
+                historico.append({
+                    'item_dfd_id':        it.pk,
+                    'dfd_id':             it.dfd.pk,
+                    'dfd_numero_sei':     it.dfd.numero_sei,
+                    'dfd_data':           it.dfd.created_at.strftime('%d/%m/%Y'),
+                    'item_descricao':     it.objeto,
+                    'valor_unitario':     float(it.valor_unitario_estimado),
+                    'unidade_medida':     it.unidade_medida,
+                    'quantidade':         float(it.quantidade),
+                    'contrato':           contrato_info,
+                    'match_simpas':       bool(matches_simpas),
+                    'origem_label':       f'Histórico WEBBER — DFD {it.dfd.numero_sei}',
                 })
 
+            grupos.append({
+                'item_mapa_id':    item_mapa.pk,
+                'item_descricao':  item_mapa.descricao,
+                'codigo_simpas':   item_mapa.codigo_simpas,
+                'unidade_medida':  item_mapa.unidade_medida,
+                'match_por':       'simpas' if matches_simpas else ('descricao' if matches_desc else 'sem_match'),
+                'total':           len(historico),
+                'historico':       historico,
+            })
+
+        total_geral = sum(g['total'] for g in grupos)
         return Response({
-            'total': len(resultados),
-            'itens': resultados,
-            'nota':  'Preços de DFDs aprovados do seu órgão nos últimos 2 anos. '
-                     'Use para validar coerência dos preços coletados externamente.',
+            'total': total_geral,
+            'grupos': grupos,
+            'nota': (
+                'Histórico agrupado por item do mapa. '
+                'Itens com código SIMPAS têm match exato; demais por similaridade de descrição. '
+                'Use os valores como referência complementar (Parâmetro II interno).'
+            ),
         })
 
     # ── CRUD de Fontes ─────────────────────────────────────────────────────────
