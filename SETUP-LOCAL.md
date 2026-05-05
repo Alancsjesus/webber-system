@@ -1,148 +1,170 @@
-# Setup Local — WEBBER System
+# WEBBER System — Setup de Desenvolvimento
+
+## Princípio fundamental
+
+> **TODOS os comandos Django (migrations, management commands, shell) devem ser executados
+> dentro do container Docker.** Nunca use o venv local para comandos Django.
+
+O venv local pode estar corrompido (caminho de Python aponta para usuário diferente).
+O container garante o ambiente correto, consistente e idêntico ao de produção.
+
+---
 
 ## Pré-requisitos
 
-- **Python 3.11+**: [Download](https://www.python.org/)
-- **Node.js 18+** e npm: [Download](https://nodejs.org/)
-- **Docker & Docker Compose** (para modo PostgreSQL): [Download](https://www.docker.com/)
-- **Git**: [Download](https://git-scm.com/)
-
----
-
-## Opção A — Modo rápido com SQLite
-
-Ideal para desenvolvimento inicial. Sem necessidade de Docker.
-
-### 1. Clone o repositório
-
-```bash
-git clone <repo-url>
-cd webber-system
-```
-
-### 2. Crie o virtualenv e instale dependências Python
-
-```bash
-cd backend
-python -m venv ../venv
-source ../venv/bin/activate   # Windows: ..\venv\Scripts\activate
-pip install -r requirements.txt
-```
-
-### 3. Configure as variáveis de ambiente
-
-```bash
-cp ../.env.example .env
-# Verifique que USE_POSTGRES=False (já é o padrão)
-```
-
-### 4. Execute as migrações
-
-```bash
-python manage.py migrate
-```
-
-### 5. Popule os dados iniciais
-
-```bash
-python manage.py setup_dev
-python manage.py populate_elementos_despesa
-```
-
-### 6. Inicie o backend
-
-```bash
-python manage.py runserver
-```
-
-### 7. Inicie o frontend (novo terminal)
-
-```bash
-cd ../frontend
-npm install
-npm run dev
-```
-
-Acesse: http://localhost:5173  
-Login: `admin` / `admin123`
-
----
-
-## Opção B — Modo completo com PostgreSQL via Docker
-
-### 1–2. Clone e virtualenv (igual à Opção A)
-
-### 3. Suba o banco e Redis com Docker
-
-```bash
-# Na raiz do projeto (onde está o docker-compose.yml)
-docker compose up -d db redis
-```
-
-Aguarde o healthcheck do PostgreSQL (cerca de 10 segundos):
-
-```bash
-docker compose ps   # coluna "Status" deve mostrar "healthy" para db
-```
-
-### 4. Configure o arquivo .env
-
-```bash
-cd backend
-cp ../.env.example .env
-```
-
-Edite `.env` e altere:
-
-```
-USE_POSTGRES=True
-DB_HOST=localhost   # já está correto — Docker expõe na porta 5432
-```
-
-### 5. Execute as migrações
-
-```bash
-source ../venv/bin/activate
-python manage.py migrate
-```
-
-### 6. Popule os dados iniciais
-
-```bash
-python manage.py setup_dev
-python manage.py populate_elementos_despesa
-```
-
-### 7. Inicie backend e frontend (igual à Opção A, passos 6–7)
-
-Acesse: http://localhost:5173  
-Login: `admin` / `admin123`
-
----
-
-## Comandos úteis
-
-| Comando | Descrição |
-|---|---|
-| `python manage.py setup_dev` | Cria organização e superusuário de desenvolvimento |
-| `python manage.py populate_elementos_despesa` | Popula os ~40 elementos de despesa padronizados (Lei 14.133) |
-| `docker compose up -d db redis` | Inicia PostgreSQL + Redis em background |
-| `docker compose ps` | Verifica status dos containers |
-| `docker compose down` | Para os containers |
-| `docker compose down -v` | Para e remove os volumes (apaga todos os dados) |
-
----
-
-## Variáveis de ambiente relevantes
-
-| Variável | Padrão | Descrição |
+| Ferramenta | Versão mínima | Uso |
 |---|---|---|
-| `USE_POSTGRES` | `False` | `True` para usar PostgreSQL, `False` para SQLite |
-| `DB_NAME` | `webber_db` | Nome do banco PostgreSQL |
-| `DB_USER` | `webber_user` | Usuário do banco |
-| `DB_PASSWORD` | `webber_pass` | Senha do banco |
-| `DB_HOST` | `localhost` | Host do banco |
-| `DB_PORT` | `5432` | Porta do banco |
-| `REDIS_URL` | `redis://localhost:6379/0` | URL do Redis |
-| `SECRET_KEY` | — | Chave secreta Django (trocar em produção) |
-| `DEBUG` | `True` | Modo debug (desativar em produção) |
+| Docker Desktop | 4.x | Backend + DB + Redis |
+| Node.js | 20.x | Frontend (Vite) — local |
+| Git | 2.x | Versionamento |
+
+**NÃO é necessário** instalar Python, pip ou venv localmente.
+
+---
+
+## Primeiro uso
+
+```powershell
+# 1. Clonar o repositório
+git clone https://github.com/Alancsjesus/webber-system.git
+cd webber-system
+
+# 2. Verificar/copiar o arquivo de configuração
+copy backend\.env.example backend\.env   # editar conforme necessário
+
+# 3. Subir todos os serviços
+docker compose up -d
+
+# 4. Criar dados iniciais (órgãos, usuários, parâmetros)
+docker compose exec backend python manage.py setup_dev
+
+# 5. Instalar dependências do frontend (uma vez)
+cd frontend && npm install && cd ..
+
+# 6. Iniciar o frontend
+.\scripts\webber.ps1 vite
+```
+
+**Acesse:**
+- Frontend: http://localhost:5173
+- API: http://localhost:8000
+- Login padrão: `admin` / `admin123`
+
+---
+
+## Fluxo diário de trabalho
+
+```powershell
+# Iniciar
+.\scripts\webber.ps1 up      # sobe db + redis + backend
+.\scripts\webber.ps1 vite    # inicia frontend (terminal separado)
+
+# Parar
+.\scripts\webber.ps1 down
+# Ctrl+C no terminal do Vite
+```
+
+---
+
+## Comandos Django — SEMPRE via container
+
+```powershell
+.\scripts\webber.ps1 migrate              # Aplicar migrations
+.\scripts\webber.ps1 makemig app_name     # Criar migration
+.\scripts\webber.ps1 shell                # Django shell interativo
+.\scripts\webber.ps1 setup                # Recriar dados iniciais
+.\scripts\webber.ps1 manage <comando>     # Qualquer management command
+.\scripts\webber.ps1 logs                 # Ver logs do backend
+```
+
+### Equivalente direto (sem script)
+```powershell
+docker compose exec backend python manage.py migrate
+docker compose exec backend python manage.py makemigrations modulo_xxx
+docker compose exec backend python manage.py shell
+```
+
+---
+
+## Estrutura dos serviços
+
+```
+docker-compose.yml (desenvolvimento)
+├── db       → PostgreSQL 13 (porta 5432)
+├── redis    → Redis 7 (porta 6379)
+└── backend  → Django 5.1 (porta 8000)
+              ├── Volume: ./backend:/app  (hot-reload automático)
+              └── entrypoint.dev.sh: migrate + runserver
+
+frontend/ → Vite 5 + React (porta 5173) — roda LOCALMENTE
+            Motivo: restrição de rede corporativa bloqueia npm no container
+```
+
+---
+
+## Criar nova migration (fluxo correto)
+
+```powershell
+# 1. Alterar model em backend/modulo_xxx/models.py
+# 2. Criar a migration NO CONTAINER
+.\scripts\webber.ps1 makemig modulo_xxx
+# 3. Verificar o arquivo gerado
+# 4. Aplicar
+.\scripts\webber.ps1 migrate
+# 5. Comitar model + migration juntos
+git add backend/modulo_xxx/models.py backend/modulo_xxx/migrations/
+git commit -m "feat: ..."
+```
+
+> ⚠️ Nunca crie migrations com o Python local. O container usa a versão
+> correta do Django e detecta exatamente o que mudou no banco.
+
+---
+
+## Deploy em produção
+
+```bash
+git pull origin main
+docker compose -f docker-compose.prod.yml up -d --build
+```
+
+O `Dockerfile` (produção) usa `entrypoint.prod.sh` que executa automaticamente:
+1. `python manage.py migrate --noinput`
+2. `python manage.py collectstatic --noinput`
+3. `gunicorn` com 3 workers
+
+### Variáveis de ambiente em produção (nunca commitar)
+```ini
+SECRET_KEY=<chave-segura>
+DEBUG=False
+ALLOWED_HOSTS=meudominio.com.br
+USE_POSTGRES=True
+DB_HOST=db
+DB_NAME=webber_db
+DB_USER=webber_user
+DB_PASSWORD=<senha-forte>
+REDIS_URL=redis://redis:6379/0
+CORS_ALLOWED_ORIGINS=https://meudominio.com.br
+```
+
+---
+
+## Solução de problemas
+
+| Problema | Comando |
+|---|---|
+| Backend não inicia | `.\scripts\webber.ps1 logs` |
+| Conflito de migration | `.\scripts\webber.ps1 manage showmigrations` |
+| Resetar banco (dev) | `docker compose down -v && docker compose up -d` |
+| Frontend não atualiza | Ctrl+C e reiniciar o Vite |
+
+---
+
+## O que NÃO fazer
+
+| ❌ Errado | ✅ Correto |
+|---|---|
+| `venv\Scripts\python.exe manage.py migrate` | `.\scripts\webber.ps1 migrate` |
+| `python manage.py makemigrations` | `.\scripts\webber.ps1 makemig app` |
+| `pip install` localmente | Editar `requirements.txt` + rebuildar |
+| Commitar `.env` | Usar `.env.example` como referência |
