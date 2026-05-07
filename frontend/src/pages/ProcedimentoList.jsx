@@ -7,7 +7,7 @@ const MODALIDADE_LABEL = {
   pregao_eletronico:    'Pregão Eletrônico',
   concorrencia:         'Concorrência',
   dispensa_eletronica:  'Dispensa Eletrônica',
-  dispensa_tradicional: 'Dispensa por Valor',
+  dispensa_tradicional: 'Dispensa Tradicional',
   inexigibilidade:      'Inexigibilidade',
 }
 

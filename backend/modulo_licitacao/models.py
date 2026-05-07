@@ -20,8 +20,8 @@ from core.models import BaseModel
 MODALIDADE_CHOICES = [
     ('pregao_eletronico',    'Pregão Eletrônico'),
     ('concorrencia',         'Concorrência'),
-    ('dispensa_eletronica',  'Dispensa Eletrônica'),
-    ('dispensa_tradicional', 'Dispensa por Valor (Tradicional)'),
+    ('dispensa_eletronica',  'Dispensa Eletrônica (por Valor — Art. 75 I/II)'),
+    ('dispensa_tradicional', 'Dispensa Tradicional'),
     ('inexigibilidade',      'Inexigibilidade'),
 ]
 

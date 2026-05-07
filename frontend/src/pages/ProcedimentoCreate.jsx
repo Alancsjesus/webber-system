@@ -153,8 +153,8 @@ export default function ProcedimentoCreate() {
                 <option value="concorrencia">Concorrência</option>
               </optgroup>
               <optgroup label="Contratações Diretas">
-                <option value="dispensa_eletronica">Dispensa Eletrônica</option>
-                <option value="dispensa_tradicional">Dispensa por Valor</option>
+                <option value="dispensa_eletronica">Dispensa Eletrônica (por Valor — Art. 75 I/II)</option>
+                <option value="dispensa_tradicional">Dispensa Tradicional</option>
                 <option value="inexigibilidade">Inexigibilidade</option>
               </optgroup>
             </select>
