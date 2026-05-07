@@ -11,6 +11,7 @@ const SECTION_ACCENT = {
   'Demanda':            { dot: 'bg-blue-400',     ring: 'bg-blue-500/15',    text: 'text-blue-300'   },
   'Pesquisa de Preços': { dot: 'bg-violet-400',   ring: 'bg-violet-500/15',  text: 'text-violet-300' },
   'Análise Técnica':    { dot: 'bg-indigo-400',   ring: 'bg-indigo-500/15',  text: 'text-indigo-300' },
+  'Licitação':          { dot: 'bg-orange-400',   ring: 'bg-orange-500/15',  text: 'text-orange-300' },
   'Contratos':          { dot: 'bg-teal-400',     ring: 'bg-teal-500/15',    text: 'text-teal-300'   },
   'Configurações':      { dot: 'bg-gray-400',     ring: 'bg-gray-500/10',    text: 'text-gray-300'   },
 }
@@ -23,6 +24,7 @@ const ACTIVE_CLS = {
   'Demanda':            'bg-blue-700 text-white',
   'Pesquisa de Preços': 'bg-violet-700 text-white',
   'Análise Técnica':    'bg-indigo-700 text-white',
+  'Licitação':          'bg-orange-700 text-white',
   'Contratos':          'bg-teal-700 text-white',
   'Configurações':      'bg-gray-600 text-white',
 }
@@ -63,6 +65,10 @@ const NAV_BASE = [
       { to: '/etp/etps',            label: 'ETPs' },
       { to: '/analise-tecnica/trs', label: 'Minutas TR' },
     ],
+  },
+  {
+    section: 'Licitação',
+    items: [{ to: '/licitacao', label: 'Procedimentos' }],
   },
   {
     section: 'Contratos',

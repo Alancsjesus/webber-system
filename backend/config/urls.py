@@ -45,4 +45,5 @@ urlpatterns = [
     path('api/tr/',        include('modulo_tr.urls')),
     path('api/pesquisa/',   include('modulo_mapa_precos.urls')),
     path('api/contratos/',  include('modulo_contrato.urls')),
+    path('api/licitacao/', include('modulo_licitacao.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

@@ -43,6 +43,9 @@ import PlanoCompras from './pages/PlanoCompras'
 import ContratoList from './pages/ContratoList'
 import ContratoCreate from './pages/ContratoCreate'
 import ContratoDetail from './pages/ContratoDetail'
+import ProcedimentoList from './pages/ProcedimentoList'
+import ProcedimentoCreate from './pages/ProcedimentoCreate'
+import ProcedimentoDetail from './pages/ProcedimentoDetail'
 
 export default function App() {
   return (
@@ -112,6 +115,11 @@ export default function App() {
           <Route path="config/fontes"    element={<FonteAdmin />} />
           <Route path="config/artefatos" element={<ArtefatoAdmin />} />
           <Route path="config/catalogo"  element={<CatalogoAdmin />} />
+
+          {/* Licitação e Contratações Diretas */}
+          <Route path="licitacao"        element={<ProcedimentoList />} />
+          <Route path="licitacao/novo"   element={<ProcedimentoCreate />} />
+          <Route path="licitacao/:id"    element={<ProcedimentoDetail />} />
 
           {/* Contratos */}
           <Route path="contratos"        element={<ContratoList />} />
