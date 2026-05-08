@@ -157,6 +157,35 @@ const TIPO_UNIDADE_BADGE = {
   planejamento: { label: 'Planejamento', cls: 'bg-orange-800 text-orange-200' },
 }
 
+// ── Matriz de acesso (espelha RequireRole.jsx) ────────────────────────────────
+
+const ACESSO_PAPEL = {
+  admin:               ['*'],
+  analista:            ['/', '/painel', '/ajuda', '/plano-compras', '/planejamento', '/demanda', '/pesquisa', '/etp', '/analise-tecnica', '/orcamento', '/licitacao', '/contratos'],
+  gestor_planejamento: ['/', '/painel', '/ajuda', '/plano-compras', '/planejamento', '/demanda', '/pesquisa', '/orcamento'],
+  gestor_contrato:     ['/', '/painel', '/ajuda', '/demanda', '/analise-tecnica', '/licitacao', '/contratos'],
+  fiscal_contrato:     ['/', '/painel', '/ajuda', '/demanda', '/contratos'],
+  ordenador:           ['/', '/painel', '/ajuda', '/plano-compras', '/orcamento', '/contratos', '/licitacao'],
+  responsavel_tecnico: ['/', '/painel', '/ajuda', '/demanda', '/pesquisa', '/etp', '/analise-tecnica'],
+  solicitante:         ['/', '/painel', '/ajuda', '/demanda', '/planejamento', '/pesquisa'],
+}
+const ACESSO_UNIDADE = {
+  licitante:    ['/licitacao', '/etp', '/analise-tecnica', '/pesquisa', '/contratos', '/plano-compras'],
+  planejamento: ['/orcamento', '/planejamento', '/plano-compras'],
+  contratante:  ['/contratos', '/licitacao'],
+  demandante:   ['/demanda', '/pesquisa'],
+}
+
+function podeAcessar(to, papel, tipoUnidade) {
+  if (papel === 'admin') return true
+  const rotas  = ACESSO_PAPEL[papel] || []
+  const extras = ACESSO_UNIDADE[tipoUnidade] || []
+  const todas  = [...new Set([...rotas, ...extras])]
+  if (todas.includes('*')) return true
+  const prefixo = '/' + (to.split('/')[1] || '')
+  return todas.some(r => to === r || to.startsWith(r + '/') || prefixo === r)
+}
+
 // ── buildSections ─────────────────────────────────────────────────────────────
 
 function buildSections(papel, tipoUnidade, flags) {
@@ -177,6 +206,14 @@ function buildSections(papel, tipoUnidade, flags) {
     const idx = sections.findIndex(s => s.section === 'Planejamento')
     if (idx >= 0) sections.splice(idx + 1, 0, NAV_ACEITE)
   }
+
+  // Filtrar itens e seções baseado na matriz de permissões
+  sections = sections
+    .map(s => ({
+      ...s,
+      items: (s.items || []).filter(item => podeAcessar(item.to, papel, tipoUnidade)),
+    }))
+    .filter(s => (s.items || []).length > 0)
 
   // Seção de configurações agrupada
   let configGroups = null
