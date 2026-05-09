@@ -167,7 +167,7 @@ const ACESSO_PAPEL = {
   fiscal_contrato:     ['/', '/painel', '/ajuda', '/demanda', '/contratos'],
   ordenador:           ['/', '/painel', '/ajuda', '/plano-compras', '/orcamento', '/contratos', '/licitacao'],
   responsavel_tecnico: ['/', '/painel', '/ajuda', '/demanda', '/pesquisa', '/etp', '/analise-tecnica'],
-  solicitante:         ['/', '/painel', '/ajuda', '/demanda', '/planejamento', '/pesquisa'],
+  solicitante:         ['/', '/painel', '/ajuda', '/demanda', '/planejamento', '/pesquisa', '/etp', '/analise-tecnica'],
 }
 const ACESSO_UNIDADE = {
   licitante:    ['/licitacao', '/etp', '/analise-tecnica', '/pesquisa', '/contratos', '/plano-compras'],

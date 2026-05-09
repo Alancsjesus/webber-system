@@ -81,6 +81,8 @@ const ACESSO_POR_PAPEL = {
     '/demanda',
     '/planejamento',
     '/pesquisa',
+    '/etp',
+    '/analise-tecnica',
   ],
 }
 

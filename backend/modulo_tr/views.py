@@ -272,6 +272,17 @@ class TRViewSet(viewsets.ModelViewSet):
             return Response({'detail': 'O lote de origem não possui itens.'},
                             status=status.HTTP_400_BAD_REQUEST)
 
+        from decimal import Decimal
+        LIMITE_EXCLUSIVO = Decimal('80000.00')
+        if lote_origem.valor_total < LIMITE_EXCLUSIVO and lote_origem.valor_total > 0:
+            return Response({
+                'detail': (
+                    f'Lote com valor R$ {float(lote_origem.valor_total):,.2f} é inferior a R$ 80.000,00. '
+                    'Não é possível criar cota reservada — este lote deve ser classificado como '
+                    '"Exclusivo ME/EPP" (LC 123/2006, Art. 48, I).'
+                )
+            }, status=status.HTTP_400_BAD_REQUEST)
+
         percentual = request.data.get('percentual', 25)
         try:
             percentual = int(percentual)

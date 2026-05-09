@@ -518,12 +518,16 @@ function LotesSection({ tr, podeEditar, onCriarLote, onExcluirLote, onAdicionarI
                     {lote.alerta_agrupamento && (
                       <span title={lote.alerta_agrupamento} className="text-amber-500 cursor-help text-sm">⚠️</span>
                     )}
+                    {lote.alerta_exclusivo && (
+                      <span title={lote.alerta_exclusivo} className="text-red-500 cursor-help text-sm">🚫</span>
+                    )}
                   </div>
                   <div className="flex items-center gap-2">
                     <span className="text-sm font-bold text-gray-700">{fmtR(lote.valor_total_lote)}</span>
                     {podeEditar && (
                       <div className="flex gap-1">
-                        {lote.modalidade === 'ampla' && tr.etp_reserva_cota_me_epp && (
+                        {/* Cota ME/EPP: só para ampla + sem alerta de exclusivo */}
+                        {lote.modalidade === 'ampla' && !lote.alerta_exclusivo && (
                           <button onClick={() => onGerarCota(lote.id)}
                             className="text-xs bg-amber-50 border border-amber-300 text-amber-700 hover:bg-amber-100 px-2 py-0.5 rounded font-medium">
                             + Cota ME/EPP
@@ -542,6 +546,13 @@ function LotesSection({ tr, podeEditar, onCriarLote, onExcluirLote, onAdicionarI
 
                 {lote.descricao && (
                   <p className="px-4 py-1 text-xs text-gray-500 border-b border-gray-100">{lote.descricao}</p>
+                )}
+
+                {/* Alerta lote exclusivo ME/EPP (valor < R$80k) */}
+                {lote.alerta_exclusivo && (
+                  <div className="px-4 py-2 border-b border-red-200 bg-red-50 text-xs text-red-800 font-medium">
+                    🚫 {lote.alerta_exclusivo}
+                  </div>
                 )}
 
                 {/* Justificativa de agrupamento — exibe quando lote tem > 1 item */}

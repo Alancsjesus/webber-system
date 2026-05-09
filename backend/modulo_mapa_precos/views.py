@@ -320,29 +320,48 @@ class MapaComparativoPrecosViewSet(viewsets.ModelViewSet):
         grupos = []
 
         for item_mapa in itens_mapa:
-            # Buscar por SIMPAS (match exato, maior precisão)
             matches_simpas = []
-            matches_desc   = []
+            matches_familia = []
+            matches_desc    = []
 
+            # Extrair família do código SIMPAS do item do mapa (ex: "65.10.19..." → "65.10")
+            familia_item = ''
+            if item_mapa.codigo_simpas:
+                partes = item_mapa.codigo_simpas.split('.')
+                if len(partes) >= 2:
+                    familia_item = f'{partes[0]}.{partes[1]}'
+
+            # Nível 1: match SIMPAS exato (mesmo item)
             if item_mapa.codigo_simpas:
                 matches_simpas = list(base_qs.filter(
                     item_catalogo__codigo_simpas=item_mapa.codigo_simpas
                 )[:15])
 
-            # Fallback: keywords da descrição (primeiras 3 palavras significativas)
-            if not matches_simpas and item_mapa.descricao:
+            # Nível 2: match por família SIMPAS — NUNCA cruza famílias diferentes
+            # Ex: 65.10 (TI) só compara com outros 65.10, jamais com 38.20 (Segurança)
+            if not matches_simpas and familia_item:
+                matches_familia = list(base_qs.filter(
+                    item_catalogo__codigo_simpas__startswith=familia_item
+                ).exclude(
+                    item_catalogo__codigo_simpas=item_mapa.codigo_simpas or ''
+                )[:15])
+
+            # Nível 3: fallback por palavras-chave da descrição, RESTRITO à mesma família
+            # Só ativa quando não há código SIMPAS configurado no item do mapa
+            if not matches_simpas and not matches_familia and not item_mapa.codigo_simpas:
                 palavras = [
                     p for p in item_mapa.descricao.split()
-                    if len(p) > 3 and p.lower() not in ('para', 'com', 'por', 'dos', 'das', 'uma')
+                    if len(p) > 4 and p.lower() not in ('para', 'com', 'por', 'dos', 'das', 'uma', 'tipo', 'modelo')
                 ][:3]
                 if palavras:
                     q = Q()
                     for p in palavras:
                         q |= Q(objeto__icontains=p)
-                    matches_desc = list(base_qs.filter(q)[:15])
+                    matches_desc = list(base_qs.filter(q)[:10])
 
             historico = []
-            for it in (matches_simpas or matches_desc):
+            match_por = 'simpas' if matches_simpas else ('familia' if matches_familia else ('descricao' if matches_desc else 'sem_match'))
+            for it in (matches_simpas or matches_familia or matches_desc):
                 # Verificar se há contrato resultante deste DFD
                 contrato_info = None
                 contratos = it.dfd.contratos.filter(status='Vigente').first()
@@ -368,7 +387,8 @@ class MapaComparativoPrecosViewSet(viewsets.ModelViewSet):
                 'item_descricao':  item_mapa.descricao,
                 'codigo_simpas':   item_mapa.codigo_simpas,
                 'unidade_medida':  item_mapa.unidade_medida,
-                'match_por':       'simpas' if matches_simpas else ('descricao' if matches_desc else 'sem_match'),
+                'match_por':       match_por,
+                'familia_simpas':  familia_item or None,
                 'total':           len(historico),
                 'historico':       historico,
             })

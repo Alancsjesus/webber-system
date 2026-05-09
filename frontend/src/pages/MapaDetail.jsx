@@ -635,13 +635,13 @@ export default function MapaDetail() {
                     </div>
                     <div className="flex items-center gap-2">
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                        grupo.match_por === 'simpas'
-                          ? 'bg-green-100 text-green-700'
-                          : grupo.match_por === 'descricao'
-                          ? 'bg-yellow-100 text-yellow-700'
-                          : 'bg-gray-100 text-gray-500'
+                        grupo.match_por === 'simpas'   ? 'bg-green-100 text-green-700'
+                        : grupo.match_por === 'familia' ? 'bg-blue-100 text-blue-700'
+                        : grupo.match_por === 'descricao' ? 'bg-yellow-100 text-yellow-700'
+                        : 'bg-gray-100 text-gray-500'
                       }`}>
-                        {grupo.match_por === 'simpas' ? 'Match SIMPAS ✓'
+                        {grupo.match_por === 'simpas'    ? 'Match SIMPAS exato ✓'
+                          : grupo.match_por === 'familia'  ? `Match família ${grupo.familia_simpas || ''}`
                           : grupo.match_por === 'descricao' ? 'Match por descrição'
                           : 'Sem histórico'}
                       </span>

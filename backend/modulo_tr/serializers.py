@@ -40,22 +40,25 @@ class ItemLoteTRSerializer(serializers.ModelSerializer):
         return float(obj.valor_total)
 
 
+LIMITE_EXCLUSIVO_ME_EPP = Decimal('80000.00')
+
 class LoteTRSerializer(serializers.ModelSerializer):
     itens                    = ItemLoteTRSerializer(many=True, read_only=True)
     modalidade_display       = serializers.CharField(source='get_modalidade_display', read_only=True)
     lote_origem_numero       = serializers.CharField(source='lote_origem.numero',     read_only=True)
     valor_total_lote         = serializers.SerializerMethodField()
     alerta_agrupamento       = serializers.SerializerMethodField()
+    alerta_exclusivo         = serializers.SerializerMethodField()
 
     class Meta:
         model  = LoteTR
         fields = ['id', 'numero', 'descricao', 'modalidade', 'modalidade_display',
                   'percentual_cota', 'lote_origem', 'lote_origem_numero',
                   'ordem', 'justificativa_agrupamento', 'observacoes',
-                  'valor_total_lote', 'alerta_agrupamento', 'itens']
+                  'valor_total_lote', 'alerta_agrupamento', 'alerta_exclusivo', 'itens']
         read_only_fields = ['id', 'numero', 'modalidade_display',
                             'lote_origem_numero', 'valor_total_lote',
-                            'alerta_agrupamento', 'itens']
+                            'alerta_agrupamento', 'alerta_exclusivo', 'itens']
 
     def get_valor_total_lote(self, obj):
         return float(obj.valor_total)
@@ -64,6 +67,20 @@ class LoteTRSerializer(serializers.ModelSerializer):
         """Sinaliza se o lote tem > 1 item sem justificativa de agrupamento."""
         if obj.itens.count() > 1 and not obj.justificativa_agrupamento:
             return 'Lote com múltiplos itens requer justificativa de agrupamento (padronização, economia de escala ou interdependência).'
+        return None
+
+    def get_alerta_exclusivo(self, obj):
+        """
+        Quando lote de Ampla Concorrência tem valor < R$80.000,00,
+        deve ser reclassificado como Exclusivo ME/EPP (LC 123/2006, Art. 48, I).
+        """
+        if obj.modalidade == 'ampla' and obj.itens.exists():
+            if obj.valor_total < LIMITE_EXCLUSIVO_ME_EPP and obj.valor_total > 0:
+                return (
+                    f'Valor do lote R$ {float(obj.valor_total):,.2f} é inferior a R$ 80.000,00. '
+                    'Por força do Art. 48, I da LC 123/2006, este lote deve ser EXCLUSIVO para ME/EPP. '
+                    'Altere a modalidade para "Exclusivo ME/EPP".'
+                )
         return None
 
     def create(self, validated_data):
