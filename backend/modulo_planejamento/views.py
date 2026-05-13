@@ -253,6 +253,12 @@ class NecessidadeViewSet(viewsets.ModelViewSet):
         if erros:
             return Response(erros, status=status.HTTP_400_BAD_REQUEST)
 
+        from decimal import Decimal
+        valor_estimado_total = sum(
+            Decimal(str(it.get('quantidade', 0))) * Decimal(str(it.get('valor_unitario_estimado', 0)))
+            for it in itens_data
+        )
+
         dfd = DFD.objects.create(
             numero_sei=numero_sei,
             descricao=nec.descricao,
@@ -260,6 +266,7 @@ class NecessidadeViewSet(viewsets.ModelViewSet):
             area_aplicacao=area_aplicacao if isinstance(area_aplicacao, list) else [area_aplicacao],
             modalidade_aquisicao=request.data.get('modalidade_aquisicao', 'licitacao'),
             observacoes=request.data.get('observacoes', ''),
+            valor_estimado=valor_estimado_total,
             necessidade_origem=nec,
             org_id=nec.org_id,
             unidade_demandante=nec.unidade_demandante,

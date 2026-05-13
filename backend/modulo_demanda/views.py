@@ -441,6 +441,12 @@ class DFDViewSet(viewsets.ModelViewSet):
             f'DFD agrupado — Família SIMPAS {familia}' if familia else 'DFD agrupado a partir do Plano de Compras'
         )
 
+        from decimal import Decimal
+        valor_estimado_total = sum(
+            Decimal(str(it.get('quantidade', 0))) * Decimal(str(it.get('valor_unitario_estimado', 0)))
+            for it in itens_data
+        )
+
         dfd = DFD.objects.create(
             numero_sei=numero_sei,
             descricao=descricao,
@@ -448,6 +454,7 @@ class DFDViewSet(viewsets.ModelViewSet):
             area_aplicacao=area_aplicacao if isinstance(area_aplicacao, list) else [area_aplicacao],
             modalidade_aquisicao=request.data.get('modalidade_aquisicao', 'licitacao'),
             observacoes=request.data.get('observacoes', ''),
+            valor_estimado=valor_estimado_total,
             org_id_id=request.org_id,
             created_by=request.user,
             updated_by=request.user,
