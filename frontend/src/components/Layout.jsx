@@ -260,62 +260,101 @@ export default function Layout() {
   )
   const toggle = (section) => setOpen(p => ({ ...p, [section]: !p[section] }))
 
+  const [sidebarOpen, setSidebarOpen] = useState(true)
+
+  const isHome = location.pathname === '/'
+
   return (
     <div className="flex h-screen bg-gray-100">
       {/* Sidebar */}
-      <aside className="w-60 bg-gray-950 flex flex-col shrink-0 shadow-xl">
+      <aside className={`${sidebarOpen ? 'w-60' : 'w-14'} relative bg-gray-950 flex flex-col shrink-0 shadow-xl transition-[width] duration-200 ease-in-out`}>
+
+        {/* Botão flutuante de recolhimento — posicionado na borda direita */}
+        <button
+          onClick={() => setSidebarOpen(p => !p)}
+          title={sidebarOpen ? 'Recolher menu' : 'Expandir menu'}
+          className="absolute -right-3 top-1/2 -translate-y-1/2 z-20 w-6 h-6 rounded-full bg-gray-700 border border-gray-600 flex items-center justify-center shadow-lg hover:bg-gray-600 transition-colors"
+        >
+          <svg className={`w-3 h-3 text-gray-300 transition-transform duration-200 ${sidebarOpen ? '' : 'rotate-180'}`} fill="currentColor" viewBox="0 0 20 20">
+            <path d="M12.707 4.293a1 1 0 010 1.414L8.414 10l4.293 4.293a1 1 0 01-1.414 1.414l-5-5a1 1 0 010-1.414l5-5a1 1 0 011.414 0z"/>
+          </svg>
+        </button>
 
         {/* Bloco 1 — identidade do sistema */}
-        <div className="px-4 pt-4 pb-3 border-b border-gray-800/60">
-          <div className="flex items-center gap-2.5">
-            {orgaoSigla === 'SSP' ? (
-              <img src="/logos/sspba_brasao.png" alt="SSP-BA"
-                className="w-10 h-10 object-contain shrink-0 drop-shadow" />
-            ) : (
-              <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center shrink-0">
-                <span className="text-white text-sm font-black">W</span>
-              </div>
-            )}
-            <div>
-              <span className="text-base font-black text-white tracking-tight">Webber</span>
+        <div className={`${sidebarOpen ? 'px-4' : 'px-2'} pt-4 pb-3 border-b border-gray-800/60 flex items-center ${sidebarOpen ? 'gap-2.5' : 'justify-center'}`}>
+          {orgaoSigla === 'SSP' ? (
+            <img src="/logos/sspba_brasao.png" alt="SSP-BA"
+              className="w-10 h-10 object-contain shrink-0 drop-shadow" />
+          ) : (
+            <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center shrink-0">
+              <span className="text-white text-sm font-black">W</span>
+            </div>
+          )}
+          {sidebarOpen && (
+            <div className="overflow-hidden">
+              <span className="text-base font-black text-white tracking-tight whitespace-nowrap">Webber</span>
               <p className="text-[10px] text-gray-500 leading-none mt-0.5">Lei 14.133/2021</p>
             </div>
-          </div>
+          )}
         </div>
 
         {/* Bloco 2 — contexto do usuário */}
         {orgaoSigla && (
-          <div className="px-3 py-3 border-b border-gray-800/60">
-            <div className="rounded-xl bg-gray-900 ring-1 ring-gray-800 px-3 py-2.5 space-y-1">
-              <div className="flex items-center justify-between gap-1">
-                <span className="text-sm font-black text-white">{orgaoSigla}</span>
-                {tipoUnidade && (
-                  <span className={`shrink-0 px-2 py-0.5 rounded-md text-[10px] font-semibold ${TIPO_UNIDADE_BADGE[tipoUnidade]?.cls || 'bg-gray-700 text-gray-300'}`}>
-                    {TIPO_UNIDADE_BADGE[tipoUnidade]?.label || tipoUnidade}
-                  </span>
+          <div className={`${sidebarOpen ? 'px-3' : 'px-2'} py-3 border-b border-gray-800/60`}>
+            {sidebarOpen ? (
+              <div className="rounded-xl bg-gray-900 ring-1 ring-gray-800 px-3 py-2.5 space-y-1">
+                <div className="flex items-center justify-between gap-1">
+                  <span className="text-sm font-black text-white">{orgaoSigla}</span>
+                  {tipoUnidade && (
+                    <span className={`shrink-0 px-2 py-0.5 rounded-md text-[10px] font-semibold ${TIPO_UNIDADE_BADGE[tipoUnidade]?.cls || 'bg-gray-700 text-gray-300'}`}>
+                      {TIPO_UNIDADE_BADGE[tipoUnidade]?.label || tipoUnidade}
+                    </span>
+                  )}
+                </div>
+                {orgaoNome && (
+                  <p className="text-[11px] text-gray-400 leading-tight line-clamp-1">{orgaoNome}</p>
+                )}
+                {unidadeNome && (
+                  <p className="text-[10px] text-gray-600 truncate" title={unidadeNome}>{unidadeNome}</p>
+                )}
+                {papel && (
+                  <p className="text-[10px] text-gray-600 capitalize">{papel.replace(/_/g, ' ')}</p>
                 )}
               </div>
-              {orgaoNome && (
-                <p className="text-[11px] text-gray-400 leading-tight line-clamp-1">{orgaoNome}</p>
-              )}
-              {unidadeNome && (
-                <p className="text-[10px] text-gray-600 truncate" title={unidadeNome}>{unidadeNome}</p>
-              )}
-              {papel && (
-                <p className="text-[10px] text-gray-600 capitalize">{papel.replace(/_/g, ' ')}</p>
-              )}
-            </div>
+            ) : (
+              /* Modo recolhido: apenas badge de tipo centrado */
+              <div className="flex justify-center">
+                <span className={`w-9 h-9 rounded-lg flex items-center justify-center text-[11px] font-black ${TIPO_UNIDADE_BADGE[tipoUnidade]?.cls || 'bg-gray-700 text-gray-300'}`}
+                  title={orgaoSigla}>
+                  {orgaoSigla?.slice(0, 2)}
+                </span>
+              </div>
+            )}
           </div>
         )}
 
         {/* Nav */}
-        <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto scrollbar-thin">
+        <nav className={`flex-1 ${sidebarOpen ? 'px-2' : 'px-1.5'} py-3 space-y-0.5 overflow-y-auto scrollbar-thin`}>
           {allSections.map((sec) => {
             const accent = SECTION_ACCENT[sec.section] || SECTION_ACCENT['Geral']
             const activeCls = ACTIVE_CLS[sec.section] || ACTIVE_CLS['Geral']
             const isConfigPath = location.pathname.startsWith('/config')
 
             const activeBorder = ACTIVE_BORDER[sec.section] || 'border-l-2 border-gray-500'
+
+            /* Modo recolhido: apenas dot colorido da seção, clicável p/ expandir */
+            if (!sidebarOpen) {
+              return (
+                <button
+                  key={sec.section}
+                  onClick={() => setSidebarOpen(true)}
+                  title={sec.section}
+                  className={`w-full flex items-center justify-center py-2 rounded-lg group transition-colors hover:bg-gray-800/60`}
+                >
+                  <span className={`w-2.5 h-2.5 rounded-full ${accent.dot}`} />
+                </button>
+              )
+            }
 
             return (
               <div key={sec.section}>
@@ -393,39 +432,73 @@ export default function Layout() {
 
         {/* Rodapé */}
         <div className="px-2 py-2 border-t border-gray-800 space-y-0.5">
-          {/* Avatar + papel */}
-          {papel && (
-            <div className="flex items-center gap-2 px-3 py-1.5 mb-1">
-              <div className="w-7 h-7 rounded-full bg-gray-700 border border-gray-600 flex items-center justify-center shrink-0">
-                <span className="text-[11px] font-bold text-gray-300 select-none">
-                  {papel[0].toUpperCase()}
-                </span>
-              </div>
-              <span className="text-[11px] text-gray-500 capitalize truncate">
-                {papel.replace(/_/g, ' ')}
-              </span>
+          {sidebarOpen ? (
+            <>
+              {/* Avatar + papel */}
+              {papel && (
+                <div className="flex items-center gap-2 px-3 py-1.5 mb-1">
+                  <div className="w-7 h-7 rounded-full bg-gray-700 border border-gray-600 flex items-center justify-center shrink-0">
+                    <span className="text-[11px] font-bold text-gray-300 select-none">
+                      {papel[0].toUpperCase()}
+                    </span>
+                  </div>
+                  <span className="text-[11px] text-gray-500 capitalize truncate">
+                    {papel.replace(/_/g, ' ')}
+                  </span>
+                </div>
+              )}
+              <NavLink to="/ajuda"
+                className={({ isActive }) =>
+                  `flex items-center gap-2 px-3 py-2 text-[13px] rounded-lg transition-colors ${isActive ? 'text-white bg-gray-700' : 'text-gray-500 hover:text-white hover:bg-gray-800'}`
+                }>
+                <span className="text-gray-600 text-xs">?</span>
+                Ajuda
+              </NavLink>
+              <button
+                onClick={() => { logout(); navigate('/login') }}
+                className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-gray-500 hover:text-red-400 hover:bg-gray-800/60 rounded-lg transition-colors"
+              >
+                <span>↩</span>
+                Sair
+              </button>
+            </>
+          ) : (
+            /* Modo recolhido: apenas avatar e ícone de sair centralizados */
+            <div className="flex flex-col items-center gap-1">
+              {papel && (
+                <div className="w-8 h-8 rounded-full bg-gray-700 border border-gray-600 flex items-center justify-center" title={papel.replace(/_/g, ' ')}>
+                  <span className="text-[11px] font-bold text-gray-300 select-none">{papel[0].toUpperCase()}</span>
+                </div>
+              )}
+              <button
+                onClick={() => { logout(); navigate('/login') }}
+                title="Sair"
+                className="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-red-400 hover:bg-gray-800/60 rounded-lg transition-colors"
+              >
+                <span className="text-base">↩</span>
+              </button>
             </div>
           )}
-          <NavLink to="/ajuda"
-            className={({ isActive }) =>
-              `flex items-center gap-2 px-3 py-2 text-[13px] rounded-lg transition-colors ${isActive ? 'text-white bg-gray-700' : 'text-gray-500 hover:text-white hover:bg-gray-800'}`
-            }>
-            <span className="text-gray-600 text-xs">?</span>
-            Ajuda
-          </NavLink>
-          <button
-            onClick={() => { logout(); navigate('/login') }}
-            className="w-full flex items-center gap-2 px-3 py-2 text-[13px] text-gray-500 hover:text-red-400 hover:bg-gray-800/60 rounded-lg transition-colors"
-          >
-            <span>↩</span>
-            Sair
-          </button>
         </div>
       </aside>
 
       {/* Conteúdo principal */}
-      <main className="flex-1 overflow-y-auto bg-gray-50">
+      <main className="flex-1 overflow-y-auto bg-gray-50 relative">
         <Outlet />
+
+        {/* Botão Home flutuante — visível quando não está na página inicial */}
+        {!isHome && (
+          <button
+            onClick={() => navigate('/')}
+            title="Página inicial"
+            className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2 bg-gray-900 hover:bg-gray-800 text-gray-300 hover:text-white text-sm font-medium rounded-full shadow-lg border border-gray-700 transition-all hover:shadow-xl hover:-translate-y-0.5"
+          >
+            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+            </svg>
+            Início
+          </button>
+        )}
       </main>
     </div>
   )

@@ -25,7 +25,7 @@ export default function Login() {
 
   // Se já estava autenticado ao entrar na página, redireciona direto
   useEffect(() => {
-    if (isAuthenticated && !confirmed) navigate('/demanda/dfd', { replace: true })
+    if (isAuthenticated && !confirmed) navigate('/', { replace: true })
   }, [])
 
   const handleSubmit = async (e) => {
@@ -66,7 +66,7 @@ export default function Login() {
           </div>
 
           <button
-            onClick={() => navigate('/demanda/dfd', { replace: true })}
+            onClick={() => navigate('/', { replace: true })}
             className="w-full bg-blue-600 hover:bg-blue-700 text-white font-medium py-2 rounded-lg text-sm transition-colors"
           >
             Continuar para o sistema →
