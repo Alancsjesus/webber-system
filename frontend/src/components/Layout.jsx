@@ -17,16 +17,30 @@ const SECTION_ACCENT = {
 }
 
 const ACTIVE_CLS = {
-  'Geral':              'bg-slate-600 text-white',
-  'Planejamento':       'bg-emerald-700 text-white',
-  'Aceite':             'bg-amber-700 text-white',
-  'Orçamento':          'bg-yellow-700 text-white',
-  'Demanda':            'bg-blue-700 text-white',
-  'Pesquisa de Preços': 'bg-violet-700 text-white',
-  'Análise Técnica':    'bg-indigo-700 text-white',
-  'Licitação':          'bg-orange-700 text-white',
-  'Contratos':          'bg-teal-700 text-white',
-  'Configurações':      'bg-gray-600 text-white',
+  'Geral':              'bg-gray-800/70 text-white',
+  'Planejamento':       'bg-gray-800/70 text-white',
+  'Aceite':             'bg-gray-800/70 text-white',
+  'Orçamento':          'bg-gray-800/70 text-white',
+  'Demanda':            'bg-gray-800/70 text-white',
+  'Pesquisa de Preços': 'bg-gray-800/70 text-white',
+  'Análise Técnica':    'bg-gray-800/70 text-white',
+  'Licitação':          'bg-gray-800/70 text-white',
+  'Contratos':          'bg-gray-800/70 text-white',
+  'Configurações':      'bg-gray-800/70 text-white',
+}
+
+// borda esquerda colorida por seção (indicador de item ativo)
+const ACTIVE_BORDER = {
+  'Geral':              'border-l-2 border-slate-500',
+  'Planejamento':       'border-l-2 border-emerald-500',
+  'Aceite':             'border-l-2 border-amber-500',
+  'Orçamento':          'border-l-2 border-yellow-500',
+  'Demanda':            'border-l-2 border-blue-500',
+  'Pesquisa de Preços': 'border-l-2 border-violet-500',
+  'Análise Técnica':    'border-l-2 border-indigo-500',
+  'Licitação':          'border-l-2 border-orange-500',
+  'Contratos':          'border-l-2 border-teal-500',
+  'Configurações':      'border-l-2 border-gray-500',
 }
 
 // ── Dados de navegação ────────────────────────────────────────────────────────
@@ -251,44 +265,48 @@ export default function Layout() {
       {/* Sidebar */}
       <aside className="w-60 bg-gray-950 flex flex-col shrink-0 shadow-xl">
 
-        {/* Logo + info do usuário */}
-        <div className="px-4 py-4 border-b border-gray-800">
-          <div className="flex items-center gap-2 mb-3">
+        {/* Bloco 1 — identidade do sistema */}
+        <div className="px-4 pt-4 pb-3 border-b border-gray-800/60">
+          <div className="flex items-center gap-2.5">
             {orgaoSigla === 'SSP' ? (
               <img src="/logos/sspba_brasao.png" alt="SSP-BA"
-                className="w-8 h-8 object-contain shrink-0 drop-shadow" />
+                className="w-10 h-10 object-contain shrink-0 drop-shadow" />
             ) : (
-              <div className="w-7 h-7 rounded-lg bg-blue-600 flex items-center justify-center shrink-0">
-                <span className="text-white text-xs font-bold">W</span>
+              <div className="w-10 h-10 rounded-xl bg-blue-600 flex items-center justify-center shrink-0">
+                <span className="text-white text-sm font-black">W</span>
               </div>
             )}
             <div>
-              <span className="text-sm font-bold text-white">Webber</span>
-              <p className="text-[10px] text-gray-400 leading-none mt-0.5">Gestão de Contratações</p>
+              <span className="text-base font-black text-white tracking-tight">Webber</span>
+              <p className="text-[10px] text-gray-500 leading-none mt-0.5">Lei 14.133/2021</p>
             </div>
           </div>
+        </div>
 
-          {orgaoSigla && (
-            <div className="bg-gray-900 rounded-lg px-3 py-2 space-y-1">
-              <p className="text-xs font-bold text-white leading-tight">{orgaoSigla}
-                {orgaoNome && <span className="font-normal text-gray-400 ml-1 text-[10px]">· {orgaoNome}</span>}
-              </p>
+        {/* Bloco 2 — contexto do usuário */}
+        {orgaoSigla && (
+          <div className="px-3 py-3 border-b border-gray-800/60">
+            <div className="rounded-xl bg-gray-900 ring-1 ring-gray-800 px-3 py-2.5 space-y-1">
+              <div className="flex items-center justify-between gap-1">
+                <span className="text-sm font-black text-white">{orgaoSigla}</span>
+                {tipoUnidade && (
+                  <span className={`shrink-0 px-2 py-0.5 rounded-md text-[10px] font-semibold ${TIPO_UNIDADE_BADGE[tipoUnidade]?.cls || 'bg-gray-700 text-gray-300'}`}>
+                    {TIPO_UNIDADE_BADGE[tipoUnidade]?.label || tipoUnidade}
+                  </span>
+                )}
+              </div>
+              {orgaoNome && (
+                <p className="text-[11px] text-gray-400 leading-tight line-clamp-1">{orgaoNome}</p>
+              )}
               {unidadeNome && (
-                <div className="flex items-center justify-between gap-1">
-                  <p className="text-[10px] text-gray-400 truncate leading-tight flex-1" title={unidadeNome}>{unidadeNome}</p>
-                  {tipoUnidade && (
-                    <span className={`shrink-0 px-1.5 py-0.5 rounded text-[10px] font-medium ${TIPO_UNIDADE_BADGE[tipoUnidade]?.cls || 'bg-gray-700 text-gray-300'}`}>
-                      {TIPO_UNIDADE_BADGE[tipoUnidade]?.label || tipoUnidade}
-                    </span>
-                  )}
-                </div>
+                <p className="text-[10px] text-gray-600 truncate" title={unidadeNome}>{unidadeNome}</p>
               )}
               {papel && (
-                <p className="text-[10px] text-gray-500 capitalize">{papel.replace(/_/g, ' ')}</p>
+                <p className="text-[10px] text-gray-600 capitalize">{papel.replace(/_/g, ' ')}</p>
               )}
             </div>
-          )}
-        </div>
+          </div>
+        )}
 
         {/* Nav */}
         <nav className="flex-1 px-2 py-3 space-y-0.5 overflow-y-auto scrollbar-thin">
@@ -296,6 +314,8 @@ export default function Layout() {
             const accent = SECTION_ACCENT[sec.section] || SECTION_ACCENT['Geral']
             const activeCls = ACTIVE_CLS[sec.section] || ACTIVE_CLS['Geral']
             const isConfigPath = location.pathname.startsWith('/config')
+
+            const activeBorder = ACTIVE_BORDER[sec.section] || 'border-l-2 border-gray-500'
 
             return (
               <div key={sec.section}>
@@ -305,12 +325,17 @@ export default function Layout() {
                   className={`w-full flex items-center justify-between px-2 py-1.5 rounded-lg group transition-colors ${open[sec.section] ? accent.ring : 'hover:bg-gray-800/60'}`}
                 >
                   <div className="flex items-center gap-2">
-                    <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${accent.dot}`} />
+                    <span className={`w-2 h-2 rounded-full shrink-0 ${accent.dot}`} />
                     <span className={`text-[11px] font-semibold uppercase tracking-widest ${accent.text}`}>
                       {sec.section}
                     </span>
                   </div>
-                  <span className={`text-gray-500 text-xs transition-transform duration-200 group-hover:text-gray-300 ${open[sec.section] ? 'rotate-90' : ''}`}>›</span>
+                  <svg
+                    className={`w-3 h-3 text-gray-600 transition-transform duration-200 group-hover:text-gray-400 ${open[sec.section] ? 'rotate-90' : ''}`}
+                    fill="currentColor" viewBox="0 0 20 20"
+                  >
+                    <path d="M7.293 4.293a1 1 0 011.414 0L14 9.586l-5.293 5.293a1 1 0 01-1.414-1.414L11.586 9 6.293 4.707a1 1 0 010-1.414z"/>
+                  </svg>
                 </button>
 
                 {open[sec.section] && (
@@ -323,8 +348,8 @@ export default function Layout() {
                             className={({ isActive }) =>
                               `block px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all ${
                                 isActive
-                                  ? `${activeCls} shadow-sm`
-                                  : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                                  ? `${activeCls} ${activeBorder} pl-2.5 shadow-sm`
+                                  : 'text-gray-400 hover:text-white hover:bg-gray-800 border-l-2 border-transparent pl-2.5'
                               }`
                             }>
                             {label}
@@ -347,8 +372,8 @@ export default function Layout() {
                                   className={({ isActive }) =>
                                     `block px-3 py-1.5 rounded-lg text-[13px] font-medium transition-all ${
                                       isActive
-                                        ? `${activeCls} shadow-sm`
-                                        : 'text-gray-400 hover:text-white hover:bg-gray-800'
+                                        ? `${activeCls} ${activeBorder} pl-2.5 shadow-sm`
+                                        : 'text-gray-400 hover:text-white hover:bg-gray-800 border-l-2 border-transparent pl-2.5'
                                     }`
                                   }>
                                   {label}
@@ -368,11 +393,24 @@ export default function Layout() {
 
         {/* Rodapé */}
         <div className="px-2 py-2 border-t border-gray-800 space-y-0.5">
+          {/* Avatar + papel */}
+          {papel && (
+            <div className="flex items-center gap-2 px-3 py-1.5 mb-1">
+              <div className="w-7 h-7 rounded-full bg-gray-700 border border-gray-600 flex items-center justify-center shrink-0">
+                <span className="text-[11px] font-bold text-gray-300 select-none">
+                  {papel[0].toUpperCase()}
+                </span>
+              </div>
+              <span className="text-[11px] text-gray-500 capitalize truncate">
+                {papel.replace(/_/g, ' ')}
+              </span>
+            </div>
+          )}
           <NavLink to="/ajuda"
             className={({ isActive }) =>
               `flex items-center gap-2 px-3 py-2 text-[13px] rounded-lg transition-colors ${isActive ? 'text-white bg-gray-700' : 'text-gray-500 hover:text-white hover:bg-gray-800'}`
             }>
-            <span className="text-gray-600">?</span>
+            <span className="text-gray-600 text-xs">?</span>
             Ajuda
           </NavLink>
           <button
