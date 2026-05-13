@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import api from '../services/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 
@@ -14,6 +15,7 @@ const SUGESTAO_CLS = {
 const STATUS_OPTS = ['Rascunho', 'Submetida', 'Em Análise', 'Devolvida', 'Aprovada']
 
 export default function PlanoCompras() {
+  const navigate = useNavigate()
   const [dados,    setDados]    = useState(null)
   const [loading,  setLoading]  = useState(false)
   const [expanded, setExpanded] = useState({})
@@ -166,8 +168,27 @@ export default function PlanoCompras() {
                           {Object.entries(fam.status_counts || {}).map(([s, n]) => ` ${n} ${s}`).join(' ·')}
                         </span>
                       </div>
-                      <div className="flex items-center gap-4 shrink-0">
+                      <div className="flex items-center gap-3 shrink-0">
                         <span className="text-sm font-bold text-gray-700">{fmt(fam.valor_total)}</span>
+                        <button
+                          type="button"
+                          onClick={e => {
+                            e.stopPropagation()
+                            navigate('/aquisicao/preparar', {
+                              state: {
+                                origem:             'familia',
+                                familia:            fam.familia,
+                                exercicio:          filters.exercicio,
+                                itens_consolidados: fam.itens_consolidados,
+                                sugestao:           fam.sugestao,
+                                sugestao_label:     fam.sugestao_label,
+                                valor_total:        fam.valor_total,
+                              },
+                            })
+                          }}
+                          className="text-xs bg-blue-600 hover:bg-blue-700 text-white px-3 py-1.5 rounded-lg font-medium whitespace-nowrap">
+                          Iniciar Aquisição →
+                        </button>
                         <span className="text-gray-400 text-xs">{aberta ? '▲' : '▼'}</span>
                       </div>
                     </button>

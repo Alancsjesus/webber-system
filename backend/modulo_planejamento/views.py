@@ -212,6 +212,86 @@ class NecessidadeViewSet(viewsets.ModelViewSet):
         return Response({'recusadas': updated})
 
     @action(detail=True, methods=['post'])
+    def iniciar_dfd(self, request, pk=None):
+        """
+        Cria um DFD a partir de uma NecessidadePlanejamento aprovada.
+        Usado pela tela 'Preparar Aquisição'.
+        Body: { numero_sei, prazo_necessidade, area_aplicacao, modalidade_aquisicao,
+                observacoes, itens: [{item_catalogo_id?, objeto, unidade_medida,
+                                      quantidade, valor_unitario_estimado}] }
+        """
+        from modulo_demanda.models import DFD, ItemDFD
+        from modulo_demanda.serializers import DFDSerializer
+
+        nec = self.get_object()
+
+        if nec.status != 'Aprovada':
+            return Response(
+                {'detail': f'A necessidade deve estar "Aprovada" para iniciar DFD (status atual: {nec.status}).'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if nec.dfd_id:
+            return Response(
+                {'detail': 'Esta necessidade já possui um DFD vinculado.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        numero_sei        = (request.data.get('numero_sei') or '').strip()
+        prazo_necessidade = request.data.get('prazo_necessidade')
+        area_aplicacao    = request.data.get('area_aplicacao', [])
+        itens_data        = request.data.get('itens', [])
+
+        erros = {}
+        if not numero_sei:
+            erros['numero_sei'] = 'Número SEI é obrigatório.'
+        if not prazo_necessidade:
+            erros['prazo_necessidade'] = 'Prazo da necessidade é obrigatório.'
+        if not area_aplicacao:
+            erros['area_aplicacao'] = 'Selecione ao menos uma área de aplicação.'
+        if not itens_data:
+            erros['itens'] = 'Adicione pelo menos 1 item ao DFD.'
+        if erros:
+            return Response(erros, status=status.HTTP_400_BAD_REQUEST)
+
+        dfd = DFD.objects.create(
+            numero_sei=numero_sei,
+            descricao=nec.descricao,
+            prazo_necessidade=prazo_necessidade,
+            area_aplicacao=area_aplicacao if isinstance(area_aplicacao, list) else [area_aplicacao],
+            modalidade_aquisicao=request.data.get('modalidade_aquisicao', 'licitacao'),
+            observacoes=request.data.get('observacoes', ''),
+            necessidade_origem=nec,
+            org_id=nec.org_id,
+            unidade_demandante=nec.unidade_demandante,
+            created_by=request.user,
+            updated_by=request.user,
+        )
+
+        for item in itens_data:
+            ItemDFD.objects.create(
+                dfd=dfd,
+                item_catalogo_id=item.get('item_catalogo_id') or None,
+                objeto=item.get('objeto', ''),
+                unidade_medida=item.get('unidade_medida', 'un'),
+                quantidade=item.get('quantidade', 1),
+                valor_unitario_estimado=item.get('valor_unitario_estimado', 0),
+                observacao=item.get('observacao', ''),
+                org_id=nec.org_id,
+                created_by=request.user,
+                updated_by=request.user,
+            )
+
+        nec.status = 'DFD Criado'
+        nec.dfd = dfd
+        nec.updated_by = request.user
+        nec.save(update_fields=['status', 'dfd', 'updated_by'])
+
+        return Response(
+            DFDSerializer(dfd, context={'request': request}).data,
+            status=status.HTTP_201_CREATED,
+        )
+
+    @action(detail=True, methods=['post'])
     def bloquear(self, request, pk=None):
         """Unidade de planejamento bloqueia necessidade não planejada ou sem orçamento."""
         if not self._check_planejamento(request):

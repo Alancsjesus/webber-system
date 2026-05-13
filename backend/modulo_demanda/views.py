@@ -317,6 +317,160 @@ class DFDViewSet(viewsets.ModelViewSet):
     # ------------------------------------------------------------------ #
 
     # ------------------------------------------------------------------ #
+    # status da família SIMPAS no plano de compras                        #
+    # ------------------------------------------------------------------ #
+
+    @action(detail=False, methods=['get'], url_path='status-familia')
+    def status_familia(self, request):
+        """
+        Retorna DFDs existentes para uma família SIMPAS com o status de cada
+        aquisição em andamento (ETP, TR, Procedimento).
+        Query params: familia, exercicio (opcional)
+        """
+        from core.models import ItemCatalogo
+
+        familia   = (request.query_params.get('familia') or '').strip()
+        exercicio = request.query_params.get('exercicio')
+
+        if not familia:
+            return Response({'detail': 'Parâmetro "familia" é obrigatório.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        # DFDs do org com itens nessa família SIMPAS
+        qs = DFD.objects.filter(
+            Q(org_id=request.org_id) |
+            Q(unidade_licitante__orgao_id=request.org_id) |
+            Q(unidade_contratante__orgao_id=request.org_id),
+            itens__item_catalogo__familia=familia,
+        ).exclude(
+            status__in=['Rejeitada', 'Cancelada'],
+        ).distinct().prefetch_related('itens__item_catalogo')
+
+        if exercicio:
+            try:
+                ano = int(exercicio)
+                qs = qs.filter(prazo_necessidade__year=ano)
+            except (ValueError, TypeError):
+                pass
+
+        dfds_info = []
+        for dfd in qs:
+            etp = getattr(dfd, 'etp', None)
+            tr  = getattr(etp, 'tr', None) if etp else None
+            procedimentos = list(
+                dfd.procedimentos.exclude(status__in=['Anulado', 'Revogado'])
+                .values('id', 'numero', 'modalidade', 'status')
+            )
+            itens_familia = [
+                {
+                    'id':                       it.id,
+                    'item_catalogo_id':         it.item_catalogo_id,
+                    'objeto':                   it.objeto,
+                    'catalogo_codigo':          it.item_catalogo.codigo_interno if it.item_catalogo else '',
+                    'catalogo_simpas':          it.item_catalogo.codigo_simpas  if it.item_catalogo else '',
+                    'unidade_medida':           it.unidade_medida,
+                    'quantidade':               float(it.quantidade),
+                    'valor_unitario_estimado':  float(it.valor_unitario_estimado),
+                }
+                for it in dfd.itens.all()
+                if it.item_catalogo and it.item_catalogo.familia == familia
+            ]
+            dfds_info.append({
+                'id':              dfd.id,
+                'numero_sei':      dfd.numero_sei,
+                'descricao':       dfd.descricao,
+                'status':          dfd.status,
+                'valor_estimado':  float(dfd.valor_estimado or 0),
+                'tem_etp':         etp is not None,
+                'etp_id':          etp.pk       if etp else None,
+                'etp_status':      etp.status   if etp else None,
+                'tem_tr':          tr is not None,
+                'tr_id':           tr.pk        if tr else None,
+                'tr_status':       tr.status    if tr else None,
+                'tem_procedimento': len(procedimentos) > 0,
+                'procedimentos':   procedimentos,
+                'itens_familia':   itens_familia,
+            })
+
+        aprovados_sem_etp = [d for d in dfds_info if d['status'] == 'Aprovada' and not d['tem_etp']]
+        em_andamento = [d for d in dfds_info if d['tem_etp'] or d['tem_procedimento']]
+
+        return Response({
+            'familia': familia,
+            'dfds':    dfds_info,
+            'resumo':  {
+                'total':              len(dfds_info),
+                'aprovados_sem_etp':  len(aprovados_sem_etp),
+                'em_andamento':       len(em_andamento),
+            },
+        })
+
+    # ------------------------------------------------------------------ #
+    # iniciar de família SIMPAS                                            #
+    # ------------------------------------------------------------------ #
+
+    @action(detail=False, methods=['post'], url_path='iniciar-de-familia')
+    def iniciar_de_familia(self, request):
+        """
+        Cria um DFD agrupado a partir de itens consolidados de uma família SIMPAS.
+        Usado pela tela 'Preparar Aquisição' quando a origem é o Plano de Compras.
+        Body: { familia, exercicio, numero_sei, prazo_necessidade, area_aplicacao,
+                modalidade_aquisicao, observacoes,
+                itens: [{item_catalogo_id?, objeto, unidade_medida,
+                          quantidade, valor_unitario_estimado}] }
+        """
+        numero_sei        = (request.data.get('numero_sei') or '').strip()
+        prazo_necessidade = request.data.get('prazo_necessidade')
+        area_aplicacao    = request.data.get('area_aplicacao', [])
+        itens_data        = request.data.get('itens', [])
+        familia           = (request.data.get('familia') or '').strip()
+
+        erros = {}
+        if not numero_sei:
+            erros['numero_sei'] = 'Número SEI é obrigatório.'
+        if not prazo_necessidade:
+            erros['prazo_necessidade'] = 'Prazo da necessidade é obrigatório.'
+        if not area_aplicacao:
+            erros['area_aplicacao'] = 'Selecione ao menos uma área de aplicação.'
+        if not itens_data:
+            erros['itens'] = 'Adicione pelo menos 1 item ao DFD.'
+        if erros:
+            return Response(erros, status=status.HTTP_400_BAD_REQUEST)
+
+        descricao = request.data.get('descricao') or (
+            f'DFD agrupado — Família SIMPAS {familia}' if familia else 'DFD agrupado a partir do Plano de Compras'
+        )
+
+        dfd = DFD.objects.create(
+            numero_sei=numero_sei,
+            descricao=descricao,
+            prazo_necessidade=prazo_necessidade,
+            area_aplicacao=area_aplicacao if isinstance(area_aplicacao, list) else [area_aplicacao],
+            modalidade_aquisicao=request.data.get('modalidade_aquisicao', 'licitacao'),
+            observacoes=request.data.get('observacoes', ''),
+            org_id_id=request.org_id,
+            created_by=request.user,
+            updated_by=request.user,
+        )
+
+        for item in itens_data:
+            ItemDFD.objects.create(
+                dfd=dfd,
+                item_catalogo_id=item.get('item_catalogo_id') or None,
+                objeto=item.get('objeto', ''),
+                unidade_medida=item.get('unidade_medida', 'un'),
+                quantidade=item.get('quantidade', 1),
+                valor_unitario_estimado=item.get('valor_unitario_estimado', 0),
+                observacao=item.get('observacao', ''),
+                org_id_id=request.org_id,
+                created_by=request.user,
+                updated_by=request.user,
+            )
+
+        serializer = self.get_serializer(dfd)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
+
+    # ------------------------------------------------------------------ #
     # export actions                                                       #
     # ------------------------------------------------------------------ #
 

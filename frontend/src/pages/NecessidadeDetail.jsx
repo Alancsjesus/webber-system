@@ -169,9 +169,12 @@ export default function NecessidadeDetail() {
 
         <div className="flex gap-2 flex-wrap justify-end">
           {podeCriarDFD && (
-            <button onClick={() => navigate('/demanda/dfd/novo', { state: { necessidade: current } })}
+            <button
+              onClick={() => navigate('/aquisicao/preparar', {
+                state: { origem: 'necessidade', necessidade: current },
+              })}
               className="bg-green-600 hover:bg-green-700 text-white text-sm px-4 py-1.5 rounded-lg font-medium">
-              Gerar DFD
+              Preparar DFD →
             </button>
           )}
           {current.dfd && (

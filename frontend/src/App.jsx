@@ -48,6 +48,7 @@ import ContratoDetail from './pages/ContratoDetail'
 import ProcedimentoList from './pages/ProcedimentoList'
 import ProcedimentoCreate from './pages/ProcedimentoCreate'
 import ProcedimentoDetail from './pages/ProcedimentoDetail'
+import PrepararAquisicao from './pages/PrepararAquisicao'
 
 // Wrapper que combina autenticação + autorização por papel
 function Guard({ children }) {
@@ -80,6 +81,7 @@ export default function App() {
           <Route path="painel"        element={<Guard><Painel /></Guard>} />
           <Route path="ajuda"         element={<Guard><Ajuda /></Guard>} />
           <Route path="plano-compras" element={<Guard><PlanoCompras /></Guard>} />
+          <Route path="aquisicao/preparar" element={<Guard><PrepararAquisicao /></Guard>} />
 
           {/* Planejamento */}
           <Route path="planejamento/necessidades"      element={<Guard><NecessidadeList /></Guard>} />
