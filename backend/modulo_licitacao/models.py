@@ -30,7 +30,7 @@ PREFIXO_MODALIDADE = {
     'concorrencia':         'CC',
     'dispensa_eletronica':  'DE',
     'dispensa_tradicional': 'DT',
-    'inexigibilidade':      'IN',
+    'inexigibilidade':      'INEX',
 }
 
 # Prazo mínimo legal entre publicação e abertura (dias úteis)
@@ -122,13 +122,22 @@ class Procedimento(BaseModel):
     Procedimento licitatório ou contratação direta vinculado a um DFD/TR.
     Núcleo do Módulo de Licitação — conecta o planejamento (TR) ao Contrato.
     """
-    numero   = models.CharField(max_length=20, unique=True, editable=False,
+    numero   = models.CharField(max_length=30, unique=True, editable=False,
                                 verbose_name='Número do procedimento')
     exercicio = models.IntegerField(verbose_name='Exercício fiscal')
     modalidade = models.CharField(max_length=25, choices=MODALIDADE_CHOICES,
                                   verbose_name='Modalidade')
     status = models.CharField(max_length=25, choices=STATUS_CHOICES,
                               default='Em Instrução', verbose_name='Status')
+
+    # Unidade gestora responsável pelo procedimento — define a sigla no número
+    unidade_gestora = models.ForeignKey(
+        'core.UnidadeOrganizacional',
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='procedimentos_gestora',
+        verbose_name='Unidade gestora',
+    )
 
     # Vínculo com o planejamento
     dfd = models.ForeignKey(
@@ -404,16 +413,24 @@ class ResultadoLote(models.Model):
 def gerar_numero_procedimento(sender, instance, **kwargs):
     if instance.numero:
         return
-    prefixo = PREFIXO_MODALIDADE.get(instance.modalidade, 'PR')
+    prefixo   = PREFIXO_MODALIDADE.get(instance.modalidade, 'PR')
     exercicio = instance.exercicio or 2026
-    org = instance.org_id
+    org       = instance.org_id
+
+    # Sigla da unidade gestora quando informada; caso contrário usa o órgão
+    if instance.unidade_gestora_id:
+        sigla = instance.unidade_gestora.sigla
+    elif org:
+        sigla = org.sigla
+    else:
+        sigla = 'ORG'
+
     ultimo = (
         Procedimento.objects
         .filter(org_id=org, exercicio=exercicio, modalidade=instance.modalidade)
-        .exclude(pk=instance.pk)
+        .exclude(pk=instance.pk if instance.pk else 0)
         .count()
     )
     seq = ultimo + 1
-    sigla = org.sigla if org else 'ORG'
-    instance.numero = f'{sigla}-{prefixo}-{seq:03d}/{exercicio}'
+    instance.numero = f'{prefixo}-{sigla}-{seq:03d}/{exercicio}'
     instance.prazo_minimo_dias_uteis = PRAZO_LEGAL_DIAS_UTEIS.get(instance.modalidade, 0)

@@ -32,7 +32,7 @@ class ProcedimentoViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         qs = Procedimento.objects.filter(
             org_id=self.request.org_id
-        ).select_related('dfd', 'tr', 'org_id', 'created_by').prefetch_related(
+        ).select_related('dfd', 'tr', 'org_id', 'unidade_gestora', 'created_by').prefetch_related(
             'tramitacoes', 'resultados', 'historico'
         )
         modalidade = self.request.query_params.get('modalidade')
@@ -76,7 +76,7 @@ class ProcedimentoViewSet(viewsets.ModelViewSet):
         proc = Procedimento.objects.prefetch_related(
             'tramitacoes', 'resultados', 'historico',
             'dfd__mapas_preco',
-        ).select_related('dfd', 'tr', 'org_id', 'created_by').get(pk=procedimento.pk)
+        ).select_related('dfd', 'tr', 'org_id', 'unidade_gestora', 'created_by').get(pk=procedimento.pk)
         return ProcedimentoSerializer(proc, context={'request': self.request}).data
 
     # ── Transições de status ──────────────────────────────────────────────────

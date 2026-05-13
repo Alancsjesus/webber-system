@@ -39,25 +39,27 @@ function Field({ label, error, children, hint }) {
 export default function ProcedimentoCreate() {
   const navigate = useNavigate()
   const { createProcedimento } = useLicitacaoStore()
-  const [dfds, setDfds]   = useState([])
-  const [trs, setTrs]     = useState([])
-  const [saving, setSaving] = useState(false)
-  const [errors, setErrors] = useState({})
+  const [dfds, setDfds]           = useState([])
+  const [trs, setTrs]             = useState([])
+  const [unidades, setUnidades]   = useState([])
+  const [saving, setSaving]       = useState(false)
+  const [errors, setErrors]       = useState({})
 
   const [form, setForm] = useState({
-    exercicio:                ANO,
-    modalidade:               'pregao_eletronico',
-    dfd:                      '',
-    tr:                       '',
-    objeto:                   '',
-    valor_estimado:           '',
-    numero_sei:               '',
-    data_publicacao:          '',
-    data_abertura:            '',
-    fundamento_dispensa:      '',
+    exercicio:                  ANO,
+    modalidade:                 'pregao_eletronico',
+    unidade_gestora:            '',
+    dfd:                        '',
+    tr:                         '',
+    objeto:                     '',
+    valor_estimado:             '',
+    numero_sei:                 '',
+    data_publicacao:            '',
+    data_abertura:              '',
+    fundamento_dispensa:        '',
     fundamento_inexigibilidade: '',
-    justificativa:            '',
-    observacoes:              '',
+    justificativa:              '',
+    observacoes:                '',
   })
 
   const set = (k, v) => {
@@ -68,6 +70,9 @@ export default function ProcedimentoCreate() {
   useEffect(() => {
     api.get('/demanda/dfd/', { params: { status: 'Aprovada', page_size: 100 } })
        .then(({ data }) => setDfds(data.results ?? data))
+       .catch(() => {})
+    api.get('/core/unidades/', { params: { page_size: 200 } })
+       .then(({ data }) => setUnidades(data.results ?? data))
        .catch(() => {})
   }, [])
 
@@ -95,9 +100,10 @@ export default function ProcedimentoCreate() {
   const handleSubmit = async (e) => {
     e.preventDefault()
     const errs = {}
-    if (!form.modalidade)    errs.modalidade = 'Selecione a modalidade'
-    if (!form.objeto.trim()) errs.objeto = 'Objeto é obrigatório'
-    if (!form.exercicio)     errs.exercicio = 'Informe o exercício'
+    if (!form.modalidade)         errs.modalidade = 'Selecione a modalidade'
+    if (!form.objeto.trim())      errs.objeto = 'Objeto é obrigatório'
+    if (!form.exercicio)          errs.exercicio = 'Informe o exercício'
+    if (!form.unidade_gestora)    errs.unidade_gestora = 'Informe a unidade gestora (compõe o número do procedimento)'
     if (ehDispensa && !form.fundamento_dispensa) errs.fundamento_dispensa = 'Selecione o fundamento legal'
     if (ehInexig && !form.fundamento_inexigibilidade) errs.fundamento_inexigibilidade = 'Selecione o fundamento legal'
     if (Object.keys(errs).length) { setErrors(errs); return }
@@ -105,11 +111,12 @@ export default function ProcedimentoCreate() {
     setSaving(true)
     try {
       const payload = {
-        exercicio:  Number(form.exercicio),
-        modalidade: form.modalidade,
-        objeto:     form.objeto,
-        numero_sei: form.numero_sei || '',
-        observacoes: form.observacoes || '',
+        exercicio:       Number(form.exercicio),
+        modalidade:      form.modalidade,
+        unidade_gestora: Number(form.unidade_gestora),
+        objeto:          form.objeto,
+        numero_sei:      form.numero_sei || '',
+        observacoes:     form.observacoes || '',
       }
       if (form.dfd)   payload.dfd = Number(form.dfd)
       if (form.tr)    payload.tr  = Number(form.tr)
@@ -164,6 +171,32 @@ export default function ProcedimentoCreate() {
               onChange={e => set('exercicio', e.target.value)} className={inp(errors.exercicio)} />
           </Field>
         </div>
+
+        {/* Unidade gestora */}
+        <Field label="Unidade gestora *" error={errors.unidade_gestora}
+          hint="A sigla desta unidade compõe o número do procedimento (ex: INEX-DG-001/2026)">
+          <select value={form.unidade_gestora} onChange={e => set('unidade_gestora', e.target.value)}
+            className={inp(errors.unidade_gestora)}>
+            <option value="">— Selecione a unidade —</option>
+            {unidades.map(u => (
+              <option key={u.id} value={u.id}>
+                {u.sigla} — {u.nome} ({u.tipo})
+              </option>
+            ))}
+          </select>
+        </Field>
+
+        {/* Pré-visualização do número */}
+        {form.unidade_gestora && form.modalidade && (
+          <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 text-sm text-blue-700">
+            Número gerado automaticamente:&nbsp;
+            <strong>
+              {{ pregao_eletronico: 'PE', concorrencia: 'CC', dispensa_eletronica: 'DE', dispensa_tradicional: 'DT', inexigibilidade: 'INEX' }[form.modalidade]}
+              -{unidades.find(u => String(u.id) === String(form.unidade_gestora))?.sigla ?? '???'}-
+              NNN/{form.exercicio}
+            </strong>
+          </div>
+        )}
 
         {/* DFD e TR */}
         <Field label="DFD de origem" error={errors.dfd}>

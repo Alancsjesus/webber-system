@@ -66,14 +66,16 @@ class ResultadoLoteSerializer(serializers.ModelSerializer):
 
 
 class ProcedimentoSerializer(serializers.ModelSerializer):
-    created_by_username  = serializers.CharField(source='created_by.username', read_only=True)
-    updated_by_username  = serializers.CharField(source='updated_by.username', read_only=True)
-    modalidade_display   = serializers.CharField(source='get_modalidade_display', read_only=True)
-    status_display       = serializers.CharField(source='get_status_display',    read_only=True)
-    dfd_numero_sei       = serializers.CharField(source='dfd.numero_sei',         read_only=True)
-    tr_numero_sei        = serializers.CharField(source='tr.numero_sei',          read_only=True)
-    org_sigla            = serializers.CharField(source='org_id.sigla',           read_only=True)
-    transicoes_disponiveis = serializers.ListField(read_only=True)
+    created_by_username      = serializers.CharField(source='created_by.username',          read_only=True)
+    updated_by_username      = serializers.CharField(source='updated_by.username',          read_only=True)
+    modalidade_display       = serializers.CharField(source='get_modalidade_display',       read_only=True)
+    status_display           = serializers.CharField(source='get_status_display',           read_only=True)
+    dfd_numero_sei           = serializers.CharField(source='dfd.numero_sei',               read_only=True)
+    tr_numero_sei            = serializers.CharField(source='tr.numero_sei',                read_only=True)
+    org_sigla                = serializers.CharField(source='org_id.sigla',                 read_only=True)
+    unidade_gestora_sigla    = serializers.CharField(source='unidade_gestora.sigla', read_only=True, allow_null=True, default=None)
+    unidade_gestora_nome     = serializers.CharField(source='unidade_gestora.nome',  read_only=True, allow_null=True, default=None)
+    transicoes_disponiveis   = serializers.ListField(read_only=True)
     historico            = HistoricoProcedimentoSerializer(many=True, read_only=True)
     tramitacoes          = TramitacaoExternaSerializer(many=True, read_only=True)
     resultados           = ResultadoLoteSerializer(many=True, read_only=True)
@@ -95,6 +97,7 @@ class ProcedimentoSerializer(serializers.ModelSerializer):
             'prazo_minimo_dias_uteis',
             'motivo_revogacao', 'observacoes',
             'org_id', 'org_sigla',
+            'unidade_gestora', 'unidade_gestora_sigla', 'unidade_gestora_nome',
             'created_by', 'created_by_username',
             'updated_by', 'updated_by_username',
             'created_at', 'updated_at',
@@ -104,6 +107,7 @@ class ProcedimentoSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             'id', 'numero', 'org_id', 'org_sigla',
+            'unidade_gestora_sigla', 'unidade_gestora_nome',
             'created_by', 'created_by_username',
             'updated_by', 'updated_by_username',
             'created_at', 'updated_at',
@@ -199,10 +203,11 @@ class ProcedimentoSerializer(serializers.ModelSerializer):
 
 class ProcedimentoListSerializer(serializers.ModelSerializer):
     """Versão compacta para listagem."""
-    modalidade_display = serializers.CharField(source='get_modalidade_display', read_only=True)
-    status_display     = serializers.CharField(source='get_status_display',     read_only=True)
-    dfd_numero_sei     = serializers.CharField(source='dfd.numero_sei',          read_only=True)
-    tramitacoes_pendentes = serializers.SerializerMethodField()
+    modalidade_display     = serializers.CharField(source='get_modalidade_display', read_only=True)
+    status_display         = serializers.CharField(source='get_status_display',     read_only=True)
+    dfd_numero_sei         = serializers.CharField(source='dfd.numero_sei',          read_only=True)
+    unidade_gestora_sigla  = serializers.CharField(source='unidade_gestora.sigla', read_only=True, allow_null=True, default=None)
+    tramitacoes_pendentes  = serializers.SerializerMethodField()
 
     class Meta:
         model  = Procedimento
@@ -210,6 +215,7 @@ class ProcedimentoListSerializer(serializers.ModelSerializer):
             'id', 'numero', 'exercicio', 'modalidade', 'modalidade_display',
             'status', 'status_display',
             'dfd', 'dfd_numero_sei',
+            'unidade_gestora', 'unidade_gestora_sigla',
             'objeto', 'valor_estimado',
             'data_publicacao', 'data_abertura',
             'tramitacoes_pendentes',

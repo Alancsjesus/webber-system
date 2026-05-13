@@ -202,7 +202,14 @@ export default function ProcedimentoDetail() {
               {current.status}
             </span>
           </div>
-          <p className="text-sm text-gray-500 mt-0.5">{current.modalidade_display} · Exercício {current.exercicio}</p>
+          <p className="text-sm text-gray-500 mt-0.5">
+            {current.modalidade_display} · Exercício {current.exercicio}
+            {current.unidade_gestora_sigla && (
+              <span className="ml-2 px-1.5 py-0.5 bg-gray-100 text-gray-600 rounded text-xs font-mono">
+                {current.unidade_gestora_sigla}
+              </span>
+            )}
+          </p>
         </div>
 
         {/* Botões de ação contextuais */}
@@ -348,6 +355,17 @@ export default function ProcedimentoDetail() {
 
           {/* Info adicionais */}
           <div className="grid grid-cols-2 gap-4 pt-2">
+            {current.unidade_gestora_sigla && (
+              <div>
+                <p className="text-xs font-semibold text-gray-400 uppercase mb-1">Unidade Gestora</p>
+                <p className="text-sm text-gray-700">
+                  <span className="font-mono font-semibold">{current.unidade_gestora_sigla}</span>
+                  {current.unidade_gestora_nome && (
+                    <span className="text-gray-500 ml-1">— {current.unidade_gestora_nome}</span>
+                  )}
+                </p>
+              </div>
+            )}
             {current.dfd_numero_sei && (
               <div>
                 <p className="text-xs font-semibold text-gray-400 uppercase mb-1">DFD de Origem</p>
