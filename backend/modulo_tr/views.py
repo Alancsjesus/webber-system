@@ -118,6 +118,21 @@ class TRViewSet(viewsets.ModelViewSet):
         pdf = gerar_pdf_tr(tr)
         return resposta_pdf(pdf, f'TR_{tr.numero_sei}.pdf')
 
+    @action(detail=True, methods=['get'], url_path='export/historico')
+    def export_historico(self, request, pk=None):
+        from exportacao.pdf_utils import gerar_pdf_historico, resposta_pdf
+        tr = self.get_object()
+        pdf = gerar_pdf_historico(
+            titulo='TR',
+            numero_ref=tr.numero_sei,
+            historico_entries=tr.historico.select_related('usuario').order_by('-criado_em'),
+            org_nome=tr.org_id.nome if tr.org_id else '',
+            org_sigla=tr.org_id.sigla if tr.org_id else None,
+            criado_por=tr.created_by,
+            created_at=tr.created_at,
+        )
+        return resposta_pdf(pdf, f'Historico_TR_{tr.numero_sei}.pdf')
+
     @action(detail=True, methods=['get'], url_path='export/html')
     def export_html(self, request, pk=None):
         tr = self.get_object()

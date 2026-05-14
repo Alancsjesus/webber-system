@@ -993,6 +993,213 @@ def gerar_pdf_mapa(mapa) -> bytes:
     return buf.getvalue()
 
 
+def _cor_status(s: str):
+    """Retorna cor de fundo e texto para um status."""
+    mapa = {
+        'Rascunho':          (colors.HexColor('#F3F4F6'), colors.HexColor('#374151')),
+        'Submetido':         (colors.HexColor('#DBEAFE'), colors.HexColor('#1E40AF')),
+        'Submetida':         (colors.HexColor('#DBEAFE'), colors.HexColor('#1E40AF')),
+        'Em Análise':        (colors.HexColor('#FEF3C7'), colors.HexColor('#92400E')),
+        'Devolvido':         (colors.HexColor('#FFEDD5'), colors.HexColor('#9A3412')),
+        'Devolvida':         (colors.HexColor('#FFEDD5'), colors.HexColor('#9A3412')),
+        'Aprovado':          (colors.HexColor('#D1FAE5'), colors.HexColor('#065F46')),
+        'Aprovada':          (colors.HexColor('#D1FAE5'), colors.HexColor('#065F46')),
+        'Cancelado':         (colors.HexColor('#FEE2E2'), colors.HexColor('#991B1B')),
+        'Cancelada':         (colors.HexColor('#FEE2E2'), colors.HexColor('#991B1B')),
+        'Dispensado':        (colors.HexColor('#EDE9FE'), colors.HexColor('#5B21B6')),
+        'Publicado':         (colors.HexColor('#DBEAFE'), colors.HexColor('#1E40AF')),
+        'Publicada':         (colors.HexColor('#DBEAFE'), colors.HexColor('#1E40AF')),
+        'Homologado':        (colors.HexColor('#D1FAE5'), colors.HexColor('#065F46')),
+        'Contratado':        (colors.HexColor('#A7F3D0'), colors.HexColor('#064E3B')),
+        'Deserto':           (colors.HexColor('#FEE2E2'), colors.HexColor('#991B1B')),
+        'Fracassado':        (colors.HexColor('#FEE2E2'), colors.HexColor('#991B1B')),
+        'Revogado':          (colors.HexColor('#F3F4F6'), colors.HexColor('#6B7280')),
+        'Anulado':           (colors.HexColor('#F3F4F6'), colors.HexColor('#6B7280')),
+        'Em Instrução':      (colors.HexColor('#F3F4F6'), colors.HexColor('#374151')),
+        'Identificada':      (colors.HexColor('#F3F4F6'), colors.HexColor('#374151')),
+        'Em Análise (Nec)':  (colors.HexColor('#FEF3C7'), colors.HexColor('#92400E')),
+        'DFD Criado':        (colors.HexColor('#DBEAFE'), colors.HexColor('#1E40AF')),
+    }
+    return mapa.get(s, (colors.HexColor('#F9FAFB'), colors.HexColor('#374151')))
+
+
+def _badge_status(s: str, font_size: int = 7):
+    """Retorna um Paragraph com visual de badge colorido para o status."""
+    bg, fg = _cor_status(s)
+    # hexval() → '0x374151'; [2:] descarta o '0x', deixa '374151'
+    fg_hex = fg.hexval()[2:].upper().zfill(6)
+    return Paragraph(
+        f'<font color="#{fg_hex}">{s or "—"}</font>',
+        ParagraphStyle(
+            f'badge_{s}', fontSize=font_size, backColor=bg,
+            textColor=fg, fontName='Helvetica-Bold',
+            alignment=TA_CENTER, borderPadding=(2, 4, 2, 4),
+            leading=font_size + 3,
+        )
+    )
+
+
+def gerar_pdf_historico(
+    titulo: str,
+    numero_ref: str,
+    historico_entries,
+    org_nome: str,
+    org_sigla: str = None,
+    criado_por=None,
+    created_at=None,
+) -> bytes:
+    """
+    Gera PDF do histórico de tramitação de qualquer artefato.
+    historico_entries: queryset ou lista com campos:
+        status_anterior, status_novo, usuario (FK), motivo, criado_em
+    """
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4,
+                             leftMargin=2*cm, rightMargin=2*cm,
+                             topMargin=2*cm, bottomMargin=2.5*cm)
+    estilos = _estilos()
+    e = []
+
+    hash_doc = _hash_documento({
+        'tipo': 'HIST', 'ref': numero_ref, 'org': org_nome,
+        'ts': datetime.now().isoformat(),
+    })
+
+    e += _cabecalho(f'HISTÓRICO DE TRAMITAÇÃO — {titulo}', numero_ref, org_nome, estilos, org_sigla=org_sigla)
+
+    # Ficha de identificação
+    e.append(_secao('Identificação do Documento', estilos))
+    id_dados = [
+        ['Tipo de artefato', titulo],
+        ['Referência / Nº SEI', numero_ref],
+        ['Órgão', org_nome or '—'],
+        ['Criado por', (criado_por.get_full_name() or criado_por.username) if criado_por else '—'],
+        ['Criado em', created_at.strftime('%d/%m/%Y às %H:%M') if created_at else '—'],
+        ['Emitido em', datetime.now().strftime('%d/%m/%Y às %H:%M')],
+    ]
+    t_id = Table(id_dados, colWidths=[4.5*cm, 13*cm])
+    t_id.setStyle(TableStyle([
+        ('FONTNAME',      (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTSIZE',      (0, 0), (-1, -1), 8),
+        ('TEXTCOLOR',     (0, 0), (0, -1), CINZA_TXT),
+        ('ROWBACKGROUNDS',(0, 0), (-1, -1), [BRANCO, AZUL_CLARO]),
+        ('GRID',          (0, 0), (-1, -1), 0.5, CINZA_BD),
+        ('VALIGN',        (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING',    (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING',   (0, 0), (-1, -1), 8),
+    ]))
+    e.append(t_id)
+    e.append(Spacer(1, 0.4*cm))
+
+    # Linha do tempo
+    e.append(_secao('Linha do Tempo das Tramitações', estilos))
+    e.append(Spacer(1, 0.2*cm))
+
+    entradas = list(historico_entries)
+
+    if not entradas:
+        e.append(Paragraph('Nenhuma tramitação registrada para este artefato.', estilos['valor']))
+    else:
+        entradas_ord = list(reversed(entradas))  # cronológico (mais antigo primeiro)
+
+        # Cabeçalho da tabela
+        cab = [
+            Paragraph('<b>#</b>', ParagraphStyle('ch', fontSize=7, textColor=BRANCO, alignment=TA_CENTER)),
+            Paragraph('<b>Data / Hora</b>', ParagraphStyle('ch', fontSize=7, textColor=BRANCO, alignment=TA_CENTER)),
+            Paragraph('<b>Usuário</b>', ParagraphStyle('ch', fontSize=7, textColor=BRANCO)),
+            Paragraph('<b>Status anterior</b>', ParagraphStyle('ch', fontSize=7, textColor=BRANCO, alignment=TA_CENTER)),
+            Paragraph('<b>→</b>', ParagraphStyle('ch', fontSize=8, textColor=BRANCO, alignment=TA_CENTER)),
+            Paragraph('<b>Novo status</b>', ParagraphStyle('ch', fontSize=7, textColor=BRANCO, alignment=TA_CENTER)),
+            Paragraph('<b>Motivo / Observação</b>', ParagraphStyle('ch', fontSize=7, textColor=BRANCO)),
+        ]
+        dados = [cab]
+
+        for i, h in enumerate(entradas_ord, 1):
+            usuario = getattr(h, 'usuario', None)
+            nome_u  = (usuario.get_full_name() or usuario.username) if usuario else '—'
+            data_h  = h.criado_em.strftime('%d/%m/%Y\n%H:%M') if h.criado_em else '—'
+            motivo  = (h.motivo or '').strip()
+            cat     = getattr(h, 'categoria_motivo', '') or ''
+
+            # Compor célula de motivo
+            motivo_partes = []
+            if cat:
+                motivo_partes.append(Paragraph(
+                    f'<b>[{cat}]</b>',
+                    ParagraphStyle('cat', fontSize=6, textColor=colors.HexColor('#6B7280'), leading=8),
+                ))
+            if motivo:
+                motivo_partes.append(Paragraph(
+                    motivo[:200],
+                    ParagraphStyle('mot', fontSize=7, leading=9),
+                ))
+            if not motivo_partes:
+                motivo_partes.append(Paragraph('—', ParagraphStyle('mot', fontSize=7)))
+
+            # Linha com zebra alternada
+            linha_bg = BRANCO if i % 2 == 1 else AZUL_CLARO
+            dados.append([
+                Paragraph(str(i), ParagraphStyle('n', fontSize=7, alignment=TA_CENTER)),
+                Paragraph(data_h, ParagraphStyle('dt', fontSize=7, alignment=TA_CENTER, leading=9)),
+                Paragraph(nome_u, ParagraphStyle('u', fontSize=7, leading=9)),
+                _badge_status(h.status_anterior or '—'),
+                Paragraph('→', ParagraphStyle('arr', fontSize=9, alignment=TA_CENTER, textColor=AZUL_GOV)),
+                _badge_status(h.status_novo or '—'),
+                motivo_partes if len(motivo_partes) > 1 else motivo_partes[0],
+            ])
+
+        t = Table(dados, colWidths=[0.7*cm, 2.3*cm, 3.2*cm, 2.8*cm, 0.5*cm, 2.8*cm, 5.2*cm])
+        t.setStyle(TableStyle([
+            ('BACKGROUND',    (0, 0), (-1, 0),  AZUL_GOV),
+            ('FONTSIZE',      (0, 0), (-1, -1), 7),
+            ('GRID',          (0, 0), (-1, -1), 0.5, CINZA_BD),
+            ('VALIGN',        (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING',    (0, 0), (-1, -1), 5),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+            ('LEFTPADDING',   (0, 0), (-1, -1), 4),
+            ('RIGHTPADDING',  (0, 0), (-1, -1), 4),
+        ]))
+        e.append(t)
+
+        # Resumo
+        e.append(Spacer(1, 0.5*cm))
+        ultimo = entradas_ord[-1]
+        resumo_dados = [
+            ['Total de tramitações', str(len(entradas_ord)),
+             'Status atual', _badge_status(ultimo.status_novo or '—', font_size=8)],
+        ]
+        t_res = Table(resumo_dados, colWidths=[4*cm, 2*cm, 4*cm, 7.5*cm])
+        t_res.setStyle(TableStyle([
+            ('FONTNAME',      (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('FONTNAME',      (2, 0), (2, -1), 'Helvetica-Bold'),
+            ('FONTSIZE',      (0, 0), (-1, -1), 8),
+            ('TEXTCOLOR',     (0, 0), (0, -1),  CINZA_TXT),
+            ('TEXTCOLOR',     (2, 0), (2, -1),  CINZA_TXT),
+            ('BOX',           (0, 0), (-1, -1), 0.5, CINZA_BD),
+            ('INNERGRID',     (0, 0), (-1, -1), 0.5, CINZA_BD),
+            ('VALIGN',        (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING',    (0, 0), (-1, -1), 6),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 6),
+            ('LEFTPADDING',   (0, 0), (-1, -1), 8),
+        ]))
+        e.append(t_res)
+
+    # Verificação
+    e.append(Spacer(1, 0.6*cm))
+    e.append(HRFlowable(width='100%', thickness=0.5, color=CINZA_BD))
+    e.append(Spacer(1, 0.2*cm))
+    e.append(Paragraph(
+        f'Código de verificação: <b>{hash_doc}</b> &nbsp;|&nbsp; '
+        'Documento gerado eletronicamente pelo Sistema WEBBER &nbsp;|&nbsp; '
+        f'Emitido em {datetime.now().strftime("%d/%m/%Y às %H:%M")}',
+        ParagraphStyle('hash', fontSize=7, textColor=CINZA_TXT, alignment=TA_CENTER),
+    ))
+
+    doc.build(e, onFirstPage=_rodape, onLaterPages=_rodape)
+    return buf.getvalue()
+
+
 def resposta_html(html: str, filename: str) -> HttpResponse:
     response = HttpResponse(html, content_type='text/html; charset=utf-8')
     response['Content-Disposition'] = f'attachment; filename="{filename}"'

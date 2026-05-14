@@ -1,0 +1,151 @@
+{% extends "exportacao/base.html" %}
+{% block title %}ETP {{ etp.numero_sei }}{% endblock %}
+{% block content %}
+
+<div class="header">
+  <div class="header-org">{{ etp.org_id.nome }}</div>
+  <div class="header-tipo">Estudo Técnico Preliminar</div>
+  <div class="header-ref">Nº SEI: {{ etp.numero_sei }} | DFD: {{ etp.dfd.numero_sei|default:"—" }}</div>
+</div>
+
+<div class="section-title">Identificação</div>
+<div class="grid-2">
+  <div class="field">
+    <div class="field-label">Status</div>
+    <div class="field-value">
+      {% if etp.status == 'Aprovado' %}<span class="badge badge-green">{{ etp.status }}</span>
+      {% elif etp.status == 'Em Análise' %}<span class="badge badge-yellow">{{ etp.status }}</span>
+      {% elif etp.status == 'Devolvido' %}<span class="badge badge-orange">{{ etp.status }}</span>
+      {% elif etp.status == 'Dispensado' %}<span class="badge badge-purple">{{ etp.status }}</span>
+      {% elif etp.status == 'Submetido' %}<span class="badge badge-blue">{{ etp.status }}</span>
+      {% else %}<span class="badge badge-gray">{{ etp.status }}</span>{% endif %}
+    </div>
+  </div>
+  <div class="field">
+    <div class="field-label">Estimativa de valor</div>
+    <div class="field-value">{% if etp.estimativa_valor %}R$ {{ etp.estimativa_valor|floatformat:2 }}{% else %}—{% endif %}</div>
+  </div>
+  <div class="field">
+    <div class="field-label">Tipo de objeto</div>
+    <div class="field-value">{{ etp.get_tipo_objeto_display|default:"—" }}</div>
+  </div>
+  <div class="field">
+    <div class="field-label">Parcelamento</div>
+    <div class="field-value">{{ etp.get_tipo_parcelamento_display|default:"—" }}</div>
+  </div>
+</div>
+
+{% if etp.dispensa_motivo %}
+<div class="field" style="background:#EDE9FE;padding:8px 12px;border-radius:6px">
+  <div class="field-label">Motivo da dispensa de ETP</div>
+  <div class="field-value">{{ etp.dispensa_motivo }}</div>
+</div>
+{% endif %}
+
+{% for campo, titulo, rows in campos %}
+{% if campo %}
+<div class="section-title">{{ titulo }}</div>
+<div class="field"><div class="field-value" style="white-space:pre-wrap">{{ campo }}</div></div>
+{% endif %}
+{% endfor %}
+
+{% with campo=etp.necessidade_contratacao titulo="Necessidade da Contratação" %}{% if campo %}
+<div class="section-title">Necessidade da Contratação</div>
+<div class="field"><div class="field-value" style="white-space:pre-wrap">{{ etp.necessidade_contratacao }}</div></div>
+{% endif %}{% endwith %}
+{% if etp.requisitos_contratacao %}
+<div class="section-title">Requisitos da Contratação</div>
+<div class="field"><div class="field-value" style="white-space:pre-wrap">{{ etp.requisitos_contratacao }}</div></div>
+{% endif %}
+{% if etp.levantamento_mercado %}
+<div class="section-title">Levantamento de Mercado</div>
+<div class="field"><div class="field-value" style="white-space:pre-wrap">{{ etp.levantamento_mercado }}</div></div>
+{% endif %}
+{% if etp.descricao_solucao %}
+<div class="section-title">Descrição da Solução</div>
+<div class="field"><div class="field-value" style="white-space:pre-wrap">{{ etp.descricao_solucao }}</div></div>
+{% endif %}
+{% if etp.justificativa_solucao %}
+<div class="section-title">Justificativa da Solução</div>
+<div class="field"><div class="field-value" style="white-space:pre-wrap">{{ etp.justificativa_solucao }}</div></div>
+{% endif %}
+{% if etp.riscos %}
+<div class="section-title">Mapa de Riscos</div>
+<div class="field"><div class="field-value" style="white-space:pre-wrap">{{ etp.riscos }}</div></div>
+{% endif %}
+{% if etp.sustentabilidade %}
+<div class="section-title">Sustentabilidade</div>
+<div class="field"><div class="field-value" style="white-space:pre-wrap">{{ etp.sustentabilidade }}</div></div>
+{% endif %}
+
+<div class="section-title">Parcelamento e ME/EPP (LC 123/2006, Art. 48)</div>
+<div class="grid-2">
+  <div class="field">
+    <div class="field-label">Reserva de cota 25% para ME/EPP</div>
+    <div class="field-value">
+      {% if etp.reserva_cota_me_epp %}<span class="badge badge-green">Sim — Art. 48, III</span>
+      {% else %}<span class="badge badge-gray">Não</span>{% endif %}
+    </div>
+  </div>
+  <div class="field">
+    <div class="field-label">Licitação exclusiva ME/EPP</div>
+    <div class="field-value">
+      {% if etp.licitacao_exclusiva_me_epp %}<span class="badge badge-green">Sim — Art. 48, I (≤ R$80.000)</span>
+      {% else %}<span class="badge badge-gray">Não</span>{% endif %}
+    </div>
+  </div>
+</div>
+{% if etp.reserva_cota_justificativa %}
+<div class="field">
+  <div class="field-label">Justificativa para não-reserva de cota</div>
+  <div class="field-value">{{ etp.reserva_cota_justificativa }}</div>
+</div>
+{% endif %}
+{% if etp.parcelamento_justificativa %}
+<div class="field">
+  <div class="field-label">Justificativa do parcelamento</div>
+  <div class="field-value">{{ etp.parcelamento_justificativa }}</div>
+</div>
+{% endif %}
+
+{% if etp.observacoes %}
+<div class="section-title">Observações</div>
+<div class="field"><div class="field-value" style="white-space:pre-wrap">{{ etp.observacoes }}</div></div>
+{% endif %}
+
+{% if etp.historico.exists %}
+<div class="section-title">Histórico de Tramitação</div>
+<table>
+  <thead><tr><th>Data</th><th>Usuário</th><th>De</th><th>Para</th><th>Motivo</th></tr></thead>
+  <tbody>
+    {% for h in etp.historico.all %}
+    <tr>
+      <td style="white-space:nowrap">{{ h.criado_em|date:"d/m/Y H:i" }}</td>
+      <td>{{ h.usuario.username|default:"—" }}</td>
+      <td>{{ h.status_anterior }}</td>
+      <td><strong>{{ h.status_novo }}</strong></td>
+      <td>{{ h.motivo|default:"—" }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+<div class="warning">
+  Este documento requer assinatura física ou digital (GOV.BR / SEI) para ter validade jurídica.
+</div>
+
+<div class="signatures">
+  <div class="sig-block">
+    <div class="sig-line"></div>
+    <div class="sig-name">{{ etp.created_by.get_full_name|default:etp.created_by.username }}</div>
+    <div class="sig-role">Elaborado por</div>
+  </div>
+  <div class="sig-block">
+    <div class="sig-line"></div>
+    <div class="sig-name">Pendente de aprovação</div>
+    <div class="sig-role">Aprovado por</div>
+  </div>
+</div>
+
+{% endblock %}

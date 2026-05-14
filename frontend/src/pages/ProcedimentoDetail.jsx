@@ -3,6 +3,8 @@ import { useNavigate, useParams } from 'react-router-dom'
 import useLicitacaoStore from '../stores/licitacaoStore'
 import useAuthStore from '../stores/authStore'
 import LoadingSpinner from '../components/LoadingSpinner'
+import { downloadFile } from '../services/api'
+import DownloadButton from '../components/DownloadButton'
 
 const fmt = v => Number(v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const fmtPct = v => v != null ? `${Number(v).toFixed(1)}%` : '—'
@@ -214,6 +216,11 @@ export default function ProcedimentoDetail() {
 
         {/* Botões de ação contextuais */}
         <div className="flex gap-2 flex-wrap justify-end">
+          <DownloadButton
+              onClick={() => downloadFile(`/licitacao/procedimento/${id}/export/historico/`, `Historico_${current.numero}.pdf`)}
+              className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-3 py-1.5 rounded-lg">
+              ↓ Histórico
+            </DownloadButton>
           {transicoes.includes('Aguardando Aprovação') && (
             <button onClick={() => act(submeter, id)} disabled={saving}
               className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm px-3 py-1.5 rounded-lg">

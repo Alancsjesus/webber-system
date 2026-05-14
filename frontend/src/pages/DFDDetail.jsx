@@ -4,6 +4,7 @@ import ModalDevolver, { MOTIVOS_DFD } from '../components/ModalDevolver'
 import useDFDStore from '../stores/dfdStore'
 import useAuthStore from '../stores/authStore'
 import api, { downloadFile } from '../services/api'
+import DownloadButton from '../components/DownloadButton'
 
 const STATUS_CLS = {
   Rascunho:    'bg-gray-100 text-gray-600',
@@ -308,14 +309,21 @@ export default function DFDDetail() {
                   Editar
                 </button>
               )}
-              <button onClick={() => downloadFile(`/demanda/dfd/${id}/export/pdf/`, `DFD_${current.numero_sei}.pdf`)}
-                className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg transition-colors">
-                ↓ PDF
-              </button>
-              <button onClick={() => downloadFile(`/demanda/dfd/${id}/export/html/`, `DFD_${current.numero_sei}.html`)}
-                className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg transition-colors">
-                ↓ HTML
-              </button>
+              <DownloadButton
+              onClick={() => downloadFile(`/demanda/dfd/${id}/export/pdf/`, `DFD_${current.numero_sei}.pdf`)}
+              className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg transition-colors">
+              ↓ PDF
+            </DownloadButton>
+              <DownloadButton
+              onClick={() => downloadFile(`/demanda/dfd/${id}/export/historico/`, `Historico_DFD_${current.numero_sei}.pdf`)}
+              className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg transition-colors">
+              ↓ Histórico
+            </DownloadButton>
+              <DownloadButton
+              onClick={() => downloadFile(`/demanda/dfd/${id}/export/html/`, `DFD_${current.numero_sei}.html`)}
+              className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg transition-colors">
+              ↓ HTML
+            </DownloadButton>
               <button onClick={handleDelete}
                 className="border border-red-300 text-red-500 hover:bg-red-50 text-sm px-4 py-1.5 rounded-lg transition-colors">
                 Excluir

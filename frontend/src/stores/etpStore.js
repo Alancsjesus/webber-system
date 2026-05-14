@@ -78,6 +78,15 @@ const useEtpStore = create((set) => ({
     return data
   },
 
+  reabrirEtp: async (id, motivo) => {
+    const { data } = await api.post(`/etp/etp/${id}/reabrir/`, { motivo })
+    set((s) => ({
+      current: data,
+      etps: s.etps.map((e) => (e.id === Number(id) ? data : e)),
+    }))
+    return data
+  },
+
   deleteEtp: async (id) => {
     await api.delete(`/etp/etp/${id}/`)
     set((s) => ({ etps: s.etps.filter((e) => e.id !== id) }))

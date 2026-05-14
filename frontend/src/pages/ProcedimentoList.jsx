@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useLicitacaoStore from '../stores/licitacaoStore'
 import LoadingSpinner from '../components/LoadingSpinner'
+import api from '../services/api'
 
 const MODALIDADE_LABEL = {
   pregao_eletronico:    'Pregão Eletrônico',
@@ -19,6 +20,14 @@ const MODALIDADE_CLS = {
   inexigibilidade:      'bg-purple-100 text-purple-800',
 }
 
+const MODALIDADE_BAR = {
+  pregao_eletronico:    'bg-blue-500',
+  concorrencia:         'bg-indigo-500',
+  dispensa_eletronica:  'bg-amber-500',
+  dispensa_tradicional: 'bg-orange-500',
+  inexigibilidade:      'bg-purple-500',
+}
+
 const STATUS_CLS = {
   'Em Instrução':         'bg-gray-100 text-gray-600',
   'Aguardando Aprovação': 'bg-yellow-100 text-yellow-700',
@@ -33,12 +42,153 @@ const STATUS_CLS = {
   'Anulado':              'bg-gray-200 text-gray-500',
 }
 
+const STATUS_BAR = {
+  'Em Instrução':         'bg-gray-400',
+  'Aguardando Aprovação': 'bg-yellow-400',
+  'Aprovado':             'bg-teal-400',
+  'Publicado':            'bg-blue-400',
+  'Em Sessão':            'bg-indigo-400',
+  'Homologado':           'bg-green-400',
+  'Contratado':           'bg-green-600',
+  'Deserto':              'bg-red-300',
+  'Fracassado':           'bg-red-400',
+  'Revogado':             'bg-gray-300',
+  'Anulado':              'bg-gray-300',
+}
+
 const fmt = v => Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+const fmtK = v => {
+  const n = Number(v || 0)
+  if (n >= 1_000_000) return `R$ ${(n / 1_000_000).toFixed(1)}M`
+  if (n >= 1_000)     return `R$ ${(n / 1_000).toFixed(0)}K`
+  return fmt(n)
+}
+
+// ── Gráfico de barras horizontais simples ─────────────────────────────────────
+
+function BarChart({ rows, keyField, labelField, valueField, barCls, maxValue }) {
+  const max = maxValue ?? Math.max(...rows.map(r => r[valueField]), 1)
+  return (
+    <div className="space-y-2">
+      {rows.map(r => {
+        const pct = Math.round((r[valueField] / max) * 100)
+        const cls = typeof barCls === 'function' ? barCls(r[keyField]) : barCls
+        return (
+          <div key={r[keyField]}>
+            <div className="flex items-center justify-between mb-0.5">
+              <span className="text-xs text-gray-600 truncate max-w-[60%]">{r[labelField]}</span>
+              <span className="text-xs font-semibold text-gray-700 ml-2">{r[valueField]}</span>
+            </div>
+            <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div className={`h-full rounded-full transition-all ${cls || 'bg-blue-400'}`}
+                style={{ width: `${Math.max(pct, 2)}%` }} />
+            </div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
+
+// ── Painel de dashboard ───────────────────────────────────────────────────────
+
+function Dashboard({ exercicio }) {
+  const [dados, setDados] = useState(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    setLoading(true)
+    const params = exercicio ? { exercicio } : {}
+    api.get('/licitacao/procedimento/dashboard/', { params })
+      .then(({ data }) => setDados(data))
+      .catch(() => setDados(null))
+      .finally(() => setLoading(false))
+  }, [exercicio])
+
+  if (loading) return <div className="py-6 text-center text-sm text-gray-400">Carregando painel...</div>
+  if (!dados)  return null
+
+  const kpis = [
+    { label: 'Total',        value: dados.total,        cls: 'text-gray-800' },
+    { label: 'Em Andamento', value: dados.em_andamento, cls: 'text-blue-700' },
+    { label: 'Concluídos',   value: dados.concluidos,   cls: 'text-green-700' },
+    { label: 'Valor Est.',   value: fmtK(dados.valor_total), cls: 'text-indigo-700' },
+  ]
+
+  return (
+    <div className="space-y-5 mb-6">
+      {/* KPIs */}
+      <div className="grid grid-cols-4 gap-4">
+        {kpis.map(k => (
+          <div key={k.label} className="bg-white border border-gray-200 rounded-xl p-4">
+            <p className="text-xs font-semibold text-gray-400 uppercase mb-1">{k.label}</p>
+            <p className={`text-2xl font-bold ${k.cls}`}>{k.value}</p>
+          </div>
+        ))}
+      </div>
+
+      {/* Gráficos */}
+      <div className="grid grid-cols-2 gap-4">
+        <div className="bg-white border border-gray-200 rounded-xl p-5">
+          <p className="text-xs font-semibold text-gray-400 uppercase mb-4">Por Modalidade</p>
+          {dados.por_modalidade.length === 0
+            ? <p className="text-xs text-gray-400 italic">Sem dados.</p>
+            : <BarChart
+                rows={dados.por_modalidade}
+                keyField="modalidade"
+                labelField="label"
+                valueField="count"
+                barCls={k => MODALIDADE_BAR[k] || 'bg-gray-400'}
+              />}
+        </div>
+
+        <div className="bg-white border border-gray-200 rounded-xl p-5">
+          <p className="text-xs font-semibold text-gray-400 uppercase mb-4">Por Status</p>
+          {dados.por_status.length === 0
+            ? <p className="text-xs text-gray-400 italic">Sem dados.</p>
+            : <BarChart
+                rows={dados.por_status}
+                keyField="status"
+                labelField="status"
+                valueField="count"
+                barCls={k => STATUS_BAR[k] || 'bg-gray-400'}
+              />}
+        </div>
+      </div>
+
+      {/* Valores por modalidade */}
+      {dados.por_modalidade.some(r => r.valor > 0) && (
+        <div className="bg-white border border-gray-200 rounded-xl p-5">
+          <p className="text-xs font-semibold text-gray-400 uppercase mb-4">Valor Estimado por Modalidade</p>
+          <BarChart
+            rows={dados.por_modalidade.filter(r => r.valor > 0)}
+            keyField="modalidade"
+            labelField="label"
+            valueField="valor"
+            barCls={k => MODALIDADE_BAR[k] || 'bg-blue-400'}
+            maxValue={Math.max(...dados.por_modalidade.map(r => r.valor), 1)}
+          />
+          <div className="mt-3 flex flex-wrap gap-3">
+            {dados.por_modalidade.filter(r => r.valor > 0).map(r => (
+              <div key={r.modalidade} className="text-xs text-gray-500">
+                <span className={`inline-block w-2 h-2 rounded-full mr-1 ${MODALIDADE_BAR[r.modalidade] || 'bg-gray-400'}`} />
+                {r.label}: <strong>{fmt(r.valor)}</strong>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Página principal ──────────────────────────────────────────────────────────
 
 export default function ProcedimentoList() {
   const navigate  = useNavigate()
   const { procedimentos, total, loading, error, fetchProcedimentos } = useLicitacaoStore()
-  const [filtros, setFiltros] = useState({ modalidade: '', status: '', exercicio: '' })
+  const [filtros, setFiltros] = useState({ modalidade: '', status: '', exercicio: new Date().getFullYear().toString() })
+  const [verPainel, setVerPainel] = useState(false)
 
   useEffect(() => {
     const p = {}
@@ -58,10 +208,21 @@ export default function ProcedimentoList() {
           <h1 className="text-2xl font-bold text-gray-800">Licitações e Contratações Diretas</h1>
           <p className="text-sm text-gray-500 mt-0.5">{total} procedimento(s) encontrado(s)</p>
         </div>
-        <button onClick={() => navigate('/licitacao/novo')}
-          className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg text-sm">
-          + Novo Procedimento
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={() => setVerPainel(v => !v)}
+            className={`text-sm font-medium px-4 py-2 rounded-lg border transition-colors ${
+              verPainel
+                ? 'bg-indigo-600 text-white border-indigo-600'
+                : 'bg-white text-gray-600 border-gray-300 hover:border-indigo-400'
+            }`}>
+            {verPainel ? '▲ Ocultar Painel' : '▦ Painel'}
+          </button>
+          <button onClick={() => navigate('/licitacao/novo')}
+            className="bg-blue-600 hover:bg-blue-700 text-white font-medium px-4 py-2 rounded-lg text-sm">
+            + Novo Procedimento
+          </button>
+        </div>
       </div>
 
       {/* Filtros */}
@@ -92,6 +253,10 @@ export default function ProcedimentoList() {
         <div className="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-lg mb-4">{error}</div>
       )}
 
+      {/* Painel de dashboard */}
+      {verPainel && <Dashboard exercicio={filtros.exercicio} />}
+
+      {/* Lista */}
       {procedimentos.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
           <p className="text-4xl mb-3">⚖️</p>

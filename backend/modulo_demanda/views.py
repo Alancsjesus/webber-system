@@ -493,6 +493,21 @@ class DFDViewSet(viewsets.ModelViewSet):
         html = gerar_html('dfd', {'dfd': dfd})
         return resposta_html(html, f'DFD_{dfd.numero_sei}.html')
 
+    @action(detail=True, methods=['get'], url_path='export/historico')
+    def export_historico(self, request, pk=None):
+        from exportacao.pdf_utils import gerar_pdf_historico
+        dfd = self.get_object()
+        pdf = gerar_pdf_historico(
+            titulo='DFD',
+            numero_ref=dfd.numero_sei,
+            historico_entries=dfd.historico.select_related('usuario').order_by('-criado_em'),
+            org_nome=dfd.org_id.nome if dfd.org_id else '',
+            org_sigla=dfd.org_id.sigla if dfd.org_id else None,
+            criado_por=dfd.created_by,
+            created_at=dfd.created_at,
+        )
+        return resposta_pdf(pdf, f'Historico_DFD_{dfd.numero_sei}.pdf')
+
     @action(detail=True, methods=['get', 'post'], url_path='itens')
     def itens(self, request, pk=None):
         dfd = self.get_object()

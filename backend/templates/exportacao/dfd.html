@@ -1,0 +1,144 @@
+{% extends "exportacao/base.html" %}
+{% block title %}DFD {{ dfd.numero_sei }}{% endblock %}
+{% block content %}
+
+<div class="header">
+  <div class="header-org">{{ dfd.org_id.nome }}</div>
+  <div class="header-tipo">Documento de Formalização de Demanda</div>
+  <div class="header-ref">Nº SEI: {{ dfd.numero_sei }}</div>
+</div>
+
+<div class="section-title">Identificação</div>
+<div class="grid-2">
+  <div class="field">
+    <div class="field-label">Status</div>
+    <div class="field-value">
+      {% if dfd.status == 'Aprovada' %}<span class="badge badge-green">{{ dfd.status }}</span>
+      {% elif dfd.status == 'Em Análise' %}<span class="badge badge-yellow">{{ dfd.status }}</span>
+      {% elif dfd.status == 'Devolvida' %}<span class="badge badge-orange">{{ dfd.status }}</span>
+      {% elif dfd.status == 'Rascunho' %}<span class="badge badge-gray">{{ dfd.status }}</span>
+      {% else %}<span class="badge badge-red">{{ dfd.status }}</span>{% endif %}
+    </div>
+  </div>
+  <div class="field">
+    <div class="field-label">Modalidade de aquisição</div>
+    <div class="field-value">{{ dfd.get_modalidade_aquisicao_display }}</div>
+  </div>
+  <div class="field">
+    <div class="field-label">Valor estimado</div>
+    <div class="field-value">R$ {{ dfd.valor_estimado|floatformat:2 }}</div>
+  </div>
+  <div class="field">
+    <div class="field-label">Prazo da necessidade</div>
+    <div class="field-value">{{ dfd.prazo_necessidade|date:"d/m/Y"|default:"—" }}</div>
+  </div>
+</div>
+
+<div class="section-title">Descrição da Demanda</div>
+<div class="field">
+  <div class="field-label">Descrição</div>
+  <div class="field-value">{{ dfd.descricao|linebreaksbr|default:"—" }}</div>
+</div>
+{% if dfd.area_aplicacao %}
+<div class="field">
+  <div class="field-label">Áreas de aplicação</div>
+  <div class="field-value">{{ dfd.area_aplicacao|join:", " }}</div>
+</div>
+{% endif %}
+{% if dfd.justificativa_sem_planejamento %}
+<div class="field">
+  <div class="field-label">Justificativa (sem planejamento)</div>
+  <div class="field-value">{{ dfd.justificativa_sem_planejamento|linebreaksbr }}</div>
+</div>
+{% endif %}
+
+{% if dfd.itens.exists %}
+<div class="section-title">Itens da Demanda</div>
+<table>
+  <thead>
+    <tr>
+      <th>#</th><th>Objeto</th><th>Cód. Interno</th><th>SIMPAS</th>
+      <th>Unid.</th><th style="text-align:right">Qtd.</th>
+      <th style="text-align:right">Vl. Unit.</th><th style="text-align:right">Total</th>
+    </tr>
+  </thead>
+  <tbody>
+    {% for item in dfd.itens.all %}
+    <tr>
+      <td>{{ forloop.counter }}</td>
+      <td>{{ item.objeto }}</td>
+      <td style="font-family:monospace">{{ item.catalogo_codigo_interno|default:"—" }}</td>
+      <td style="font-family:monospace">{{ item.catalogo_codigo_simpas|default:"—" }}</td>
+      <td>{{ item.unidade_medida }}</td>
+      <td style="text-align:right">{{ item.quantidade }}</td>
+      <td style="text-align:right">R$ {{ item.valor_unitario_estimado|floatformat:2 }}</td>
+      <td style="text-align:right"><strong>R$ {{ item.valor_total_estimado|floatformat:2 }}</strong></td>
+    </tr>
+    {% endfor %}
+  </tbody>
+  <tfoot>
+    <tr>
+      <td colspan="7" style="text-align:right;font-weight:bold">Total estimado</td>
+      <td style="text-align:right;font-weight:bold">R$ {{ dfd.valor_estimado|floatformat:2 }}</td>
+    </tr>
+  </tfoot>
+</table>
+{% endif %}
+
+<div class="section-title">Unidades Responsáveis</div>
+<div class="grid-3">
+  <div class="field">
+    <div class="field-label">Unidade demandante</div>
+    <div class="field-value">{{ dfd.unidade_demandante|default:"—" }}</div>
+  </div>
+  <div class="field">
+    <div class="field-label">Unidade licitante</div>
+    <div class="field-value">{{ dfd.unidade_licitante|default:"—" }}</div>
+  </div>
+  <div class="field">
+    <div class="field-label">Unidade contratante</div>
+    <div class="field-value">{{ dfd.unidade_contratante|default:"—" }}</div>
+  </div>
+</div>
+
+{% if dfd.observacoes %}
+<div class="section-title">Observações</div>
+<div class="field"><div class="field-value">{{ dfd.observacoes|linebreaksbr }}</div></div>
+{% endif %}
+
+{% if dfd.historico.exists %}
+<div class="section-title">Histórico de Tramitação</div>
+<table>
+  <thead><tr><th>Data</th><th>Usuário</th><th>De</th><th>Para</th><th>Motivo</th></tr></thead>
+  <tbody>
+    {% for h in dfd.historico.all %}
+    <tr>
+      <td style="white-space:nowrap">{{ h.criado_em|date:"d/m/Y H:i" }}</td>
+      <td>{{ h.usuario.username|default:"—" }}</td>
+      <td>{{ h.status_anterior }}</td>
+      <td><strong>{{ h.status_novo }}</strong></td>
+      <td>{{ h.motivo|default:"—" }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+<div class="warning">
+  Este documento requer assinatura física ou digital (GOV.BR / SEI) para ter validade jurídica.
+</div>
+
+<div class="signatures">
+  <div class="sig-block">
+    <div class="sig-line"></div>
+    <div class="sig-name">{{ dfd.created_by.get_full_name|default:dfd.created_by.username }}</div>
+    <div class="sig-role">Elaborado por</div>
+  </div>
+  <div class="sig-block">
+    <div class="sig-line"></div>
+    <div class="sig-name">Pendente de aprovação</div>
+    <div class="sig-role">Aprovado por</div>
+  </div>
+</div>
+
+{% endblock %}

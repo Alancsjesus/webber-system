@@ -13,6 +13,13 @@ const TIPOS_ORIGEM = [
   { value: 'adesao_arp',      label: 'Adesão a ATA de Registro de Preços' },
 ]
 
+const GARANTIA_TIPOS = [
+  { value: 'caucao_dinheiro', label: 'Caução em Dinheiro' },
+  { value: 'caucao_titulos',  label: 'Caução em Títulos da Dívida Pública' },
+  { value: 'seguro_garantia', label: 'Seguro-Garantia' },
+  { value: 'fianca_bancaria', label: 'Fiança Bancária' },
+]
+
 export default function ContratoCreate() {
   const navigate = useNavigate()
   const { createContrato } = useContratoStore()
@@ -29,6 +36,13 @@ export default function ContratoCreate() {
     data_vigencia_inicio: '',
     data_vigencia_fim: '',
     observacoes: '',
+    garantia_exigida: false,
+    garantia_tipo: '',
+    garantia_percentual: '',
+    garantia_apolice: '',
+    garantia_vigencia_inicio: '',
+    garantia_vigencia_fim: '',
+    garantia_justificativa_acima_5: '',
   })
   const [orgaos, setOrgaos]   = useState([])
   const [dfds, setDfds]       = useState([])
@@ -68,6 +82,9 @@ export default function ContratoCreate() {
         data_assinatura: form.data_assinatura || null,
         data_vigencia_inicio: form.data_vigencia_inicio || null,
         data_vigencia_fim: form.data_vigencia_fim || null,
+        garantia_percentual: form.garantia_percentual !== '' ? Number(form.garantia_percentual) : null,
+        garantia_vigencia_inicio: form.garantia_vigencia_inicio || null,
+        garantia_vigencia_fim: form.garantia_vigencia_fim || null,
       }
       const contrato = await createContrato(payload)
       navigate(`/contratos/${contrato.id}`)
@@ -136,6 +153,65 @@ export default function ContratoCreate() {
         <Field label="Observações (opcional)">
           <textarea rows={2} value={form.observacoes} onChange={e => set('observacoes', e.target.value)} className={inp()} />
         </Field>
+
+        {/* Garantia contratual */}
+        <div className="border border-gray-200 rounded-xl p-4 space-y-4">
+          <div className="flex items-center gap-3">
+            <input type="checkbox" id="garantia_exigida" checked={form.garantia_exigida}
+              onChange={e => set('garantia_exigida', e.target.checked)}
+              className="w-4 h-4 accent-blue-600" />
+            <label htmlFor="garantia_exigida" className="text-sm font-medium text-gray-700 cursor-pointer">
+              Exigir garantia contratual (art. 96, Lei 14.133/2021)
+            </label>
+          </div>
+
+          {form.garantia_exigida && (
+            <div className="space-y-4 pt-2 border-t border-gray-100">
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Tipo de garantia *">
+                  <select value={form.garantia_tipo} onChange={e => set('garantia_tipo', e.target.value)} className={inp()}>
+                    <option value="">Selecione...</option>
+                    {GARANTIA_TIPOS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                  </select>
+                </Field>
+                <Field label="Percentual (%) *" error={errors.garantia_percentual}>
+                  <input type="number" min="0" max="10" step="0.01"
+                    value={form.garantia_percentual}
+                    onChange={e => set('garantia_percentual', e.target.value)}
+                    placeholder="Ex: 5.00"
+                    className={inp(errors.garantia_percentual)} />
+                </Field>
+              </div>
+
+              {Number(form.garantia_percentual) > 5 && (
+                <Field label="Justificativa para percentual acima de 5% *" error={errors.garantia_justificativa_acima_5}>
+                  <textarea rows={2} value={form.garantia_justificativa_acima_5}
+                    onChange={e => set('garantia_justificativa_acima_5', e.target.value)}
+                    placeholder="Contrato de grande vulto ou risco elevado conforme art. 96, §3º..."
+                    className={inp(errors.garantia_justificativa_acima_5)} />
+                </Field>
+              )}
+
+              <Field label="Nº da apólice / título (opcional)">
+                <input type="text" value={form.garantia_apolice}
+                  onChange={e => set('garantia_apolice', e.target.value)}
+                  placeholder="Número do documento de garantia"
+                  className={inp()} />
+              </Field>
+
+              <div className="grid grid-cols-2 gap-4">
+                <Field label="Início da vigência da garantia">
+                  <input type="date" value={form.garantia_vigencia_inicio}
+                    onChange={e => set('garantia_vigencia_inicio', e.target.value)} className={inp()} />
+                </Field>
+                <Field label="Fim da vigência da garantia">
+                  <input type="date" value={form.garantia_vigencia_fim}
+                    onChange={e => set('garantia_vigencia_fim', e.target.value)} className={inp()} />
+                </Field>
+              </div>
+            </div>
+          )}
+        </div>
 
         <div className="flex gap-3 pt-2">
           <button type="submit" disabled={saving}

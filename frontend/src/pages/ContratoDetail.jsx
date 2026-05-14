@@ -11,6 +11,12 @@ const STATUS_CLS = {
   Rescindido: 'bg-red-100 text-red-600',
 }
 const STATUS_OPTS = ['Vigente', 'Encerrado', 'Suspenso', 'Rescindido']
+const GARANTIA_TIPOS = [
+  { value: 'caucao_dinheiro', label: 'Caução em Dinheiro' },
+  { value: 'caucao_titulos',  label: 'Caução em Títulos da Dívida Pública' },
+  { value: 'seguro_garantia', label: 'Seguro-Garantia' },
+  { value: 'fianca_bancaria', label: 'Fiança Bancária' },
+]
 const TIPOS_ADITIVO = [
   { value: 'prazo',    label: 'Prorrogação de Prazo' },
   { value: 'valor',    label: 'Acréscimo/Redução de Valor' },
@@ -56,6 +62,14 @@ export default function ContratoDetail() {
         gestor_contrato: form.gestor_contrato || null,
         ordenador: form.ordenador || null,
         observacoes: form.observacoes,
+        garantia_exigida: form.garantia_exigida,
+        garantia_tipo: form.garantia_tipo || '',
+        garantia_percentual: form.garantia_percentual !== '' && form.garantia_percentual != null
+          ? Number(form.garantia_percentual) : null,
+        garantia_apolice: form.garantia_apolice || '',
+        garantia_vigencia_inicio: form.garantia_vigencia_inicio || null,
+        garantia_vigencia_fim: form.garantia_vigencia_fim || null,
+        garantia_justificativa_acima_5: form.garantia_justificativa_acima_5 || '',
       })
       setEditing(false)
     } finally { setSaving(false) }
@@ -169,6 +183,100 @@ export default function ContratoDetail() {
             ? <textarea rows={2} value={form.observacoes || ''} onChange={e => set('observacoes', e.target.value)} className={inp()} />
             : <p className="text-sm text-gray-500">{current.observacoes || '—'}</p>}
         </Section>
+
+        {/* Garantia contratual */}
+        <div className="pt-4 border-t border-gray-100">
+          <p className="text-xs font-semibold text-gray-400 uppercase mb-3">Garantia Contratual</p>
+          {editing ? (
+            <div className="space-y-4">
+              <label className="flex items-center gap-3 cursor-pointer">
+                <input type="checkbox" checked={form.garantia_exigida ?? false}
+                  onChange={e => set('garantia_exigida', e.target.checked)}
+                  className="w-4 h-4 accent-blue-600" />
+                <span className="text-sm text-gray-700">Garantia exigida (art. 96, Lei 14.133/2021)</span>
+              </label>
+              {form.garantia_exigida && (
+                <div className="space-y-3 pl-7">
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Tipo</p>
+                      <select value={form.garantia_tipo || ''} onChange={e => set('garantia_tipo', e.target.value)} className={inp()}>
+                        <option value="">Selecione...</option>
+                        {GARANTIA_TIPOS.map(t => <option key={t.value} value={t.value}>{t.label}</option>)}
+                      </select>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Percentual (%)</p>
+                      <input type="number" min="0" max="10" step="0.01"
+                        value={form.garantia_percentual ?? ''}
+                        onChange={e => set('garantia_percentual', e.target.value)}
+                        className={inp()} />
+                    </div>
+                  </div>
+                  {Number(form.garantia_percentual) > 5 && (
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Justificativa (&gt;5%)</p>
+                      <textarea rows={2} value={form.garantia_justificativa_acima_5 || ''}
+                        onChange={e => set('garantia_justificativa_acima_5', e.target.value)}
+                        className={inp()} />
+                    </div>
+                  )}
+                  <div>
+                    <p className="text-xs text-gray-500 mb-1">Nº apólice / título</p>
+                    <input type="text" value={form.garantia_apolice || ''}
+                      onChange={e => set('garantia_apolice', e.target.value)} className={inp()} />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Início da vigência</p>
+                      <input type="date" value={form.garantia_vigencia_inicio || ''}
+                        onChange={e => set('garantia_vigencia_inicio', e.target.value)} className={inp()} />
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1">Fim da vigência</p>
+                      <input type="date" value={form.garantia_vigencia_fim || ''}
+                        onChange={e => set('garantia_vigencia_fim', e.target.value)} className={inp()} />
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ) : current.garantia_exigida ? (
+            <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 space-y-2">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-xs font-semibold text-amber-800">Garantia exigida</span>
+                {current.garantia_tipo_display && (
+                  <span className="text-xs px-2 py-0.5 bg-amber-100 text-amber-700 rounded-full border border-amber-200">
+                    {current.garantia_tipo_display}
+                  </span>
+                )}
+                {current.garantia_percentual != null && (
+                  <span className="text-xs font-bold text-amber-800">
+                    {Number(current.garantia_percentual).toFixed(2)}%
+                    {Number(current.garantia_percentual) > 5 && (
+                      <span className="ml-1 text-orange-600">(acima de 5%)</span>
+                    )}
+                  </span>
+                )}
+              </div>
+              {current.garantia_apolice && (
+                <p className="text-xs text-amber-700">Apólice/título: <strong>{current.garantia_apolice}</strong></p>
+              )}
+              {(current.garantia_vigencia_inicio || current.garantia_vigencia_fim) && (
+                <p className="text-xs text-amber-700">
+                  Vigência: {current.garantia_vigencia_inicio ? new Date(current.garantia_vigencia_inicio).toLocaleDateString('pt-BR') : '—'}
+                  {' → '}
+                  {current.garantia_vigencia_fim ? new Date(current.garantia_vigencia_fim).toLocaleDateString('pt-BR') : '—'}
+                </p>
+              )}
+              {current.garantia_justificativa_acima_5 && (
+                <p className="text-xs text-amber-700 italic">{current.garantia_justificativa_acima_5}</p>
+              )}
+            </div>
+          ) : (
+            <p className="text-xs text-gray-400 italic">Garantia não exigida para este contrato.</p>
+          )}
+        </div>
 
         {/* Apostilas */}
         <div className="pt-4 border-t border-gray-100">

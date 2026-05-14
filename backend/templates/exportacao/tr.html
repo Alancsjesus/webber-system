@@ -1,0 +1,146 @@
+{% extends "exportacao/base.html" %}
+{% block title %}TR {{ tr.numero_sei }}{% endblock %}
+{% block content %}
+
+<div class="header">
+  <div class="header-org">{{ tr.org_id.nome }}</div>
+  <div class="header-tipo">Minuta do Termo de Referência</div>
+  <div class="header-ref">
+    Nº SEI: {{ tr.numero_sei }}
+    | ETP: {{ tr.etp.numero_sei|default:"—" }}
+    | DFD: {{ tr.etp.dfd.numero_sei|default:"—" }}
+  </div>
+</div>
+
+<div class="section-title">Identificação</div>
+<div class="grid-2">
+  <div class="field">
+    <div class="field-label">Status</div>
+    <div class="field-value">
+      {% if tr.status == 'Aprovado' %}<span class="badge badge-green">{{ tr.status }}</span>
+      {% elif tr.status == 'Em Análise' %}<span class="badge badge-yellow">{{ tr.status }}</span>
+      {% elif tr.status == 'Devolvido' %}<span class="badge badge-orange">{{ tr.status }}</span>
+      {% elif tr.status == 'Submetido' %}<span class="badge badge-blue">{{ tr.status }}</span>
+      {% else %}<span class="badge badge-gray">{{ tr.status }}</span>{% endif %}
+    </div>
+  </div>
+  <div class="field">
+    <div class="field-label">Estimativa de valor</div>
+    <div class="field-value">{% if tr.estimativa_valor %}R$ {{ tr.estimativa_valor|floatformat:2 }}{% else %}—{% endif %}</div>
+  </div>
+</div>
+
+{% if tr.objeto_contratacao %}
+<div class="section-title">Objeto da Contratação</div>
+<div class="field"><div class="field-value" style="white-space:pre-wrap">{{ tr.objeto_contratacao }}</div></div>
+{% endif %}
+{% if tr.justificativa %}
+<div class="section-title">Justificativa da Contratação</div>
+<div class="field"><div class="field-value" style="white-space:pre-wrap">{{ tr.justificativa }}</div></div>
+{% endif %}
+{% if tr.requisitos_contratacao %}
+<div class="section-title">Requisitos da Contratação</div>
+<div class="field"><div class="field-value" style="white-space:pre-wrap">{{ tr.requisitos_contratacao }}</div></div>
+{% endif %}
+{% if tr.obrigacoes_contratada %}
+<div class="section-title">Obrigações da Contratada</div>
+<div class="field"><div class="field-value" style="white-space:pre-wrap">{{ tr.obrigacoes_contratada }}</div></div>
+{% endif %}
+{% if tr.obrigacoes_contratante %}
+<div class="section-title">Obrigações da Contratante</div>
+<div class="field"><div class="field-value" style="white-space:pre-wrap">{{ tr.obrigacoes_contratante }}</div></div>
+{% endif %}
+{% if tr.criterios_selecao %}
+<div class="section-title">Critérios de Seleção do Fornecedor</div>
+<div class="field"><div class="field-value" style="white-space:pre-wrap">{{ tr.criterios_selecao }}</div></div>
+{% endif %}
+{% if tr.criterios_medicao %}
+<div class="section-title">Critérios de Medição e Pagamento</div>
+<div class="field"><div class="field-value" style="white-space:pre-wrap">{{ tr.criterios_medicao }}</div></div>
+{% endif %}
+{% if tr.prazo_observacao %}
+<div class="section-title">Prazo e Forma de Execução</div>
+<div class="field"><div class="field-value" style="white-space:pre-wrap">{{ tr.prazo_observacao }}</div></div>
+{% endif %}
+{% if tr.local_entrega %}
+<div class="section-title">Local de Entrega / Execução</div>
+<div class="field"><div class="field-value">{{ tr.local_entrega }}</div></div>
+{% endif %}
+{% if tr.garantia_contrato %}
+<div class="section-title">Garantia Contratual</div>
+<div class="field"><div class="field-value" style="white-space:pre-wrap">{{ tr.garantia_contrato }}</div></div>
+{% endif %}
+
+{% if tr.lotes.exists %}
+<div class="section-title">Formação de Lotes da Licitação</div>
+{% for lote in tr.lotes.all %}
+<div style="margin-bottom:16px;border:1px solid #ddd;border-radius:6px;overflow:hidden;">
+  <div style="background:{% if lote.modalidade == 'ampla' %}#DBEAFE{% elif lote.modalidade == 'cota_me_epp' %}#FEF3C7{% else %}#D1FAE5{% endif %};padding:8px 12px;font-weight:bold;font-size:10pt;">
+    {{ lote.numero }} —
+    {% if lote.modalidade == 'ampla' %}Ampla Concorrência
+    {% elif lote.modalidade == 'cota_me_epp' %}Reserva de Cota ME/EPP (25%)
+    {% else %}Licitação Exclusiva ME/EPP{% endif %}
+    {% if lote.valor_total_lote %} | R$ {{ lote.valor_total_lote|floatformat:2 }}{% endif %}
+  </div>
+  {% if lote.descricao %}<div style="padding:6px 12px;font-size:9pt;color:#555;">{{ lote.descricao }}</div>{% endif %}
+  {% if lote.itens.exists %}
+  <table style="margin:0;">
+    <thead><tr><th>Item</th><th>Unid.</th><th style="text-align:right">Qtd.</th><th style="text-align:right">Vl. Unit.</th><th style="text-align:right">Total</th></tr></thead>
+    <tbody>
+      {% for item in lote.itens.all %}
+      <tr>
+        <td>{{ item.item_dfd.objeto|default:"—" }}</td>
+        <td>{{ item.item_dfd.unidade_medida|default:"—" }}</td>
+        <td style="text-align:right">{{ item.quantidade }}</td>
+        <td style="text-align:right">R$ {{ item.valor_unitario_efetivo|floatformat:2 }}</td>
+        <td style="text-align:right"><strong>R$ {{ item.valor_total|floatformat:2 }}</strong></td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+</div>
+{% endfor %}
+{% endif %}
+
+{% if tr.observacoes %}
+<div class="section-title">Observações</div>
+<div class="field"><div class="field-value" style="white-space:pre-wrap">{{ tr.observacoes }}</div></div>
+{% endif %}
+
+{% if tr.historico.exists %}
+<div class="section-title">Histórico de Tramitação</div>
+<table>
+  <thead><tr><th>Data</th><th>Usuário</th><th>De</th><th>Para</th><th>Motivo</th></tr></thead>
+  <tbody>
+    {% for h in tr.historico.all %}
+    <tr>
+      <td style="white-space:nowrap">{{ h.criado_em|date:"d/m/Y H:i" }}</td>
+      <td>{{ h.usuario.username|default:"—" }}</td>
+      <td>{{ h.status_anterior }}</td>
+      <td><strong>{{ h.status_novo }}</strong></td>
+      <td>{{ h.motivo|default:"—" }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
+
+<div class="warning">
+  Este documento requer assinatura física ou digital (GOV.BR / SEI) para ter validade jurídica.
+</div>
+
+<div class="signatures">
+  <div class="sig-block">
+    <div class="sig-line"></div>
+    <div class="sig-name">{{ tr.created_by.get_full_name|default:tr.created_by.username }}</div>
+    <div class="sig-role">Elaborado por</div>
+  </div>
+  <div class="sig-block">
+    <div class="sig-line"></div>
+    <div class="sig-name">Pendente de aprovação</div>
+    <div class="sig-role">Aprovado por</div>
+  </div>
+</div>
+
+{% endblock %}

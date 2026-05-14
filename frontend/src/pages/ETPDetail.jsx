@@ -4,24 +4,27 @@ import { useNavigate, useParams } from 'react-router-dom'
 import useEtpStore from '../stores/etpStore'
 import useAuthStore from '../stores/authStore'
 import { downloadFile } from '../services/api'
+import DownloadButton from '../components/DownloadButton'
 
 const STATUS_CLS = {
-  Rascunho:    'bg-gray-100 text-gray-600',
-  Submetido:   'bg-blue-100 text-blue-700',
+  Rascunho:     'bg-gray-100 text-gray-600',
+  Submetido:    'bg-blue-100 text-blue-700',
   'Em Análise': 'bg-yellow-100 text-yellow-700',
-  Devolvido:   'bg-orange-100 text-orange-700',
-  Aprovado:    'bg-green-100 text-green-700',
-  Cancelado:   'bg-red-100 text-red-700',
+  Devolvido:    'bg-orange-100 text-orange-700',
+  Aprovado:     'bg-green-100 text-green-700',
+  Cancelado:    'bg-red-100 text-red-700',
+  Dispensado:   'bg-purple-100 text-purple-700',
 }
 
-const PAPEIS_ANALISTA   = ['admin', 'analista', 'gestor_planejamento', 'gestor_contrato', 'ordenador']
+const PAPEIS_ANALISTA    = ['admin', 'analista', 'gestor_planejamento', 'gestor_contrato', 'ordenador']
 const PAPEIS_SOLICITANTE = ['solicitante', 'demandante', 'responsavel_tecnico', 'admin']
+
 
 export default function ETPDetail() {
   const { id }   = useParams()
   const navigate = useNavigate()
   const { current, loading, error, fetchEtp, updateEtp,
-          submeterEtp, iniciarAnaliseEtp, aprovarEtp, devolverEtp } = useEtpStore()
+          submeterEtp, iniciarAnaliseEtp, aprovarEtp, devolverEtp, reabrirEtp } = useEtpStore()
   const { papel } = useAuthStore()
 
   const [editing, setEditing]       = useState(false)
@@ -29,14 +32,18 @@ export default function ETPDetail() {
   const [saving, setSaving]         = useState(false)
   const [formErrors, setFormErrors] = useState({})
 
-  const [actionLoading, setActionLoading] = useState(false)
-  const [actionError, setActionError]     = useState(null)
-  const [showDevolverModal, setShowDevolverModal] = useState(false)
-  const [motivoDevolucao, setMotivoDevolucao]     = useState('')
-  const [motivoNumeroSEI, setMotivoNumeroSEI]     = useState('')
+  const [actionLoading, setActionLoading]   = useState(false)
+  const [actionError, setActionError]       = useState(null)
+  const [actionAviso, setActionAviso]       = useState(null)
+  const [showDevolverModal, setShowDevolverModal]   = useState(false)
+  const [showReabrirModal, setShowReabrirModal]     = useState(false)
+  const [motivoReabrir, setMotivoReabrir]           = useState('')
+  const [motivoNumeroSEI, setMotivoNumeroSEI]       = useState('')
 
   useEffect(() => { fetchEtp(id) }, [id])
-  useEffect(() => { if (current) setForm({ ...current }) }, [current])
+  useEffect(() => {
+    if (current) setForm({ ...current })
+  }, [current])
 
   const set = (field, value) => {
     setForm((p) => ({ ...p, [field]: value }))
@@ -86,7 +93,11 @@ export default function ETPDetail() {
   const runAction = async (fn) => {
     setActionLoading(true)
     setActionError(null)
-    try { await fn() } catch (err) {
+    setActionAviso(null)
+    try {
+      const result = await fn()
+      if (result?.aviso) setActionAviso(result.aviso)
+    } catch (err) {
       setActionError(err.response?.data?.detail || 'Erro ao executar ação.')
     } finally {
       setActionLoading(false)
@@ -105,12 +116,16 @@ export default function ETPDetail() {
   const isAnalista    = PAPEIS_ANALISTA.includes(papel)
   const isSolicitante = PAPEIS_SOLICITANTE.includes(papel)
 
-  const podeEditar     = ['Rascunho', 'Devolvido'].includes(current.status) && !isAnalista
-  const podeSubmeter   = ['Rascunho', 'Devolvido'].includes(current.status) && isSolicitante
+  // Regras de edição: status editável + papel com permissão de escrita
+  const statusEditavel = ['Rascunho', 'Devolvido'].includes(current.status)
+  const podeEditar     = statusEditavel && isSolicitante
+  const podeSubmeter   = statusEditavel && isSolicitante
   const podeAnalisar   = current.status === 'Submetido'   && isAnalista
   const podeAprovar    = current.status === 'Em Análise'  && isAnalista
   const podeDevolver   = current.status === 'Em Análise'  && isAnalista
   const podeCriarTR    = current.status === 'Aprovado' && !current.tr_id
+  const podeReabrir    = ['Aprovado', 'Cancelado'].includes(current.status) && papel === 'admin'
+  const temTR          = !!current.tr_id
 
   return (
     <div className="p-8 max-w-2xl">
@@ -127,6 +142,11 @@ export default function ETPDetail() {
               {current.status}
             </span>
             <span className="text-xs text-gray-400">DFD: {current.dfd_numero_sei}</span>
+            {temTR && (
+              <span className="text-xs px-2 py-0.5 rounded-full bg-teal-100 text-teal-700 font-medium">
+                TR vinculado
+              </span>
+            )}
           </div>
         </div>
 
@@ -137,20 +157,27 @@ export default function ETPDetail() {
               + Criar TR
             </button>
           )}
-          {current.tr_id && (
+          {temTR && (
             <button onClick={() => navigate(`/analise-tecnica/trs/${current.tr_id}`)}
               className="bg-teal-50 border border-teal-200 text-teal-700 text-sm px-4 py-1.5 rounded-lg">
               Ver TR
             </button>
           )}
-          <button onClick={() => downloadFile(`/etp/etp/${id}/export/pdf/`, `ETP_${current.numero_sei}.pdf`)}
-            className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg">
-            ↓ PDF
-          </button>
-          <button onClick={() => downloadFile(`/etp/etp/${id}/export/html/`, `ETP_${current.numero_sei}.html`)}
-            className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg">
-            ↓ HTML
-          </button>
+          <DownloadButton
+              onClick={() => downloadFile(`/etp/etp/${id}/export/pdf/`, `ETP_${current.numero_sei}.pdf`)}
+              className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg">
+              ↓ PDF
+            </DownloadButton>
+          <DownloadButton
+              onClick={() => downloadFile(`/etp/etp/${id}/export/historico/`, `Historico_ETP_${current.numero_sei}.pdf`)}
+              className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg">
+              ↓ Histórico
+            </DownloadButton>
+          <DownloadButton
+              onClick={() => downloadFile(`/etp/etp/${id}/export/html/`, `ETP_${current.numero_sei}.html`)}
+              className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg">
+              ↓ HTML
+            </DownloadButton>
           {!editing ? (
             podeEditar && (
               <button onClick={() => setEditing(true)}
@@ -173,6 +200,23 @@ export default function ETPDetail() {
         </div>
       </div>
 
+      {/* Aviso TR cascata (após reabertura) */}
+      {actionAviso && (
+        <div className="mb-4 bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-lg px-4 py-3 flex items-start gap-2">
+          <span className="text-lg leading-none">⚠</span>
+          <p>{actionAviso}</p>
+        </div>
+      )}
+
+      {/* Aviso: ETP editável com TR vinculado */}
+      {editing && temTR && (
+        <div className="mb-5 bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 text-sm text-amber-800">
+          <strong>Atenção:</strong> Este ETP possui um TR vinculado. Alterações no conteúdo do ETP
+          podem tornar o TR inconsistente. Se o TR estiver Aprovado, solicite reabertura ao administrador
+          — o TR será devolvido automaticamente.
+        </div>
+      )}
+
       {/* Devolução banner */}
       {current.status === 'Devolvido' && current.motivo_devolucao && (
         <div className="mb-5 bg-orange-50 border border-orange-200 rounded-xl p-4">
@@ -188,8 +232,14 @@ export default function ETPDetail() {
       )}
 
       {/* Workflow buttons */}
-      {(podeSubmeter || podeAnalisar || podeAprovar || podeDevolver) && (
+      {(podeSubmeter || podeAnalisar || podeAprovar || podeDevolver || podeReabrir) && (
         <div className="mb-6 flex flex-wrap gap-2">
+          {podeReabrir && (
+            <button onClick={() => setShowReabrirModal(true)} disabled={actionLoading}
+              className="border border-orange-400 text-orange-600 hover:bg-orange-50 text-sm font-medium px-4 py-2 rounded-lg">
+              ↺ Reabrir ETP{temTR ? ' (e TR)' : ''}
+            </button>
+          )}
           {podeSubmeter && (
             <button onClick={() => runAction(() => submeterEtp(id))} disabled={actionLoading}
               className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg">
@@ -226,15 +276,48 @@ export default function ETPDetail() {
         categorias={MOTIVOS_ETP}
       />
 
+      {showReabrirModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
+            <h3 className="text-base font-semibold text-gray-800 mb-1">Reabrir ETP</h3>
+            {temTR && (
+              <p className="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-3">
+                ⚠ Este ETP possui TR vinculado. Se o TR estiver Aprovado, será devolvido automaticamente.
+              </p>
+            )}
+            <label className="block text-xs font-medium text-gray-600 mb-1">Motivo da reabertura *</label>
+            <textarea rows={3} value={motivoReabrir} onChange={e => setMotivoReabrir(e.target.value)}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400" />
+            <div className="flex gap-2 mt-4">
+              <button
+                onClick={async () => {
+                  if (!motivoReabrir.trim()) return
+                  await runAction(() => reabrirEtp(id, motivoReabrir))
+                  setShowReabrirModal(false)
+                  setMotivoReabrir('')
+                }}
+                disabled={!motivoReabrir.trim() || actionLoading}
+                className="bg-orange-600 hover:bg-orange-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg">
+                {actionLoading ? '...' : 'Confirmar reabertura'}
+              </button>
+              <button onClick={() => { setShowReabrirModal(false); setMotivoReabrir('') }}
+                className="border border-gray-300 text-gray-600 text-sm px-4 py-2 rounded-lg hover:bg-gray-50">
+                Cancelar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Fields */}
       <div className="space-y-5">
-        {/* Número SEI — with change motivo when edited */}
+        {/* Número SEI */}
         <DF label="Número SEI do ETP">
           {editing ? (
             <>
               <input type="text" value={form.numero_sei}
                 onChange={(e) => set('numero_sei', e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                className={inp(formErrors.numero_sei)} />
               {numeroSeiAlterado && (
                 <input type="text" value={motivoNumeroSEI}
                   onChange={(e) => setMotivoNumeroSEI(e.target.value)}
@@ -260,7 +343,7 @@ export default function ETPDetail() {
           <DF key={field} label={label} error={formErrors[field]}>
             {editing
               ? <textarea rows={rows} value={form[field] || ''} onChange={(e) => set(field, e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                  className={inp(formErrors[field])} />
               : <p className="text-sm text-gray-700 whitespace-pre-wrap">{current[field] || '—'}</p>}
           </DF>
         ))}
@@ -269,7 +352,7 @@ export default function ETPDetail() {
           {editing
             ? <input type="number" step="0.01" value={form.estimativa_valor || ''}
                 onChange={(e) => set('estimativa_valor', e.target.value)}
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                className={inp()} />
             : <p className="text-sm text-gray-700">
                 {current.estimativa_valor
                   ? Number(current.estimativa_valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
@@ -281,12 +364,9 @@ export default function ETPDetail() {
         <div className="pt-4 border-t border-gray-100">
           <p className="text-xs font-semibold text-gray-400 uppercase mb-3">Parcelamento e Adjudicação</p>
           <div className="space-y-4">
-
             <DF label="Tipo de objeto">
               {editing ? (
-                <select value={form.tipo_objeto || ''}
-                  onChange={e => set('tipo_objeto', e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500">
+                <select value={form.tipo_objeto || ''} onChange={e => set('tipo_objeto', e.target.value)} className={inp()}>
                   <option value="">— Selecione —</option>
                   <option value="bens">Bens</option>
                   <option value="servicos">Serviços Comuns</option>
@@ -302,9 +382,7 @@ export default function ETPDetail() {
 
             <DF label="Tipo de parcelamento (Lei 14.133, Art. 40, V)">
               {editing ? (
-                <select value={form.tipo_parcelamento || ''}
-                  onChange={e => set('tipo_parcelamento', e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500">
+                <select value={form.tipo_parcelamento || ''} onChange={e => set('tipo_parcelamento', e.target.value)} className={inp()}>
                   <option value="">— Selecione —</option>
                   <option value="lote_unico">Lote único — contratação global</option>
                   <option value="lotes">Dividido em lotes — adjudicação por lote</option>
@@ -312,69 +390,104 @@ export default function ETPDetail() {
                 </select>
               ) : (
                 <p className="text-sm text-gray-700">
-                  {{ lote_unico: 'Lote único — contratação global', lotes: 'Dividido em lotes — adjudicação por lote', por_item: 'Por item — adjudicação individualizada' }[current.tipo_parcelamento] || '—'}
+                  {{ lote_unico: 'Lote único', lotes: 'Dividido em lotes', por_item: 'Por item' }[current.tipo_parcelamento] || '—'}
                 </p>
               )}
             </DF>
 
             <DF label="Justificativa do parcelamento">
               {editing
-                ? <textarea rows={2} value={form.parcelamento_justificativa || ''}
-                    onChange={e => set('parcelamento_justificativa', e.target.value)}
-                    placeholder="Justifique a decisão de parcelamento conforme Art. 40, V da Lei 14.133/2021..."
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                ? <textarea rows={2} value={form.parcelamento_justificativa || ''} onChange={e => set('parcelamento_justificativa', e.target.value)} className={inp()} />
                 : <p className="text-sm text-gray-700 whitespace-pre-wrap">{current.parcelamento_justificativa || '—'}</p>}
             </DF>
-
           </div>
         </div>
 
-        {/* ── Reserva de Cota ME/EPP ── */}
+        {/* ── Tratamento ME/EPP (política por lote no TR) ── */}
         <div className="pt-4 border-t border-gray-100">
           <div className="flex items-start gap-2 mb-1">
-            <p className="text-xs font-semibold text-gray-400 uppercase">Reserva de Cota ME/EPP</p>
+            <p className="text-xs font-semibold text-gray-400 uppercase">Tratamento ME/EPP</p>
             <span className="text-[10px] bg-green-100 text-green-700 px-1.5 py-0.5 rounded font-medium">LC 123/2006, Art. 48</span>
           </div>
-          <div className="space-y-4">
+          <p className="text-xs text-gray-400 mb-3">
+            Políticas declaradas no ETP — aplicadas individualmente por lote no TR.
+            Lotes podem ter modalidades diferentes conforme valor e divisibilidade.
+          </p>
 
-            <div>
-              <label className={`flex items-center gap-3 cursor-pointer ${!editing ? 'opacity-70' : ''}`}>
+          <div className="space-y-3">
+            {/* Política 1: Reserva de cota */}
+            <div className={`rounded-xl border px-4 py-3 ${
+              (editing ? form.reserva_cota_me_epp : current.reserva_cota_me_epp)
+                ? 'bg-amber-50 border-amber-300'
+                : 'bg-gray-50 border-gray-200'
+            }`}>
+              <label className="flex items-start gap-3 cursor-pointer">
                 <input type="checkbox"
                   checked={editing ? (form.reserva_cota_me_epp ?? false) : (current.reserva_cota_me_epp ?? false)}
                   disabled={!editing}
                   onChange={e => set('reserva_cota_me_epp', e.target.checked)}
-                  className="accent-green-600 w-4 h-4" />
-                <div>
-                  <p className="text-sm font-medium text-gray-700">Reserva de cota de 25% para ME/EPP</p>
-                  <p className="text-xs text-gray-400">Obrigatória para objetos divisíveis — Art. 48, III, LC 123/2006</p>
+                  className="mt-0.5 accent-amber-600 w-4 h-4 shrink-0" />
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-800">
+                    Reserva de cota 25% para ME/EPP nos lotes divisíveis
+                  </p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Art. 48, III — LC 123/2006. No TR, use "Gerar Cota ME/EPP" em cada lote amplo aplicável
+                    para criar automaticamente o sub-lote de 25%.
+                  </p>
                 </div>
               </label>
+
+              {/* Justificativa de não-reserva */}
+              {!(editing ? form.reserva_cota_me_epp : current.reserva_cota_me_epp) && (
+                <div className="mt-3 ml-7">
+                  <label className="block text-xs font-medium text-gray-600 mb-1">
+                    Justificativa para não aplicar reserva de cota *
+                  </label>
+                  {editing
+                    ? <textarea rows={2} value={form.reserva_cota_justificativa || ''}
+                        onChange={e => set('reserva_cota_justificativa', e.target.value)}
+                        placeholder="Ex: objeto indivisível, licitação exclusiva ME/EPP, valor abaixo do limite..."
+                        className={inp(formErrors.reserva_cota_justificativa)} />
+                    : <p className="text-sm text-gray-600 italic">
+                        {current.reserva_cota_justificativa || '—'}
+                      </p>}
+                </div>
+              )}
             </div>
 
-            {(editing ? !form.reserva_cota_me_epp : !current.reserva_cota_me_epp) && (
-              <DF label="Justificativa para não-reserva de cota">
-                {editing
-                  ? <textarea rows={2} value={form.reserva_cota_justificativa || ''}
-                      onChange={e => set('reserva_cota_justificativa', e.target.value)}
-                      placeholder="Justifique por que a reserva de cota não se aplica (ex: objeto indivisível, valor abaixo do limite)..."
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
-                  : <p className="text-sm text-gray-700 whitespace-pre-wrap">{current.reserva_cota_justificativa || '—'}</p>}
-              </DF>
-            )}
-
-            <div>
-              <label className={`flex items-center gap-3 cursor-pointer ${!editing ? 'opacity-70' : ''}`}>
+            {/* Política 2: Licitação exclusiva */}
+            <div className={`rounded-xl border px-4 py-3 ${
+              (editing ? form.licitacao_exclusiva_me_epp : current.licitacao_exclusiva_me_epp)
+                ? 'bg-green-50 border-green-300'
+                : 'bg-gray-50 border-gray-200'
+            }`}>
+              <label className="flex items-start gap-3 cursor-pointer">
                 <input type="checkbox"
                   checked={editing ? (form.licitacao_exclusiva_me_epp ?? false) : (current.licitacao_exclusiva_me_epp ?? false)}
                   disabled={!editing}
                   onChange={e => set('licitacao_exclusiva_me_epp', e.target.checked)}
-                  className="accent-green-600 w-4 h-4" />
+                  className="mt-0.5 accent-green-600 w-4 h-4 shrink-0" />
                 <div>
-                  <p className="text-sm font-medium text-gray-700">Licitação exclusiva ME/EPP</p>
-                  <p className="text-xs text-gray-400">Para itens/lotes com valor até R$80.000 — Art. 48, I, LC 123/2006</p>
+                  <p className="text-sm font-medium text-gray-800">
+                    Licitação exclusiva ME/EPP para lotes com valor ≤ R$ 80.000
+                  </p>
+                  <p className="text-xs text-gray-500 mt-0.5">
+                    Art. 48, I — LC 123/2006. No TR, crie os lotes com modalidade "Exclusivo ME/EPP"
+                    para os que se enquadram no limite. Pode coexistir com lotes de ampla concorrência
+                    (com ou sem cota) nos demais lotes.
+                  </p>
                 </div>
               </label>
             </div>
+
+            {/* Info: ambas desmarcadas */}
+            {!(editing ? form.reserva_cota_me_epp : current.reserva_cota_me_epp) &&
+             !(editing ? form.licitacao_exclusiva_me_epp : current.licitacao_exclusiva_me_epp) && (
+              <p className="text-xs text-gray-400 ml-1">
+                Nenhum benefício ME/EPP aplicado — todos os lotes do TR serão de <strong>Ampla Concorrência</strong>.
+              </p>
+            )}
           </div>
         </div>
 
@@ -404,6 +517,11 @@ export default function ETPDetail() {
                       {h.status_novo}
                     </span>
                   </p>
+                  {h.categoria_motivo && (
+                    <span className="text-[10px] bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded mt-1 inline-block">
+                      {h.categoria_motivo}
+                    </span>
+                  )}
                   {h.motivo && (
                     <p className="text-xs text-gray-500 mt-1 italic">"{h.motivo}"</p>
                   )}
@@ -429,9 +547,7 @@ export default function ETPDetail() {
                     {' → '}
                     <span className="text-gray-800">{h.numero_novo}</span>
                   </p>
-                  {h.motivo && (
-                    <p className="text-xs text-gray-500 mt-0.5 italic">"{h.motivo}"</p>
-                  )}
+                  {h.motivo && <p className="text-xs text-gray-500 mt-0.5 italic">"{h.motivo}"</p>}
                 </li>
               ))}
             </ol>
@@ -451,3 +567,6 @@ function DF({ label, error, children }) {
     </div>
   )
 }
+
+const inp = (error) =>
+  `w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 ${error ? 'border-red-400' : 'border-gray-300'}`

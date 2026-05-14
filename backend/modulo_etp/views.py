@@ -81,6 +81,21 @@ class ETPViewSet(viewsets.ModelViewSet):
         pdf = gerar_pdf_etp(etp)
         return resposta_pdf(pdf, f'ETP_{etp.numero_sei}.pdf')
 
+    @action(detail=True, methods=['get'], url_path='export/historico')
+    def export_historico(self, request, pk=None):
+        from exportacao.pdf_utils import gerar_pdf_historico
+        etp = self.get_object()
+        pdf = gerar_pdf_historico(
+            titulo='ETP',
+            numero_ref=etp.numero_sei,
+            historico_entries=etp.historico.select_related('usuario').order_by('-criado_em'),
+            org_nome=etp.org_id.nome if etp.org_id else '',
+            org_sigla=etp.org_id.sigla if etp.org_id else None,
+            criado_por=etp.created_by,
+            created_at=etp.created_at,
+        )
+        return resposta_pdf(pdf, f'Historico_ETP_{etp.numero_sei}.pdf')
+
     @action(detail=True, methods=['get'], url_path='export/html')
     def export_html(self, request, pk=None):
         etp = self.get_object()
@@ -129,7 +144,8 @@ class ETPViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def reabrir(self, request, pk=None):
-        """Derruba a aprovação do ETP e retorna para Devolvido (somente admin)."""
+        """Derruba a aprovação do ETP e retorna para Devolvido (somente admin).
+        Se existir TR Aprovado vinculado, também o devolve automaticamente."""
         if getattr(request, 'papel', None) != 'admin':
             return Response({'detail': 'Apenas administradores podem reabrir ETPs aprovados.'},
                             status=status.HTTP_403_FORBIDDEN)
@@ -141,6 +157,7 @@ class ETPViewSet(viewsets.ModelViewSet):
         if not motivo:
             return Response({'detail': 'O motivo da reabertura é obrigatório.'},
                             status=status.HTTP_400_BAD_REQUEST)
+
         HistoricoETP.objects.create(
             etp=etp, status_anterior=etp.status, status_novo='Devolvido',
             usuario=request.user, motivo=f'[REABERTURA] {motivo}',
@@ -148,7 +165,29 @@ class ETPViewSet(viewsets.ModelViewSet):
         etp.status = 'Devolvido'
         etp.motivo_devolucao = f'Reabertura pelo admin: {motivo}'
         etp.save(update_fields=['status', 'motivo_devolucao'])
-        return Response(ETPSerializer(etp, context={'request': request}).data)
+
+        # Cascata: se TR vinculado está Aprovado, devolver também
+        tr_cascata = None
+        try:
+            tr = etp.tr
+            if tr and tr.status == 'Aprovado':
+                from modulo_tr.models import HistoricoTR
+                motivo_tr = f'[CASCATA ETP] ETP reaaberto pelo admin: {motivo}'
+                HistoricoTR.objects.create(
+                    tr=tr, status_anterior=tr.status, status_novo='Devolvido',
+                    usuario=request.user, motivo=motivo_tr,
+                )
+                tr.status = 'Devolvido'
+                tr.motivo_devolucao = motivo_tr
+                tr.save(update_fields=['status', 'motivo_devolucao'])
+                tr_cascata = tr.numero_sei
+        except Exception:
+            pass
+
+        data = ETPSerializer(etp, context={'request': request}).data
+        if tr_cascata:
+            data['aviso'] = f'TR {tr_cascata} também foi devolvido automaticamente pois estava Aprovado.'
+        return Response(data)
 
     def perform_update(self, serializer):
         if serializer.instance.status in ('Aprovado', 'Cancelado', 'Dispensado'):

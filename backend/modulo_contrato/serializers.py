@@ -44,6 +44,8 @@ class ContratoSerializer(serializers.ModelSerializer):
     apostilas              = ApostilaSerializer(many=True, read_only=True)
     aditivos               = AditivoSerializer(many=True, read_only=True)
 
+    garantia_tipo_display = serializers.CharField(source='get_garantia_tipo_display', read_only=True, default='')
+
     class Meta:
         model  = Contrato
         fields = [
@@ -59,6 +61,10 @@ class ContratoSerializer(serializers.ModelSerializer):
             'gestor_contrato', 'gestor_username',
             'ordenador', 'ordenador_username',
             'observacoes',
+            'garantia_exigida', 'garantia_tipo', 'garantia_tipo_display',
+            'garantia_percentual', 'garantia_apolice',
+            'garantia_vigencia_inicio', 'garantia_vigencia_fim',
+            'garantia_justificativa_acima_5',
             'org_id', 'created_by', 'created_by_username',
             'created_at', 'updated_at',
             'apostilas', 'aditivos',
@@ -68,7 +74,7 @@ class ContratoSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at',
             'orgao_executor_sigla', 'orgao_executor_nome',
             'dfd_numero_sei', 'fiscal_username', 'gestor_username', 'ordenador_username',
-            'tipo_origem_display', 'apostilas', 'aditivos',
+            'tipo_origem_display', 'garantia_tipo_display', 'apostilas', 'aditivos',
         ]
 
     def create(self, validated_data):

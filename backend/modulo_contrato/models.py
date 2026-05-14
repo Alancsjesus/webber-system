@@ -19,6 +19,12 @@ class Contrato(BaseModel):
         ('Suspenso',   'Suspenso'),
         ('Rescindido', 'Rescindido'),
     ]
+    GARANTIA_TIPO_CHOICES = [
+        ('caucao_dinheiro', 'Caução em Dinheiro'),
+        ('caucao_titulos',  'Caução em Títulos da Dívida Pública'),
+        ('seguro_garantia', 'Seguro-Garantia'),
+        ('fianca_bancaria', 'Fiança Bancária'),
+    ]
 
     numero               = models.CharField(max_length=30, unique=True, editable=False, verbose_name='Número do contrato')
     exercicio            = models.IntegerField(verbose_name='Exercício fiscal')
@@ -37,6 +43,15 @@ class Contrato(BaseModel):
     gestor_contrato      = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='contratos_gestor', verbose_name='Gestor do contrato')
     ordenador            = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='contratos_ordenador', verbose_name='Ordenador de despesa')
     observacoes          = models.TextField(blank=True, default='')
+
+    # Garantia contratual (Lei 14.133/2021, art. 96-98)
+    garantia_exigida               = models.BooleanField(default=False, verbose_name='Garantia exigida')
+    garantia_tipo                  = models.CharField(max_length=20, choices=GARANTIA_TIPO_CHOICES, blank=True, default='', verbose_name='Tipo de garantia')
+    garantia_percentual            = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, verbose_name='Percentual de garantia (%)')
+    garantia_apolice               = models.CharField(max_length=100, blank=True, default='', verbose_name='Nº da apólice / título')
+    garantia_vigencia_inicio       = models.DateField(null=True, blank=True, verbose_name='Início da vigência da garantia')
+    garantia_vigencia_fim          = models.DateField(null=True, blank=True, verbose_name='Fim da vigência da garantia')
+    garantia_justificativa_acima_5 = models.TextField(blank=True, default='', verbose_name='Justificativa para percentual acima de 5%')
 
     class Meta(BaseModel.Meta):
         ordering = ['-exercicio', 'numero']

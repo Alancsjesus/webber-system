@@ -289,6 +289,86 @@ class ProcedimentoViewSet(viewsets.ModelViewSet):
             **self._serializar(proc),
         }, status=status.HTTP_201_CREATED)
 
+    # ── Export histórico ─────────────────────────────────────────────────────
+
+    @action(detail=True, methods=['get'], url_path='export/historico')
+    def export_historico(self, request, pk=None):
+        from exportacao.pdf_utils import gerar_pdf_historico, resposta_pdf
+        proc = self.get_object()
+        pdf = gerar_pdf_historico(
+            titulo=f'{proc.get_modalidade_display()} — {proc.numero}',
+            numero_ref=proc.numero,
+            historico_entries=proc.historico.select_related('usuario').order_by('-criado_em'),
+            org_nome=proc.org_id.nome if proc.org_id else '',
+            org_sigla=proc.org_id.sigla if proc.org_id else None,
+            criado_por=proc.created_by,
+            created_at=proc.created_at,
+        )
+        return resposta_pdf(pdf, f'Historico_{proc.numero}.pdf')
+
+    # ── Dashboard ─────────────────────────────────────────────────────────────
+
+    @action(detail=False, methods=['get'], url_path='dashboard')
+    def dashboard(self, request):
+        """
+        Retorna estatísticas agregadas para o painel de licitações.
+        Query param: exercicio (opcional, padrão = ano corrente)
+        """
+        from django.db.models import Sum, Count
+
+        exercicio = request.query_params.get('exercicio')
+        qs = Procedimento.objects.filter(org_id=request.org_id)
+        if exercicio:
+            try:
+                qs = qs.filter(exercicio=int(exercicio))
+            except (ValueError, TypeError):
+                pass
+
+        total             = qs.count()
+        valor_total       = qs.aggregate(v=Sum('valor_estimado'))['v'] or Decimal('0')
+        em_andamento      = qs.exclude(status__in=['Contratado','Homologado','Deserto','Fracassado','Revogado','Anulado']).count()
+        concluidos        = qs.filter(status__in=['Contratado','Homologado']).count()
+        malsucedidos      = qs.filter(status__in=['Deserto','Fracassado','Revogado','Anulado']).count()
+
+        MODALIDADE_LABEL = {
+            'pregao_eletronico':    'Pregão Eletrônico',
+            'concorrencia':         'Concorrência',
+            'dispensa_eletronica':  'Dispensa Eletrônica',
+            'dispensa_tradicional': 'Dispensa Tradicional',
+            'inexigibilidade':      'Inexigibilidade',
+        }
+        por_modalidade = []
+        for row in qs.values('modalidade').annotate(count=Count('id'), valor=Sum('valor_estimado')).order_by('-count'):
+            por_modalidade.append({
+                'modalidade': row['modalidade'],
+                'label':      MODALIDADE_LABEL.get(row['modalidade'], row['modalidade']),
+                'count':      row['count'],
+                'valor':      float(row['valor'] or 0),
+            })
+
+        por_status = []
+        for row in qs.values('status').annotate(count=Count('id')).order_by('-count'):
+            por_status.append({'status': row['status'], 'count': row['count']})
+
+        por_exercicio = []
+        for row in qs.values('exercicio').annotate(count=Count('id'), valor=Sum('valor_estimado')).order_by('exercicio'):
+            por_exercicio.append({
+                'exercicio': row['exercicio'],
+                'count':     row['count'],
+                'valor':     float(row['valor'] or 0),
+            })
+
+        return Response({
+            'total':              total,
+            'valor_total':        float(valor_total),
+            'em_andamento':       em_andamento,
+            'concluidos':         concluidos,
+            'malsucedidos':       malsucedidos,
+            'por_modalidade':     por_modalidade,
+            'por_status':         por_status,
+            'por_exercicio':      por_exercicio,
+        })
+
     # ── Verificar teto de dispensa ────────────────────────────────────────────
 
     @action(detail=False, methods=['get'], url_path='teto-dispensa')

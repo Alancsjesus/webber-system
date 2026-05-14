@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import useTrStore from '../stores/trStore'
 import useAuthStore from '../stores/authStore'
 import api, { downloadFile } from '../services/api'
+import DownloadButton from '../components/DownloadButton'
 import ModalDevolver, { MOTIVOS_TR } from '../components/ModalDevolver'
 
 const STATUS_CLS = {
@@ -156,14 +157,21 @@ export default function TRDetail() {
               Reabrir
             </button>
           )}
-          <button onClick={() => downloadFile(`/tr/tr/${id}/export/pdf/`, `TR_${current.numero_sei}.pdf`)}
-            className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg">
-            ↓ PDF
-          </button>
-          <button onClick={() => downloadFile(`/tr/tr/${id}/export/html/`, `TR_${current.numero_sei}.html`)}
-            className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg">
-            ↓ HTML
-          </button>
+          <DownloadButton
+              onClick={() => downloadFile(`/tr/tr/${id}/export/pdf/`, `TR_${current.numero_sei}.pdf`)}
+              className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg">
+              ↓ PDF
+            </DownloadButton>
+          <DownloadButton
+              onClick={() => downloadFile(`/tr/tr/${id}/export/historico/`, `Historico_TR_${current.numero_sei}.pdf`)}
+              className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg">
+              ↓ Histórico
+            </DownloadButton>
+          <DownloadButton
+              onClick={() => downloadFile(`/tr/tr/${id}/export/html/`, `TR_${current.numero_sei}.html`)}
+              className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg">
+              ↓ HTML
+            </DownloadButton>
           {podeEditar && !editing && (
             <button onClick={() => setEditing(true)}
               className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg">
