@@ -344,7 +344,7 @@ export default function ETPDetail() {
             {editing
               ? <textarea rows={rows} value={form[field] || ''} onChange={(e) => set(field, e.target.value)}
                   className={inp(formErrors[field])} />
-              : <p className="text-sm text-gray-700 whitespace-pre-wrap">{current[field] || '—'}</p>}
+              : <p className="text-sm text-gray-700 whitespace-pre-wrap text-justify">{current[field] || '—'}</p>}
           </DF>
         ))}
 
@@ -398,7 +398,7 @@ export default function ETPDetail() {
             <DF label="Justificativa do parcelamento">
               {editing
                 ? <textarea rows={2} value={form.parcelamento_justificativa || ''} onChange={e => set('parcelamento_justificativa', e.target.value)} className={inp()} />
-                : <p className="text-sm text-gray-700 whitespace-pre-wrap">{current.parcelamento_justificativa || '—'}</p>}
+                : <p className="text-sm text-gray-700 whitespace-pre-wrap text-justify">{current.parcelamento_justificativa || '—'}</p>}
             </DF>
           </div>
         </div>

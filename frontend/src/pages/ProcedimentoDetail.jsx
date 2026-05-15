@@ -404,7 +404,7 @@ export default function ProcedimentoDetail() {
           {current.justificativa && (
             <div>
               <p className="text-xs font-semibold text-gray-400 uppercase mb-1">Justificativa (contratação direta)</p>
-              <p className="text-sm text-gray-700 whitespace-pre-line">{current.justificativa}</p>
+              <p className="text-sm text-gray-700 whitespace-pre-line text-justify">{current.justificativa}</p>
             </div>
           )}
         </div>

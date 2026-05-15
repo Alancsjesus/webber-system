@@ -132,7 +132,7 @@ export default function ContratoDetail() {
         <Section label="Objeto">
           {editing
             ? <textarea rows={3} value={form.objeto} onChange={e => set('objeto', e.target.value)} className={inp()} />
-            : <p className="text-sm text-gray-700">{current.objeto}</p>}
+            : <p className="text-sm text-gray-700 text-justify">{current.objeto}</p>}
         </Section>
 
         {/* Valor e status */}
@@ -181,7 +181,7 @@ export default function ContratoDetail() {
         <Section label="Observações">
           {editing
             ? <textarea rows={2} value={form.observacoes || ''} onChange={e => set('observacoes', e.target.value)} className={inp()} />
-            : <p className="text-sm text-gray-500">{current.observacoes || '—'}</p>}
+            : <p className="text-sm text-gray-500 text-justify">{current.observacoes || '—'}</p>}
         </Section>
 
         {/* Garantia contratual */}

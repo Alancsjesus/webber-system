@@ -535,7 +535,7 @@ export default function DFDDetail() {
               onChange={(e) => setField('descricao', e.target.value)}
               className={inputCls(formErrors.descricao)} />
           ) : (
-            <p className="text-sm text-gray-700">{current.descricao}</p>
+            <p className="text-sm text-gray-700 text-justify">{current.descricao}</p>
           )}
         </DetailField>
 
@@ -606,7 +606,7 @@ export default function DFDDetail() {
               onChange={(e) => setField('observacoes', e.target.value)}
               className={inputCls()} />
           ) : (
-            <p className="text-sm text-gray-500">{current.observacoes || '—'}</p>
+            <p className="text-sm text-gray-500 text-justify">{current.observacoes || '—'}</p>
           )}
         </DetailField>
 

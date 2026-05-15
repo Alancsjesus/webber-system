@@ -259,21 +259,21 @@ export default function TRDetail() {
             ? <textarea rows={3} value={form.objeto_contratacao}
                 onChange={(e) => set('objeto_contratacao', e.target.value)}
                 className={inp(formErrors.objeto_contratacao)} />
-            : <p className="text-sm text-gray-700 whitespace-pre-wrap">{current.objeto_contratacao || '—'}</p>}
+            : <p className="text-sm text-gray-700 whitespace-pre-wrap text-justify">{current.objeto_contratacao || '—'}</p>}
         </Section>
 
         <Section label="Justificativa">
           {editing
             ? <textarea rows={3} value={form.justificativa}
                 onChange={(e) => set('justificativa', e.target.value)} className={inp()} />
-            : <p className="text-sm text-gray-700 whitespace-pre-wrap">{current.justificativa || '—'}</p>}
+            : <p className="text-sm text-gray-700 whitespace-pre-wrap text-justify">{current.justificativa || '—'}</p>}
         </Section>
 
         <Section label="Requisitos da contratação">
           {editing
             ? <textarea rows={3} value={form.requisitos_contratacao}
                 onChange={(e) => set('requisitos_contratacao', e.target.value)} className={inp()} />
-            : <p className="text-sm text-gray-700 whitespace-pre-wrap">{current.requisitos_contratacao || '—'}</p>}
+            : <p className="text-sm text-gray-700 whitespace-pre-wrap text-justify">{current.requisitos_contratacao || '—'}</p>}
         </Section>
 
         <div className="grid grid-cols-2 gap-5">
@@ -281,13 +281,13 @@ export default function TRDetail() {
             {editing
               ? <textarea rows={3} value={form.obrigacoes_contratada}
                   onChange={(e) => set('obrigacoes_contratada', e.target.value)} className={inp()} />
-              : <p className="text-sm text-gray-700 whitespace-pre-wrap">{current.obrigacoes_contratada || '—'}</p>}
+              : <p className="text-sm text-gray-700 whitespace-pre-wrap text-justify">{current.obrigacoes_contratada || '—'}</p>}
           </Section>
           <Section label="Obrigações da contratante">
             {editing
               ? <textarea rows={3} value={form.obrigacoes_contratante}
                   onChange={(e) => set('obrigacoes_contratante', e.target.value)} className={inp()} />
-              : <p className="text-sm text-gray-700 whitespace-pre-wrap">{current.obrigacoes_contratante || '—'}</p>}
+              : <p className="text-sm text-gray-700 whitespace-pre-wrap text-justify">{current.obrigacoes_contratante || '—'}</p>}
           </Section>
         </div>
 
@@ -296,13 +296,13 @@ export default function TRDetail() {
             {editing
               ? <textarea rows={2} value={form.criterios_selecao}
                   onChange={(e) => set('criterios_selecao', e.target.value)} className={inp()} />
-              : <p className="text-sm text-gray-700 whitespace-pre-wrap">{current.criterios_selecao || '—'}</p>}
+              : <p className="text-sm text-gray-700 whitespace-pre-wrap text-justify">{current.criterios_selecao || '—'}</p>}
           </Section>
           <Section label="Critérios de medição">
             {editing
               ? <textarea rows={2} value={form.criterios_medicao}
                   onChange={(e) => set('criterios_medicao', e.target.value)} className={inp()} />
-              : <p className="text-sm text-gray-700 whitespace-pre-wrap">{current.criterios_medicao || '—'}</p>}
+              : <p className="text-sm text-gray-700 whitespace-pre-wrap text-justify">{current.criterios_medicao || '—'}</p>}
           </Section>
         </div>
 
@@ -338,7 +338,7 @@ export default function TRDetail() {
           {editing
             ? <textarea rows={2} value={form.garantia_contrato}
                 onChange={(e) => set('garantia_contrato', e.target.value)} className={inp()} />
-            : <p className="text-sm text-gray-700 whitespace-pre-wrap">{current.garantia_contrato || '—'}</p>}
+            : <p className="text-sm text-gray-700 whitespace-pre-wrap text-justify">{current.garantia_contrato || '—'}</p>}
         </Section>
 
         <Section label="Observações">

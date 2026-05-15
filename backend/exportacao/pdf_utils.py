@@ -9,7 +9,7 @@ from datetime import datetime
 from django.http import HttpResponse
 from django.template.loader import render_to_string
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_RIGHT
+from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY, TA_LEFT, TA_RIGHT
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import cm
@@ -60,6 +60,7 @@ def _estilos():
         'valor': ParagraphStyle(
             'valor', parent=base['Normal'],
             fontSize=10, textColor=PRETO, spaceAfter=8, leading=14,
+            alignment=TA_JUSTIFY,
         ),
         'rodape': ParagraphStyle(
             'rodape', parent=base['Normal'],
@@ -384,22 +385,31 @@ def _renderizar_secao_dfd(codigo, dfd, estilos):
     elif codigo == 'itens':
         itens = dfd.itens.all()
         if itens.exists():
-            dados = [['#', 'Objeto', 'Unid.', 'Qtd.', 'Valor Unit.', 'Total']]
+            _ci = ParagraphStyle('_ci', fontSize=8, leading=10, wordWrap='LTR')
+            _ci_c = ParagraphStyle('_ci_c', fontSize=8, leading=10,
+                                    wordWrap='LTR', alignment=TA_CENTER)
+            _ci_r = ParagraphStyle('_ci_r', fontSize=8, leading=10,
+                                    wordWrap='LTR', alignment=TA_RIGHT)
+            _ci_h = ParagraphStyle('_ci_h', fontSize=8, leading=10,
+                                    fontName='Helvetica-Bold',
+                                    textColor=BRANCO, alignment=TA_CENTER)
+            dados = [[Paragraph(h, _ci_h) for h in ['#', 'Objeto', 'Unid.', 'Qtd.', 'Valor Unit.', 'Total']]]
             for i, item in enumerate(itens, 1):
-                dados.append([str(i), item.objeto, item.unidade_medida,
-                               str(item.quantidade),
-                               _fmt_valor(item.valor_unitario_estimado),
-                               _fmt_valor(item.valor_total_estimado)])
+                dados.append([
+                    Paragraph(str(i), _ci_c),
+                    Paragraph(item.objeto, _ci),
+                    Paragraph(item.unidade_medida, _ci_c),
+                    Paragraph(str(item.quantidade), _ci_c),
+                    Paragraph(_fmt_valor(item.valor_unitario_estimado), _ci_r),
+                    Paragraph(_fmt_valor(item.valor_total_estimado),    _ci_r),
+                ])
             t = Table(dados, colWidths=[0.8*cm, 6.5*cm, 1.5*cm, 1.5*cm, 2.5*cm, 2.5*cm])
             t.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), AZUL_GOV),
-                ('TEXTCOLOR',  (0, 0), (-1, 0), BRANCO),
-                ('FONTNAME',   (0, 0), (-1, 0), 'Helvetica-Bold'),
                 ('FONTSIZE',   (0, 0), (-1, -1), 8),
                 ('ROWBACKGROUNDS', (0, 1), (-1, -1), [BRANCO, AZUL_CLARO]),
                 ('GRID', (0, 0), (-1, -1), 0.5, CINZA_BD),
-                ('ALIGN', (2, 0), (-1, -1), 'CENTER'),
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
                 ('TOPPADDING',    (0, 0), (-1, -1), 4),
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
             ]))
@@ -425,14 +435,28 @@ def _renderizar_lotes_tr(tr, estilos):
         )))
         itens = list(lote.itens.select_related('item_dfd').all())
         if itens:
-            dados = [['Item', 'Unid.', 'Qtd.', 'Vl. Unit.', 'Total', 'Origem']]
+            _cel = ParagraphStyle('_cel_lote', fontSize=8, leading=10, wordWrap='LTR')
+            _cel_r = ParagraphStyle('_cel_lote_r', fontSize=8, leading=10,
+                                    wordWrap='LTR', alignment=TA_RIGHT)
+            _cel_c = ParagraphStyle('_cel_lote_c', fontSize=8, leading=10,
+                                    wordWrap='LTR', alignment=TA_CENTER)
+            _hdr = ParagraphStyle('_hdr_lote', fontSize=8, leading=10,
+                                   fontName='Helvetica-Bold', alignment=TA_CENTER)
+            dados = [[Paragraph(h, _hdr) for h in ['Item', 'Unid.', 'Qtd.', 'Vl. Unit.', 'Total', 'Origem']]]
             for item in itens:
-                obj = item.item_dfd.objeto if item.item_dfd else '—'
-                un  = item.item_dfd.unidade_medida if item.item_dfd else '—'
-                vlu = _fmt_valor(item.valor_unitario_efetivo)
-                tot = _fmt_valor(item.valor_total)
+                obj  = item.item_dfd.objeto if item.item_dfd else '—'
+                un   = item.item_dfd.unidade_medida if item.item_dfd else '—'
+                vlu  = _fmt_valor(item.valor_unitario_efetivo)
+                tot  = _fmt_valor(item.valor_total)
                 orig = 'Mapa' if item.preco_origem == 'mapa' else 'DFD'
-                dados.append([obj[:45], un, str(item.quantidade), vlu, tot, orig])
+                dados.append([
+                    Paragraph(obj, _cel),
+                    Paragraph(un,   _cel_c),
+                    Paragraph(str(item.quantidade), _cel_c),
+                    Paragraph(vlu,  _cel_r),
+                    Paragraph(tot,  _cel_r),
+                    Paragraph(orig, _cel_c),
+                ])
             t = Table(dados, colWidths=[5.5*cm, 1.2*cm, 1.5*cm, 2.5*cm, 2.5*cm, 1.3*cm])
             t.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), AZUL_CLARO),
@@ -440,7 +464,7 @@ def _renderizar_lotes_tr(tr, estilos):
                 ('FONTSIZE',   (0, 0), (-1, -1), 8),
                 ('ROWBACKGROUNDS', (0, 1), (-1, -1), [BRANCO, AZUL_CLARO]),
                 ('GRID', (0, 0), (-1, -1), 0.5, CINZA_BD),
-                ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                ('VALIGN', (0, 0), (-1, -1), 'TOP'),
                 ('TOPPADDING', (0, 0), (-1, -1), 3),
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
             ]))
@@ -784,6 +808,8 @@ def gerar_pdf_plano_compras(dados: dict, org_nome: str, org_sigla: str = None) -
                 ('FONTSIZE',      (0, 0),  (-1, -1),  7),
                 ('ROWBACKGROUNDS',(0, 1),  (-1, -2),  [BRANCO, AZUL_CLARO]),
                 ('GRID',          (0, 0),  (-1, -1),  0.5, CINZA_BD),
+                ('ALIGN',         (3, 0),  (3, -1),   'CENTER'),  # Qtd. centrado
+                ('ALIGN',         (5, 0),  (6, -1),   'RIGHT'),   # Vl. Unit. e Vl. Total à direita
                 ('VALIGN',        (0, 0),  (-1, -1),  'MIDDLE'),
                 ('TOPPADDING',    (0, 0),  (-1, -1),  3),
                 ('BOTTOMPADDING', (0, 0),  (-1, -1),  3),
@@ -922,6 +948,8 @@ def gerar_pdf_mapa(mapa) -> bytes:
                 ('FONTSIZE',      (0, 0), (-1, -1), 7),
                 ('ROWBACKGROUNDS',(0, 1), (-1, -1), [BRANCO, AZUL_CLARO]),
                 ('GRID',          (0, 0), (-1, -1), 0.5, CINZA_BD),
+                ('ALIGN',         (3, 0), (3, -1),  'CENTER'),  # Data centrada
+                ('ALIGN',         (4, 0), (4, -1),  'RIGHT'),   # Valor Unit. à direita
                 ('VALIGN',        (0, 0), (-1, -1), 'MIDDLE'),
                 ('TOPPADDING',    (0, 0), (-1, -1), 3),
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
@@ -979,6 +1007,8 @@ def gerar_pdf_mapa(mapa) -> bytes:
         ('FONTSIZE',      (0, 0), (-1, -1),  7),
         ('ROWBACKGROUNDS',(0, 1), (-1, -2),  [BRANCO, AZUL_CLARO]),
         ('GRID',          (0, 0), (-1, -1),  0.5, CINZA_BD),
+        ('ALIGN',         (2, 0), (3, -1),   'CENTER'),  # Qtd. e Unid. centrados
+        ('ALIGN',         (4, 0), (5, -1),   'RIGHT'),   # Valor Unit. e Total à direita
         ('VALIGN',        (0, 0), (-1, -1),  'MIDDLE'),
         ('TOPPADDING',    (0, 0), (-1, -1),  3),
         ('BOTTOMPADDING', (0, 0), (-1, -1),  3),
