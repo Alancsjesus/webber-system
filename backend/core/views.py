@@ -568,6 +568,11 @@ class SecaoArtefatoViewSet(viewsets.ModelViewSet):
     ordering           = ['tipo', 'ordem']
 
     def get_queryset(self):
+        # Para operações de detalhe (retrieve/update/delete), retorna todas — inclusive inativas
+        # Para listagem, aplica filtro de ativo conforme parâmetro
+        if self.action in ('retrieve', 'update', 'partial_update', 'destroy'):
+            return SecaoArtefato.objects.all()
+
         qs   = SecaoArtefato.objects.all()
         tipo = self.request.query_params.get('tipo')
         if tipo:
