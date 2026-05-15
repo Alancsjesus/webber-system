@@ -104,7 +104,11 @@ function temAcesso(path, papel, tipoUnidade) {
   // Normaliza path para prefixo (/demanda/dfd/1 → /demanda)
   const prefixo = '/' + (path.split('/')[1] || '')
 
-  return todas.includes('/') || todas.some(r => path === r || path.startsWith(r + '/') || prefixo === r)
+  // '/' na lista significa apenas o Dashboard (match exato), nunca curinga global
+  return todas.some(r => {
+    if (r === '/') return path === '/'
+    return path === r || path.startsWith(r + '/') || prefixo === r
+  })
 }
 
 export default function RequireRole({ children }) {

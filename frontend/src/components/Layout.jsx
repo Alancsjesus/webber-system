@@ -201,7 +201,10 @@ function podeAcessar(to, papel, tipoUnidade) {
   const todas  = [...new Set([...rotas, ...extras])]
   if (todas.includes('*')) return true
   const prefixo = '/' + (to.split('/')[1] || '')
-  return todas.some(r => to === r || to.startsWith(r + '/') || prefixo === r)
+  return todas.some(r => {
+    if (r === '/') return to === '/'
+    return to === r || to.startsWith(r + '/') || prefixo === r
+  })
 }
 
 // ── buildSections ─────────────────────────────────────────────────────────────
