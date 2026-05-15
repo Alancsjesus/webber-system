@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import useMapaStore from '../stores/mapaStore'
 import useAuthStore from '../stores/authStore'
 import LoadingSpinner from '../components/LoadingSpinner'
+import PNCPImport from '../components/PNCPImport'
 
 const fmt = (v) => Number(v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
@@ -293,6 +294,16 @@ export default function MapaDetail() {
       {/* Tab: Itens e Preços */}
       {activeTab === 'itens' && (
         <div className="space-y-6">
+          {isEditavel && (
+            <PNCPImport
+              mapaId={id}
+              itensDoMapa={current.itens || []}
+              onImportado={(msg) => {
+                setMsg({ type: 'success', text: msg })
+                fetchMapa(id)
+              }}
+            />
+          )}
           {isEditavel && (
             <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
               <p className="text-sm font-semibold text-gray-700 mb-3">Adicionar item</p>

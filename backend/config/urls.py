@@ -14,6 +14,7 @@ from core.views import (
     SecaoArtefatoViewSet, ItemCatalogoViewSet,
 )
 from core.views_indicadores import IndicadoresOrcamentoView, IndicadoresDevolucoesView, IndicadoresAgrupamentoView, PlanoComprasView
+from core.views_calendario import CalendarioContratacaoView
 
 router = DefaultRouter()
 router.register(r'demanda/dfd', DFDViewSet, basename='dfd')
@@ -39,6 +40,7 @@ urlpatterns = [
     path('api/painel/', PainelOrgaoPaiView.as_view(), name='painel-orgao-pai'),
     path('api/verificar/<str:hash_code>/', VerificarDocumentoView.as_view(), name='verificar-documento'),
     path('api/core/users-list/', UserListView.as_view(), name='user-list'),
+    path('api/calendario/', CalendarioContratacaoView.as_view(), name='calendario'),
     path('api/', include(router.urls)),
     path('api/orcamento/', include('modulo_orcamento.urls')),
     path('api/etp/',       include('modulo_etp.urls')),
@@ -46,4 +48,5 @@ urlpatterns = [
     path('api/pesquisa/',   include('modulo_mapa_precos.urls')),
     path('api/contratos/',  include('modulo_contrato.urls')),
     path('api/licitacao/', include('modulo_licitacao.urls')),
+    path('api/pncp/',     include('modulo_pncp.urls')),
 ] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

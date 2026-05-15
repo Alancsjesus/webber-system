@@ -123,6 +123,11 @@ class ItemPlanoOrcamentario(models.Model):
         ('propria',     'Demanda Própria'),
         ('orgao_filho', 'Demanda de Órgão Filho'),
     ]
+    CATEGORIA_ORCA_CHOICES = [
+        ('custeio',      'Custeio'),
+        ('investimento', 'Investimento'),
+    ]
+
     plano       = models.ForeignKey(
         'PlanoOrcamentario', on_delete=models.CASCADE, related_name='itens',
     )
@@ -131,8 +136,33 @@ class ItemPlanoOrcamentario(models.Model):
     )
     origem      = models.CharField(max_length=15, choices=ORIGEM_CHOICES, default='propria')
 
+    # ── Campos específicos do PCA (IN SEGES 65/2021) ──────────────────────────
+    categoria_orcamentaria = models.CharField(
+        max_length=15, choices=CATEGORIA_ORCA_CHOICES, blank=True, default='',
+        verbose_name='Categoria orçamentária',
+    )
+    programa_acao = models.CharField(
+        max_length=100, blank=True, default='',
+        verbose_name='Programa/Ação',
+        help_text='Ex: 1234/0001',
+    )
+    data_estimada_inicio = models.DateField(
+        null=True, blank=True,
+        verbose_name='Data estimada de início',
+    )
+    vinculacao_pgi = models.CharField(
+        max_length=200, blank=True, default='',
+        verbose_name='OE — Objetivo Estratégico',
+        help_text='Referência ao objetivo estratégico institucional vinculado a esta contratação',
+    )
+    numero_sequencial_pca = models.PositiveIntegerField(
+        null=True, blank=True, editable=False,
+        verbose_name='Sequencial no PCA',
+    )
+
     class Meta:
         unique_together = [('plano', 'necessidade')]
+        ordering = ['numero_sequencial_pca', 'id']
         verbose_name = 'Item do Plano Orçamentário'
         verbose_name_plural = 'Itens do Plano Orçamentário'
 
@@ -164,6 +194,12 @@ class PlanoOrcamentario(models.Model):
         related_name='planos',
         verbose_name='Necessidades vinculadas',
     )
+    status_pca = models.CharField(
+        max_length=15,
+        choices=[('rascunho', 'Rascunho'), ('publicado', 'Publicado')],
+        default='rascunho',
+        verbose_name='Status do PCA',
+    )
     criado_em        = models.DateTimeField(auto_now_add=True)
     atualizado_em    = models.DateTimeField(auto_now=True)
 
@@ -172,6 +208,10 @@ class PlanoOrcamentario(models.Model):
         unique_together = [('orgao', 'exercicio_fiscal')]
         verbose_name = 'Plano Orçamentário'
         verbose_name_plural = 'Planos Orçamentários'
+
+    @property
+    def org_id_id(self):
+        return self.orgao_id
 
     def __str__(self):
         return f"Plano {self.exercicio_fiscal} — {self.orgao.sigla}"

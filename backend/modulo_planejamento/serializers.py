@@ -107,38 +107,95 @@ class NecessidadeSerializer(serializers.ModelSerializer):
                 pass
         return super().create(validated_data)
 
+    # Campos que pertencem ao órgão filho — pai não pode alterar
+    CAMPOS_FILHO = frozenset([
+        'titulo', 'descricao', 'valor_estimado',
+        'departamento_solicitante', 'tipo_execucao',
+    ])
+    # Campos que o pai pode ajustar nas necessidades aceitas dos filhos
+    CAMPOS_PAI_PERMITIDOS = frozenset([
+        'exercicio_fiscal', 'prioridade', 'prazo_desejado',
+        'unidade_demandante', 'observacoes', 'area_aplicacao',
+    ])
+
+    def _is_edicao_pai(self, instance):
+        """Retorna True quando o órgão pai está editando necessidade de filho."""
+        request = self.context.get('request')
+        if not request:
+            return False
+        oid = request.org_id
+        # É necessidade de filho (org_id diferente do editor) aceita pelo pai
+        return (
+            instance.org_id_id != oid
+            and instance.aceite_pai == 'aceita'
+            and instance.orgao_executor_id == oid
+        )
+
     def update(self, instance, validated_data):
         request = self.context['request']
-        # Se mudou para externa, inicializar aceite_pai
-        novo_tipo = validated_data.get('tipo_execucao')
-        if novo_tipo == 'externa' and instance.tipo_execucao != 'externa':
-            try:
-                org = Orgao.objects.get(pk=instance.org_id_id)
-                if org.parent_id:
-                    if not validated_data.get('orgao_executor_id') and not instance.orgao_executor_id:
-                        validated_data['orgao_executor_id'] = org.parent_id
-                    validated_data['aceite_pai'] = 'pendente'
-            except Orgao.DoesNotExist:
-                pass
-        elif novo_tipo == 'interna':
-            validated_data['aceite_pai'] = None
-            validated_data['orgao_executor_id'] = None
+
+        # Restrição: pai só pode editar campos de planejamento
+        if self._is_edicao_pai(instance):
+            campos_proibidos = set(validated_data.keys()) & self.CAMPOS_FILHO
+            if campos_proibidos:
+                raise serializers.ValidationError({
+                    campo: 'Este campo pertence ao órgão de origem e não pode ser alterado pelo órgão executor.'
+                    for campo in campos_proibidos
+                })
+            # Remove silenciosamente qualquer outro campo não permitido
+            for campo in list(validated_data.keys()):
+                if campo not in self.CAMPOS_PAI_PERMITIDOS:
+                    validated_data.pop(campo, None)
+
+        else:
+            # Edição pelo próprio filho: lógica original de tipo_execucao
+            novo_tipo = validated_data.get('tipo_execucao')
+            if novo_tipo == 'externa' and instance.tipo_execucao != 'externa':
+                try:
+                    org = Orgao.objects.get(pk=instance.org_id_id)
+                    if org.parent_id:
+                        if not validated_data.get('orgao_executor_id') and not instance.orgao_executor_id:
+                            validated_data['orgao_executor_id'] = org.parent_id
+                        validated_data['aceite_pai'] = 'pendente'
+                except Orgao.DoesNotExist:
+                    pass
+            elif novo_tipo == 'interna':
+                validated_data['aceite_pai'] = None
+                validated_data['orgao_executor_id'] = None
+
         validated_data['updated_by'] = request.user
         return super().update(instance, validated_data)
 
 class ItemPlanoSerializer(serializers.ModelSerializer):
-    necessidade_titulo   = serializers.CharField(source='necessidade.titulo',      read_only=True)
-    necessidade_status   = serializers.CharField(source='necessidade.status',      read_only=True)
-    orgao_origem_sigla   = serializers.CharField(source='necessidade.org_id.sigla', read_only=True)
-    valor_estimado       = serializers.DecimalField(
-        source='necessidade.valor_estimado', max_digits=15, decimal_places=2, read_only=True
-    )
+    necessidade_titulo    = serializers.CharField(source='necessidade.titulo',               read_only=True)
+    necessidade_status    = serializers.CharField(source='necessidade.status',               read_only=True)
+    necessidade_descricao = serializers.CharField(source='necessidade.descricao',            read_only=True)
+    necessidade_areas     = serializers.JSONField(source='necessidade.area_aplicacao',       read_only=True)
+    necessidade_prioridade= serializers.CharField(source='necessidade.prioridade',           read_only=True)
+    orgao_origem_sigla    = serializers.CharField(source='necessidade.org_id.sigla',         read_only=True)
+    unidade_demandante_sigla = serializers.CharField(
+        source='necessidade.unidade_demandante.sigla', read_only=True, default=None)
+    departamento_solicitante = serializers.CharField(
+        source='necessidade.departamento_solicitante', read_only=True)
+    valor_estimado        = serializers.DecimalField(
+        source='necessidade.valor_estimado', max_digits=15, decimal_places=2, read_only=True)
 
     class Meta:
         model = ItemPlanoOrcamentario
         fields = [
             'id', 'necessidade', 'necessidade_titulo', 'necessidade_status',
-            'orgao_origem_sigla', 'valor_estimado', 'origem',
+            'necessidade_descricao', 'necessidade_areas', 'necessidade_prioridade',
+            'orgao_origem_sigla', 'unidade_demandante_sigla', 'departamento_solicitante',
+            'valor_estimado', 'origem',
+            # Campos PCA
+            'categoria_orcamentaria', 'programa_acao',
+            'data_estimada_inicio', 'vinculacao_pgi', 'numero_sequencial_pca',
+        ]
+        read_only_fields = [
+            'id', 'necessidade_titulo', 'necessidade_status', 'necessidade_descricao',
+            'necessidade_areas', 'necessidade_prioridade', 'orgao_origem_sigla',
+            'unidade_demandante_sigla', 'departamento_solicitante',
+            'valor_estimado', 'numero_sequencial_pca',
         ]
 
 
@@ -157,9 +214,9 @@ class PlanoOrcamentarioSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'orgao', 'orgao_sigla', 'orgao_nome',
             'exercicio_fiscal', 'descricao', 'dotacao_total', 'dotacao_utilizada',
-            'itens', 'criado_em', 'atualizado_em',
+            'status_pca', 'itens', 'criado_em', 'atualizado_em',
         ]
         read_only_fields = [
-            'id', 'orgao_sigla', 'orgao_nome', 'itens',
-            'dotacao_utilizada', 'criado_em', 'atualizado_em',
+            'id', 'orgao', 'orgao_sigla', 'orgao_nome', 'itens',
+            'dotacao_utilizada', 'status_pca', 'criado_em', 'atualizado_em',
         ]

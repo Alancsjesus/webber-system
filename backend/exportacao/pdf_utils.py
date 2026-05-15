@@ -1311,3 +1311,212 @@ def gerar_pdf_indicacao(indicacao) -> bytes:
 
     doc.build(e, onFirstPage=_rodape, onLaterPages=_rodape)
     return buf.getvalue()
+
+
+# ── PCA ────────────────────────────────────────────────────────────────────────
+
+def gerar_pdf_pca(plano) -> bytes:
+    """
+    Gera o PDF do Plano de Contratações Anuais (IN SEGES 65/2021).
+    Orientação A4 paisagem para acomodar as 12 colunas exigidas.
+    """
+    from reportlab.lib.pagesizes import landscape
+    from decimal import Decimal
+
+    buf    = io.BytesIO()
+    estilos = _estilos()
+    org    = plano.orgao
+
+    def _rodape_pca(canvas, doc):
+        canvas.saveState()
+        canvas.setFont('Helvetica', 7)
+        canvas.setFillColor(CINZA_TXT)
+        w = landscape(A4)[0]
+        canvas.drawString(1.5 * cm, 1.0 * cm, 'Sistema WEBBER — Documento gerado eletronicamente')
+        canvas.drawRightString(w - 1.5 * cm, 1.0 * cm,
+            f'Página {doc.page}  •  {datetime.now().strftime("%d/%m/%Y %H:%M")}')
+        canvas.restoreState()
+
+    doc = SimpleDocTemplate(
+        buf,
+        pagesize=landscape(A4),
+        leftMargin=1.5 * cm, rightMargin=1.5 * cm,
+        topMargin=2 * cm,    bottomMargin=2 * cm,
+    )
+
+    e = []
+
+    # ── Cabeçalho ────────────────────────────────────────────────────────────
+    logo = _logo_cabecalho(org.sigla)
+    if logo:
+        e.append(logo)
+        e.append(Spacer(1, 0.2 * cm))
+
+    e.append(Paragraph(org.nome.upper(), estilos['titulo_doc']))
+    e.append(Paragraph(
+        f'PLANO DE CONTRATAÇÕES ANUAIS — EXERCÍCIO {plano.exercicio_fiscal}',
+        ParagraphStyle('tit2', fontSize=13, textColor=AZUL_GOV,
+                       fontName='Helvetica-Bold', alignment=TA_CENTER, spaceAfter=2),
+    ))
+    e.append(Paragraph(
+        'Instrução Normativa SEGES/ME nº 65, de 7 de julho de 2021',
+        estilos['subtitulo'],
+    ))
+    e.append(Spacer(1, 0.3 * cm))
+
+    # ── Metadados ────────────────────────────────────────────────────────────
+    status_label = 'PUBLICADO' if plano.status_pca == 'publicado' else 'RASCUNHO'
+    cor_status   = '#155724' if plano.status_pca == 'publicado' else '#856404'
+    meta_data = [
+        [Paragraph('<b>Órgão:</b> ' + org.nome, ParagraphStyle('m', fontSize=9)),
+         Paragraph('<b>UASG/Sigla:</b> ' + org.sigla, ParagraphStyle('m', fontSize=9)),
+         Paragraph('<b>Exercício:</b> ' + str(plano.exercicio_fiscal), ParagraphStyle('m', fontSize=9)),
+         Paragraph(f'<b>Status:</b> <font color="{cor_status}">{status_label}</font>',
+                   ParagraphStyle('m', fontSize=9))],
+    ]
+    meta_t = Table(meta_data, colWidths=[9*cm, 4*cm, 3*cm, 3*cm])
+    meta_t.setStyle(TableStyle([
+        ('BACKGROUND', (0, 0), (-1, -1), AZUL_CLARO),
+        ('BOX',        (0, 0), (-1, -1), 0.5, CINZA_BD),
+        ('GRID',       (0, 0), (-1, -1), 0.5, CINZA_BD),
+        ('VALIGN',     (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING', (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING',   (0, 0), (-1, -1), 6),
+    ]))
+    e.append(meta_t)
+    e.append(Spacer(1, 0.4 * cm))
+
+    # ── Tabela principal ─────────────────────────────────────────────────────
+    itens = list(plano.itens.select_related(
+        'necessidade', 'necessidade__unidade_demandante',
+    ).order_by('numero_sequencial_pca', 'id'))
+
+    CABECALHO = [
+        'Seq', 'Área', 'Descrição da Necessidade', 'Vl. Total (R$)',
+        'Categoria', 'Prog./Ação', 'Unid. Demandante',
+        'Data Est. Início', 'OE — Obj. Estratégico',
+    ]
+    COL_W = [0.8*cm, 1.8*cm, 7.5*cm, 2.5*cm, 2.2*cm, 2.5*cm, 3.0*cm, 2.5*cm, 3.2*cm]
+
+    estilo_cel = ParagraphStyle('cel', fontSize=7.5, leading=10)
+    estilo_hdr = ParagraphStyle('hdr', fontSize=7.5, fontName='Helvetica-Bold',
+                                alignment=TA_CENTER, textColor=BRANCO)
+
+    def fmt_v(v):
+        if not v:
+            return '—'
+        return f'{float(v):,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
+
+    def fmt_d(d):
+        return d.strftime('%d/%m/%Y') if d else '—'
+
+    dados = [[Paragraph(h, estilo_hdr) for h in CABECALHO]]
+    total_geral = Decimal('0')
+
+    for idx, item in enumerate(itens, start=1):
+        nec   = item.necessidade
+        areas = ', '.join(nec.area_aplicacao) if nec.area_aplicacao else '—'
+        unid_dem = (nec.unidade_demandante.sigla if nec.unidade_demandante else
+                    nec.departamento_solicitante or '—')
+        cat   = dict(item.CATEGORIA_ORCA_CHOICES).get(item.categoria_orcamentaria, '—')
+        total_geral += nec.valor_estimado or Decimal('0')
+
+        dados.append([
+            Paragraph(str(item.numero_sequencial_pca or idx), estilo_cel),
+            Paragraph(areas, estilo_cel),
+            Paragraph(nec.titulo, estilo_cel),
+            Paragraph(fmt_v(nec.valor_estimado), estilo_cel),
+            Paragraph(cat, estilo_cel),
+            Paragraph(item.programa_acao or '—', estilo_cel),
+            Paragraph(unid_dem, estilo_cel),
+            Paragraph(fmt_d(item.data_estimada_inicio), estilo_cel),
+            Paragraph(item.vinculacao_pgi or '—', estilo_cel),
+        ])
+
+    # Linha de total
+    dados.append([
+        Paragraph('', estilo_cel),
+        Paragraph('', estilo_cel),
+        Paragraph('<b>TOTAL GERAL</b>', ParagraphStyle('tot', fontSize=8,
+                  fontName='Helvetica-Bold', alignment=TA_RIGHT)),
+        Paragraph(f'<b>{fmt_v(total_geral)}</b>',
+                  ParagraphStyle('totv', fontSize=8, fontName='Helvetica-Bold')),
+        Paragraph('', estilo_cel),
+        Paragraph('', estilo_cel),
+        Paragraph('', estilo_cel),
+        Paragraph('', estilo_cel),
+        Paragraph('', estilo_cel),
+    ])
+
+    tabela = Table(dados, colWidths=COL_W, repeatRows=1)
+    tabela.setStyle(TableStyle([
+        ('BACKGROUND',    (0, 0), (-1, 0),  AZUL_GOV),
+        ('TEXTCOLOR',     (0, 0), (-1, 0),  BRANCO),
+        ('ROWBACKGROUNDS',(0, 1), (-1, -2), [BRANCO, AZUL_CLARO]),
+        ('BACKGROUND',    (0, -1),(-1, -1), colors.HexColor('#D1E7DD')),
+        ('FONTNAME',      (0, -1),(-1, -1), 'Helvetica-Bold'),
+        ('GRID',          (0, 0), (-1, -1), 0.4, CINZA_BD),
+        ('VALIGN',        (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING',    (0, 0), (-1, -1), 3),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ('LEFTPADDING',   (0, 0), (-1, -1), 3),
+        ('RIGHTPADDING',  (0, 0), (-1, -1), 3),
+        ('ALIGN',         (3, 1), (3, -1),  'RIGHT'),
+        ('SPAN',          (0, -1),(2, -1)),
+    ]))
+    e.append(tabela)
+    e.append(Spacer(1, 0.3 * cm))
+
+    # ── Resumo ───────────────────────────────────────────────────────────────
+    resumo_data = [[
+        Paragraph(f'<b>Total de itens:</b> {len(itens)}', ParagraphStyle('r', fontSize=8)),
+        Paragraph(f'<b>Valor total estimado:</b> R$ {fmt_v(total_geral)}', ParagraphStyle('r', fontSize=8)),
+        Paragraph(f'<b>Dotação disponível:</b> R$ {fmt_v(plano.dotacao_total)}' if plano.dotacao_total
+                  else '<b>Dotação disponível:</b> —', ParagraphStyle('r', fontSize=8)),
+    ]]
+    resumo_t = Table(resumo_data, colWidths=[7*cm, 7*cm, 7*cm])
+    resumo_t.setStyle(TableStyle([
+        ('BACKGROUND',  (0, 0), (-1, -1), AZUL_CLARO),
+        ('FONTSIZE',    (0, 0), (-1, -1), 8),
+        ('GRID',        (0, 0), (-1, -1), 0.4, CINZA_BD),
+        ('TOPPADDING',  (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING',(0,0), (-1, -1), 4),
+        ('LEFTPADDING', (0, 0), (-1, -1), 6),
+    ]))
+    e.append(resumo_t)
+
+    # ── Assinaturas ───────────────────────────────────────────────────────────
+    e.append(Spacer(1, 0.5 * cm))
+    e.append(_secao('Assinaturas', estilos))
+    e.append(Spacer(1, 0.2 * cm))
+    e.append(Paragraph(
+        'Este documento requer assinatura do Ordenador de Despesas e do Gestor de Planejamento '
+        'para ter validade jurídica (IN SEGES/ME nº 65/2021, art. 9º).',
+        estilos['aviso'],
+    ))
+
+    ass_data = [[
+        [Paragraph('GESTOR DE PLANEJAMENTO', ParagraphStyle(
+            'tt', fontSize=8, textColor=CINZA_TXT, alignment=TA_CENTER, fontName='Helvetica-Bold')),
+         Spacer(1, 0.6 * cm),
+         HRFlowable(width='90%', thickness=1, color=PRETO, hAlign='CENTER'),
+         Paragraph('Nome / Cargo', ParagraphStyle('nm', fontSize=9, alignment=TA_CENTER,
+                                                   fontName='Helvetica-Bold')),
+         Paragraph(org.sigla, ParagraphStyle('og', fontSize=8, textColor=CINZA_TXT,
+                                              alignment=TA_CENTER))],
+        [Paragraph('ORDENADOR DE DESPESAS', ParagraphStyle(
+            'tt', fontSize=8, textColor=CINZA_TXT, alignment=TA_CENTER, fontName='Helvetica-Bold')),
+         Spacer(1, 0.6 * cm),
+         HRFlowable(width='90%', thickness=1, color=PRETO, hAlign='CENTER'),
+         Paragraph('Nome / Cargo', ParagraphStyle('nm', fontSize=9, alignment=TA_CENTER,
+                                                   fontName='Helvetica-Bold')),
+         Paragraph(org.sigla, ParagraphStyle('og', fontSize=8, textColor=CINZA_TXT,
+                                              alignment=TA_CENTER))],
+    ]]
+    ass_t = Table(ass_data, colWidths=[9*cm, 9*cm], hAlign='CENTER')
+    ass_t.setStyle(TableStyle([('VALIGN', (0, 0), (-1, -1), 'TOP')]))
+    e.append(ass_t)
+
+    doc.build(e, onFirstPage=_rodape_pca, onLaterPages=_rodape_pca)
+    return buf.getvalue()

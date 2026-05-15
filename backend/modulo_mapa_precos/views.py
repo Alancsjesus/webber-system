@@ -498,3 +498,153 @@ class MapaComparativoPrecosViewSet(viewsets.ModelViewSet):
         from exportacao.pdf_utils import gerar_pdf_mapa, resposta_pdf
         pdf = gerar_pdf_mapa(mapa)
         return resposta_pdf(pdf, f'Mapa-Precos-{mapa.pk}.pdf')
+
+    # ── Integração PNCP ───────────────────────────────────────────────────────
+    @action(detail=True, methods=['post'], url_path='pncp/preview')
+    def pncp_preview(self, request, pk=None):
+        """
+        Consulta o PNCP e retorna preview dos registros disponíveis.
+        Salva os registros em PNCPRegistro para seleção posterior.
+        Body: {
+            periodo_inicio, periodo_fim,
+            cnpj_orgao_referencia (opt), uf (opt, default BA),
+            termo_busca (opt),
+            incluir_contratos (bool, default true),
+            incluir_atas (bool, default true)
+        }
+        """
+        from modulo_pncp.services import buscar_preview
+        from modulo_pncp.models import PNCPImportacao, PNCPRegistro
+        from datetime import date
+
+        mapa = self.get_object()
+
+        periodo_inicio = request.data.get('periodo_inicio')
+        periodo_fim    = request.data.get('periodo_fim')
+
+        if not periodo_inicio or not periodo_fim:
+            return Response(
+                {'detail': 'periodo_inicio e periodo_fim são obrigatórios (YYYY-MM-DD).'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        def _d(s):
+            try:
+                y, m, d = s.split('-')
+                return date(int(y), int(m), int(d))
+            except Exception:
+                return None
+
+        d_ini = _d(periodo_inicio)
+        d_fim = _d(periodo_fim)
+        if not d_ini or not d_fim:
+            return Response({'detail': 'Datas inválidas.'}, status=400)
+        if d_fim < d_ini:
+            return Response({'detail': 'periodo_fim deve ser >= periodo_inicio.'}, status=400)
+
+        cnpj  = request.data.get('cnpj_orgao_referencia', '')
+        uf    = request.data.get('uf', 'BA')
+        termo = request.data.get('termo_busca', '')
+        incluir_contratos = request.data.get('incluir_contratos', True)
+        incluir_atas      = request.data.get('incluir_atas', True)
+        tipo_fonte        = request.data.get('tipo_fonte', 'II')
+
+        # Consulta a API
+        resultado = buscar_preview(
+            d_ini, d_fim,
+            cnpj=cnpj, uf=uf, termo=termo,
+            incluir_contratos=bool(incluir_contratos),
+            incluir_atas=bool(incluir_atas),
+        )
+
+        # Cria registro de importação e salva os registros encontrados
+        importacao = PNCPImportacao.objects.create(
+            org_id_id  = request.org_id,
+            created_by = request.user,
+            updated_by = request.user,
+            mapa       = mapa,
+            cnpj_orgao_referencia = cnpj,
+            uf             = uf,
+            termo_busca    = termo,
+            periodo_inicio = d_ini,
+            periodo_fim    = d_fim,
+            tipo_fonte     = tipo_fonte,
+            status         = 'pendente',
+            total_consultados = resultado['total'],
+        )
+
+        registros_criados = []
+        for reg in resultado['registros']:
+            r = PNCPRegistro.objects.create(
+                importacao    = importacao,
+                numero_pncp   = reg['numero_pncp'] or '',
+                objeto        = reg['objeto'] or '',
+                valor_global  = reg['valor_global'],
+                valor_unitario= reg['valor_unitario'],
+                quantidade    = reg['quantidade'],
+                unidade_medida= reg['unidade_medida'] or '',
+                orgao_nome    = reg['orgao_nome'] or '',
+                orgao_cnpj    = reg['orgao_cnpj'] or '',
+                uf            = reg['uf'] or '',
+                data_referencia= reg['data_referencia'],
+                numero_certame = reg['numero_certame'] or '',
+                modalidade    = reg['modalidade'] or '',
+                tipo_registro = reg['tipo_registro'],
+            )
+            registros_criados.append({
+                'id':            r.pk,
+                'numero_pncp':   r.numero_pncp,
+                'objeto':        r.objeto,
+                'valor_global':  str(r.valor_global) if r.valor_global else None,
+                'valor_unitario':str(r.valor_unitario) if r.valor_unitario else None,
+                'orgao_nome':    r.orgao_nome,
+                'orgao_cnpj':    r.orgao_cnpj,
+                'uf':            r.uf,
+                'data_referencia': str(r.data_referencia) if r.data_referencia else None,
+                'modalidade':    r.modalidade,
+                'tipo_registro': r.tipo_registro,
+            })
+
+        return Response({
+            'importacao_id': importacao.pk,
+            'total':         resultado['total'],
+            'registros':     registros_criados,
+            'erros_api':     resultado['erros'],
+        })
+
+    @action(detail=True, methods=['post'], url_path='pncp/confirmar')
+    def pncp_confirmar(self, request, pk=None):
+        """
+        Efetiva a importação dos registros selecionados para o Mapa.
+        Body: { importacao_id: N, ids: [1, 2, 3], item_mapa_id: N (opt) }
+        """
+        from modulo_pncp.services import ImportadorPNCP
+        from modulo_pncp.models import PNCPImportacao
+
+        mapa = self.get_object()
+        importacao_id = request.data.get('importacao_id')
+        ids = request.data.get('ids', [])
+
+        if not importacao_id:
+            return Response({'detail': 'importacao_id é obrigatório.'}, status=400)
+        if not ids:
+            return Response({'detail': 'Selecione ao menos um registro.'}, status=400)
+
+        try:
+            importacao = PNCPImportacao.objects.get(pk=importacao_id, mapa=mapa)
+        except PNCPImportacao.DoesNotExist:
+            return Response({'detail': 'Importação não encontrada.'}, status=404)
+
+        # Se item_mapa_id fornecido, troca o item destino na importação
+        item_mapa_id = request.data.get('item_mapa_id')
+        if item_mapa_id:
+            from modulo_mapa_precos.models import ItemMapa
+            try:
+                item = ItemMapa.objects.get(pk=item_mapa_id, mapa=mapa)
+                # O ImportadorPNCP usa o primeiro item; redefinimos via monkey-patch simples
+                importacao._item_override = item
+            except ItemMapa.DoesNotExist:
+                pass
+
+        resultado = ImportadorPNCP().executar(importacao, ids)
+        return Response(resultado)

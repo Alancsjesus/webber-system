@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'modulo_mapa_precos',
     'modulo_contrato',
     'modulo_licitacao',
+    'modulo_pncp',
 ]
 
 MIDDLEWARE = [

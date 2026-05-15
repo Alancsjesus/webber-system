@@ -411,6 +411,66 @@ class PlanoOrcamentarioViewSet(viewsets.ModelViewSet):
         serializer = ItemPlanoSerializer(item)
         return Response(serializer.data, status=status.HTTP_201_CREATED if created else status.HTTP_200_OK)
 
+    @action(detail=True, methods=['patch'], url_path='atualizar_item_pca')
+    def atualizar_item_pca(self, request, pk=None):
+        """
+        Atualiza campos PCA de um ItemPlanoOrcamentario específico.
+        Body: { item_id, categoria_orcamentaria, programa_acao,
+                data_estimada_inicio, vinculacao_pgi }
+        """
+        if not self._check_planejamento(request):
+            return Response({'detail': 'Apenas a unidade de planejamento pode editar o PCA.'},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        item_id = request.data.get('item_id')
+        if not item_id:
+            return Response({'detail': 'item_id é obrigatório.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        try:
+            item = ItemPlanoOrcamentario.objects.get(pk=item_id, plano=self.get_object())
+        except ItemPlanoOrcamentario.DoesNotExist:
+            return Response({'detail': 'Item não encontrado.'}, status=status.HTTP_404_NOT_FOUND)
+
+        campos_pca = ['categoria_orcamentaria', 'programa_acao', 'data_estimada_inicio', 'vinculacao_pgi']
+        for campo in campos_pca:
+            if campo in request.data:
+                setattr(item, campo, request.data[campo])
+        item.save()
+
+        serializer = ItemPlanoSerializer(item)
+        return Response(serializer.data)
+
+    @action(detail=True, methods=['post'], url_path='publicar_pca')
+    def publicar_pca(self, request, pk=None):
+        """
+        Publica o PCA: gera número sequencial para cada item e marca status_pca='publicado'.
+        """
+        if not self._check_planejamento(request):
+            return Response({'detail': 'Apenas a unidade de planejamento pode publicar o PCA.'},
+                            status=status.HTTP_403_FORBIDDEN)
+
+        plano = self.get_object()
+        if plano.status_pca == 'publicado':
+            return Response({'detail': 'Este PCA já foi publicado.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        itens = list(plano.itens.order_by('id'))
+        for seq, item in enumerate(itens, start=1):
+            item.numero_sequencial_pca = seq
+        ItemPlanoOrcamentario.objects.bulk_update(itens, ['numero_sequencial_pca'])
+
+        plano.status_pca = 'publicado'
+        plano.save(update_fields=['status_pca'])
+
+        return Response({'detail': f'PCA publicado com {len(itens)} itens.', 'total_itens': len(itens)})
+
+    @action(detail=True, methods=['get'], url_path='exportar_pca')
+    def exportar_pca(self, request, pk=None):
+        """Exporta o PCA como PDF (A4 paisagem)."""
+        from exportacao.pdf_utils import gerar_pdf_pca, resposta_pdf
+        plano = self.get_object()
+        pdf   = gerar_pdf_pca(plano)
+        return resposta_pdf(pdf, f'PCA_{plano.orgao.sigla}_{plano.exercicio_fiscal}.pdf')
+
     @action(detail=True, methods=['post'])
     def desvincular_necessidade(self, request, pk=None):
         """Remove uma necessidade do plano."""

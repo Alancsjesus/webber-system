@@ -49,6 +49,9 @@ import ProcedimentoList from './pages/ProcedimentoList'
 import ProcedimentoCreate from './pages/ProcedimentoCreate'
 import ProcedimentoDetail from './pages/ProcedimentoDetail'
 import PrepararAquisicao from './pages/PrepararAquisicao'
+import Calendario from './pages/Calendario'
+import PCADetail from './pages/PCADetail'
+import PlanoList from './pages/PlanoList'
 
 // Wrapper que combina autenticação + autorização por papel
 function Guard({ children }) {
@@ -80,7 +83,10 @@ export default function App() {
           {/* Painel e Ajuda — todos */}
           <Route path="painel"        element={<Guard><Painel /></Guard>} />
           <Route path="ajuda"         element={<Guard><Ajuda /></Guard>} />
-          <Route path="plano-compras" element={<Guard><PlanoCompras /></Guard>} />
+          <Route path="plano-compras"          element={<Guard><PlanoCompras /></Guard>} />
+          <Route path="planejamento/planos"    element={<Guard><PlanoList /></Guard>} />
+          <Route path="planejamento/pca/:id"   element={<Guard><PCADetail /></Guard>} />
+          <Route path="calendario"             element={<Guard><Calendario /></Guard>} />
           <Route path="aquisicao/preparar" element={<Guard><PrepararAquisicao /></Guard>} />
 
           {/* Planejamento */}

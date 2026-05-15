@@ -49,14 +49,18 @@ const NAV_BASE = [
   {
     section: 'Geral',
     items: [
-      { to: '/',               label: 'Dashboard',       end: true },
-      { to: '/painel',         label: 'Painel de Demandas' },
-      { to: '/plano-compras',  label: 'Plano de Compras' },
+      { to: '/',           label: 'Dashboard',       end: true },
+      { to: '/painel',     label: 'Painel de Demandas' },
+      { to: '/calendario', label: 'Calendário' },
     ],
   },
   {
     section: 'Planejamento',
-    items: [{ to: '/planejamento/necessidades', label: 'Necessidades' }],
+    items: [
+      { to: '/planejamento/necessidades', label: 'Necessidades' },
+      { to: '/planejamento/planos',       label: 'PCA / Planos' },
+      { to: '/plano-compras',             label: 'Plano de Compras' },
+    ],
   },
   {
     section: 'Orçamento',
@@ -175,11 +179,11 @@ const TIPO_UNIDADE_BADGE = {
 
 const ACESSO_PAPEL = {
   admin:               ['*'],
-  analista:            ['/', '/painel', '/ajuda', '/plano-compras', '/planejamento', '/demanda', '/pesquisa', '/etp', '/analise-tecnica', '/orcamento', '/licitacao', '/contratos'],
-  gestor_planejamento: ['/', '/painel', '/ajuda', '/plano-compras', '/planejamento', '/demanda', '/pesquisa', '/orcamento'],
-  gestor_contrato:     ['/', '/painel', '/ajuda', '/demanda', '/analise-tecnica', '/licitacao', '/contratos'],
-  fiscal_contrato:     ['/', '/painel', '/ajuda', '/demanda', '/contratos'],
-  ordenador:           ['/', '/painel', '/ajuda', '/plano-compras', '/orcamento', '/contratos', '/licitacao'],
+  analista:            ['/', '/painel', '/ajuda', '/plano-compras', '/calendario', '/planejamento', '/demanda', '/pesquisa', '/etp', '/analise-tecnica', '/orcamento', '/licitacao', '/contratos'],
+  gestor_planejamento: ['/', '/painel', '/ajuda', '/plano-compras', '/calendario', '/planejamento', '/demanda', '/pesquisa', '/orcamento', '/planejamento/pca'],
+  gestor_contrato:     ['/', '/painel', '/ajuda', '/calendario', '/demanda', '/analise-tecnica', '/licitacao', '/contratos'],
+  fiscal_contrato:     ['/', '/painel', '/ajuda', '/calendario', '/demanda', '/contratos'],
+  ordenador:           ['/', '/painel', '/ajuda', '/plano-compras', '/calendario', '/orcamento', '/contratos', '/licitacao'],
   responsavel_tecnico: ['/', '/painel', '/ajuda', '/demanda', '/pesquisa', '/etp', '/analise-tecnica'],
   solicitante:         ['/', '/painel', '/ajuda', '/demanda', '/planejamento', '/pesquisa', '/etp', '/analise-tecnica'],
 }
