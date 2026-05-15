@@ -14,14 +14,36 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        migrations.RemoveConstraint(
-            model_name='indicacaoorcamentaria',
-            name='unique_indicacao_numero_por_org',
-        ),
-        migrations.RenameIndex(
-            model_name='indicacaoorcamentaria',
-            new_name='modulo_orca_org_id__63a40f_idx',
-            old_name='indicacao_org_created_idx',
+        # SeparateDatabaseAndState: atualiza o estado do Django sem falhar no banco
+        # quando constraint/index já não existem (diferença entre ambientes)
+        migrations.SeparateDatabaseAndState(
+            database_operations=[
+                migrations.RunSQL(
+                    sql="ALTER TABLE modulo_orcamento_indicacaoorcamentaria DROP CONSTRAINT IF EXISTS unique_indicacao_numero_por_org;",
+                    reverse_sql=migrations.RunSQL.noop,
+                ),
+                migrations.RunSQL(
+                    sql="""
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'indicacao_org_created_idx')
+    THEN ALTER INDEX indicacao_org_created_idx RENAME TO modulo_orca_org_id__63a40f_idx;
+    END IF;
+END$$;""",
+                    reverse_sql=migrations.RunSQL.noop,
+                ),
+            ],
+            state_operations=[
+                migrations.RemoveConstraint(
+                    model_name='indicacaoorcamentaria',
+                    name='unique_indicacao_numero_por_org',
+                ),
+                migrations.RenameIndex(
+                    model_name='indicacaoorcamentaria',
+                    new_name='modulo_orca_org_id__63a40f_idx',
+                    old_name='indicacao_org_created_idx',
+                ),
+            ],
         ),
         migrations.AddField(
             model_name='indicacaoorcamentaria',
