@@ -124,8 +124,9 @@ export default function ArtefatoAdmin() {
   const [activeTab, setActiveTab] = useState('TR')
   const [editItem, setEditItem]   = useState(null)
   const [form, setForm]           = useState({ ...BLANK })
-  const [saving, setSaving]       = useState(false)
-  const [msg, setMsg]             = useState(null)
+  const [saving, setSaving]         = useState(false)
+  const [msg, setMsg]               = useState(null)
+  const [modalMsg, setModalMsg]     = useState(null)   // erro/sucesso dentro do modal
   const [reordering, setReordering] = useState(false)
 
   const load = useCallback(() => {
@@ -142,24 +143,52 @@ export default function ArtefatoAdmin() {
     .filter(s => s.tipo === activeTab)
     .sort((a, b) => a.ordem - b.ordem)
 
-  const openAdd  = () => { setForm({ ...BLANK, tipo: activeTab, ordem: secoesTab.length + 1 }); setEditItem('new') }
-  const openEdit = (s)  => { setForm({ ...s }); setEditItem(s.id) }
-  const closeModal = () => { setEditItem(null); setForm({ ...BLANK }) }
+  const openAdd  = () => { setForm({ ...BLANK, tipo: activeTab, ordem: secoesTab.length + 1 }); setEditItem('new'); setModalMsg(null) }
+  const openEdit = (s) => {
+    // Extrai apenas os campos que o backend aceita (sem id, tipo_display, etc.)
+    setForm({
+      tipo:               s.tipo,
+      codigo:             s.codigo,
+      titulo:             s.titulo,
+      descricao:          s.descricao || '',
+      ordem:              s.ordem,
+      ativo:              s.ativo,
+      obrigatorio:        s.obrigatorio,
+      aplica_modalidades: s.aplica_modalidades || [],
+    })
+    setEditItem(s.id)
+    setModalMsg(null)
+  }
+  const closeModal = () => { setEditItem(null); setForm({ ...BLANK }); setModalMsg(null) }
 
   const handleSave = async () => {
     if (!form.titulo.trim() || !form.codigo.trim()) return
-    setSaving(true); setMsg(null)
+    setSaving(true); setModalMsg(null)
     try {
+      const payload = {
+        tipo:               form.tipo,
+        codigo:             form.codigo,
+        titulo:             form.titulo.trim(),
+        descricao:          form.descricao || '',
+        ordem:              Number(form.ordem) || 1,
+        ativo:              Boolean(form.ativo),
+        obrigatorio:        Boolean(form.obrigatorio),
+        aplica_modalidades: form.aplica_modalidades || [],
+      }
       if (editItem === 'new') {
-        await api.post('/core/secoes/', form)
-        setMsg({ type: 'success', text: 'Seção criada.' })
+        await api.post('/core/secoes/', payload)
+        setMsg({ type: 'success', text: 'Seção criada com sucesso.' })
       } else {
-        await api.patch(`/core/secoes/${editItem}/`, form)
-        setMsg({ type: 'success', text: 'Seção atualizada.' })
+        await api.patch(`/core/secoes/${editItem}/`, payload)
+        setMsg({ type: 'success', text: 'Seção atualizada com sucesso.' })
       }
       closeModal(); load()
     } catch (err) {
-      setMsg({ type: 'error', text: err.response?.data?.detail || JSON.stringify(err.response?.data) || 'Erro ao salvar.' })
+      const detail = err.response?.data?.detail
+        || Object.entries(err.response?.data || {}).map(([k,v]) => `${k}: ${v}`).join(' | ')
+        || 'Erro ao salvar. Verifique o console.'
+      console.error('[ArtefatoAdmin] save error', err.response?.data)
+      setModalMsg({ type: 'error', text: detail })
     } finally { setSaving(false) }
   }
 
@@ -451,7 +480,17 @@ export default function ArtefatoAdmin() {
               </div>
             </div>
 
-            <div className="flex gap-2 mt-5">
+            {modalMsg && (
+              <div className={`mt-4 px-3 py-2 rounded-lg text-sm border ${
+                modalMsg.type === 'error'
+                  ? 'bg-red-50 text-red-700 border-red-200'
+                  : 'bg-green-50 text-green-700 border-green-200'
+              }`}>
+                {modalMsg.text}
+              </div>
+            )}
+
+            <div className="flex gap-2 mt-4">
               <button onClick={handleSave} disabled={saving || !form.titulo.trim() || !form.codigo.trim()}
                 className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium px-5 py-2 rounded-lg">
                 {saving ? 'Salvando…' : 'Salvar'}
