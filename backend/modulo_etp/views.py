@@ -4,7 +4,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
-from core.permissions import IsMultiTenant, PAPEIS_ANALISTA
+from core.permissions import IsMultiTenant, PAPEIS_ANALISTA, check_licitante
 from .models import ETP, HistoricoETP
 from .serializers import ETPSerializer
 from exportacao.pdf_utils import gerar_pdf_etp, gerar_html, resposta_pdf, resposta_html
@@ -120,18 +120,16 @@ class ETPViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def aprovar(self, request, pk=None):
-        papel = getattr(request, 'papel', None)
-        if papel not in PAPEIS_ANALISTA:
-            return Response({'detail': 'Sem permissão para aprovar ETP.'},
+        if not check_licitante(request):
+            return Response({'detail': 'Apenas analistas da unidade licitante podem aprovar o ETP.'},
                             status=status.HTTP_403_FORBIDDEN)
         return self._transicao(request, 'Aprovado',
                                campos_extra={'motivo': request.data.get('motivo')})
 
     @action(detail=True, methods=['post'])
     def devolver(self, request, pk=None):
-        papel = getattr(request, 'papel', None)
-        if papel not in PAPEIS_ANALISTA:
-            return Response({'detail': 'Sem permissão para devolver ETP.'},
+        if not check_licitante(request):
+            return Response({'detail': 'Apenas analistas da unidade licitante podem devolver o ETP.'},
                             status=status.HTTP_403_FORBIDDEN)
         motivo = request.data.get('motivo', '').strip()
         if not motivo:

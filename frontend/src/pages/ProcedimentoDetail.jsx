@@ -57,7 +57,8 @@ const TRAM_STATUS_CLS = {
 export default function ProcedimentoDetail() {
   const { id }    = useParams()
   const navigate  = useNavigate()
-  const papel     = useAuthStore(s => s.papel)
+  const papel       = useAuthStore(s => s.papel)
+  const tipoUnidade = useAuthStore(s => s.tipoUnidade)
 
   const {
     current, loading, error,
@@ -178,8 +179,10 @@ export default function ProcedimentoDetail() {
     finally { setSaving(false) }
   }
 
-  const transicoes = current.transicoes_disponiveis || []
-  const podeAprovar = ['admin', 'analista', 'gestor_planejamento'].includes(papel)
+  const transicoes  = current.transicoes_disponiveis || []
+  const isLicitante = papel === 'admin' || (tipoUnidade === 'licitante' &&
+    ['analista', 'gestor_contrato', 'ordenador', 'admin'].includes(papel))
+  const podeAprovar = isLicitante
 
   const TABS = [
     { key: 'visao_geral',    label: 'Visão Geral' },
@@ -221,7 +224,7 @@ export default function ProcedimentoDetail() {
               className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-3 py-1.5 rounded-lg">
               ↓ Histórico
             </DownloadButton>
-          {transicoes.includes('Aguardando Aprovação') && (
+          {transicoes.includes('Aguardando Aprovação') && isLicitante && (
             <button onClick={() => act(submeter, id)} disabled={saving}
               className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm px-3 py-1.5 rounded-lg">
               Submeter
@@ -233,50 +236,50 @@ export default function ProcedimentoDetail() {
               Aprovar
             </button>
           )}
-          {transicoes.includes('Em Instrução') && current.status === 'Aguardando Aprovação' && (
+          {transicoes.includes('Em Instrução') && current.status === 'Aguardando Aprovação' && isLicitante && (
             <button onClick={() => { setMotivoModal({ acao: 'devolver', label: 'Devolver para instrução' }); setMotivoText('') }}
               className="border border-orange-300 text-orange-600 hover:bg-orange-50 text-sm px-3 py-1.5 rounded-lg">
               Devolver
             </button>
           )}
-          {transicoes.includes('Publicado') && (
+          {transicoes.includes('Publicado') && isLicitante && (
             <button onClick={() => act(publicar, id)} disabled={saving}
               className="bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white text-sm px-3 py-1.5 rounded-lg">
               Publicar edital
             </button>
           )}
-          {transicoes.includes('Em Sessão') && (
+          {transicoes.includes('Em Sessão') && isLicitante && (
             <button onClick={() => act(iniciarSessao, id)} disabled={saving}
               className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm px-3 py-1.5 rounded-lg">
               Iniciar Sessão
             </button>
           )}
-          {transicoes.includes('Homologado') && (
+          {transicoes.includes('Homologado') && isLicitante && (
             <button onClick={() => act(homologar, id)} disabled={saving}
               className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm px-3 py-1.5 rounded-lg">
               Homologar
             </button>
           )}
           {/* Contratado direto (dispensas aprovadas) */}
-          {transicoes.includes('Contratado') && current.status === 'Aprovado' && (
+          {transicoes.includes('Contratado') && current.status === 'Aprovado' && isLicitante && (
             <button onClick={() => act(homologar, id)} disabled={saving}
               className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm px-3 py-1.5 rounded-lg">
               Confirmar contratação
             </button>
           )}
-          {transicoes.includes('Deserto') && (
+          {transicoes.includes('Deserto') && isLicitante && (
             <button onClick={() => { setMotivoModal({ acao: 'deserto', label: 'Declarar Deserto' }); setMotivoText('Nenhuma proposta recebida.') }}
               className="border border-red-300 text-red-600 hover:bg-red-50 text-sm px-3 py-1.5 rounded-lg">
               Deserto
             </button>
           )}
-          {transicoes.includes('Fracassado') && (
+          {transicoes.includes('Fracassado') && isLicitante && (
             <button onClick={() => { setMotivoModal({ acao: 'fracassado', label: 'Declarar Fracassado' }); setMotivoText('') }}
               className="border border-red-300 text-red-600 hover:bg-red-50 text-sm px-3 py-1.5 rounded-lg">
               Fracassado
             </button>
           )}
-          {transicoes.includes('Revogado') && (
+          {transicoes.includes('Revogado') && isLicitante && (
             <button onClick={() => { setMotivoModal({ acao: 'revogar', label: 'Revogar' }); setMotivoText('') }}
               className="border border-gray-300 text-gray-500 hover:bg-gray-50 text-sm px-3 py-1.5 rounded-lg">
               Revogar

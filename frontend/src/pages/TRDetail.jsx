@@ -23,9 +23,10 @@ export default function TRDetail() {
   const navigate  = useNavigate()
   const { current, loading, error, fetchTr, updateTr, submeterTr, iniciarAnaliseTr, aprovarTr, devolverTr, reabrirTr,
           criarLote, excluirLote, adicionarItemLote, removerItemLote, gerarCota, gerarPorItem } = useTrStore()
-  const papel     = useAuthStore((s) => s.papel)
+  const papel       = useAuthStore((s) => s.papel)
+  const tipoUnidade = useAuthStore((s) => s.tipoUnidade)
 
-  const isAnalista    = PAPEIS_ANALISTA.includes(papel)
+  const isLicitante   = papel === 'admin' || (tipoUnidade === 'licitante' && PAPEIS_ANALISTA.includes(papel))
   const isSolicitante = PAPEIS_SOLICITANTE.includes(papel)
 
   const [editing, setEditing]       = useState(false)
@@ -96,11 +97,13 @@ export default function TRDetail() {
   if (error)   return <p className="p-8 text-sm text-red-600">{error}</p>
   if (!current || !form) return null
 
+  const statusLoteEditavel = ['Rascunho', 'Devolvido'].includes(current.status)
   const podeEditar    = !['Aprovado', 'Cancelado'].includes(current.status) && isSolicitante
+  const podeLotes     = statusLoteEditavel && isLicitante
   const podeSubmeter  = ['Rascunho', 'Devolvido'].includes(current.status) && isSolicitante
-  const podeAnalisar  = current.status === 'Submetido' && isAnalista
-  const podeAprovar   = current.status === 'Em Análise' && isAnalista
-  const podeDevolver  = current.status === 'Em Análise' && isAnalista
+  const podeAnalisar  = current.status === 'Submetido'  && isLicitante
+  const podeAprovar   = current.status === 'Em Análise' && isLicitante
+  const podeDevolver  = current.status === 'Em Análise' && isLicitante
   const podeReabrir   = ['Aprovado', 'Cancelado'].includes(current.status) && papel === 'admin'
 
   return (
@@ -351,7 +354,7 @@ export default function TRDetail() {
         {/* ── Lotes da Licitação ── */}
         <LotesSection
           tr={current}
-          podeEditar={podeEditar}
+          podeEditar={podeLotes}
           onCriarLote={(payload) => criarLote(id, payload)}
           onExcluirLote={(lotePk) => excluirLote(id, lotePk)}
           onAdicionarItem={(lotePk, payload) => adicionarItemLote(id, lotePk, payload)}

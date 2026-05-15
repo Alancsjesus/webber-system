@@ -25,7 +25,7 @@ export default function ETPDetail() {
   const navigate = useNavigate()
   const { current, loading, error, fetchEtp, updateEtp,
           submeterEtp, iniciarAnaliseEtp, aprovarEtp, devolverEtp, reabrirEtp } = useEtpStore()
-  const { papel } = useAuthStore()
+  const { papel, tipoUnidade } = useAuthStore()
 
   const [editing, setEditing]       = useState(false)
   const [form, setForm]             = useState(null)
@@ -113,17 +113,17 @@ export default function ETPDetail() {
   if (error)   return <p className="p-8 text-sm text-red-600">{error}</p>
   if (!current || !form) return null
 
-  const isAnalista    = PAPEIS_ANALISTA.includes(papel)
+  const isLicitante   = papel === 'admin' || (tipoUnidade === 'licitante' && PAPEIS_ANALISTA.includes(papel))
   const isSolicitante = PAPEIS_SOLICITANTE.includes(papel)
 
   // Regras de edição: status editável + papel com permissão de escrita
   const statusEditavel = ['Rascunho', 'Devolvido'].includes(current.status)
   const podeEditar     = statusEditavel && isSolicitante
   const podeSubmeter   = statusEditavel && isSolicitante
-  const podeAnalisar   = current.status === 'Submetido'   && isAnalista
-  const podeAprovar    = current.status === 'Em Análise'  && isAnalista
-  const podeDevolver   = current.status === 'Em Análise'  && isAnalista
-  const podeCriarTR    = current.status === 'Aprovado' && !current.tr_id
+  const podeAnalisar   = current.status === 'Submetido'   && isLicitante
+  const podeAprovar    = current.status === 'Em Análise'  && isLicitante
+  const podeDevolver   = current.status === 'Em Análise'  && isLicitante
+  const podeCriarTR    = current.status === 'Aprovado' && !current.tr_id && isLicitante
   const podeReabrir    = ['Aprovado', 'Cancelado'].includes(current.status) && papel === 'admin'
   const temTR          = !!current.tr_id
 

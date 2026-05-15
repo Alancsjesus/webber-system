@@ -5,6 +5,8 @@ PAPEIS_ANALISTA     = ('analista', 'gestor_planejamento', 'gestor_contrato',
                        'fiscal_contrato', 'ordenador', 'admin')
 PAPEIS_SOLICITANTE  = ('solicitante', 'responsavel_tecnico', 'admin')
 PAPEIS_PLANEJAMENTO = ('gestor_planejamento', 'admin')
+PAPEIS_LICITANTE    = ('analista', 'gestor_contrato', 'ordenador', 'admin')
+PAPEIS_CONTRATANTE  = ('gestor_contrato', 'fiscal_contrato', 'ordenador', 'admin')
 
 
 class IsMultiTenant(permissions.BasePermission):
@@ -79,7 +81,47 @@ class IsUnidadePlanejamento(permissions.BasePermission):
         )
 
 
+class IsLicitanteOuAdmin(permissions.BasePermission):
+    """Papel analista/gestor em unidade licitante, ou admin."""
+    def has_permission(self, request, view):
+        papel = getattr(request, 'papel', None)
+        unidade = getattr(request, 'tipo_unidade', None)
+        if papel == 'admin':
+            return True
+        return unidade == 'licitante' and papel in PAPEIS_LICITANTE
+
+
+class IsContratanteOuAdmin(permissions.BasePermission):
+    """Papel gestor_contrato/fiscal/ordenador em unidade contratante, ou admin."""
+    def has_permission(self, request, view):
+        papel = getattr(request, 'papel', None)
+        unidade = getattr(request, 'tipo_unidade', None)
+        if papel == 'admin':
+            return True
+        return unidade == 'contratante' and papel in PAPEIS_CONTRATANTE
+
+
+class IsOrdenadorOuAdmin(permissions.BasePermission):
+    """Apenas ordenadores e admins."""
+    def has_permission(self, request, view):
+        return getattr(request, 'papel', None) in ('ordenador', 'admin')
+
+
+def check_licitante(request):
+    """Helper: retorna True se o usuário é da unidade licitante ou admin."""
+    papel = getattr(request, 'papel', None)
+    unidade = getattr(request, 'tipo_unidade', None)
+    return papel == 'admin' or (unidade == 'licitante' and papel in PAPEIS_LICITANTE)
+
+
+def check_contratante(request):
+    """Helper: retorna True se o usuário é da unidade contratante ou admin."""
+    papel = getattr(request, 'papel', None)
+    unidade = getattr(request, 'tipo_unidade', None)
+    return papel == 'admin' or (unidade == 'contratante' and papel in PAPEIS_CONTRATANTE)
+
+
 # Aliases para compatibilidade
-IsDemandante    = IsSolicitante
+IsDemandante     = IsSolicitante
 IsCentralizadora = IsUnidadeLicitante
 IsDemandanteOrg  = IsUnidadeDemandante

@@ -6,7 +6,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from django.shortcuts import get_object_or_404
 from .models import TR, HistoricoTR, LoteTR, ItemLoteTR
 from .serializers import TRSerializer, LoteTRSerializer, ItemLoteTRSerializer
-from core.permissions import IsMultiTenant, PAPEIS_ANALISTA
+from core.permissions import IsMultiTenant, PAPEIS_ANALISTA, check_licitante
 from exportacao.pdf_utils import gerar_pdf_tr, gerar_html, resposta_pdf, resposta_html
 
 PAPEIS_SOLICITANTE = ('solicitante', 'demandante', 'responsavel_tecnico', 'admin')
@@ -158,17 +158,15 @@ class TRViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def aprovar(self, request, pk=None):
-        papel = getattr(request, 'papel', None)
-        if papel not in PAPEIS_ANALISTA:
-            return Response({'detail': 'Apenas analistas podem aprovar o TR.'},
+        if not check_licitante(request):
+            return Response({'detail': 'Apenas analistas da unidade licitante podem aprovar o TR.'},
                             status=status.HTTP_403_FORBIDDEN)
         return self._transicao(request, 'Aprovado')
 
     @action(detail=True, methods=['post'])
     def devolver(self, request, pk=None):
-        papel = getattr(request, 'papel', None)
-        if papel not in PAPEIS_ANALISTA:
-            return Response({'detail': 'Apenas analistas podem devolver o TR.'},
+        if not check_licitante(request):
+            return Response({'detail': 'Apenas analistas da unidade licitante podem devolver o TR.'},
                             status=status.HTTP_403_FORBIDDEN)
         motivo = request.data.get('motivo', '').strip()
         if not motivo:
@@ -222,6 +220,13 @@ class TRViewSet(viewsets.ModelViewSet):
                             status=status.HTTP_400_BAD_REQUEST)
         return None
 
+    def _check_licitante_editavel(self, request, tr):
+        """Verifica papel de licitante E status editável."""
+        if not check_licitante(request):
+            return Response({'detail': 'Apenas analistas da unidade licitante podem gerenciar lotes.'},
+                            status=status.HTTP_403_FORBIDDEN)
+        return self._check_editavel(tr)
+
     def _tr_atualizado(self, pk, request):
         """Re-busca o TR com prefetch completo após modificação de lotes."""
         tr = self.get_queryset().get(pk=pk)
@@ -230,7 +235,7 @@ class TRViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], url_path='lotes')
     def criar_lote(self, request, pk=None):
         tr = self.get_object()
-        err = self._check_editavel(tr)
+        err = self._check_licitante_editavel(request, tr)
         if err: return err
         serializer = LoteTRSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
@@ -242,7 +247,7 @@ class TRViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['delete'], url_path=r'lotes/(?P<lote_pk>[^/.]+)')
     def excluir_lote(self, request, pk=None, lote_pk=None):
         tr   = self.get_object()
-        err  = self._check_editavel(tr)
+        err  = self._check_licitante_editavel(request, tr)
         if err: return err
         lote = get_object_or_404(LoteTR, pk=lote_pk, tr=tr)
         lote.delete()
@@ -251,7 +256,7 @@ class TRViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], url_path=r'lotes/(?P<lote_pk>[^/.]+)/itens')
     def adicionar_item(self, request, pk=None, lote_pk=None):
         tr   = self.get_object()
-        err  = self._check_editavel(tr)
+        err  = self._check_licitante_editavel(request, tr)
         if err: return err
         lote = get_object_or_404(LoteTR, pk=lote_pk, tr=tr)
         serializer = ItemLoteTRSerializer(data=request.data, context={'request': request})
@@ -266,7 +271,7 @@ class TRViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['delete'], url_path=r'lotes/(?P<lote_pk>[^/.]+)/itens/(?P<item_pk>[^/.]+)')
     def remover_item(self, request, pk=None, lote_pk=None, item_pk=None):
         tr      = self.get_object()
-        err     = self._check_editavel(tr)
+        err     = self._check_licitante_editavel(request, tr)
         if err: return err
         lote    = get_object_or_404(LoteTR, pk=lote_pk, tr=tr)
         item    = get_object_or_404(ItemLoteTR, pk=item_pk, lote=lote)
@@ -277,7 +282,7 @@ class TRViewSet(viewsets.ModelViewSet):
     def gerar_cota(self, request, pk=None, lote_pk=None):
         """Gera um lote de Reserva de Cota ME/EPP (25%) a partir de um lote de ampla concorrência."""
         tr   = self.get_object()
-        err  = self._check_editavel(tr)
+        err  = self._check_licitante_editavel(request, tr)
         if err: return err
         lote_origem = get_object_or_404(LoteTR, pk=lote_pk, tr=tr)
         if lote_origem.modalidade != 'ampla':
@@ -338,7 +343,7 @@ class TRViewSet(viewsets.ModelViewSet):
     def gerar_por_item(self, request, pk=None):
         """Cria um lote por item do DFD (tipo_parcelamento = por_item no ETP)."""
         tr = self.get_object()
-        err = self._check_editavel(tr)
+        err = self._check_licitante_editavel(request, tr)
         if err: return err
         if tr.etp.tipo_parcelamento != 'por_item':
             return Response({'detail': 'O ETP deve ter tipo de parcelamento "por_item".'},

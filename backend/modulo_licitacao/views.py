@@ -8,7 +8,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 
-from core.permissions import IsMultiTenant
+from core.permissions import IsMultiTenant, check_licitante, PAPEIS_ANALISTA
 from .models import (
     Procedimento, HistoricoProcedimento, TramitacaoExterna, ResultadoLote,
     TRANSICOES_PERMITIDAS,
@@ -81,8 +81,16 @@ class ProcedimentoViewSet(viewsets.ModelViewSet):
 
     # ── Transições de status ──────────────────────────────────────────────────
 
+    def _check_licitante(self, request):
+        if not check_licitante(request):
+            return Response({'detail': 'Apenas analistas da unidade licitante podem executar esta ação.'},
+                            status=status.HTTP_403_FORBIDDEN)
+        return None
+
     @action(detail=True, methods=['post'])
     def submeter(self, request, pk=None):
+        err = self._check_licitante(request)
+        if err: return err
         proc = self.get_object()
         self._transicao(proc, 'Aguardando Aprovação', request.user,
                         request.data.get('motivo', 'Submetido para aprovação interna.'))
@@ -90,17 +98,17 @@ class ProcedimentoViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def aprovar(self, request, pk=None):
+        err = self._check_licitante(request)
+        if err: return err
         proc = self.get_object()
-        papel = getattr(request, 'papel', None)
-        if papel not in ('admin', 'analista', 'gestor_planejamento'):
-            return Response({'detail': 'Permissão insuficiente.'},
-                            status=status.HTTP_403_FORBIDDEN)
         self._transicao(proc, 'Aprovado', request.user,
                         request.data.get('motivo', 'Aprovado pela Unidade de Licitações.'))
         return Response({'detail': 'Procedimento aprovado.', **self._serializar(proc)})
 
     @action(detail=True, methods=['post'])
     def devolver(self, request, pk=None):
+        err = self._check_licitante(request)
+        if err: return err
         proc = self.get_object()
         motivo = request.data.get('motivo', '').strip()
         if not motivo:
@@ -111,6 +119,8 @@ class ProcedimentoViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def publicar(self, request, pk=None):
+        err = self._check_licitante(request)
+        if err: return err
         proc = self.get_object()
         if not proc.data_publicacao:
             proc.data_publicacao = date.today()
@@ -121,12 +131,16 @@ class ProcedimentoViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def iniciar_sessao(self, request, pk=None):
+        err = self._check_licitante(request)
+        if err: return err
         proc = self.get_object()
         self._transicao(proc, 'Em Sessão', request.user, 'Sessão pública iniciada.')
         return Response({'detail': 'Sessão iniciada.', **self._serializar(proc)})
 
     @action(detail=True, methods=['post'])
     def homologar(self, request, pk=None):
+        err = self._check_licitante(request)
+        if err: return err
         proc = self.get_object()
         if not proc.data_homologacao:
             proc.data_homologacao = date.today()
@@ -137,6 +151,8 @@ class ProcedimentoViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def declarar_deserto(self, request, pk=None):
+        err = self._check_licitante(request)
+        if err: return err
         proc = self.get_object()
         motivo = request.data.get('motivo', 'Nenhuma proposta recebida.')
         self._transicao(proc, 'Deserto', request.user, motivo)
@@ -144,6 +160,8 @@ class ProcedimentoViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def declarar_fracassado(self, request, pk=None):
+        err = self._check_licitante(request)
+        if err: return err
         proc = self.get_object()
         motivo = request.data.get('motivo', 'Todas as propostas foram desclassificadas.')
         self._transicao(proc, 'Fracassado', request.user, motivo)
@@ -151,6 +169,8 @@ class ProcedimentoViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def revogar(self, request, pk=None):
+        err = self._check_licitante(request)
+        if err: return err
         proc = self.get_object()
         motivo = request.data.get('motivo', '').strip()
         if not motivo:
@@ -163,6 +183,8 @@ class ProcedimentoViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'])
     def anular(self, request, pk=None):
+        err = self._check_licitante(request)
+        if err: return err
         proc = self.get_object()
         motivo = request.data.get('motivo', '').strip()
         if not motivo:
