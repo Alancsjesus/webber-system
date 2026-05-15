@@ -330,7 +330,7 @@ export default function TRDetail() {
           </Section>
         </div>
 
-        <Section label="Local de entrega">
+        <Section label={current.tipo_objeto && ['servicos','servicos_engenharia','hibrido'].includes(current.tipo_objeto) ? 'Local de execução' : 'Local de entrega'}>
           {editing
             ? <input type="text" value={form.local_entrega}
                 onChange={(e) => set('local_entrega', e.target.value)} className={inp()} />
@@ -343,6 +343,122 @@ export default function TRDetail() {
                 onChange={(e) => set('garantia_contrato', e.target.value)} className={inp()} />
             : <p className="text-sm text-gray-700 whitespace-pre-wrap text-justify">{current.garantia_contrato || '—'}</p>}
         </Section>
+
+        {/* ── Requisitos parametrizáveis ── */}
+        {(current.req_sustentabilidade || current.req_indicacao_marca || current.req_exame_adequacao !== 'nenhum' ||
+          current.req_vistoria !== 'nao' || current.req_subcontratacao !== 'nao' || current.req_garantia_contratacao) && (
+          <div className="border border-indigo-200 rounded-xl overflow-hidden">
+            <div className="bg-indigo-700 text-white px-4 py-2 text-sm font-semibold uppercase tracking-wide">
+              4. Requisitos da Contratação
+            </div>
+            <div className="p-4 space-y-3 text-sm text-gray-700">
+              {current.req_sustentabilidade && (
+                <div><span className="font-medium text-indigo-700">Sustentabilidade:</span> {current.req_sustentabilidade_criterios || 'Critérios definidos no processo'}</div>
+              )}
+              {current.req_indicacao_marca && (
+                <div><span className="font-medium text-indigo-700">Indicação de marca:</span> {current.req_indicacao_marca_justific || 'Conforme justificativa no processo'}</div>
+              )}
+              {current.req_exame_adequacao && current.req_exame_adequacao !== 'nenhum' && (
+                <div>
+                  <span className="font-medium text-indigo-700">Exame de adequação:</span>{' '}
+                  {{ amostra:'Amostra', conformidade:'Exame de conformidade', prova_conceito:'Prova de conceito', certificacao:'Certificação CONMETRO', teste:'Teste específico' }[current.req_exame_adequacao]}
+                  {current.req_exame_descricao && <span> — {current.req_exame_descricao}</span>}
+                </div>
+              )}
+              {current.req_vistoria && current.req_vistoria !== 'nao' && (
+                <div>
+                  <span className="font-medium text-indigo-700">Vistoria:</span>{' '}
+                  {{ obrigatoria:'Obrigatória', facultativa:'Facultativa' }[current.req_vistoria]}
+                  {current.req_vistoria_detalhes && <span> — {current.req_vistoria_detalhes}</span>}
+                </div>
+              )}
+              {current.req_subcontratacao === 'parcial' && (
+                <div>
+                  <span className="font-medium text-indigo-700">Subcontratação parcial:</span>{' '}
+                  {current.req_subcontratacao_descricao}
+                  {current.req_subcontratacao_mep && ' · Obrigatório subcontratar ME/EPP (art. 48, II, LC 123/2006)'}
+                </div>
+              )}
+              {current.req_garantia_contratacao && (
+                <div>
+                  <span className="font-medium text-indigo-700">Garantia da contratação (art. 96):</span>{' '}
+                  {current.req_garantia_percentual}%
+                  {current.req_garantia_modalidade && ` — ${{ caucao_dinheiro:'Caução', seguro_garantia:'Seguro-garantia', fianca_bancaria:'Fiança bancária', titulos:'Títulos da dívida' }[current.req_garantia_modalidade]}`}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ── Seção BENS ── */}
+        {current.tipo_objeto && ['bens','hibrido'].includes(current.tipo_objeto) && (
+          <div className="border border-blue-200 rounded-xl overflow-hidden">
+            <div className="bg-blue-700 text-white px-4 py-2 text-sm font-semibold uppercase tracking-wide flex items-center gap-2">
+              Bens — Seção Específica
+              <span className="ml-auto text-xs bg-white/20 px-2 py-0.5 rounded-full">BENS</span>
+            </div>
+            <div className="p-4 space-y-2 text-sm text-gray-700">
+              <div className="grid grid-cols-2 gap-3">
+                <div className="flex items-center gap-2">
+                  <span className={`w-4 h-4 rounded-full flex items-center justify-center text-white text-xs ${current.bens_nao_luxo ? 'bg-green-500' : 'bg-gray-300'}`}>✓</span>
+                  <span>Não se enquadra como bem de luxo (art. 20)</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`w-4 h-4 rounded-full flex items-center justify-center text-white text-xs ${current.bens_carta_solidariedade ? 'bg-blue-500' : 'bg-gray-300'}`}>✓</span>
+                  <span>Exige carta de solidariedade do fabricante</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className={`w-4 h-4 rounded-full flex items-center justify-center text-white text-xs ${current.bens_reserva_cota ? 'bg-blue-500' : 'bg-gray-300'}`}>✓</span>
+                  <span>Reserva de cota ME/EPP {current.bens_reserva_cota ? `— ${current.bens_reserva_cota_percentual}%` : '(não configurada)'}</span>
+                </div>
+              </div>
+              {current.bens_validade_pereciveis && <div><span className="font-medium">Validade mínima:</span> {current.bens_validade_pereciveis}</div>}
+              {current.bens_garantia_tecnica_prazo && <div><span className="font-medium">Garantia técnica:</span> {current.bens_garantia_tecnica_prazo} meses — {current.bens_garantia_tecnica_det || '—'}</div>}
+            </div>
+          </div>
+        )}
+
+        {/* ── Seção SERVIÇOS ── */}
+        {current.tipo_objeto && ['servicos','servicos_engenharia','hibrido'].includes(current.tipo_objeto) && (
+          <div className="border border-purple-200 rounded-xl overflow-hidden">
+            <div className="bg-purple-700 text-white px-4 py-2 text-sm font-semibold uppercase tracking-wide flex items-center gap-2">
+              Serviços — Seção Específica
+              <span className="ml-auto text-xs bg-white/20 px-2 py-0.5 rounded-full">SERVIÇOS</span>
+            </div>
+            <div className="p-4 space-y-3 text-sm text-gray-700">
+              {current.serv_transicao_contratual && (
+                <div>
+                  <p className="font-medium text-purple-700">Transição contratual exigida:</p>
+                  <p className="whitespace-pre-wrap text-justify">{current.serv_transicao_descricao || 'Conforme contrato'}</p>
+                </div>
+              )}
+              {current.serv_regime_execucao && (
+                <div>
+                  <p className="font-medium text-purple-700">Regime de execução:</p>
+                  <p className="whitespace-pre-wrap text-justify">{current.serv_regime_execucao}</p>
+                </div>
+              )}
+              {current.serv_materiais && (
+                <div>
+                  <p className="font-medium text-purple-700">Materiais a disponibilizar:</p>
+                  <p className="whitespace-pre-wrap text-justify">{current.serv_materiais}</p>
+                </div>
+              )}
+              {current.serv_qualificacao_tecnica && (
+                <div>
+                  <p className="font-medium text-purple-700">Qualificação técnica exigida:</p>
+                  <p className="whitespace-pre-wrap text-justify">{current.serv_qualificacao_tecnica}</p>
+                </div>
+              )}
+              {current.serv_parcelas_relevancia && (
+                <div>
+                  <p className="font-medium text-purple-700">Parcelas de maior relevância:</p>
+                  <p className="whitespace-pre-wrap text-justify">{current.serv_parcelas_relevancia}</p>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
 
         <Section label="Observações">
           {editing

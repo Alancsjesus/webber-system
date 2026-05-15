@@ -226,6 +226,8 @@ class SecaoArtefato(models.Model):
     obrigatorio        = models.BooleanField(default=False, verbose_name='Preenchimento obrigatório')
     aplica_modalidades = models.JSONField(default=list, verbose_name='Aplica para modalidades',
                                           help_text='Lista vazia = todas as modalidades')
+    aplica_tipo_objeto = models.JSONField(default=list, verbose_name='Aplica para tipo de objeto',
+                                          help_text='Ex: ["bens","hibrido"]. Lista vazia = todos os tipos')
 
     class Meta:
         unique_together = [('tipo', 'codigo')]

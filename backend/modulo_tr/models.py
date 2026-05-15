@@ -28,6 +28,101 @@ class TR(BaseModel):
         'Cancelado':  [],
     }
 
+    # ── Tipo de objeto (herdado do ETP, editável no TR) ───────────────────────
+    TIPO_OBJETO_CHOICES = [
+        ('bens',                'Bens — Aquisição de materiais/equipamentos'),
+        ('servicos',            'Serviços Comuns'),
+        ('servicos_engenharia', 'Serviços de Engenharia'),
+        ('hibrido',             'Híbrido — Bens e Serviços no mesmo certame'),
+        ('obras',               'Obras'),
+    ]
+    tipo_objeto = models.CharField(
+        max_length=25, choices=TIPO_OBJETO_CHOICES, blank=True, default='',
+        verbose_name='Tipo de objeto',
+    )
+
+    # ── Flags gerais (Seção 1) ────────────────────────────────────────────────
+    contratacao_delegada      = models.BooleanField(default=False, verbose_name='Contratação delegada')
+    sistema_registro_precos   = models.BooleanField(default=False, verbose_name='Sistema de Registro de Preços (ARP)')
+
+    # ── Requisitos da contratação — parametrizáveis (Seção 4) ─────────────────
+
+    # 4.1 Sustentabilidade
+    req_sustentabilidade          = models.BooleanField(default=False, verbose_name='Exige critérios de sustentabilidade')
+    req_sustentabilidade_criterios= models.TextField(blank=True, default='', verbose_name='Critérios de sustentabilidade')
+
+    # 4.2 Indicação de marca
+    req_indicacao_marca           = models.BooleanField(default=False, verbose_name='Indica marca/modelo')
+    req_indicacao_marca_justific  = models.TextField(blank=True, default='', verbose_name='Justificativa da indicação de marca')
+
+    # 4.3 Exame de adequação (amostras / prova de conceito)
+    REQ_EXAME_CHOICES = [
+        ('nenhum',     'Não será exigido exame de adequação'),
+        ('amostra',    'Amostra'),
+        ('conformidade','Exame de conformidade'),
+        ('prova_conceito','Prova de conceito'),
+        ('certificacao','Certificação CONMETRO'),
+        ('teste',      'Teste específico'),
+    ]
+    req_exame_adequacao   = models.CharField(max_length=20, choices=REQ_EXAME_CHOICES, default='nenhum', verbose_name='Exame de adequação do objeto')
+    req_exame_descricao   = models.TextField(blank=True, default='', verbose_name='Descrição/critérios do exame')
+
+    # 4.4 Vistoria prévia
+    REQ_VISTORIA_CHOICES = [
+        ('nao',        'Não será exigida vistoria prévia'),
+        ('obrigatoria','Vistoria obrigatória com agendamento'),
+        ('facultativa','Vistoria facultativa (declaração em substituição)'),
+    ]
+    req_vistoria         = models.CharField(max_length=15, choices=REQ_VISTORIA_CHOICES, default='nao', verbose_name='Vistoria prévia')
+    req_vistoria_detalhes= models.TextField(blank=True, default='', verbose_name='Detalhes da vistoria (endereço, horário)')
+
+    # 4.5 Subcontratação
+    REQ_SUBCONTR_CHOICES = [
+        ('nao',     'Não será admitida subcontratação'),
+        ('parcial', 'Subcontratação parcial permitida'),
+    ]
+    req_subcontratacao           = models.CharField(max_length=10, choices=REQ_SUBCONTR_CHOICES, default='nao', verbose_name='Subcontratação')
+    req_subcontratacao_descricao = models.TextField(blank=True, default='', verbose_name='Parcelas permitidas para subcontratação')
+    req_subcontratacao_mep       = models.BooleanField(default=False, verbose_name='Obrigatório subcontratar ME/EPP (art. 48, II, LC 123/2006)')
+
+    # 4.6 Garantia da contratação
+    req_garantia_proposta        = models.BooleanField(default=False, verbose_name='Exige garantia de proposta (art. 58)')
+    req_garantia_contratacao     = models.BooleanField(default=False, verbose_name='Exige garantia da contratação (art. 96)')
+    req_garantia_percentual      = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, verbose_name='Percentual da garantia (%)')
+    REQ_GARANTIA_MOD_CHOICES = [
+        ('','Qualquer modalidade do art. 96, §1º'),
+        ('caucao_dinheiro','Caução em dinheiro'),
+        ('titulos','Títulos da dívida pública'),
+        ('seguro_garantia','Seguro-garantia'),
+        ('fianca_bancaria','Fiança bancária'),
+    ]
+    req_garantia_modalidade      = models.CharField(max_length=20, choices=REQ_GARANTIA_MOD_CHOICES, blank=True, default='', verbose_name='Modalidade de garantia')
+
+    # ── Habilitação (Seção 8) ─────────────────────────────────────────────────
+    HAB_FISCAL_ESFERA_CHOICES = [
+        ('estadual', 'Estadual/Distrital'),
+        ('municipal','Municipal/Distrital'),
+        ('ambos',    'Estadual e Municipal'),
+    ]
+    hab_fiscal_esfera = models.CharField(max_length=10, choices=HAB_FISCAL_ESFERA_CHOICES, default='estadual', verbose_name='Esfera de habilitação fiscal')
+
+    # ── Campos EXCLUSIVOS DE BENS ─────────────────────────────────────────────
+    bens_nao_luxo              = models.BooleanField(default=True, verbose_name='Objeto não se enquadra como bem de luxo (art. 20)')
+    bens_reserva_cota          = models.BooleanField(default=False, verbose_name='Reserva de cota para ME/EPP (art. 48, III, LC 123/2006)')
+    bens_reserva_cota_percentual= models.PositiveIntegerField(default=25, verbose_name='Percentual da cota ME/EPP (%)')
+    bens_carta_solidariedade   = models.BooleanField(default=False, verbose_name='Exige carta de solidariedade do fabricante (para revendedores)')
+    bens_validade_pereciveis   = models.TextField(blank=True, default='', verbose_name='Validade mínima dos produtos perecíveis')
+    bens_garantia_tecnica_prazo= models.PositiveIntegerField(null=True, blank=True, verbose_name='Prazo de garantia técnica (meses)')
+    bens_garantia_tecnica_det  = models.TextField(blank=True, default='', verbose_name='Detalhes da garantia técnica e assistência')
+
+    # ── Campos EXCLUSIVOS DE SERVIÇOS ─────────────────────────────────────────
+    serv_transicao_contratual  = models.BooleanField(default=False, verbose_name='Exige transição contratual com transferência de conhecimento')
+    serv_transicao_descricao   = models.TextField(blank=True, default='', verbose_name='Descrição da transição contratual')
+    serv_regime_execucao       = models.TextField(blank=True, default='', verbose_name='Regime de execução (cronograma, horário, forma)')
+    serv_materiais             = models.TextField(blank=True, default='', verbose_name='Materiais e equipamentos a disponibilizar')
+    serv_qualificacao_tecnica  = models.TextField(blank=True, default='', verbose_name='Qualificação técnica exigida (atestados, conselho profissional)')
+    serv_parcelas_relevancia   = models.TextField(blank=True, default='', verbose_name='Parcelas de maior relevância ou valor significativo')
+
     etp = models.OneToOneField(
         'modulo_etp.ETP',
         on_delete=models.CASCADE,

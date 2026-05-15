@@ -117,19 +117,40 @@ class TRSerializer(serializers.ModelSerializer):
             'etp_reserva_cota_me_epp', 'etp_licitacao_exclusiva_me',
             'alerta_cota_me_epp',
             'numero_sei',
+            # Tipo e flags gerais
+            'tipo_objeto', 'contratacao_delegada', 'sistema_registro_precos',
+            # Conteúdo textual
             'objeto_contratacao', 'justificativa', 'requisitos_contratacao',
             'obrigacoes_contratada', 'obrigacoes_contratante',
             'criterios_selecao', 'criterios_medicao',
+            # Prazo / execução
             'tipo_prazo_vigencia', 'prazo_meses', 'instrumento_inicio', 'prazo_observacao',
-            'local_entrega', 'garantia_contrato',
-            'estimativa_valor',
+            'local_entrega', 'garantia_contrato', 'estimativa_valor',
+            # Requisitos parametrizáveis (seção 4)
+            'req_sustentabilidade', 'req_sustentabilidade_criterios',
+            'req_indicacao_marca', 'req_indicacao_marca_justific',
+            'req_exame_adequacao', 'req_exame_descricao',
+            'req_vistoria', 'req_vistoria_detalhes',
+            'req_subcontratacao', 'req_subcontratacao_descricao', 'req_subcontratacao_mep',
+            'req_garantia_proposta', 'req_garantia_contratacao',
+            'req_garantia_percentual', 'req_garantia_modalidade',
+            # Habilitação
+            'hab_fiscal_esfera',
+            # Campos exclusivos de BENS
+            'bens_nao_luxo', 'bens_reserva_cota', 'bens_reserva_cota_percentual',
+            'bens_carta_solidariedade', 'bens_validade_pereciveis',
+            'bens_garantia_tecnica_prazo', 'bens_garantia_tecnica_det',
+            # Campos exclusivos de SERVIÇOS
+            'serv_transicao_contratual', 'serv_transicao_descricao',
+            'serv_regime_execucao', 'serv_materiais',
+            'serv_qualificacao_tecnica', 'serv_parcelas_relevancia',
+            # Workflow
             'status', 'motivo_devolucao', 'observacoes',
             'org_id', 'org_sigla',
             'created_by', 'created_by_username',
             'updated_by', 'updated_by_username',
             'created_at', 'updated_at',
-            'historico',
-            'lotes',
+            'historico', 'lotes',
         ]
         read_only_fields = [
             'id', 'org_id', 'org_sigla',
@@ -182,8 +203,42 @@ class TRSerializer(serializers.ModelSerializer):
 
     def create(self, validated_data):
         request = self.context['request']
+        etp = validated_data['etp']
+        dfd = etp.dfd
+
+        # ── Número SEI: herda do ETP se não informado ──────────────────────
         if not validated_data.get('numero_sei'):
-            validated_data['numero_sei'] = validated_data['etp'].numero_sei
+            validated_data['numero_sei'] = etp.numero_sei
+
+        # ── Tipo de objeto: herda do ETP ───────────────────────────────────
+        if not validated_data.get('tipo_objeto') and etp.tipo_objeto:
+            validated_data['tipo_objeto'] = etp.tipo_objeto
+
+        # ── Campos textuais: pré-populados do ETP/DFD se não informados ───
+        _herdar = {
+            'objeto_contratacao':      dfd.descricao,
+            'justificativa':           etp.justificativa_solucao,
+            'requisitos_contratacao':  etp.requisitos_contratacao,
+            'estimativa_valor':        etp.estimativa_valor,
+            'local_entrega':           dfd.local_entrega,
+        }
+        for campo, valor in _herdar.items():
+            if not validated_data.get(campo) and valor:
+                validated_data[campo] = valor
+
+        # ── Campos BENS: herda configurações de cota do ETP ───────────────
+        if 'bens_reserva_cota' not in validated_data:
+            validated_data['bens_reserva_cota'] = etp.reserva_cota_me_epp
+        if etp.reserva_cota_me_epp and 'bens_reserva_cota_percentual' not in validated_data:
+            validated_data['bens_reserva_cota_percentual'] = 25
+
+        # ── Hab. fiscal: serviços = municipal, bens = estadual (padrão BA) ─
+        if 'hab_fiscal_esfera' not in validated_data:
+            tipo = validated_data.get('tipo_objeto', etp.tipo_objeto or '')
+            validated_data['hab_fiscal_esfera'] = (
+                'municipal' if tipo in ('servicos', 'servicos_engenharia') else 'estadual'
+            )
+
         validated_data['org_id_id']  = request.org_id
         validated_data['created_by'] = request.user
         validated_data['updated_by'] = request.user

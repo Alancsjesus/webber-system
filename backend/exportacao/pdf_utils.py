@@ -715,14 +715,104 @@ def gerar_pdf_tr(tr) -> bytes:
     e += _cabecalho('MINUTA DO TERMO DE REFERÊNCIA', tr.numero_sei, org_nome, estilos,
                     org_sigla=tr.org_id.sigla if tr.org_id else None)
 
+    tipo_obj    = getattr(tr, 'tipo_objeto', '') or ''
+    eh_bens     = tipo_obj in ('bens', 'hibrido')
+    eh_servico  = tipo_obj in ('servicos', 'servicos_engenharia', 'hibrido')
+
+    TIPO_OBJ_LABEL = {
+        'bens':                'Bens — Aquisição de materiais/equipamentos',
+        'servicos':            'Serviços Comuns',
+        'servicos_engenharia': 'Serviços de Engenharia',
+        'hibrido':             'Híbrido — Bens e Serviços',
+        'obras':               'Obras',
+    }
+
     # Bloco de identificação fixo
     e.append(_secao('Identificação', estilos))
     e += _campo('Status', tr.status, estilos)
     e += _campo('ETP de Origem', tr.etp.numero_sei if tr.etp_id else '—', estilos)
+    if tipo_obj:
+        e += _campo('Tipo de Objeto', TIPO_OBJ_LABEL.get(tipo_obj, tipo_obj), estilos)
+    if getattr(tr, 'contratacao_delegada', False):
+        e += _campo('Regime', 'Contratação Delegada', estilos)
+    if getattr(tr, 'sistema_registro_precos', False):
+        e += _campo('Instrumento', 'Sistema de Registro de Preços — ARP', estilos)
     if tr.estimativa_valor:
         e += _campo('Estimativa de Valor', _fmt_valor(tr.estimativa_valor), estilos)
 
     e += _renderizar_secoes_tr(tr, estilos)
+
+    # ── Seção de Requisitos parametrizáveis ─────────────────────────────────
+    _req = []
+    if getattr(tr, 'req_sustentabilidade', False):
+        crit = getattr(tr, 'req_sustentabilidade_criterios', '') or 'Conforme processo.'
+        _req += _campo('4.1 Sustentabilidade (art. 11, IV)', crit, estilos)
+    if getattr(tr, 'req_indicacao_marca', False):
+        just = getattr(tr, 'req_indicacao_marca_justific', '') or 'Conforme justificativa no processo.'
+        _req += _campo('4.2 Indicação de Marca — Justificativa', just, estilos)
+    _exame_map = {'amostra':'Amostra','conformidade':'Exame de conformidade',
+                  'prova_conceito':'Prova de conceito','certificacao':'Certificação CONMETRO','teste':'Teste específico'}
+    exame = getattr(tr, 'req_exame_adequacao', 'nenhum')
+    if exame and exame != 'nenhum':
+        desc = f"{_exame_map.get(exame, exame)}{' — ' + tr.req_exame_descricao if tr.req_exame_descricao else ''}"
+        _req += _campo('4.3 Exame de Adequação do Objeto (art. 17, §3º)', desc, estilos)
+    vistoria = getattr(tr, 'req_vistoria', 'nao')
+    if vistoria and vistoria != 'nao':
+        _vmap = {'obrigatoria':'Vistoria obrigatória com agendamento','facultativa':'Vistoria facultativa (declaração em substituição)'}
+        vdet = f"{_vmap.get(vistoria, vistoria)}{' — ' + tr.req_vistoria_detalhes if tr.req_vistoria_detalhes else ''}"
+        _req += _campo('4.4 Vistoria Prévia (art. 63, §2º)', vdet, estilos)
+    subcontr = getattr(tr, 'req_subcontratacao', 'nao')
+    if subcontr == 'parcial':
+        sdesc = getattr(tr, 'req_subcontratacao_descricao', '') or ''
+        smep  = ' — Obrigatório subcontratar ME/EPP (art. 48, II, LC 123/2006).' if getattr(tr, 'req_subcontratacao_mep', False) else ''
+        _req += _campo('4.5 Subcontratação', f'Parcial permitida. {sdesc}{smep}', estilos)
+    else:
+        _req += _campo('4.5 Subcontratação', 'Não será admitida a subcontratação do objeto contratual.', estilos)
+    if getattr(tr, 'req_garantia_contratacao', False):
+        perc = getattr(tr, 'req_garantia_percentual', '') or ''
+        mod  = getattr(tr, 'req_garantia_modalidade', '') or 'qualquer modalidade (art. 96, §1º)'
+        _req += _campo('4.6.2 Garantia da Contratação (art. 96)', f'{perc}% — {mod}', estilos)
+    else:
+        _req += _campo('4.6.2 Garantia da Contratação', 'Não será exigida garantia da contratação.', estilos)
+    if _req:
+        e.append(_secao('4. Requisitos da Contratação', estilos))
+        e += _req
+
+    # ── Seção específica BENS ────────────────────────────────────────────────
+    if eh_bens:
+        e.append(_secao('Seção Específica — Bens', estilos))
+        if getattr(tr, 'bens_nao_luxo', True):
+            e += _campo('Bem de Luxo', 'O objeto desta contratação não se enquadra como bem de luxo, nos termos do art. 20 da Lei Federal nº 14.133/2021.', estilos)
+        if getattr(tr, 'bens_reserva_cota', False):
+            perc = getattr(tr, 'bens_reserva_cota_percentual', 25)
+            e += _campo('Reserva de Cota ME/EPP (art. 48, III, LC 123/2006)', f'Será reservada a cota de {perc}% do quantitativo licitado para microempresas e empresas de pequeno porte.', estilos)
+        if getattr(tr, 'bens_carta_solidariedade', False):
+            e += _campo('Carta de Solidariedade', 'Será exigida carta de solidariedade do fabricante para licitantes que não sejam o fabricante do produto.', estilos)
+        if getattr(tr, 'bens_validade_pereciveis', ''):
+            e += _campo('Validade Mínima dos Produtos', tr.bens_validade_pereciveis, estilos)
+        if getattr(tr, 'bens_garantia_tecnica_prazo', None):
+            prazo = tr.bens_garantia_tecnica_prazo
+            det   = getattr(tr, 'bens_garantia_tecnica_det', '') or ''
+            e += _campo('Garantia Técnica', f'Prazo: {prazo} meses. {det}', estilos)
+
+    # ── Seção específica SERVIÇOS ────────────────────────────────────────────
+    if eh_servico:
+        e.append(_secao('Seção Específica — Serviços', estilos))
+        transicao = getattr(tr, 'serv_transicao_contratual', False)
+        if transicao:
+            tdesc = getattr(tr, 'serv_transicao_descricao', '') or 'A contratada deverá realizar a transição contratual com transferência de conhecimento, tecnologia e técnicas empregadas, sem perda de informações.'
+            e += _campo('Transição Contratual com Transferência de Conhecimento', tdesc, estilos)
+        else:
+            e += _campo('Transição Contratual', 'Não será exigida transição contratual com transferência de conhecimento.', estilos)
+        if getattr(tr, 'serv_regime_execucao', ''):
+            e += _campo('Regime de Execução', tr.serv_regime_execucao, estilos)
+        if getattr(tr, 'serv_materiais', ''):
+            e += _campo('Materiais e Equipamentos a Disponibilizar', tr.serv_materiais, estilos)
+        if getattr(tr, 'serv_qualificacao_tecnica', ''):
+            e += _campo('Qualificação Técnica Exigida', tr.serv_qualificacao_tecnica, estilos)
+        if getattr(tr, 'serv_parcelas_relevancia', ''):
+            e += _campo('Parcelas de Maior Relevância ou Valor Significativo', tr.serv_parcelas_relevancia, estilos)
+
     e += _bloco_assinaturas(tr, estilos, hash_doc)
     doc.build(e, onFirstPage=_rodape, onLaterPages=_rodape)
     return buf.getvalue()

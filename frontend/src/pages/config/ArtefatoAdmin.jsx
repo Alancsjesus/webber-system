@@ -16,7 +16,15 @@ const MODALIDADES = [
   { value: 'arp_saque',           label: 'Saque de ARP' },
 ]
 
-const BLANK = { tipo: 'TR', codigo: '', titulo: '', descricao: '', ordem: 0, ativo: true, obrigatorio: false, aplica_modalidades: [] }
+const TIPOS_OBJETO = [
+  { value: 'bens',                label: 'Bens' },
+  { value: 'servicos',            label: 'Serviços Comuns' },
+  { value: 'servicos_engenharia', label: 'Serviços de Engenharia' },
+  { value: 'hibrido',             label: 'Híbrido' },
+  { value: 'obras',               label: 'Obras' },
+]
+
+const BLANK = { tipo: 'TR', codigo: '', titulo: '', descricao: '', ordem: 0, ativo: true, obrigatorio: false, aplica_modalidades: [], aplica_tipo_objeto: [] }
 
 // ── Preview simulado do documento ─────────────────────────────────────────────
 function PreviewDocumento({ tipo, secoes }) {
@@ -154,7 +162,8 @@ export default function ArtefatoAdmin() {
       ordem:              s.ordem,
       ativo:              s.ativo,
       obrigatorio:        s.obrigatorio,
-      aplica_modalidades: s.aplica_modalidades || [],
+      aplica_modalidades:  s.aplica_modalidades  || [],
+      aplica_tipo_objeto:  s.aplica_tipo_objeto  || [],
     })
     setEditItem(s.id)
     setModalMsg(null)
@@ -174,6 +183,7 @@ export default function ArtefatoAdmin() {
         ativo:              Boolean(form.ativo),
         obrigatorio:        Boolean(form.obrigatorio),
         aplica_modalidades: form.aplica_modalidades || [],
+        aplica_tipo_objeto: form.aplica_tipo_objeto  || [],
       }
       if (editItem === 'new') {
         await api.post('/core/secoes/', payload)
@@ -220,6 +230,15 @@ export default function ArtefatoAdmin() {
     } catch {
       load() // reverte se API falhar
     }
+  }
+
+  const toggleTipoObjeto = (tipo) => {
+    setForm(p => ({
+      ...p,
+      aplica_tipo_objeto: p.aplica_tipo_objeto.includes(tipo)
+        ? p.aplica_tipo_objeto.filter(t => t !== tipo)
+        : [...p.aplica_tipo_objeto, tipo],
+    }))
   }
 
   const toggleModalidade = (mod) => {
@@ -463,6 +482,28 @@ export default function ArtefatoAdmin() {
                   <p className="text-xs text-gray-400 mt-1 italic">Nenhuma = aplica a todas as modalidades</p>
                 )}
               </div>
+
+              {/* Aplica por tipo de objeto — só relevante para TR */}
+              {form.tipo === 'TR' && (
+                <div>
+                  <label className="block text-xs font-medium text-gray-600 mb-2">Aplica para tipo de objeto (vazio = todos)</label>
+                  <div className="flex flex-wrap gap-2">
+                    {TIPOS_OBJETO.map(t => (
+                      <button key={t.value} type="button" onClick={() => toggleTipoObjeto(t.value)}
+                        className={`px-3 py-1 rounded-lg text-xs border font-medium transition-colors ${
+                          (form.aplica_tipo_objeto || []).includes(t.value)
+                            ? 'bg-teal-600 border-teal-600 text-white'
+                            : 'bg-white border-gray-300 text-gray-600 hover:border-teal-400'
+                        }`}>
+                        {t.label}
+                      </button>
+                    ))}
+                  </div>
+                  {(form.aplica_tipo_objeto || []).length === 0 && (
+                    <p className="text-xs text-gray-400 mt-1 italic">Nenhum = aplica a todos os tipos de objeto</p>
+                  )}
+                </div>
+              )}
 
               <div className="flex items-center gap-6 pt-1">
                 <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
