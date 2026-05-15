@@ -168,8 +168,19 @@ class UserManagementViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         papel = getattr(self.request, 'papel', None)
+
+        # Não-admin só pode editar o próprio perfil
         if papel != 'admin' and serializer.instance.user != self.request.user:
             raise PermissionDenied('Sem permissão para editar este usuário.')
+
+        # Não-admin não pode alterar papel, org_id nem unidade (prevenção de escalada)
+        if papel != 'admin':
+            for campo in ('papel', 'org_id', 'unidade'):
+                if campo in serializer.validated_data:
+                    raise PermissionDenied(
+                        f'O campo "{campo}" só pode ser alterado por um administrador.'
+                    )
+
         serializer.save()
 
     def perform_destroy(self, instance):
