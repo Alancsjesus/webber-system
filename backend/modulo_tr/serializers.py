@@ -180,9 +180,12 @@ class TRSerializer(serializers.ModelSerializer):
     def validate(self, data):
         instrumento = data.get('instrumento_inicio', getattr(self.instance, 'instrumento_inicio', ''))
         etp = data.get('etp', getattr(self.instance, 'etp', None))
-        tipo_objeto = etp.tipo_objeto if etp else ''
+        # Usa o tipo_objeto do TR se já definido; senão mapeia do ETP
+        tipo_objeto = data.get('tipo_objeto') or (
+            self._mapear_tipo(etp.tipo_objeto) if etp else ''
+        )
         if instrumento and tipo_objeto:
-            if instrumento == 'afm' and tipo_objeto not in ('bens',):
+            if instrumento == 'afm' and tipo_objeto != 'bens':
                 raise serializers.ValidationError({
                     'instrumento_inicio': 'AFM é exclusivo para objetos do tipo "Bens".'
                 })
@@ -201,6 +204,20 @@ class TRSerializer(serializers.ModelSerializer):
             raise serializers.ValidationError('Este ETP já possui um TR associado.')
         return etp
 
+    # Mapeamento dos tipos antigos do ETP para os choices do TR
+    _ETP_TO_TR_TIPO = {
+        'bens':                'bens',
+        'material':            'bens',           # legado
+        'servicos':            'servicos',
+        'servico_continuo':    'servicos',        # legado
+        'servico_nao_continuo':'servicos',        # legado
+        'servicos_engenharia': 'servicos_engenharia',
+        'obras':               'obras',
+    }
+
+    def _mapear_tipo(self, etp_tipo: str) -> str:
+        return self._ETP_TO_TR_TIPO.get(etp_tipo or '', etp_tipo or '')
+
     def create(self, validated_data):
         request = self.context['request']
         etp = validated_data['etp']
@@ -210,9 +227,9 @@ class TRSerializer(serializers.ModelSerializer):
         if not validated_data.get('numero_sei'):
             validated_data['numero_sei'] = etp.numero_sei
 
-        # ── Tipo de objeto: herda do ETP ───────────────────────────────────
-        if not validated_data.get('tipo_objeto') and etp.tipo_objeto:
-            validated_data['tipo_objeto'] = etp.tipo_objeto
+        # ── Tipo de objeto: mapeia do ETP (converte choices legados) ────────
+        if not validated_data.get('tipo_objeto'):
+            validated_data['tipo_objeto'] = self._mapear_tipo(etp.tipo_objeto)
 
         # ── Campos textuais: pré-populados do ETP/DFD se não informados ───
         _herdar = {

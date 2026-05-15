@@ -13,6 +13,18 @@ const TIPO_OBJETO_LABEL = {
   hibrido:             'Híbrido — Bens e Serviços',
 }
 
+// Mapeia tipos legados do ETP para os choices do TR
+const MAPA_TIPO_ETP = {
+  bens:                 'bens',
+  material:             'bens',
+  servicos:             'servicos',
+  servico_continuo:     'servicos',
+  servico_nao_continuo: 'servicos',
+  servicos_engenharia:  'servicos_engenharia',
+  obras:                'obras',
+}
+const mapearTipoEtp = (t) => MAPA_TIPO_ETP[t] || ''
+
 const ehBens     = (t) => ['bens', 'hibrido'].includes(t)
 const ehServicos = (t) => ['servicos', 'servicos_engenharia', 'hibrido'].includes(t)
 
@@ -126,14 +138,14 @@ export default function TRCreate() {
   const etp = location.state?.etp
   const { createTr } = useTrStore()
 
-  const tipoEtp = etp?.etp_tipo_objeto || etp?.tipo_objeto || ''
+  const tipoEtp = mapearTipoEtp(etp?.etp_tipo_objeto || etp?.tipo_objeto || '')
 
   const [form, setForm] = useState({
     tipo_objeto:             tipoEtp,
     contratacao_delegada:    false,
     sistema_registro_precos: false,
 
-    objeto_contratacao:     etp?.dfd_descricao          || '',
+    objeto_contratacao:     etp?.dfd_descricao || etp?.necessidade_contratacao || '',
     justificativa:          etp?.justificativa_solucao  || '',
     requisitos_contratacao: etp?.requisitos_contratacao || '',
     obrigacoes_contratada:  '',

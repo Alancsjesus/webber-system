@@ -21,10 +21,12 @@ class HistoricoNumeroSEISerializer(serializers.ModelSerializer):
 class ETPSerializer(serializers.ModelSerializer):
     created_by_username  = serializers.CharField(source='created_by.username', read_only=True)
     updated_by_username  = serializers.CharField(source='updated_by.username', read_only=True)
-    dfd_numero_sei       = serializers.CharField(source='dfd.numero_sei', read_only=True)
+    dfd_numero_sei       = serializers.CharField(source='dfd.numero_sei',    read_only=True)
+    dfd_status           = serializers.CharField(source='dfd.status',        read_only=True)
+    dfd_descricao        = serializers.CharField(source='dfd.descricao',     read_only=True, allow_null=True, default='')
+    dfd_local_entrega    = serializers.CharField(source='dfd.local_entrega', read_only=True, allow_null=True, default='')
     # Optional on create — defaults to DFD's numero_sei when omitted
     numero_sei           = serializers.CharField(required=False, allow_blank=True, default='')
-    dfd_status           = serializers.CharField(source='dfd.status',     read_only=True)
     org_sigla            = serializers.CharField(source='org_id.sigla',   read_only=True)
     historico            = HistoricoETPSerializer(many=True, read_only=True)
     historico_numero_sei = HistoricoNumeroSEISerializer(many=True, read_only=True)
@@ -41,6 +43,8 @@ class ETPSerializer(serializers.ModelSerializer):
             'dfd',
             'dfd_numero_sei',
             'dfd_status',
+            'dfd_descricao',
+            'dfd_local_entrega',
             'numero_sei',
             'necessidade_contratacao',
             'requisitos_contratacao',
@@ -77,7 +81,7 @@ class ETPSerializer(serializers.ModelSerializer):
             'created_by', 'created_by_username',
             'updated_by', 'updated_by_username',
             'created_at', 'updated_at',
-            'dfd_numero_sei', 'dfd_status',
+            'dfd_numero_sei', 'dfd_status', 'dfd_descricao', 'dfd_local_entrega',
             'motivo_devolucao',
             'historico', 'historico_numero_sei', 'tr_id',
         ]
