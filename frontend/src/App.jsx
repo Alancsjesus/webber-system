@@ -54,6 +54,7 @@ import PrepararAquisicao from './pages/PrepararAquisicao'
 import Calendario from './pages/Calendario'
 import PCADetail from './pages/PCADetail'
 import PlanoList from './pages/PlanoList'
+import PNCPList from './pages/PNCPList'
 
 // Wrapper que combina autenticação + autorização por papel
 function Guard({ children }) {
@@ -101,6 +102,7 @@ export default function App() {
           <Route path="pesquisa/mapa"      element={<Guard><MapaList /></Guard>} />
           <Route path="pesquisa/mapa/novo" element={<Guard><MapaCreate /></Guard>} />
           <Route path="pesquisa/mapa/:id"  element={<Guard><MapaDetail /></Guard>} />
+          <Route path="pesquisa/pncp"      element={<Guard><PNCPList /></Guard>} />
 
           {/* Orçamento */}
           <Route path="orcamento/dotacoes"         element={<Guard><OrcamentoList /></Guard>} />

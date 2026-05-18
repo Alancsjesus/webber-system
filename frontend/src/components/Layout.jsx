@@ -75,7 +75,10 @@ const NAV_BASE = [
   },
   {
     section: 'Pesquisa de Preços',
-    items: [{ to: '/pesquisa/mapa', label: 'Mapa Comparativo' }],
+    items: [
+      { to: '/pesquisa/mapa',  label: 'Mapa Comparativo' },
+      { to: '/pesquisa/pncp',  label: 'Importações PNCP' },
+    ],
   },
   {
     section: 'Análise Técnica',
