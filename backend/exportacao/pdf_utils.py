@@ -2309,7 +2309,7 @@ def gerar_pdf_relatorio_sei(numero_sei: str, org_id, org) -> bytes:
                 ('Criado por',      (dfd.created_by.get_full_name() or dfd.created_by.username) if dfd.created_by else '—'),
                 ('Criado em',       dfd.created_at.strftime('%d/%m/%Y') if dfd.created_at else '—'),
             ]
-            e += KeepTogether(_bloco_artefato('DFD — Documento de Formalização de Demanda', campos, estilos))
+            e.append(KeepTogether(_bloco_artefato('DFD — Documento de Formalização de Demanda', campos, estilos)))
             e += _mini_historico(dfd.historico, estilos)
     except Exception:
         pass
@@ -2328,7 +2328,7 @@ def gerar_pdf_relatorio_sei(numero_sei: str, org_id, org) -> bytes:
                 ('Criado por',(etp.created_by.get_full_name() or etp.created_by.username) if etp.created_by else '—'),
                 ('Criado em', etp.created_at.strftime('%d/%m/%Y') if etp.created_at else '—'),
             ]
-            e += KeepTogether(_bloco_artefato('ETP — Estudo Técnico Preliminar', campos, estilos))
+            e.append(KeepTogether(_bloco_artefato('ETP — Estudo Técnico Preliminar', campos, estilos)))
             e += _mini_historico(etp.historico, estilos)
     except Exception:
         pass
@@ -2346,7 +2346,7 @@ def gerar_pdf_relatorio_sei(numero_sei: str, org_id, org) -> bytes:
                 ('Criado por',(tr.created_by.get_full_name() or tr.created_by.username) if tr.created_by else '—'),
                 ('Criado em', tr.created_at.strftime('%d/%m/%Y') if tr.created_at else '—'),
             ]
-            e += KeepTogether(_bloco_artefato('TR — Termo de Referência', campos, estilos))
+            e.append(KeepTogether(_bloco_artefato('TR — Termo de Referência', campos, estilos)))
             e += _mini_historico(tr.historico, estilos)
     except Exception:
         pass
@@ -2366,7 +2366,7 @@ def gerar_pdf_relatorio_sei(numero_sei: str, org_id, org) -> bytes:
                 ('Valor est.',  f'R$ {float(proc.valor_estimado):,.2f}' if proc.valor_estimado else '—'),
                 ('Criado em',   proc.created_at.strftime('%d/%m/%Y') if proc.created_at else '—'),
             ]
-            e += KeepTogether(_bloco_artefato('Procedimento (Licitação/Contratação Direta)', campos, estilos))
+            e.append(KeepTogether(_bloco_artefato('Procedimento (Licitação/Contratação Direta)', campos, estilos)))
             e += _mini_historico(proc.historico, estilos)
     except Exception:
         pass
@@ -2387,7 +2387,7 @@ def gerar_pdf_relatorio_sei(numero_sei: str, org_id, org) -> bytes:
                 ('Fiscal',       (c.fiscal_contrato.get_full_name() or c.fiscal_contrato.username) if c.fiscal_contrato else '—'),
                 ('Gestor',       (c.gestor_contrato.get_full_name() or c.gestor_contrato.username) if c.gestor_contrato else '—'),
             ]
-            e += KeepTogether(_bloco_artefato('Contrato', campos, estilos))
+            e.append(KeepTogether(_bloco_artefato('Contrato', campos, estilos)))
     except Exception:
         pass
 
@@ -2478,7 +2478,7 @@ def gerar_pdf_relatorio_necessidade(nec, org) -> bytes:
         return f'R$ {float(v):,.2f}' if v else '—'
 
     # ── 1. Necessidade ────────────────────────────────────────────────────────
-    e += KeepTogether(_bloco_artefato('1. Necessidade de Planejamento', [
+    e.append(KeepTogether(_bloco_artefato('1. Necessidade de Planejamento', [
         ('Título',         nec.titulo),
         ('Status',         nec.status),
         ('Prioridade',     nec.prioridade),
@@ -2489,28 +2489,28 @@ def gerar_pdf_relatorio_necessidade(nec, org) -> bytes:
         ('Descrição',      nec.descricao[:400] if nec.descricao else '—'),
         ('Criado por',     (nec.created_by.get_full_name() or nec.created_by.username) if nec.created_by else '—'),
         ('Criado em',      _fmt_d(nec.created_at.date() if nec.created_at else None)),
-    ], estilos))
+    ], estilos)))
     e += _mini_historico(nec.historico.all(), estilos)
 
     # ── 2. DFD ───────────────────────────────────────────────────────────────
     dfd = getattr(nec, 'dfd', None)
     if dfd:
-        e += KeepTogether(_bloco_artefato('2. DFD — Documento de Formalização de Demanda', [
+        e.append(KeepTogether(_bloco_artefato('2. DFD — Documento de Formalização de Demanda', [
             ('Nº SEI',    dfd.numero_sei or '—'),
             ('Status',    dfd.status),
             ('Criado em', _fmt_d(dfd.created_at.date() if dfd.created_at else None)),
             ('Criado por',(dfd.created_by.get_full_name() or dfd.created_by.username) if dfd.created_by else '—'),
-        ], estilos))
+        ], estilos)))
         e += _mini_historico(dfd.historico.all(), estilos)
 
         # ── 3. ETP ────────────────────────────────────────────────────────────
         try:
             etp = dfd.etp
-            e += KeepTogether(_bloco_artefato('3. ETP — Estudo Técnico Preliminar', [
+            e.append(KeepTogether(_bloco_artefato('3. ETP — Estudo Técnico Preliminar', [
                 ('Nº SEI',    etp.numero_sei or '—'),
                 ('Status',    etp.status),
                 ('Criado em', _fmt_d(etp.created_at.date() if etp.created_at else None)),
-            ], estilos))
+            ], estilos)))
             e += _mini_historico(etp.historico.all(), estilos)
         except Exception:
             e.append(Paragraph('3. ETP: não vinculado.',
@@ -2522,12 +2522,12 @@ def gerar_pdf_relatorio_necessidade(nec, org) -> bytes:
             trs = list(TR.objects.filter(dfd=dfd).select_related('created_by').prefetch_related('lotes'))
             for idx, tr in enumerate(trs, 4):
                 lotes = list(tr.lotes.all())
-                e += KeepTogether(_bloco_artefato(f'{idx}. TR — Termo de Referência', [
+                e.append(KeepTogether(_bloco_artefato(f'{idx}. TR — Termo de Referência', [
                     ('Nº SEI',    tr.numero_sei or '—'),
                     ('Status',    tr.status),
                     ('Qtd lotes', str(len(lotes))),
                     ('Criado em', _fmt_d(tr.created_at.date() if tr.created_at else None)),
-                ], estilos))
+                ], estilos)))
                 e += _mini_historico(tr.historico.all(), estilos)
 
                 # ── 5. Procedimento ────────────────────────────────────────────
@@ -2536,7 +2536,7 @@ def gerar_pdf_relatorio_necessidade(nec, org) -> bytes:
                              .select_related('unidade_gestora')
                              .prefetch_related('historico__usuario', 'tramitacoes', 'resultados__contrato_gerado'))
                 for proc in procs:
-                    e += KeepTogether(_bloco_artefato('Procedimento', [
+                    e.append(KeepTogether(_bloco_artefato('Procedimento', [
                         ('Número',     proc.numero),
                         ('Modalidade', proc.get_modalidade_display() if hasattr(proc, 'get_modalidade_display') else proc.modalidade),
                         ('Status',     proc.status),
@@ -2545,7 +2545,7 @@ def gerar_pdf_relatorio_necessidade(nec, org) -> bytes:
                         ('Publicação', _fmt_d(proc.data_publicacao)),
                         ('Abertura',   _fmt_d(proc.data_abertura)),
                         ('Homolog.',   _fmt_d(proc.data_homologacao)),
-                    ], estilos))
+                    ], estilos)))
                     e += _mini_historico(proc.historico.all(), estilos)
 
                     # Tramitações externas
@@ -2564,7 +2564,7 @@ def gerar_pdf_relatorio_necessidade(nec, org) -> bytes:
                     # Resultados
                     resultados = list(proc.resultados.select_related('contrato_gerado').all())
                     for r in resultados:
-                        e += KeepTogether(_bloco_artefato('Resultado / Adjudicação', [
+                        e.append(KeepTogether(_bloco_artefato('Resultado / Adjudicação', [
                             ('Lote',     r.descricao_lote or str(r.lote) if r.lote else '—'),
                             ('Resultado',r.get_resultado_display() if hasattr(r, 'get_resultado_display') else r.resultado),
                             ('Empresa',  r.empresa_vencedora or '—'),
@@ -2572,7 +2572,7 @@ def gerar_pdf_relatorio_necessidade(nec, org) -> bytes:
                             ('Val. est.', _fmt_v(r.valor_estimado)),
                             ('Val. adj.', _fmt_v(r.valor_final)),
                             ('Contrato', r.contrato_gerado.numero if r.contrato_gerado else '—'),
-                        ], estilos))
+                        ], estilos)))
 
         except Exception:
             pass
