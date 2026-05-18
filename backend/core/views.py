@@ -1053,11 +1053,55 @@ class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
     def export_pdf(self, request):
         from exportacao.pdf_utils import gerar_pdf_auditoria, resposta_pdf
         from datetime import datetime
-        qs = self.get_queryset()[:500]   # máx 500 registros no PDF
+        qs = self.get_queryset()[:500]
         org = Orgao.objects.filter(pk=request.org_id).first()
         pdf = gerar_pdf_auditoria(list(qs), org, request.query_params)
         nome = f'Auditoria_{datetime.now().strftime("%Y%m%d_%H%M")}.pdf'
         return resposta_pdf(pdf, nome)
+
+    @action(detail=False, methods=['get'], url_path='relatorio-sei')
+    def relatorio_sei(self, request):
+        """
+        Relatório por processo SEI: consolida todos os artefatos que possuem
+        aquele número SEI e a trilha de auditoria associada.
+        Parâmetro obrigatório: ?sei=<numero_sei>
+        """
+        from exportacao.pdf_utils import gerar_pdf_relatorio_sei, resposta_pdf
+        from datetime import datetime
+        sei = request.query_params.get('sei', '').strip()
+        if not sei:
+            return Response({'erro': 'Parâmetro "sei" obrigatório.'}, status=400)
+        papel = getattr(request, 'papel', None)
+        if papel not in ('admin', 'auditor'):
+            raise PermissionDenied('Acesso restrito a administradores e auditores.')
+        org = Orgao.objects.filter(pk=request.org_id).first()
+        pdf = gerar_pdf_relatorio_sei(sei, request.org_id, org)
+        return resposta_pdf(pdf, f'RelatorioSEI_{sei.replace(".", "-")}.pdf')
+
+    @action(detail=False, methods=['get'], url_path='relatorio-necessidade')
+    def relatorio_necessidade(self, request):
+        """
+        Relatório por cadeia de demanda: Necessidade → DFD → ETP → TR → Procedimento → Contrato.
+        Parâmetro obrigatório: ?necessidade_id=<id>
+        """
+        from exportacao.pdf_utils import gerar_pdf_relatorio_necessidade, resposta_pdf
+        from datetime import datetime
+        nec_id = request.query_params.get('necessidade_id', '').strip()
+        if not nec_id:
+            return Response({'erro': 'Parâmetro "necessidade_id" obrigatório.'}, status=400)
+        papel = getattr(request, 'papel', None)
+        if papel not in ('admin', 'auditor'):
+            raise PermissionDenied('Acesso restrito a administradores e auditores.')
+        try:
+            from modulo_planejamento.models import NecessidadePlanejamento
+            nec = NecessidadePlanejamento.objects.select_related(
+                'org_id', 'unidade_demandante', 'created_by', 'dfd'
+            ).get(pk=nec_id, org_id=request.org_id)
+        except NecessidadePlanejamento.DoesNotExist:
+            return Response({'erro': 'Necessidade não encontrada.'}, status=404)
+        org = Orgao.objects.filter(pk=request.org_id).first()
+        pdf = gerar_pdf_relatorio_necessidade(nec, org)
+        return resposta_pdf(pdf, f'RelatorioDemanda_{nec.pk}.pdf')
 
 
 class SecaoArtefatoSerializer(drf_serializers.ModelSerializer):

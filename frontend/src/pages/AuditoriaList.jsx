@@ -54,6 +54,15 @@ export default function AuditoriaList() {
 
   const [exportando, setExportando] = useState(false)
 
+  // Relatórios por SEI / Necessidade
+  const [seiInput, setSeiInput]       = useState('')
+  const [gerandoSei, setGerandoSei]   = useState(false)
+  const [necId, setNecId]             = useState('')
+  const [necessidades, setNecessidades] = useState([])
+  const [loadingNec, setLoadingNec]   = useState(false)
+  const [gerandoNec, setGerandoNec]   = useState(false)
+  const necDebounceRef = useRef(null)
+
   const PAGE_SIZE = 50
   const totalPages = Math.ceil(total / PAGE_SIZE)
 
@@ -108,6 +117,32 @@ export default function AuditoriaList() {
   }
   const temFiltro = busca || acao || modelo || usuario || dataIni || dataFim
 
+  // ── download helper ────────────────────────────────────────────────────────
+  const _download = async (url, params, filename, setLoading) => {
+    setLoading(true)
+    try {
+      const resp = await api.get(url, { params, responseType: 'blob' })
+      const blobUrl = URL.createObjectURL(new Blob([resp.data], { type: 'application/pdf' }))
+      const a = document.createElement('a')
+      a.href = blobUrl; a.download = filename; a.click()
+      URL.revokeObjectURL(blobUrl)
+    } catch (err) {
+      alert(err?.response?.data?.erro || 'Erro ao gerar relatório.')
+    } finally { setLoading(false) }
+  }
+
+  // Busca de necessidades para o autocomplete
+  const buscarNecessidades = (termo) => {
+    clearTimeout(necDebounceRef.current)
+    if (!termo || termo.length < 3) { setNecessidades([]); return }
+    necDebounceRef.current = setTimeout(() => {
+      setLoadingNec(true)
+      api.get('/planejamento/necessidade/', { params: { search: termo, page_size: 10 } })
+        .then(({ data }) => setNecessidades(data.results ?? data))
+        .finally(() => setLoadingNec(false))
+    }, 300)
+  }
+
   return (
     <div className="p-6 max-w-6xl space-y-4">
       {/* Cabeçalho */}
@@ -125,7 +160,82 @@ export default function AuditoriaList() {
         </button>
       </div>
 
-      {/* Filtros */}
+      {/* ── Relatórios por Processo ─────────────────────────────────────── */}
+      <div className="bg-white border border-blue-200 rounded-xl overflow-hidden">
+        <div className="px-5 py-3 bg-blue-50 border-b border-blue-100 flex items-center gap-2">
+          <span className="text-blue-600 font-semibold text-sm">Relatórios por Processo</span>
+          <span className="text-xs text-blue-400">PDF com logo do órgão e data de extração</span>
+        </div>
+        <div className="p-5 grid grid-cols-2 gap-6">
+
+          {/* Por Processo SEI */}
+          <div className="space-y-2">
+            <label className="block text-xs font-semibold text-gray-700">Por Número de Processo SEI</label>
+            <p className="text-xs text-gray-400">
+              Consolida DFD, ETP, TR, Procedimento e Contrato vinculados ao processo.
+            </p>
+            <div className="flex gap-2 mt-2">
+              <input value={seiInput} onChange={e => setSeiInput(e.target.value)}
+                placeholder="Ex: 020.16859.2026.0004"
+                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
+                onKeyDown={e => e.key === 'Enter' && seiInput.trim() &&
+                  _download('/core/auditoria/relatorio-sei/', { sei: seiInput.trim() },
+                    `RelatorioSEI_${seiInput.trim().replace(/\./g, '-')}.pdf`, setGerandoSei)} />
+              <button
+                onClick={() => _download('/core/auditoria/relatorio-sei/', { sei: seiInput.trim() },
+                  `RelatorioSEI_${seiInput.trim().replace(/\./g, '-')}.pdf`, setGerandoSei)}
+                disabled={!seiInput.trim() || gerandoSei}
+                className="flex items-center gap-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-sm font-medium px-4 py-2 rounded-lg whitespace-nowrap">
+                {gerandoSei ? 'Gerando...' : '↓ Gerar PDF'}
+              </button>
+            </div>
+          </div>
+
+          {/* Por Necessidade / Demanda */}
+          <div className="space-y-2">
+            <label className="block text-xs font-semibold text-gray-700">Por Necessidade / Demanda</label>
+            <p className="text-xs text-gray-400">
+              Relatório da cadeia completa: Necessidade → DFD → ETP → TR → Procedimento → Contrato.
+            </p>
+            <div className="flex gap-2 mt-2">
+              <div className="relative flex-1">
+                <input
+                  placeholder="Digite o título da necessidade..."
+                  onChange={e => { buscarNecessidades(e.target.value); setNecId('') }}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                {(necessidades.length > 0 || loadingNec) && (
+                  <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto">
+                    {loadingNec && <p className="px-3 py-2 text-xs text-gray-400 italic">Buscando...</p>}
+                    {necessidades.map(n => (
+                      <button key={n.id} type="button"
+                        onClick={() => { setNecId(String(n.id)); setNecessidades([]) }}
+                        className={`w-full text-left px-3 py-2 text-xs hover:bg-blue-50 border-b border-gray-50 last:border-0 ${necId === String(n.id) ? 'bg-blue-50 font-medium text-blue-700' : ''}`}>
+                        <span className="font-medium">{n.titulo}</span>
+                        <span className="ml-2 text-gray-400">{n.exercicio_fiscal} · {n.status}</span>
+                      </button>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <button
+                onClick={() => _download('/core/auditoria/relatorio-necessidade/', { necessidade_id: necId },
+                  `RelatorioDemanda_${necId}.pdf`, setGerandoNec)}
+                disabled={!necId || gerandoNec}
+                className="flex items-center gap-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-sm font-medium px-4 py-2 rounded-lg whitespace-nowrap">
+                {gerandoNec ? 'Gerando...' : '↓ Gerar PDF'}
+              </button>
+            </div>
+            {necId && (
+              <p className="text-xs text-green-600">
+                ✓ Necessidade #{necId} selecionada — clique em "Gerar PDF"
+              </p>
+            )}
+          </div>
+
+        </div>
+      </div>
+
+      {/* Filtros da trilha */}
       <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
         <div className="flex gap-3">
           <div className="relative flex-1">

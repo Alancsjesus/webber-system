@@ -2159,3 +2159,427 @@ def gerar_pdf_auditoria(logs, org, params=None) -> bytes:
 
     doc.build(e, onFirstPage=_rodape, onLaterPages=_rodape)
     return buf.getvalue()
+
+
+# ── Helpers compartilhados pelos relatórios de processo ───────────────────────
+
+def _cabecalho_relatorio(titulo, subtitulo, org, estilos):
+    """
+    Cabeçalho visual com logo do órgão, título, subtítulo e data de extração.
+    Mantém identidade visual dos demais PDFs do sistema.
+    """
+    logo      = _logo_cabecalho(org.sigla if org else None)
+    org_nome  = org.nome.upper() if org else 'WEBBER'
+    data_ext  = datetime.now().strftime('%d/%m/%Y às %H:%M')
+
+    bloco_texto = [
+        Paragraph(org_nome, ParagraphStyle('on', fontSize=8, textColor=CINZA_TXT,
+                                            fontName='Helvetica-Bold', alignment=TA_CENTER)),
+        Paragraph(titulo, ParagraphStyle('tit', fontSize=15, textColor=AZUL_GOV,
+                                          fontName='Helvetica-Bold', alignment=TA_CENTER,
+                                          spaceAfter=2)),
+        Paragraph(subtitulo, ParagraphStyle('sub', fontSize=9, textColor=CINZA_TXT,
+                                             alignment=TA_CENTER, spaceAfter=2)),
+        Paragraph(f'Data de extração: {data_ext}',
+                  ParagraphStyle('dt', fontSize=7.5, textColor=CINZA_TXT,
+                                  alignment=TA_CENTER, fontName='Helvetica-Oblique')),
+    ]
+
+    elementos = []
+    if logo:
+        tabela = Table([[logo, bloco_texto]], colWidths=[2.8*cm, None])
+        tabela.setStyle(TableStyle([
+            ('VALIGN',       (0, 0), (-1, -1), 'MIDDLE'),
+            ('ALIGN',        (1, 0), (1, 0),   'CENTER'),
+            ('LEFTPADDING',  (0, 0), (0, 0),   0),
+            ('RIGHTPADDING', (0, 0), (0, 0),   10),
+        ]))
+        elementos.append(tabela)
+    else:
+        elementos.extend(bloco_texto)
+
+    elementos += [
+        HRFlowable(width='100%', thickness=2, color=AZUL_GOV),
+        Spacer(1, 0.4*cm),
+    ]
+    return elementos
+
+
+def _bloco_artefato(titulo_secao, campos, estilos):
+    """Caixa de informações de um artefato com título azul e tabela de campos."""
+    elementos = [_secao(titulo_secao, estilos)]
+    dados = [[
+        Paragraph(f'<b>{k}</b>', ParagraphStyle('lbl', fontSize=8, textColor=CINZA_TXT,
+                                                  fontName='Helvetica-Bold')),
+        Paragraph(str(v) if v else '—', ParagraphStyle('val', fontSize=8, leading=11)),
+    ] for k, v in campos]
+    t = Table(dados, colWidths=[4.5*cm, 13*cm])
+    t.setStyle(TableStyle([
+        ('ROWBACKGROUNDS', (0, 0), (-1, -1), [BRANCO, AZUL_CLARO]),
+        ('GRID',           (0, 0), (-1, -1), 0.4, CINZA_BD),
+        ('VALIGN',         (0, 0), (-1, -1), 'TOP'),
+        ('TOPPADDING',     (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING',  (0, 0), (-1, -1), 5),
+        ('LEFTPADDING',    (0, 0), (-1, -1), 7),
+    ]))
+    elementos.append(t)
+    elementos.append(Spacer(1, 0.3*cm))
+    return elementos
+
+
+def _mini_historico(historico_qs, estilos):
+    """Tabela compacta do histórico de tramitação de um artefato."""
+    hist = list(historico_qs.select_related('usuario').order_by('criado_em'))
+    if not hist:
+        return []
+    cab = [[
+        Paragraph('<b>Data</b>',    ParagraphStyle('hc', fontSize=7, textColor=BRANCO, fontName='Helvetica-Bold')),
+        Paragraph('<b>Usuário</b>', ParagraphStyle('hc', fontSize=7, textColor=BRANCO, fontName='Helvetica-Bold')),
+        Paragraph('<b>De</b>',      ParagraphStyle('hc', fontSize=7, textColor=BRANCO, fontName='Helvetica-Bold')),
+        Paragraph('<b>Para</b>',    ParagraphStyle('hc', fontSize=7, textColor=BRANCO, fontName='Helvetica-Bold')),
+        Paragraph('<b>Motivo</b>',  ParagraphStyle('hc', fontSize=7, textColor=BRANCO, fontName='Helvetica-Bold')),
+    ]]
+    rows = [[
+        Paragraph(h.criado_em.strftime('%d/%m/%Y %H:%M') if h.criado_em else '—',
+                  ParagraphStyle('hv', fontSize=6.5, leading=9, fontName='Courier')),
+        Paragraph((h.usuario.get_full_name() or h.usuario.username) if h.usuario else '—',
+                  ParagraphStyle('hv', fontSize=7, leading=10)),
+        Paragraph(h.status_anterior or '—', ParagraphStyle('hv', fontSize=7, leading=10)),
+        Paragraph(h.status_novo,            ParagraphStyle('hv', fontSize=7, leading=10)),
+        Paragraph(h.motivo or '—',          ParagraphStyle('hv', fontSize=7, leading=10)),
+    ] for h in hist]
+    t = Table(cab + rows, colWidths=[3*cm, 3.2*cm, 3*cm, 3*cm, 5.3*cm], repeatRows=1)
+    t.setStyle(TableStyle([
+        ('BACKGROUND',     (0, 0), (-1, 0), AZUL_GOV),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [BRANCO, AZUL_CLARO]),
+        ('GRID',           (0, 0), (-1, -1), 0.4, CINZA_BD),
+        ('VALIGN',         (0, 0), (-1, -1), 'TOP'),
+        ('TOPPADDING',     (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING',  (0, 0), (-1, -1), 4),
+        ('LEFTPADDING',    (0, 0), (-1, -1), 5),
+    ]))
+    return [t, Spacer(1, 0.25*cm)]
+
+
+def _rodape_fn(canvas, doc):
+    canvas.saveState()
+    canvas.setFont('Helvetica', 7)
+    canvas.setFillColor(CINZA_TXT)
+    canvas.drawString(2 * cm, 1.0 * cm, 'Sistema WEBBER — Documento gerado eletronicamente')
+    canvas.drawRightString(A4[0] - 2 * cm, 1.0 * cm,
+        f'Página {doc.page}  •  {datetime.now().strftime("%d/%m/%Y %H:%M")}')
+    canvas.restoreState()
+
+
+# ── Relatório por Processo SEI ────────────────────────────────────────────────
+
+def gerar_pdf_relatorio_sei(numero_sei: str, org_id, org) -> bytes:
+    """
+    Consolida todos os artefatos que possuem o número SEI informado
+    e a trilha de auditoria associada a cada um deles.
+    """
+    from core.models import AuditLog
+
+    buf     = io.BytesIO()
+    estilos = _estilos()
+
+    doc = SimpleDocTemplate(buf, pagesize=A4,
+                             leftMargin=2*cm, rightMargin=2*cm,
+                             topMargin=2*cm, bottomMargin=2.5*cm)
+    e = []
+    e += _cabecalho_relatorio(
+        'RELATÓRIO POR PROCESSO SEI',
+        f'Processo: {numero_sei}',
+        org, estilos,
+    )
+
+    encontrou = False
+
+    # ── DFD ──────────────────────────────────────────────────────────────────
+    try:
+        from modulo_demanda.models import DFD, HistoricoTramitacao
+        dfds = list(DFD.objects.filter(org_id=org_id, numero_sei=numero_sei)
+                               .select_related('created_by', 'unidade_demandante'))
+        for dfd in dfds:
+            encontrou = True
+            campos = [
+                ('Nº SEI',          dfd.numero_sei),
+                ('Status',          dfd.status),
+                ('Unidade',         str(dfd.unidade_demandante) if dfd.unidade_demandante else '—'),
+                ('Criado por',      (dfd.created_by.get_full_name() or dfd.created_by.username) if dfd.created_by else '—'),
+                ('Criado em',       dfd.created_at.strftime('%d/%m/%Y') if dfd.created_at else '—'),
+            ]
+            e += KeepTogether(_bloco_artefato('DFD — Documento de Formalização de Demanda', campos, estilos))
+            e += _mini_historico(dfd.historico, estilos)
+    except Exception:
+        pass
+
+    # ── ETP ──────────────────────────────────────────────────────────────────
+    try:
+        from modulo_etp.models import ETP, HistoricoETP
+        etps = list(ETP.objects.filter(dfd__org_id=org_id, numero_sei=numero_sei)
+                               .select_related('created_by', 'dfd'))
+        for etp in etps:
+            encontrou = True
+            campos = [
+                ('Nº SEI',    etp.numero_sei),
+                ('Status',    etp.status),
+                ('DFD vinc.', etp.dfd.numero_sei if etp.dfd else '—'),
+                ('Criado por',(etp.created_by.get_full_name() or etp.created_by.username) if etp.created_by else '—'),
+                ('Criado em', etp.created_at.strftime('%d/%m/%Y') if etp.created_at else '—'),
+            ]
+            e += KeepTogether(_bloco_artefato('ETP — Estudo Técnico Preliminar', campos, estilos))
+            e += _mini_historico(etp.historico, estilos)
+    except Exception:
+        pass
+
+    # ── TR ───────────────────────────────────────────────────────────────────
+    try:
+        from modulo_tr.models import TR, HistoricoTR
+        trs = list(TR.objects.filter(org_id=org_id, numero_sei=numero_sei)
+                             .select_related('created_by'))
+        for tr in trs:
+            encontrou = True
+            campos = [
+                ('Nº SEI',    tr.numero_sei),
+                ('Status',    tr.status),
+                ('Criado por',(tr.created_by.get_full_name() or tr.created_by.username) if tr.created_by else '—'),
+                ('Criado em', tr.created_at.strftime('%d/%m/%Y') if tr.created_at else '—'),
+            ]
+            e += KeepTogether(_bloco_artefato('TR — Termo de Referência', campos, estilos))
+            e += _mini_historico(tr.historico, estilos)
+    except Exception:
+        pass
+
+    # ── Procedimento ─────────────────────────────────────────────────────────
+    try:
+        from modulo_licitacao.models import Procedimento, HistoricoProcedimento
+        procs = list(Procedimento.objects.filter(org_id=org_id, numero_sei=numero_sei)
+                                         .select_related('created_by', 'unidade_gestora'))
+        for proc in procs:
+            encontrou = True
+            campos = [
+                ('Número',      proc.numero),
+                ('Modalidade',  proc.get_modalidade_display() if hasattr(proc, 'get_modalidade_display') else proc.modalidade),
+                ('Status',      proc.status),
+                ('Nº SEI',      proc.numero_sei),
+                ('Valor est.',  f'R$ {float(proc.valor_estimado):,.2f}' if proc.valor_estimado else '—'),
+                ('Criado em',   proc.created_at.strftime('%d/%m/%Y') if proc.created_at else '—'),
+            ]
+            e += KeepTogether(_bloco_artefato('Procedimento (Licitação/Contratação Direta)', campos, estilos))
+            e += _mini_historico(proc.historico, estilos)
+    except Exception:
+        pass
+
+    # ── Contrato ──────────────────────────────────────────────────────────────
+    try:
+        from modulo_contrato.models import Contrato
+        contratos = list(Contrato.objects.filter(org_id=org_id, numero_processo_sei=numero_sei)
+                                         .select_related('created_by', 'fiscal_contrato', 'gestor_contrato'))
+        for c in contratos:
+            encontrou = True
+            campos = [
+                ('Número',       c.numero),
+                ('Status',       c.status),
+                ('Objeto',       c.objeto[:200] if c.objeto else '—'),
+                ('Valor',        f'R$ {float(c.valor_contrato):,.2f}' if c.valor_contrato else '—'),
+                ('Vigência',     f'{c.data_vigencia_inicio} a {c.data_vigencia_fim}' if c.data_vigencia_inicio else '—'),
+                ('Fiscal',       (c.fiscal_contrato.get_full_name() or c.fiscal_contrato.username) if c.fiscal_contrato else '—'),
+                ('Gestor',       (c.gestor_contrato.get_full_name() or c.gestor_contrato.username) if c.gestor_contrato else '—'),
+            ]
+            e += KeepTogether(_bloco_artefato('Contrato', campos, estilos))
+    except Exception:
+        pass
+
+    # ── Trilha AuditLog ───────────────────────────────────────────────────────
+    logs = list(
+        AuditLog.objects.filter(
+            org_id=org_id,
+            descricao__icontains=numero_sei,
+        ).select_related('usuario').order_by('criado_em')[:100]
+    )
+    if logs:
+        e += [_secao('Trilha de Auditoria associada ao processo', estilos)]
+        e += _mini_historico_audit(logs, estilos)
+
+    if not encontrou and not logs:
+        e.append(Paragraph(
+            f'Nenhum artefato encontrado com o número SEI "{numero_sei}" neste órgão.',
+            ParagraphStyle('vz', fontSize=9, textColor=CINZA_TXT, spaceBefore=8),
+        ))
+
+    doc.build(e, onFirstPage=_rodape_fn, onLaterPages=_rodape_fn)
+    return buf.getvalue()
+
+
+def _mini_historico_audit(logs, estilos):
+    """Tabela de logs AuditLog num relatório de processo."""
+    ICON = {'created':'+ Criado','deleted':'✕ Excluído','value_changed':'$ Valor',
+            'sei_changed':'# SEI','login':'→ Login','updated':'~ Alterado'}
+    CORES = {'created':colors.HexColor('#16a34a'),'deleted':colors.HexColor('#dc2626'),
+             'value_changed':colors.HexColor('#d97706'),'sei_changed':colors.HexColor('#2563eb'),
+             'login':colors.HexColor('#7c3aed'),'updated':colors.HexColor('#475569')}
+    cab = [[
+        Paragraph('<b>Data / Hora</b>', ParagraphStyle('hc', fontSize=7, textColor=BRANCO, fontName='Helvetica-Bold')),
+        Paragraph('<b>Evento</b>',      ParagraphStyle('hc', fontSize=7, textColor=BRANCO, fontName='Helvetica-Bold')),
+        Paragraph('<b>Descrição</b>',   ParagraphStyle('hc', fontSize=7, textColor=BRANCO, fontName='Helvetica-Bold')),
+        Paragraph('<b>Usuário</b>',     ParagraphStyle('hc', fontSize=7, textColor=BRANCO, fontName='Helvetica-Bold')),
+    ]]
+    rows = []
+    for lg in logs:
+        cor = CORES.get(lg.acao, colors.HexColor('#475569'))
+        rows.append([
+            Paragraph(lg.criado_em.strftime('%d/%m/%Y\n%H:%M') if lg.criado_em else '—',
+                      ParagraphStyle('ldt', fontSize=6.5, leading=9, fontName='Courier')),
+            Paragraph(f'<b>{ICON.get(lg.acao, lg.acao)}</b>',
+                      ParagraphStyle('lac', fontSize=7, leading=10, textColor=cor, fontName='Helvetica-Bold')),
+            Paragraph(lg.descricao or lg.objeto_repr or '—',
+                      ParagraphStyle('lds', fontSize=7, leading=10)),
+            Paragraph((lg.usuario.get_full_name() or lg.usuario.username) if lg.usuario else '—',
+                      ParagraphStyle('lus', fontSize=7, leading=10)),
+        ])
+    t = Table(cab + rows, colWidths=[2.8*cm, 2.2*cm, 9*cm, 3*cm], repeatRows=1)
+    t.setStyle(TableStyle([
+        ('BACKGROUND',     (0, 0), (-1, 0), AZUL_GOV),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [BRANCO, AZUL_CLARO]),
+        ('GRID',           (0, 0), (-1, -1), 0.4, CINZA_BD),
+        ('VALIGN',         (0, 0), (-1, -1), 'TOP'),
+        ('TOPPADDING',     (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING',  (0, 0), (-1, -1), 4),
+        ('LEFTPADDING',    (0, 0), (-1, -1), 5),
+    ]))
+    return [t, Spacer(1, 0.3*cm)]
+
+
+# ── Relatório por Cadeia de Demanda (Necessidade) ─────────────────────────────
+
+def gerar_pdf_relatorio_necessidade(nec, org) -> bytes:
+    """
+    Percorre a cadeia completa: Necessidade → DFD → ETP → TR → Procedimento → Contrato.
+    Cada artefato aparece com seus dados e histórico de tramitação.
+    """
+    buf     = io.BytesIO()
+    estilos = _estilos()
+
+    doc = SimpleDocTemplate(buf, pagesize=A4,
+                             leftMargin=2*cm, rightMargin=2*cm,
+                             topMargin=2*cm, bottomMargin=2.5*cm)
+    e = []
+    e += _cabecalho_relatorio(
+        'RELATÓRIO DE DEMANDA',
+        f'{nec.titulo}  —  Exercício {nec.exercicio_fiscal}',
+        org, estilos,
+    )
+
+    def _fmt_d(d):
+        return d.strftime('%d/%m/%Y') if d else '—'
+
+    def _fmt_v(v):
+        return f'R$ {float(v):,.2f}' if v else '—'
+
+    # ── 1. Necessidade ────────────────────────────────────────────────────────
+    e += KeepTogether(_bloco_artefato('1. Necessidade de Planejamento', [
+        ('Título',         nec.titulo),
+        ('Status',         nec.status),
+        ('Prioridade',     nec.prioridade),
+        ('Exercício',      str(nec.exercicio_fiscal)),
+        ('Valor estimado', _fmt_v(nec.valor_estimado)),
+        ('Unid. demand.',  str(nec.unidade_demandante) if nec.unidade_demandante else '—'),
+        ('Tipo execução',  nec.tipo_execucao),
+        ('Descrição',      nec.descricao[:400] if nec.descricao else '—'),
+        ('Criado por',     (nec.created_by.get_full_name() or nec.created_by.username) if nec.created_by else '—'),
+        ('Criado em',      _fmt_d(nec.created_at.date() if nec.created_at else None)),
+    ], estilos))
+    e += _mini_historico(nec.historico.all(), estilos)
+
+    # ── 2. DFD ───────────────────────────────────────────────────────────────
+    dfd = getattr(nec, 'dfd', None)
+    if dfd:
+        e += KeepTogether(_bloco_artefato('2. DFD — Documento de Formalização de Demanda', [
+            ('Nº SEI',    dfd.numero_sei or '—'),
+            ('Status',    dfd.status),
+            ('Criado em', _fmt_d(dfd.created_at.date() if dfd.created_at else None)),
+            ('Criado por',(dfd.created_by.get_full_name() or dfd.created_by.username) if dfd.created_by else '—'),
+        ], estilos))
+        e += _mini_historico(dfd.historico.all(), estilos)
+
+        # ── 3. ETP ────────────────────────────────────────────────────────────
+        try:
+            etp = dfd.etp
+            e += KeepTogether(_bloco_artefato('3. ETP — Estudo Técnico Preliminar', [
+                ('Nº SEI',    etp.numero_sei or '—'),
+                ('Status',    etp.status),
+                ('Criado em', _fmt_d(etp.created_at.date() if etp.created_at else None)),
+            ], estilos))
+            e += _mini_historico(etp.historico.all(), estilos)
+        except Exception:
+            e.append(Paragraph('3. ETP: não vinculado.',
+                ParagraphStyle('na', fontSize=8, textColor=CINZA_TXT, spaceBefore=4)))
+
+        # ── 4. TR ─────────────────────────────────────────────────────────────
+        try:
+            from modulo_tr.models import TR
+            trs = list(TR.objects.filter(dfd=dfd).select_related('created_by').prefetch_related('lotes'))
+            for idx, tr in enumerate(trs, 4):
+                lotes = list(tr.lotes.all())
+                e += KeepTogether(_bloco_artefato(f'{idx}. TR — Termo de Referência', [
+                    ('Nº SEI',    tr.numero_sei or '—'),
+                    ('Status',    tr.status),
+                    ('Qtd lotes', str(len(lotes))),
+                    ('Criado em', _fmt_d(tr.created_at.date() if tr.created_at else None)),
+                ], estilos))
+                e += _mini_historico(tr.historico.all(), estilos)
+
+                # ── 5. Procedimento ────────────────────────────────────────────
+                from modulo_licitacao.models import Procedimento
+                procs = list(Procedimento.objects.filter(tr=tr)
+                             .select_related('unidade_gestora')
+                             .prefetch_related('historico__usuario', 'tramitacoes', 'resultados__contrato_gerado'))
+                for proc in procs:
+                    e += KeepTogether(_bloco_artefato('Procedimento', [
+                        ('Número',     proc.numero),
+                        ('Modalidade', proc.get_modalidade_display() if hasattr(proc, 'get_modalidade_display') else proc.modalidade),
+                        ('Status',     proc.status),
+                        ('Nº SEI',     proc.numero_sei or '—'),
+                        ('Valor est.', _fmt_v(proc.valor_estimado)),
+                        ('Publicação', _fmt_d(proc.data_publicacao)),
+                        ('Abertura',   _fmt_d(proc.data_abertura)),
+                        ('Homolog.',   _fmt_d(proc.data_homologacao)),
+                    ], estilos))
+                    e += _mini_historico(proc.historico.all(), estilos)
+
+                    # Tramitações externas
+                    trams = list(proc.tramitacoes.all().order_by('data_envio'))
+                    if trams:
+                        e.append(Paragraph('Tramitações externas:',
+                            ParagraphStyle('ts', fontSize=7.5, textColor=AZUL_GOV,
+                                           fontName='Helvetica-Bold', spaceBefore=4)))
+                        for t in trams:
+                            e.append(Paragraph(
+                                f'• {t.orgao_label} — Envio: {_fmt_d(t.data_envio)} | '
+                                f'Retorno: {_fmt_d(t.data_retorno)} | Sit.: {t.status}',
+                                ParagraphStyle('tl', fontSize=7.5, textColor=CINZA_TXT,
+                                               leading=11, leftIndent=8)))
+
+                    # Resultados
+                    resultados = list(proc.resultados.select_related('contrato_gerado').all())
+                    for r in resultados:
+                        e += KeepTogether(_bloco_artefato('Resultado / Adjudicação', [
+                            ('Lote',     r.descricao_lote or str(r.lote) if r.lote else '—'),
+                            ('Resultado',r.get_resultado_display() if hasattr(r, 'get_resultado_display') else r.resultado),
+                            ('Empresa',  r.empresa_vencedora or '—'),
+                            ('CNPJ',     r.cnpj_vencedor or '—'),
+                            ('Val. est.', _fmt_v(r.valor_estimado)),
+                            ('Val. adj.', _fmt_v(r.valor_final)),
+                            ('Contrato', r.contrato_gerado.numero if r.contrato_gerado else '—'),
+                        ], estilos))
+
+        except Exception:
+            pass
+
+    else:
+        e.append(Paragraph('2. DFD: não vinculado a esta necessidade.',
+            ParagraphStyle('na', fontSize=8, textColor=CINZA_TXT, spaceBefore=4)))
+
+    doc.build(e, onFirstPage=_rodape_fn, onLaterPages=_rodape_fn)
+    return buf.getvalue()
