@@ -525,6 +525,7 @@ class CategoriaItemSerializer(drf_serializers.ModelSerializer):
 class CategoriaItemViewSet(viewsets.ModelViewSet):
     serializer_class   = CategoriaItemSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class   = None   # categorias são poucos registros — sem paginação
     filter_backends    = [filters.SearchFilter, filters.OrderingFilter]
     search_fields      = ['nome', 'codigo']
     ordering_fields    = ['nome']
