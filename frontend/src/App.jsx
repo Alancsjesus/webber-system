@@ -39,6 +39,8 @@ import PerfilAdmin from './pages/config/PerfilAdmin'
 import AreaAdmin from './pages/config/AreaAdmin'
 import ArtefatoAdmin from './pages/config/ArtefatoAdmin'
 import CatalogoAdmin from './pages/config/CatalogoAdmin'
+import CategoriaAdmin from './pages/config/CategoriaAdmin'
+import ImportarCatalogoAdmin from './pages/config/ImportarCatalogoAdmin'
 import Ajuda from './pages/Ajuda'
 import Painel from './pages/Painel'
 import PlanoCompras from './pages/PlanoCompras'
@@ -145,7 +147,9 @@ export default function App() {
           <Route path="config/naturezas" element={<Guard><NaturezaAdmin /></Guard>} />
           <Route path="config/fontes"    element={<Guard><FonteAdmin /></Guard>} />
           <Route path="config/artefatos" element={<Guard><ArtefatoAdmin /></Guard>} />
-          <Route path="config/catalogo"  element={<Guard><CatalogoAdmin /></Guard>} />
+          <Route path="config/catalogo"          element={<Guard><CatalogoAdmin /></Guard>} />
+          <Route path="config/catalogo/importar" element={<Guard><ImportarCatalogoAdmin /></Guard>} />
+          <Route path="config/categorias"        element={<Guard><CategoriaAdmin /></Guard>} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

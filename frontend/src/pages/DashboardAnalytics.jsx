@@ -478,8 +478,11 @@ export default function DashboardAnalytics({ stats, indOrc, indDev, indAgrup }) 
                       <div className="flex items-center gap-3">
                         <span className={`w-2 h-2 rounded-full shrink-0 ${cor.dot}`} />
                         <div className="text-left">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <span className="font-mono text-sm font-semibold text-gray-800">{g.familia}</span>
+                            {g.categoria_path && (
+                              <span className="text-xs text-purple-600 font-medium">{g.categoria_path}</span>
+                            )}
                             <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${cor.badge}`}>{g.sugestao_label}</span>
                           </div>
                           <p className="text-xs text-gray-400 mt-0.5">
@@ -511,6 +514,9 @@ export default function DashboardAnalytics({ stats, indOrc, indDev, indAgrup }) 
                                 <td className="py-1.5 pr-3 max-w-xs">
                                   <span className="font-mono text-blue-700 mr-1">{item.catalogo_codigo}</span>
                                   <span className="text-gray-700 truncate">{item.catalogo_nome}</span>
+                                  {item.categoria_path && (
+                                    <p className="text-[10px] text-purple-500 mt-0.5 truncate">{item.categoria_path}</p>
+                                  )}
                                 </td>
                                 <td className="py-1.5 font-mono text-gray-600 pr-2">{item.dfd_sei}</td>
                                 <td className="py-1.5 pr-2">

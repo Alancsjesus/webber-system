@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import ModalDevolver, { MOTIVOS_DFD } from '../components/ModalDevolver'
 import useDFDStore from '../stores/dfdStore'
@@ -61,8 +61,10 @@ export default function DFDDetail() {
   const [showAddItem, setShowAddItem] = useState(false)
   const [newItem, setNewItem]       = useState({ item_catalogo: '', objeto: '', unidade_medida: '', quantidade: '', valor_unitario_estimado: '', observacao: '' })
   const [savingItem, setSavingItem] = useState(false)
-  const [catalogo, setCatalogo]     = useState([])
-  const [buscaCatalogo, setBuscaCatalogo] = useState('')
+  const [catalogo, setCatalogo]         = useState([])
+  const [catalogoLoading, setCatalogoLoading] = useState(false)
+  const [buscaCatalogo, setBuscaCatalogo]     = useState('')
+  const buscaDebounceRef = useRef(null)
 
   // Processos SEI
   const [processos, setProcessos] = useState([])
@@ -78,8 +80,21 @@ export default function DFDDetail() {
 
   useEffect(() => {
     api.get('/core/users-list/').then(({ data }) => setUsers(data.results ?? data))
-    api.get('/core/catalogo/', { params: { page_size: 500 } }).then(({ data }) => setCatalogo(data.results ?? data))
+    // catálogo carregado sob demanda via busca — não pré-carrega
   }, [])
+
+  // Busca de catálogo server-side com debounce
+  useEffect(() => {
+    clearTimeout(buscaDebounceRef.current)
+    if (buscaCatalogo.length < 2) { setCatalogo([]); return }
+    buscaDebounceRef.current = setTimeout(() => {
+      setCatalogoLoading(true)
+      api.get('/core/catalogo/', { params: { search: buscaCatalogo, page_size: 12 } })
+        .then(({ data }) => setCatalogo(data.results ?? data))
+        .finally(() => setCatalogoLoading(false))
+    }, 300)
+    return () => clearTimeout(buscaDebounceRef.current)
+  }, [buscaCatalogo])
 
   useEffect(() => { fetchDFD(id) }, [id])
 
@@ -650,10 +665,18 @@ export default function DFDDetail() {
                   {itens.map((item) => (
                     <tr key={item.id} className="border-b border-gray-50 hover:bg-gray-50">
                       <td className="py-1.5 pr-3 text-gray-700">
-                        {item.catalogo_familia && (
-                          <span className="mr-1 bg-blue-100 text-blue-700 text-[10px] font-mono px-1 py-0.5 rounded">{item.catalogo_familia}</span>
-                        )}
-                        {item.objeto}
+                        <div className="flex items-center gap-1 flex-wrap">
+                          {item.catalogo_familia && (
+                            <span className="bg-blue-100 text-blue-700 text-[10px] font-mono px-1 py-0.5 rounded">{item.catalogo_familia}</span>
+                          )}
+                          {item.catalogo_sustentavel && (
+                            <span className="bg-green-100 text-green-700 text-[10px] font-medium px-1 py-0.5 rounded">Sust.</span>
+                          )}
+                          {item.catalogo_luxo && (
+                            <span className="bg-red-100 text-red-600 text-[10px] font-medium px-1 py-0.5 rounded" title="Item de luxo — verificar justificativa">Luxo</span>
+                          )}
+                          <span>{item.objeto}</span>
+                        </div>
                       </td>
                       <td className="py-1.5 pr-3 text-gray-500">{item.unidade_medida}</td>
                       <td className="py-1.5 pr-3 text-right text-gray-700">{Number(item.quantidade).toLocaleString('pt-BR')}</td>
@@ -695,34 +718,70 @@ export default function DFDDetail() {
                     className={inputCls()} />
                   {buscaCatalogo.length >= 2 && (
                     <div className="mt-1 bg-white border border-blue-200 rounded-lg shadow-sm max-h-40 overflow-y-auto">
-                      {catalogo.filter(c =>
-                        c.nome.toLowerCase().includes(buscaCatalogo.toLowerCase()) ||
-                        c.codigo_simpas.includes(buscaCatalogo) ||
-                        c.codigo_interno.includes(buscaCatalogo)
-                      ).slice(0, 8).map(c => (
+                      {catalogoLoading && (
+                        <p className="px-3 py-2 text-xs text-gray-400 italic">Buscando...</p>
+                      )}
+                      {!catalogoLoading && catalogo.map(c => (
                         <button key={c.id} type="button"
                           onClick={() => {
-                            setNewItem(p => ({ ...p, item_catalogo: c.id, objeto: c.nome, unidade_medida: c.unidade_medida }))
+                            setNewItem(p => ({
+                              ...p,
+                              item_catalogo: c.id,
+                              objeto: c.nome,
+                              unidade_medida: c.unidade_medida,
+                              valor_unitario_estimado: c.valor_referencia ? String(c.valor_referencia) : p.valor_unitario_estimado,
+                              _valor_ref_preenchido: !!c.valor_referencia,
+                              _data_ref: c.data_referencia,
+                              _sustentavel: c.item_sustentavel,
+                              _luxo: c.item_luxo,
+                            }))
                             setBuscaCatalogo('')
                           }}
                           className="w-full text-left px-3 py-2 text-xs hover:bg-blue-50 border-b border-gray-50 last:border-0">
-                          <span className="font-mono text-blue-700 mr-1">{c.codigo_interno}</span>
-                          {c.familia && <span className="bg-blue-100 text-blue-600 text-[10px] px-1 rounded mr-1">{c.familia}</span>}
-                          {c.nome}
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="font-mono text-xs font-semibold text-blue-700">{c.codigo_interno}</span>
+                            {c.codigo_simpas && (
+                              <span className="font-mono text-[10px] text-gray-500 bg-gray-100 px-1.5 py-0.5 rounded" title="Código SIMPAS">
+                                {c.codigo_simpas}
+                              </span>
+                            )}
+                            {c.item_sustentavel && <span className="bg-green-100 text-green-700 text-[10px] px-1 rounded font-medium">Sust.</span>}
+                            {c.item_luxo && <span className="bg-red-100 text-red-600 text-[10px] px-1 rounded font-medium">Luxo</span>}
+                          </div>
+                          <p className="text-gray-800 mt-0.5 leading-snug">{c.nome}</p>
+                          {c.valor_referencia && (
+                            <p className="text-[10px] text-gray-400 mt-0.5">
+                              Ref. SIMPAS: {Number(c.valor_referencia).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                              {c.data_referencia && ` (${new Date(c.data_referencia + 'T00:00:00').toLocaleDateString('pt-BR')})`}
+                            </p>
+                          )}
                         </button>
                       ))}
-                      {catalogo.filter(c =>
-                        c.nome.toLowerCase().includes(buscaCatalogo.toLowerCase()) ||
-                        c.codigo_simpas.includes(buscaCatalogo)
-                      ).length === 0 && (
+                      {!catalogoLoading && catalogo.length === 0 && (
                         <p className="px-3 py-2 text-xs text-gray-400 italic">Nenhum item encontrado no catálogo.</p>
                       )}
                     </div>
                   )}
                   {newItem.item_catalogo && (
-                    <div className="mt-1 flex items-center gap-2 text-xs text-blue-700 bg-blue-50 rounded px-2 py-1">
-                      <span>Vinculado ao catálogo</span>
-                      <button type="button" onClick={() => setNewItem(p => ({ ...p, item_catalogo: '' }))} className="text-red-500 hover:underline">remover</button>
+                    <div className="mt-1 space-y-1">
+                      <div className="flex items-center gap-2 text-xs text-blue-700 bg-blue-50 rounded px-2 py-1">
+                        <span>Vinculado ao catálogo</span>
+                        {newItem._sustentavel && <span className="bg-green-100 text-green-700 font-medium px-1.5 py-0.5 rounded">Sustentável</span>}
+                        {newItem._luxo && <span className="bg-red-100 text-red-700 font-medium px-1.5 py-0.5 rounded">⚠ Item de Luxo</span>}
+                        <button type="button" onClick={() => setNewItem(p => ({ ...p, item_catalogo: '', _valor_ref_preenchido: false, _sustentavel: false, _luxo: false }))} className="text-red-500 hover:underline ml-auto">remover</button>
+                      </div>
+                      {newItem._luxo && (
+                        <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded px-2 py-1">
+                          Este item é classificado como <strong>item de luxo</strong> pelo SIMPAS. Certifique-se de que a aquisição está devidamente justificada conforme a legislação.
+                        </p>
+                      )}
+                      {newItem._valor_ref_preenchido && (
+                        <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded px-2 py-1">
+                          Valor pré-preenchido com referência SIMPAS
+                          {newItem._data_ref && ` de ${new Date(newItem._data_ref + 'T00:00:00').toLocaleDateString('pt-BR')}`}.
+                          Verifique se ainda está vigente.
+                        </p>
+                      )}
                     </div>
                   )}
                 </div>

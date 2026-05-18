@@ -241,7 +241,7 @@ class IndicadoresAgrupamentoView(APIView):
                 item_catalogo__isnull=False,
             )
             .exclude(dfd__status__in=['Aprovada', 'Rejeitada', 'Cancelada'])
-            .select_related('item_catalogo', 'dfd')
+            .select_related('item_catalogo__categoria__pai', 'dfd')
         )
 
         if familia_filtro:
@@ -251,26 +251,32 @@ class IndicadoresAgrupamentoView(APIView):
         familias: dict = {}
         for item in qs:
             fam = item.item_catalogo.familia or 'Sem família'
+            cat = item.item_catalogo.categoria
+            cat_path = cat.caminho_completo if cat else None
             if fam not in familias:
                 familias[fam] = {
                     'familia':        fam,
+                    'categoria_path': cat_path,
                     'total_itens':    0,
                     'valor_total':    Decimal('0'),
                     'dfds_ids':       set(),
                     'itens':          [],
                 }
+            elif cat_path and not familias[fam]['categoria_path']:
+                familias[fam]['categoria_path'] = cat_path
             g = familias[fam]
             g['total_itens']  += 1
             g['valor_total']  += item.valor_total_estimado or Decimal('0')
             g['dfds_ids'].add(item.dfd_id)
             g['itens'].append({
-                'item_id':        item.id,
+                'item_id':         item.id,
                 'catalogo_codigo': item.item_catalogo.codigo_interno,
                 'catalogo_nome':   item.item_catalogo.nome,
-                'dfd_sei':        item.dfd.numero_sei,
-                'dfd_status':     item.dfd.status,
-                'quantidade':     float(item.quantidade),
-                'valor_total':    float(item.valor_total_estimado or 0),
+                'categoria_path':  cat_path,
+                'dfd_sei':         item.dfd.numero_sei,
+                'dfd_status':      item.dfd.status,
+                'quantidade':      float(item.quantidade),
+                'valor_total':     float(item.valor_total_estimado or 0),
             })
 
         resultado = []
@@ -293,6 +299,7 @@ class IndicadoresAgrupamentoView(APIView):
 
             resultado.append({
                 'familia':         fam,
+                'categoria_path':  g['categoria_path'],
                 'total_itens':     g['total_itens'],
                 'total_dfds':      qtd_dfds,
                 'valor_total':     float(valor),
@@ -347,7 +354,7 @@ class PlanoComprasView(APIView):
             item_catalogo__isnull=False,
         ).exclude(
             dfd__status__in=['Rejeitada', 'Cancelada']
-        ).select_related('item_catalogo', 'dfd__org_id')
+        ).select_related('item_catalogo__categoria__pai', 'dfd__org_id')
 
         if status_list:
             qs = qs.filter(dfd__status__in=status_list)
@@ -358,10 +365,12 @@ class PlanoComprasView(APIView):
         familias: dict = {}
         for item in qs:
             fam  = item.item_catalogo.familia or 'Sem família'
-            nome_fam = fam
+            cat = item.item_catalogo.categoria
+            cat_path = cat.caminho_completo if cat else None
             if fam not in familias:
                 familias[fam] = {
                     'familia':        fam,
+                    'categoria_path': cat_path,
                     'total_itens':    0,
                     'qtd_total':      Decimal('0'),
                     'valor_total':    Decimal('0'),
@@ -369,6 +378,8 @@ class PlanoComprasView(APIView):
                     'status_counts':  {},
                     'itens':          [],
                 }
+            elif cat_path and not familias[fam]['categoria_path']:
+                familias[fam]['categoria_path'] = cat_path
             g = familias[fam]
             g['total_itens'] += 1
             g['qtd_total']   += item.quantidade
@@ -382,6 +393,7 @@ class PlanoComprasView(APIView):
                 'catalogo_codigo':  item.item_catalogo.codigo_interno,
                 'catalogo_simpas':  item.item_catalogo.codigo_simpas,
                 'catalogo_nome':    item.item_catalogo.nome,
+                'categoria_path':   cat_path,
                 'unidade_medida':   item.item_catalogo.unidade_medida or item.unidade_medida,
                 'dfd_sei':          item.dfd.numero_sei,
                 'dfd_status':       item.dfd.status,
@@ -425,14 +437,15 @@ class PlanoComprasView(APIView):
                 sugestao_label = 'Dispensa por Valor'
 
             resultado.append({
-                'familia':         fam,
-                'total_itens':     g['total_itens'],
-                'total_dfds':      qtd_dfds,
-                'qtd_total':       float(g['qtd_total']),
-                'valor_total':     float(valor),
-                'status_counts':   g['status_counts'],
-                'sugestao':        sugestao,
-                'sugestao_label':  sugestao_label,
+                'familia':            fam,
+                'categoria_path':     g['categoria_path'],
+                'total_itens':        g['total_itens'],
+                'total_dfds':         qtd_dfds,
+                'qtd_total':          float(g['qtd_total']),
+                'valor_total':        float(valor),
+                'status_counts':      g['status_counts'],
+                'sugestao':           sugestao,
+                'sugestao_label':     sugestao_label,
                 'itens_consolidados': list(itens_consolidados.values()),
             })
 

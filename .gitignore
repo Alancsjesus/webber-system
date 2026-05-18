@@ -57,3 +57,8 @@ desktop.ini
 .env.prod
 *.pem
 *.key
+
+# ── Scripts temporários de ambiente local ─────────────────────
+diagnostico.py
+limpar_importacao.py
+backend/check_fields.py

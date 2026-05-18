@@ -148,6 +148,17 @@ export default function OrcamentoCreate() {
               ? <p className="text-xs text-blue-600 mt-1">Elemento derivado: {String(nat.elemento_codigo).padStart(2,'0')} — {nat.elemento_descricao}</p>
               : null
           })()}
+          {/* Guia rápido de correspondência classificação SIMPAS → natureza */}
+          {!form.natureza_despesa && (
+            <div className="mt-2 bg-blue-50 border border-blue-100 rounded-lg p-3 text-xs text-blue-700 space-y-1">
+              <p className="font-semibold text-blue-800">Guia — Classificação SIMPAS × Natureza de Despesa:</p>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-0.5 text-blue-600">
+                <span>Material de Consumo</span><span className="font-mono">→ 3.3.90.30 (El. 30)</span>
+                <span>Material Permanente</span><span className="font-mono">→ 4.4.90.52 (El. 52)</span>
+                <span>Serviço</span>             <span className="font-mono">→ 3.3.90.39 (El. 39)</span>
+              </div>
+            </div>
+          )}
         </Field>
 
         {/* Elemento avulso — só aparece se não houver natureza selecionada */}

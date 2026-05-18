@@ -129,7 +129,9 @@ const CONFIG_GROUPS_ADMIN = [
   {
     label: 'Catálogo',
     items: [
-      { to: '/config/catalogo',  label: 'Itens e Famílias SIMPAS' },
+      { to: '/config/catalogo',          label: 'Itens e Famílias SIMPAS' },
+      { to: '/config/categorias',        label: 'Categorias Hierárquicas' },
+      { to: '/config/catalogo/importar', label: 'Importar CSV ComprasNet' },
     ],
   },
   {

@@ -154,19 +154,96 @@ class AreaAtuacao(models.Model):
         return f'{self.codigo} — {self.nome}'
 
 
+class CategoriaItem(models.Model):
+    """
+    Árvore hierárquica de categorias para itens do catálogo.
+    Exemplo: FROTA > VEÍCULOS LEVES > PICKUP
+    Nós raiz têm pai=None. Profundidade livre, tipicamente 2-3 níveis.
+    Global (não org-scoped), gerenciado pelo admin.
+    """
+    nome   = models.CharField(max_length=150, verbose_name='Nome da categoria')
+    codigo = models.CharField(max_length=30, blank=True, default='', verbose_name='Código (opcional)')
+    pai    = models.ForeignKey(
+        'self', null=True, blank=True,
+        on_delete=models.PROTECT,
+        related_name='filhos',
+        verbose_name='Categoria pai',
+    )
+
+    class Meta:
+        ordering = ['nome']
+        verbose_name = 'Categoria de Item'
+        verbose_name_plural = 'Categorias de Itens'
+
+    def __str__(self):
+        return self.caminho_completo
+
+    @property
+    def caminho_completo(self) -> str:
+        partes = []
+        atual = self
+        while atual:
+            partes.append(atual.nome)
+            atual = atual.pai
+        return ' > '.join(reversed(partes))
+
+    @property
+    def nivel(self) -> int:
+        n, atual = 0, self
+        while atual.pai_id:
+            n += 1
+            atual = atual.pai
+        return n
+
+
 class ItemCatalogo(models.Model):
     """
     Catálogo de itens com código interno WEBBER e código SIMPAS.
     A família é derivada automaticamente dos dois primeiros segmentos do SIMPAS.
     Formato SIMPAS: 42.40.20.00016900-5  →  família: 42.40
     """
+    CLASSIFICACAO_CHOICES = [
+        ('consumo',    'Material de Consumo'),
+        ('permanente', 'Material Permanente'),
+        ('servico',    'Serviço'),
+        ('',           'Não classificado'),
+    ]
+
     codigo_interno = models.CharField(max_length=20, unique=True, editable=False, verbose_name='Código interno')
     codigo_simpas  = models.CharField(max_length=40, blank=True, default='', verbose_name='Código SIMPAS')
     familia        = models.CharField(max_length=15, blank=True, default='', verbose_name='Família SIMPAS', db_index=True)
+    categoria      = models.ForeignKey(
+        CategoriaItem, null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='itens',
+        verbose_name='Categoria',
+    )
     nome           = models.CharField(max_length=300, verbose_name='Descrição do item')
     descricao      = models.TextField(blank=True, default='', verbose_name='Especificação complementar')
     unidade_medida = models.CharField(max_length=20, verbose_name='Unidade de medida')
     ativo          = models.BooleanField(default=True, verbose_name='Ativo')
+
+    # Campos originados do SIMPAS
+    item_sustentavel      = models.BooleanField(default=False, verbose_name='Item sustentável', db_index=True)
+    item_luxo             = models.BooleanField(default=False, verbose_name='Item de luxo', db_index=True)
+    classificacao_tipo    = models.CharField(
+        max_length=15, blank=True, default='',
+        choices=CLASSIFICACAO_CHOICES,
+        verbose_name='Classificação', db_index=True,
+    )
+    valor_referencia      = models.DecimalField(
+        max_digits=15, decimal_places=2,
+        null=True, blank=True,
+        verbose_name='Valor de referência SIMPAS (R$)',
+    )
+    data_referencia       = models.DateField(
+        null=True, blank=True,
+        verbose_name='Data do valor de referência',
+    )
+    num_licitacao_ref     = models.CharField(
+        max_length=100, blank=True, default='',
+        verbose_name='Nº licitação de referência',
+    )
 
     class Meta:
         ordering = ['familia', 'nome']

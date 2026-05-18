@@ -19,11 +19,17 @@ class HistoricoTramitacaoSerializer(serializers.ModelSerializer):
 
 
 class ItemDFDSerializer(serializers.ModelSerializer):
-    valor_total_estimado    = serializers.DecimalField(max_digits=15, decimal_places=2, read_only=True)
-    catalogo_codigo_interno = serializers.CharField(source='item_catalogo.codigo_interno', read_only=True)
-    catalogo_codigo_simpas  = serializers.CharField(source='item_catalogo.codigo_simpas',  read_only=True)
-    catalogo_familia        = serializers.CharField(source='item_catalogo.familia',         read_only=True)
-    catalogo_nome           = serializers.CharField(source='item_catalogo.nome',            read_only=True)
+    valor_total_estimado      = serializers.DecimalField(max_digits=15, decimal_places=2, read_only=True)
+    catalogo_codigo_interno   = serializers.CharField(source='item_catalogo.codigo_interno',    read_only=True)
+    catalogo_codigo_simpas    = serializers.CharField(source='item_catalogo.codigo_simpas',     read_only=True)
+    catalogo_familia          = serializers.CharField(source='item_catalogo.familia',            read_only=True)
+    catalogo_nome             = serializers.CharField(source='item_catalogo.nome',               read_only=True)
+    catalogo_sustentavel      = serializers.BooleanField(source='item_catalogo.item_sustentavel',  read_only=True)
+    catalogo_luxo             = serializers.BooleanField(source='item_catalogo.item_luxo',         read_only=True)
+    catalogo_classificacao    = serializers.CharField(source='item_catalogo.classificacao_tipo',   read_only=True)
+    catalogo_valor_referencia = serializers.DecimalField(
+        source='item_catalogo.valor_referencia', max_digits=15, decimal_places=2, read_only=True)
+    catalogo_data_referencia  = serializers.DateField(source='item_catalogo.data_referencia',   read_only=True)
 
     class Meta:
         model = ItemDFD
@@ -31,6 +37,8 @@ class ItemDFDSerializer(serializers.ModelSerializer):
             'id', 'item_catalogo',
             'catalogo_codigo_interno', 'catalogo_codigo_simpas',
             'catalogo_familia', 'catalogo_nome',
+            'catalogo_sustentavel', 'catalogo_luxo', 'catalogo_classificacao',
+            'catalogo_valor_referencia', 'catalogo_data_referencia',
             'objeto', 'unidade_medida', 'quantidade',
             'valor_unitario_estimado', 'valor_total_estimado', 'observacao',
             'created_at', 'updated_at',
@@ -39,6 +47,8 @@ class ItemDFDSerializer(serializers.ModelSerializer):
             'id', 'valor_total_estimado', 'created_at', 'updated_at',
             'catalogo_codigo_interno', 'catalogo_codigo_simpas',
             'catalogo_familia', 'catalogo_nome',
+            'catalogo_sustentavel', 'catalogo_luxo', 'catalogo_classificacao',
+            'catalogo_valor_referencia', 'catalogo_data_referencia',
         ]
 
     def create(self, validated_data):

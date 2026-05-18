@@ -1,4 +1,5 @@
 from rest_framework import viewsets, serializers as drf_serializers, filters, status
+from rest_framework.decorators import action
 from rest_framework.generics import ListAPIView
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -6,7 +7,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
 from django.db.models import Sum, Count, Q, Prefetch
 from django.contrib.auth.models import User
-from core.models import Orgao, UnidadeOrganizacional, UserProfile, ParametroSistema, AreaAtuacao, SecaoArtefato, ItemCatalogo
+from core.models import Orgao, UnidadeOrganizacional, UserProfile, ParametroSistema, AreaAtuacao, SecaoArtefato, ItemCatalogo, CategoriaItem
 from core.permissions import IsMultiTenant
 
 
@@ -507,29 +508,112 @@ class AreaAtuacaoViewSet(viewsets.ModelViewSet):
         instance.save()
 
 
+class CategoriaItemSerializer(drf_serializers.ModelSerializer):
+    caminho_completo = drf_serializers.CharField(read_only=True)
+    nivel            = drf_serializers.IntegerField(read_only=True)
+    pai_nome         = drf_serializers.CharField(source='pai.nome', read_only=True, default=None)
+    tem_filhos       = drf_serializers.SerializerMethodField()
+
+    class Meta:
+        model  = CategoriaItem
+        fields = ['id', 'nome', 'codigo', 'pai', 'pai_nome', 'caminho_completo', 'nivel', 'tem_filhos']
+
+    def get_tem_filhos(self, obj):
+        return obj.filhos.exists()
+
+
+class CategoriaItemViewSet(viewsets.ModelViewSet):
+    serializer_class   = CategoriaItemSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends    = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields      = ['nome', 'codigo']
+    ordering_fields    = ['nome']
+    ordering           = ['nome']
+
+    def get_queryset(self):
+        qs = CategoriaItem.objects.select_related('pai').all()
+        pai = self.request.query_params.get('pai')
+        if pai == 'null':
+            qs = qs.filter(pai__isnull=True)
+        elif pai:
+            qs = qs.filter(pai_id=pai)
+        return qs
+
+    def _check_perm(self, request):
+        if getattr(request, 'papel', None) not in ('admin', 'analista', 'gestor_planejamento'):
+            raise PermissionDenied('Apenas administradores e analistas podem gerenciar categorias.')
+
+    def perform_create(self, serializer):
+        self._check_perm(self.request)
+        serializer.save()
+
+    def perform_update(self, serializer):
+        self._check_perm(self.request)
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        self._check_perm(self.request)
+        if instance.filhos.exists():
+            raise PermissionDenied('Remova as subcategorias antes de excluir esta categoria.')
+        if instance.itens.exists():
+            raise PermissionDenied('Existem itens vinculados a esta categoria. Desvincule-os antes.')
+        instance.delete()
+
+
 class ItemCatalogoSerializer(drf_serializers.ModelSerializer):
+    categoria_nome          = drf_serializers.CharField(source='categoria.nome', read_only=True, default=None)
+    categoria_path          = drf_serializers.CharField(source='categoria.caminho_completo', read_only=True, default=None)
+    classificacao_tipo_display = drf_serializers.CharField(source='get_classificacao_tipo_display', read_only=True)
+
     class Meta:
         model  = ItemCatalogo
-        fields = ['id', 'codigo_interno', 'codigo_simpas', 'familia',
-                  'nome', 'descricao', 'unidade_medida', 'ativo']
-        read_only_fields = ['id', 'codigo_interno', 'familia']
+        fields = [
+            'id', 'codigo_interno', 'codigo_simpas', 'familia',
+            'categoria', 'categoria_nome', 'categoria_path',
+            'nome', 'descricao', 'unidade_medida', 'ativo',
+            'item_sustentavel', 'item_luxo',
+            'classificacao_tipo', 'classificacao_tipo_display',
+            'valor_referencia', 'data_referencia', 'num_licitacao_ref',
+        ]
+        read_only_fields = ['id', 'codigo_interno', 'familia', 'classificacao_tipo_display']
+
+
+class _CatalogoPaginacao(drf_serializers.Serializer):
+    """Paginação do catálogo com page_size configurável pelo cliente (máx 500)."""
+    pass
+
+from rest_framework.pagination import PageNumberPagination
+
+class CatalogoPaginacao(PageNumberPagination):
+    page_size            = 50
+    page_size_query_param = 'page_size'
+    max_page_size        = 500
 
 
 class ItemCatalogoViewSet(viewsets.ModelViewSet):
     serializer_class   = ItemCatalogoSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class   = CatalogoPaginacao
     filter_backends    = [filters.SearchFilter, filters.OrderingFilter]
     search_fields      = ['codigo_interno', 'codigo_simpas', 'familia', 'nome']
     ordering_fields    = ['familia', 'nome', 'codigo_interno']
     ordering           = ['familia', 'nome']
 
     def get_queryset(self):
-        qs = ItemCatalogo.objects.all()
-        if self.request.query_params.get('inativas') != 'true':
+        qs   = ItemCatalogo.objects.select_related('categoria__pai').all()
+        p    = self.request.query_params
+        if p.get('inativas') != 'true':
             qs = qs.filter(ativo=True)
-        familia = self.request.query_params.get('familia')
-        if familia:
-            qs = qs.filter(familia=familia)
+        if p.get('familia'):
+            qs = qs.filter(familia=p['familia'])
+        if p.get('categoria'):
+            qs = qs.filter(categoria_id=p['categoria'])
+        if p.get('classificacao_tipo'):
+            qs = qs.filter(classificacao_tipo=p['classificacao_tipo'])
+        if p.get('item_sustentavel') == 'true':
+            qs = qs.filter(item_sustentavel=True)
+        if p.get('item_luxo') == 'true':
+            qs = qs.filter(item_luxo=True)
         return qs
 
     def _check_perm(self, request):
@@ -548,6 +632,359 @@ class ItemCatalogoViewSet(viewsets.ModelViewSet):
         self._check_perm(self.request)
         instance.ativo = False
         instance.save()
+
+    @action(detail=False, methods=['post'], url_path='importar-csv')
+    def importar_csv(self, request):
+        import csv, json
+        from decimal import Decimal, InvalidOperation
+        from datetime import datetime
+        from django.db import transaction
+
+        self._check_perm(request)
+
+        arquivo = request.FILES.get('arquivo')
+        if not arquivo:
+            return Response({'erro': 'Arquivo não enviado.'}, status=400)
+
+        dry_run = str(request.data.get('dry_run', 'true')).lower() in ('true', '1')
+        # mapeamento manual familia_desc→cat_id (usado apenas no modo ComprasNet)
+        try:
+            mapeamento_manual = json.loads(request.data.get('mapeamento', '{}'))
+        except Exception:
+            mapeamento_manual = {}
+
+        # ── decodificação ─────────────────────────────────────────────────────
+        conteudo = arquivo.read()
+        texto = None
+        for enc in ('utf-8-sig', 'utf-8', 'latin-1', 'cp1252'):
+            try:
+                texto = conteudo.decode(enc)
+                break
+            except Exception:
+                continue
+        if texto is None:
+            return Response({'erro': 'Encoding do arquivo não suportado.'}, status=400)
+
+        linhas = texto.splitlines()
+        if not linhas:
+            return Response({'erro': 'Arquivo vazio.'}, status=400)
+
+        # pular "sep=;" do Excel
+        if linhas[0].strip().lower().startswith('sep='):
+            linhas = linhas[1:]
+
+        reader   = csv.reader(linhas, delimiter=';', quotechar='"')
+        cabecalho = next(reader, None)
+        if not cabecalho:
+            return Response({'erro': 'Arquivo sem cabeçalho.'}, status=400)
+
+        cab = [c.strip().lower() for c in cabecalho]
+
+        # ── detectar formato pelo cabeçalho ───────────────────────────────────
+        # SIMPAS: tem 'num_item' ou 'cod_grup'
+        # ComprasNet: tem 'código item' ou 'nome básico'
+        def _idx(keys):
+            for k in keys:
+                for i, h in enumerate(cab):
+                    if k in h:
+                        return i
+            return None
+
+        FORMATO_SIMPAS = any('num_item' in h or 'cod_grup' in h for h in cab)
+
+        if FORMATO_SIMPAS:
+            # Mapeamento de colunas da planilha SIMPAS:
+            # Col 0  "Item"            → código SIMPAS completo (ex: 65.15.00.00207748-3)
+            # Col 1  "Cod_Grup"        → código do grupo (ex: 65)
+            # Col 2  "Descricao"       → descrição do grupo
+            # Col 3  "Num_Fam"         → número da família (ex: 15)
+            # Col 4  "Descricao"       → descrição da família
+            # Col 5  "Cod_secre"       → código da secretaria (ignorado)
+            # Col 6  "Descricao"       → descrição da secretaria (ignorada)
+            # Col 7  "Num_item"        → número sequencial do item DENTRO da família (ex: 207748)
+            #                           ← NÃO é o código completo, apenas parte dele
+            # Col 8  "Nome_Ba"         → nome básico
+            # Col 9  "Nome_Mc"         → nome modificador
+            # Col 10 "Descricao"       → descrição padrão
+            # Col 11 "Unid"            → unidade de medida
+            # Col 12 "Tipo_Item"       → tipo (M=Material, S=Serviço)
+            # Col 13 "Situacao"        → situação (Ativo/Inativo)
+            # Col 14 "Data_Cadastro"   → ignorada
+            # Col 15 "Item_Sust"       → item sustentável (S/N)
+            # Col 16 "Item_Lux"        → item de luxo (S/N)
+            # Col 17 "Data_Alteracao"  → ignorada
+            # Col 18 "ClassificaTipo"  → classificação (Consumo/Permanente/Serviço)
+            # Col 19 "Data_Ultima_RMRS"→ data do valor de referência
+            # Col 20 "Sit_item_I"      → ignorada
+            # Col 21 "Validade_"       → ignorada
+            # Col 22 "Nr_Licit"        → nº licitação de referência
+            # Col 23 "Data_Pr"         → ignorada
+            # Col 24 "Valor_Refe"      → valor de referência SIMPAS
+            #
+            # IMPORTANTE: o código completo está SEMPRE na coluna 0 ("Item"),
+            # independentemente do nome do cabeçalho.
+            iCOD_SIMPAS  = 0   # coluna A = código completo (ex: 65.15.00.00207748-3)
+            iCOD_GRUP    = _idx(['cod_grup'])    or 1
+            iDESC_GRUP   = _idx(['desc_grup'])   or 2
+            iNUM_FAM     = _idx(['num_fam'])      or 3
+            iDESC_FAM    = _idx(['desc_fam'])     or 4
+            # col 7 "Num_item" é o seq. interno — NÃO usar como codigo_simpas
+            iNOME_BA     = _idx(['nome_ba'])      or 8
+            iNOME_MC     = _idx(['nome_mc', 'nome_mod']) or 9
+            iDESC        = _idx(['descricao'])    or 10
+            iUNID        = _idx(['unid'])         or 11
+            iSITUACAO    = _idx(['situac'])       or 13
+            iSUST        = _idx(['item_sust', 'sust'])    or 15
+            iLUXO        = _idx(['item_lux', 'luxo'])     or 16
+            iCLASS       = _idx(['classifica', 'classif']) or 18
+            iDATA_REF    = _idx(['data_ultima_rmrs', 'data_rmrs']) or 19
+            iNR_LICIT    = _idx(['nr_licit', 'num_licit', 'n_licit', 'licit']) or 22
+            iVALOR_REF   = _idx(['valor_refe', 'valor_ref']) or 24
+        else:
+            # Formato ComprasNet — código completo está na coluna 1
+            iCOD_SIMPAS = _idx(['código item', 'codigo item', 'cod_item']) or 1
+            iNOME_BA    = _idx(['nome básico', 'nome basico', 'nome_ba'])  or 2
+            iNOME_MC    = _idx(['nome modificador', 'nome_mc'])            or 3
+            iDESC       = _idx(['descrição padrão', 'descricao padrao'])   or 4
+            iSITUACAO   = _idx(['situação', 'situacao'])                   or 7
+            iUNID       = _idx(['unidade', 'um', 'unid'])                  or 8
+            iCOD_GRUP   = iDESC_GRUP = iNUM_FAM = iDESC_FAM = None
+            iSUST = iLUXO = iCLASS = iDATA_REF = iNR_LICIT = iVALOR_REF = None
+
+        # ── helpers ───────────────────────────────────────────────────────────
+        def col(row, i, default=''):
+            return row[i].strip() if i is not None and i < len(row) else default
+
+        def parse_bool_sn(v):
+            return v.strip().upper() in ('S', 'SIM', 'YES', 'TRUE', '1')
+
+        def parse_classificacao(v):
+            v = v.lower()
+            if 'consumo' in v:   return 'consumo'
+            if 'permanente' in v: return 'permanente'
+            if 'servi' in v:     return 'servico'
+            return ''
+
+        def parse_data(v):
+            for fmt in ('%d/%m/%Y', '%Y-%m-%d', '%d-%m-%Y'):
+                try:
+                    return datetime.strptime(v.strip(), fmt).date()
+                except Exception:
+                    pass
+            return None
+
+        def parse_decimal(v):
+            v = v.strip().replace('R$', '').replace(' ', '').replace('.', '').replace(',', '.')
+            try:
+                return Decimal(v)
+            except InvalidOperation:
+                return None
+
+        # ── pré-carregar códigos existentes ───────────────────────────────────
+        codigos_existentes = set(
+            ItemCatalogo.objects.exclude(codigo_simpas='')
+                                .values_list('codigo_simpas', flat=True)
+        )
+
+        itens_novos      = []
+        itens_existentes = []
+        # hierarquia SIMPAS: {cod_grupo: {desc, familias: {num_fam: desc}}}
+        grupos_vistos    = {}
+        familias_plano   = {}   # desc_familia_comprasnet → {familia_simpas, count}
+        linhas_invalidas = 0
+
+        for row in reader:
+            if len(row) < 3:
+                linhas_invalidas += 1
+                continue
+
+            codigo_simpas = col(row, iCOD_SIMPAS)   # coluna A = código completo XX.XX.XX.XXXXXXXX-X
+            nome_basico   = col(row, iNOME_BA)
+
+            if not codigo_simpas or not nome_basico:
+                linhas_invalidas += 1
+                continue
+
+            nome_mod    = col(row, iNOME_MC)
+            desc_padrao = col(row, iDESC)
+            situacao    = col(row, iSITUACAO)
+            um          = col(row, iUNID) or 'UN'
+
+            ativo = situacao.lower() not in ('inativo', 'cancelado', 'suspenso', 'inativa')
+
+            nome = nome_basico
+            if nome_mod and nome_mod.upper() != nome_basico.upper():
+                nome = f'{nome_basico} {nome_mod}'.strip()
+            nome = nome[:300]
+
+            familia_simpas = ItemCatalogo.extrair_familia(codigo_simpas)
+
+            # dados exclusivos do SIMPAS
+            item_sust  = parse_bool_sn(col(row, iSUST))    if iSUST      else False
+            item_luxo  = parse_bool_sn(col(row, iLUXO))    if iLUXO      else False
+            classif    = parse_classificacao(col(row, iCLASS)) if iCLASS  else ''
+            data_ref   = parse_data(col(row, iDATA_REF))   if iDATA_REF  else None
+            nr_licit   = col(row, iNR_LICIT)               if iNR_LICIT   else ''
+            valor_ref  = parse_decimal(col(row, iVALOR_REF)) if iVALOR_REF else None
+
+            # hierarquia SIMPAS
+            if FORMATO_SIMPAS and iCOD_GRUP is not None:
+                cod_grupo  = col(row, iCOD_GRUP)
+                desc_grupo = col(row, iDESC_GRUP) if iDESC_GRUP else ''
+                num_fam    = col(row, iNUM_FAM)   if iNUM_FAM   else ''
+                desc_fam   = col(row, iDESC_FAM)  if iDESC_FAM  else ''
+                if cod_grupo and cod_grupo not in grupos_vistos:
+                    grupos_vistos[cod_grupo] = {'desc': desc_grupo, 'familias': {}}
+                if cod_grupo and num_fam and num_fam not in grupos_vistos[cod_grupo]['familias']:
+                    grupos_vistos[cod_grupo]['familias'][num_fam] = desc_fam
+                desc_familia_chave = f'{cod_grupo}_{num_fam}'
+            else:
+                desc_familia_chave = familia_simpas
+                if desc_familia_chave not in familias_plano:
+                    familias_plano[desc_familia_chave] = {'familia_simpas': familia_simpas, 'count': 0}
+                familias_plano[desc_familia_chave]['count'] += 1
+
+            if codigo_simpas in codigos_existentes:
+                itens_existentes.append({'codigo_simpas': codigo_simpas, 'nome': nome[:80]})
+            else:
+                codigos_existentes.add(codigo_simpas)
+                itens_novos.append({
+                    'codigo_simpas':    codigo_simpas,
+                    'familia':          familia_simpas,
+                    'nome':             nome,
+                    'descricao':        desc_padrao[:2000],
+                    'unidade_medida':   um,
+                    'ativo':            ativo,
+                    'item_sustentavel': item_sust,
+                    'item_luxo':        item_luxo,
+                    'classificacao_tipo': classif,
+                    'valor_referencia': valor_ref,
+                    'data_referencia':  data_ref,
+                    'num_licitacao_ref': nr_licit[:100],
+                    # para categorização automática SIMPAS
+                    '_cod_grupo': col(row, iCOD_GRUP) if iCOD_GRUP else '',
+                    '_num_fam':   col(row, iNUM_FAM)  if iNUM_FAM  else '',
+                    # para mapeamento manual ComprasNet
+                    '_desc_familia': desc_familia_chave,
+                })
+
+        # ── dry-run ───────────────────────────────────────────────────────────
+        if dry_run:
+            if FORMATO_SIMPAS:
+                familias_resp = []
+                for cod_g, g in sorted(grupos_vistos.items()):
+                    for num_f, desc_f in sorted(g['familias'].items()):
+                        count = sum(
+                            1 for it in itens_novos
+                            if it['_cod_grupo'] == cod_g and it['_num_fam'] == num_f
+                        )
+                        familias_resp.append({
+                            'desc':         f"{g['desc']} › {desc_f}",
+                            'cod_grupo':    cod_g,
+                            'desc_grupo':   g['desc'],
+                            'num_fam':      num_f,
+                            'desc_fam':     desc_f,
+                            'familia_simpas': f'{cod_g}.{num_f}',
+                            'count':        count,
+                        })
+            else:
+                familias_resp = sorted(
+                    [{'desc': k, 'familia_simpas': v['familia_simpas'], 'count': v['count']}
+                     for k, v in familias_plano.items()],
+                    key=lambda x: x['desc']
+                )
+            sustentaveis = sum(1 for it in itens_novos if it['item_sustentavel'])
+            com_luxo     = sum(1 for it in itens_novos if it['item_luxo'])
+            com_preco    = sum(1 for it in itens_novos if it['valor_referencia'])
+            return Response({
+                'dry_run':      True,
+                'formato':      'SIMPAS' if FORMATO_SIMPAS else 'ComprasNet',
+                'total_lidos':  len(itens_novos) + len(itens_existentes),
+                'novos':        len(itens_novos),
+                'duplicados':   len(itens_existentes),
+                'invalidos':    linhas_invalidas,
+                'sustentaveis': sustentaveis,
+                'com_luxo':     com_luxo,
+                'com_preco':    com_preco,
+                'familias':     familias_resp,
+                'preview_novos':      itens_novos[:20],
+                'preview_duplicados': itens_existentes[:10],
+            })
+
+        # ── import real ───────────────────────────────────────────────────────
+        cat_cache = {}
+
+        def _get_ou_criar_categoria(cod_grupo, desc_grupo, num_fam, desc_fam):
+            chave = f'{cod_grupo}_{num_fam}'
+            if chave in cat_cache:
+                return cat_cache[chave]
+            # nível raiz = grupo
+            grupo_cat, _ = CategoriaItem.objects.get_or_create(
+                codigo=str(cod_grupo),
+                pai=None,
+                defaults={'nome': desc_grupo or f'Grupo {cod_grupo}'},
+            )
+            # nível filho = família
+            fam_cat, _ = CategoriaItem.objects.get_or_create(
+                codigo=str(num_fam),
+                pai=grupo_cat,
+                defaults={'nome': desc_fam or f'Família {num_fam}'},
+            )
+            cat_cache[chave] = fam_cat
+            return fam_cat
+
+        def _get_categoria_manual(desc_fam_chave):
+            if desc_fam_chave in cat_cache:
+                return cat_cache[desc_fam_chave]
+            cat_id = mapeamento_manual.get(desc_fam_chave)
+            cat = None
+            if cat_id:
+                try:
+                    cat = CategoriaItem.objects.get(id=int(cat_id))
+                except CategoriaItem.DoesNotExist:
+                    pass
+            cat_cache[desc_fam_chave] = cat
+            return cat
+
+        with transaction.atomic():
+            ultimo = ItemCatalogo.objects.count()
+            objs = []
+            for i, it in enumerate(itens_novos):
+                if FORMATO_SIMPAS and it['_cod_grupo']:
+                    # buscar grupo/família do grupos_vistos
+                    g_info = grupos_vistos.get(it['_cod_grupo'], {})
+                    desc_g = g_info.get('desc', '')
+                    desc_f = g_info.get('familias', {}).get(it['_num_fam'], '')
+                    cat = _get_ou_criar_categoria(
+                        it['_cod_grupo'], desc_g, it['_num_fam'], desc_f
+                    )
+                else:
+                    cat = _get_categoria_manual(it['_desc_familia'])
+
+                objs.append(ItemCatalogo(
+                    codigo_interno    = f'WBR-{ultimo + i + 1:05d}',
+                    codigo_simpas     = it['codigo_simpas'],
+                    familia           = it['familia'],
+                    categoria         = cat,
+                    nome              = it['nome'],
+                    descricao         = it['descricao'],
+                    unidade_medida    = it['unidade_medida'],
+                    ativo             = it['ativo'],
+                    item_sustentavel  = it['item_sustentavel'],
+                    item_luxo         = it['item_luxo'],
+                    classificacao_tipo = it['classificacao_tipo'],
+                    valor_referencia  = it['valor_referencia'],
+                    data_referencia   = it['data_referencia'],
+                    num_licitacao_ref = it['num_licitacao_ref'],
+                ))
+            ItemCatalogo.objects.bulk_create(objs, ignore_conflicts=True)
+
+        return Response({
+            'dry_run':              False,
+            'criados':              len(objs),
+            'duplicados_ignorados': len(itens_existentes),
+            'categorias_criadas':   len(cat_cache),
+        })
 
 
 class SecaoArtefatoSerializer(drf_serializers.ModelSerializer):
