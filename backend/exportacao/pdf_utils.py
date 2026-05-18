@@ -1915,119 +1915,124 @@ def gerar_relatorio_procedimento(proc) -> bytes:
         e.append(_tab(fund_dados))
         sp()
 
+    # ── helpers de célula ─────────────────────────────────────────────────────
+    def _p(txt, bold=False, size=7, mono=False, leading=10, color=None):
+        """Cria Paragraph para célula de tabela — garante quebra de linha correta."""
+        fn   = 'Helvetica-Bold' if bold else ('Courier' if mono else 'Helvetica')
+        kw   = dict(fontName=fn, fontSize=size, leading=leading)
+        if color:
+            kw['textColor'] = color
+        return Paragraph(str(txt) if txt is not None else '—', ParagraphStyle(f'tc{id(txt)}', **kw))
+
+    def _ph(txt):
+        """Cabeçalho de coluna: branco, negrito."""
+        return _p(txt, bold=True, size=7, color=BRANCO)
+
+    _TS = TableStyle([                    # estilo-base para todas as tabelas
+        ('BACKGROUND',     (0, 0), (-1, 0), AZUL_GOV),
+        ('ROWBACKGROUNDS', (0, 1), (-1, -1), [BRANCO, AZUL_CLARO]),
+        ('GRID',           (0, 0), (-1, -1), 0.5, CINZA_BD),
+        ('VALIGN',         (0, 0), (-1, -1), 'TOP'),
+        ('TOPPADDING',     (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING',  (0, 0), (-1, -1), 5),
+        ('LEFTPADDING',    (0, 0), (-1, -1), 6),
+        ('RIGHTPADDING',   (0, 0), (-1, -1), 4),
+    ])
+
     # ── 5. Tramitações externas ───────────────────────────────────────────────
+    # Larguras (total = 17cm): Órgão 4.8 | Tipo 2.8 | SEI 3.5 | Envio 1.7 | Prazo 1.7 | Retorno 1.7 | Sit. 0.8
     tramitacoes = list(proc.tramitacoes.select_related('registrado_por').order_by('data_envio'))
     if tramitacoes:
-        cab = [['Órgão', 'Tipo', 'Nº SEI', 'Envio', 'Prazo retorno', 'Retorno efetivo', 'Situação']]
+        CW_TR = [4.8*cm, 2.8*cm, 3.5*cm, 1.7*cm, 1.7*cm, 1.7*cm, 0.8*cm]
+        cab = [[_ph('Órgão'), _ph('Tipo'), _ph('Nº SEI'),
+                _ph('Envio'), _ph('Prazo'), _ph('Retorno'), _ph('Sit.')]]
         rows = [[
-            t.orgao_label,
-            t.get_tipo_display() if hasattr(t, 'get_tipo_display') else t.tipo,
-            t.numero_sei or '—',
-            _fmt_d(t.data_envio),
-            _fmt_d(t.prazo_esperado),
-            _fmt_d(t.data_retorno),
-            t.status,
+            _p(t.orgao_label),
+            _p(t.get_tipo_display() if hasattr(t, 'get_tipo_display') else t.tipo),
+            _p(t.numero_sei or '—', mono=True, size=6.5),
+            _p(_fmt_d(t.data_envio),    size=7),
+            _p(_fmt_d(t.prazo_esperado), size=7),
+            _p(_fmt_d(t.data_retorno),   size=7),
+            _p(t.status,                 size=6.5),
         ] for t in tramitacoes]
-        t_tr = Table(cab + rows, colWidths=[3*cm, 2.5*cm, 2.5*cm, 1.8*cm, 2*cm, 2*cm, 1.7*cm],
-                     repeatRows=1)
-        t_tr.setStyle(TableStyle([
-            ('BACKGROUND',     (0, 0), (-1, 0), AZUL_GOV),
-            ('TEXTCOLOR',      (0, 0), (-1, 0), BRANCO),
-            ('FONTNAME',       (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE',       (0, 0), (-1, -1), 7),
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [BRANCO, AZUL_CLARO]),
-            ('GRID',           (0, 0), (-1, -1), 0.5, CINZA_BD),
-            ('VALIGN',         (0, 0), (-1, -1), 'MIDDLE'),
-            ('TOPPADDING',     (0, 0), (-1, -1), 4),
-            ('BOTTOMPADDING',  (0, 0), (-1, -1), 4),
-            ('LEFTPADDING',    (0, 0), (-1, -1), 5),
-        ]))
-        obs_tram = [Paragraph(
-            f'<b>Obs. {t.orgao_label}:</b> {t.observacoes}',
-            ParagraphStyle('tobs', fontSize=7, textColor=CINZA_TXT, spaceBefore=3, leftIndent=8),
-        ) for t in tramitacoes if t.observacoes]
-        e.append(KeepTogether([
-            _secao(f'5. Tramitações Externas ({len(tramitacoes)})', estilos),
-            t_tr,
-        ] + obs_tram))
+        t_tr = Table(cab + rows, colWidths=CW_TR, repeatRows=1)
+        t_tr.setStyle(_TS)
+        bloco = [_secao(f'5. Tramitações Externas ({len(tramitacoes)})', estilos), t_tr]
+        for t in tramitacoes:
+            if t.observacoes:
+                bloco.append(Paragraph(
+                    f'<b>Obs. — {t.orgao_label}:</b> {t.observacoes}',
+                    ParagraphStyle('tobs', fontSize=7, textColor=CINZA_TXT,
+                                   leading=10, spaceBefore=3, leftIndent=8),
+                ))
+        e.append(KeepTogether(bloco))
         sp()
 
     # ── 6. Histórico de tramitação de status ──────────────────────────────────
+    # Larguras (17cm): Data 2.2 | Usuário 3.2 | Status ant. 3.3 | Status novo 3.3 | Motivo 5.0
     historico = list(proc.historico.select_related('usuario').order_by('criado_em'))
+    CW_HIST = [2.2*cm, 3.2*cm, 3.3*cm, 3.3*cm, 5.0*cm]
+    cab_h = [[_ph('Data / Hora'), _ph('Usuário'), _ph('Status anterior'),
+               _ph('Status novo'), _ph('Motivo / Observação')]]
     if historico:
-        cab = [['Data / Hora', 'Usuário', 'Status anterior', 'Status novo', 'Motivo / Observação']]
-        rows = [[
-            h.criado_em.strftime('%d/%m/%Y\n%H:%M') if h.criado_em else '—',
-            (h.usuario.get_full_name() or h.usuario.username) if h.usuario else '—',
-            h.status_anterior or '—',
-            h.status_novo,
-            Paragraph(h.motivo or '—', ParagraphStyle('mv', fontSize=7, leading=10)),
+        rows_h = [[
+            _p(h.criado_em.strftime('%d/%m/%Y\n%H:%M') if h.criado_em else '—', size=6.5),
+            _p((h.usuario.get_full_name() or h.usuario.username) if h.usuario else '—'),
+            _p(h.status_anterior or '—'),
+            _p(h.status_novo),
+            _p(h.motivo or '—'),
         ] for h in historico]
-        t_hist = Table(cab + rows, colWidths=[2.3*cm, 3*cm, 2.8*cm, 2.8*cm, 6.6*cm],
-                       repeatRows=1)
-        t_hist.setStyle(TableStyle([
-            ('BACKGROUND',     (0, 0), (-1, 0), AZUL_GOV),
-            ('TEXTCOLOR',      (0, 0), (-1, 0), BRANCO),
-            ('FONTNAME',       (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE',       (0, 0), (-1, -1), 7),
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [BRANCO, AZUL_CLARO]),
-            ('GRID',           (0, 0), (-1, -1), 0.5, CINZA_BD),
-            ('VALIGN',         (0, 0), (-1, -1), 'TOP'),
-            ('TOPPADDING',     (0, 0), (-1, -1), 4),
-            ('BOTTOMPADDING',  (0, 0), (-1, -1), 4),
-            ('LEFTPADDING',    (0, 0), (-1, -1), 5),
-        ]))
+        t_hist = Table(cab_h + rows_h, colWidths=CW_HIST, repeatRows=1)
+        t_hist.setStyle(_TS)
         e.append(_secao(f'6. Histórico de Tramitação de Status ({len(historico)} registros)', estilos))
         e.append(t_hist)
     else:
         e.append(KeepTogether([
-            _secao('6. Histórico de Tramitação de Status (0 registros)', estilos),
-            Paragraph('Nenhuma tramitação de status registrada.',
-                ParagraphStyle('vz', fontSize=8, textColor=CINZA_TXT)),
+            _secao('6. Histórico de Tramitação de Status', estilos),
+            Paragraph('Nenhuma tramitação registrada.',
+                      ParagraphStyle('vz', fontSize=8, textColor=CINZA_TXT)),
         ]))
     sp()
 
     # ── 7. Resultados por lote ────────────────────────────────────────────────
+    # 6 colunas (17cm): Lote 3.0 | Resultado 2.5 | Empresa 4.5 | Val.Est. 2.2 | Val.Adj. 2.2 | Contrato 2.6
+    # CNPJ e Desconto ficam abaixo da empresa/valor no mesmo Paragraph
     resultados = list(proc.resultados.select_related('lote', 'contrato_gerado').order_by('descricao_lote'))
     if resultados:
-        cab = [['Lote', 'Resultado', 'Empresa vencedora', 'CNPJ', 'Val. estimado', 'Val. adjudicado', 'Desconto', 'Contrato']]
-        rows = []
+        CW_RES = [3.0*cm, 2.5*cm, 4.5*cm, 2.2*cm, 2.2*cm, 2.6*cm]
+        cab_r = [[_ph('Lote'), _ph('Resultado'), _ph('Empresa vencedora / CNPJ'),
+                   _ph('Val. estimado'), _ph('Val. adjudicado'), _ph('Contrato')]]
+        rows_r = []
         for r in resultados:
-            ve  = float(r.valor_estimado or 0)
-            vf  = float(r.valor_final   or 0)
-            desc = f'{((ve - vf) / ve * 100):.1f}%' if ve and vf else '—'
-            rows.append([
-                Paragraph(r.descricao_lote or (str(r.lote) if r.lote else f'Lote {r.id}'), ParagraphStyle('lt', fontSize=7, leading=9)),
-                r.get_resultado_display() if hasattr(r, 'get_resultado_display') else r.resultado,
-                Paragraph(r.empresa_vencedora or '—', ParagraphStyle('em', fontSize=7, leading=9)),
-                r.cnpj_vencedor or '—',
-                _fmt_v(r.valor_estimado),
-                _fmt_v(r.valor_final),
-                desc,
-                r.contrato_gerado.numero if r.contrato_gerado else '—',
+            ve   = float(r.valor_estimado or 0)
+            vf   = float(r.valor_final   or 0)
+            desc = f'Desconto: {((ve - vf) / ve * 100):.1f}%' if ve and vf else ''
+            empresa_txt = r.empresa_vencedora or '—'
+            if r.cnpj_vencedor:
+                empresa_txt += f'\nCNPJ: {r.cnpj_vencedor}'
+            val_adj_txt = _fmt_v(r.valor_final)
+            if desc:
+                val_adj_txt += f'\n({desc})'
+            rows_r.append([
+                _p(r.descricao_lote or (str(r.lote) if r.lote else f'Lote {r.id}')),
+                _p(r.get_resultado_display() if hasattr(r, 'get_resultado_display') else r.resultado),
+                _p(empresa_txt),
+                _p(_fmt_v(r.valor_estimado)),
+                _p(val_adj_txt),
+                _p(r.contrato_gerado.numero if r.contrato_gerado else '—'),
             ])
-        t_res = Table(cab + rows, colWidths=[2.3*cm, 2.2*cm, 3*cm, 2.2*cm, 2*cm, 2*cm, 1.3*cm, 2.5*cm],
-                      repeatRows=1)
-        t_res.setStyle(TableStyle([
-            ('BACKGROUND',     (0, 0), (-1, 0), AZUL_GOV),
-            ('TEXTCOLOR',      (0, 0), (-1, 0), BRANCO),
-            ('FONTNAME',       (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('FONTSIZE',       (0, 0), (-1, -1), 7),
-            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [BRANCO, AZUL_CLARO]),
-            ('GRID',           (0, 0), (-1, -1), 0.5, CINZA_BD),
-            ('VALIGN',         (0, 0), (-1, -1), 'TOP'),
-            ('TOPPADDING',     (0, 0), (-1, -1), 4),
-            ('BOTTOMPADDING',  (0, 0), (-1, -1), 4),
-            ('LEFTPADDING',    (0, 0), (-1, -1), 5),
-        ]))
-        obs_res = [Paragraph(
-            f'<b>Obs. {r.descricao_lote or (str(r.lote) if r.lote else f"Lote {r.id}")}:</b> {r.observacoes}',
-            ParagraphStyle('robs', fontSize=7, textColor=CINZA_TXT, spaceBefore=3, leftIndent=8),
-        ) for r in resultados if r.observacoes]
-        e.append(KeepTogether([
-            _secao(f'7. Resultados da Sessão / Adjudicação ({len(resultados)} lote{"s" if len(resultados) != 1 else ""})', estilos),
-            t_res,
-        ] + obs_res))
+        t_res = Table(cab_r + rows_r, colWidths=CW_RES, repeatRows=1)
+        t_res.setStyle(_TS)
+        bloco_r = [_secao(f'7. Resultados da Sessão / Adjudicação ({len(resultados)} lote{"s" if len(resultados) != 1 else ""})', estilos), t_res]
+        for r in resultados:
+            if r.observacoes:
+                lote_ref = r.descricao_lote or (str(r.lote) if r.lote else f'Lote {r.id}')
+                bloco_r.append(Paragraph(
+                    f'<b>Obs. — {lote_ref}:</b> {r.observacoes}',
+                    ParagraphStyle('robs', fontSize=7, textColor=CINZA_TXT,
+                                   leading=10, spaceBefore=3, leftIndent=8),
+                ))
+        e.append(KeepTogether(bloco_r))
         sp()
 
     # ── 8. Observações e revogação ────────────────────────────────────────────
