@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { downloadFile } from '../services/api'
 import ModalDevolver, { MOTIVOS_MAPA } from '../components/ModalDevolver'
 import { useNavigate, useParams } from 'react-router-dom'
 import useMapaStore from '../stores/mapaStore'
@@ -178,6 +179,12 @@ export default function MapaDetail() {
               Baixar PDF
             </a>
           )}
+          {/* Histórico de tramitação em PDF */}
+          <button
+            onClick={() => downloadFile(`/pesquisa/mapa/${id}/export/historico/`, `Historico_Mapa_${id}.pdf`)}
+            className="border border-gray-300 text-gray-600 text-sm px-3 py-1.5 rounded-lg hover:bg-gray-50">
+            ↓ Histórico PDF
+          </button>
           {/* Cancelar */}
           {!['Aprovado', 'Cancelado'].includes(current.status) && (
             <button onClick={() => setShowCancelar(true)}

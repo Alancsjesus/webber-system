@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import usePlanejamentoStore from '../stores/planejamentoStore'
 import useAuthStore from '../stores/authStore'
-import api from '../services/api'
+import api, { downloadFile } from '../services/api'
 
 const PRIO_OPTIONS = ['Alta', 'Média', 'Baixa']
 const AREAS = ['TI', 'Formação', 'Ops', 'Rede', 'Frota', 'Derivados']
@@ -168,6 +168,11 @@ export default function NecessidadeDetail() {
         </div>
 
         <div className="flex gap-2 flex-wrap justify-end">
+          <button
+            onClick={() => downloadFile(`/planejamento/necessidade/${id}/export/historico/`, `Historico_Necessidade_${id}.pdf`)}
+            className="border border-gray-300 text-gray-600 text-sm px-3 py-1.5 rounded-lg hover:bg-gray-50">
+            ↓ Histórico PDF
+          </button>
           {podeCriarDFD && (
             <button
               onClick={() => navigate('/aquisicao/preparar', {

@@ -499,6 +499,21 @@ class MapaComparativoPrecosViewSet(viewsets.ModelViewSet):
         pdf = gerar_pdf_mapa(mapa)
         return resposta_pdf(pdf, f'Mapa-Precos-{mapa.pk}.pdf')
 
+    @action(detail=True, methods=['get'], url_path='export/historico')
+    def export_historico(self, request, pk=None):
+        from exportacao.pdf_utils import gerar_pdf_historico, resposta_pdf
+        mapa = self.get_object()
+        pdf = gerar_pdf_historico(
+            titulo='Mapa Comparativo de Preços',
+            numero_ref=str(mapa.pk),
+            historico_entries=mapa.historico.select_related('usuario').order_by('-criado_em'),
+            org_nome=mapa.org_id.nome if mapa.org_id else '',
+            org_sigla=mapa.org_id.sigla if mapa.org_id else None,
+            criado_por=mapa.created_by,
+            created_at=mapa.created_at,
+        )
+        return resposta_pdf(pdf, f'Historico_Mapa_{mapa.pk}.pdf')
+
     # ── Integração PNCP ───────────────────────────────────────────────────────
     @action(detail=True, methods=['post'], url_path='pncp/preview')
     def pncp_preview(self, request, pk=None):

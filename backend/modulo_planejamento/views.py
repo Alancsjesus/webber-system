@@ -5,7 +5,7 @@ from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
-from .models import NecessidadePlanejamento, PlanoOrcamentario, ItemPlanoOrcamentario
+from .models import NecessidadePlanejamento, PlanoOrcamentario, ItemPlanoOrcamentario, HistoricoNecessidade
 from .serializers import NecessidadeSerializer, PlanoOrcamentarioSerializer, ItemPlanoSerializer
 from core.permissions import IsMultiTenant, IsUnidadePlanejamento, PAPEIS_PLANEJAMENTO
 from core.models import Orgao
@@ -66,14 +66,38 @@ class NecessidadeViewSet(viewsets.ModelViewSet):
 
     def _transicao(self, request, pk, status_novo, campos_extra=None):
         nec = self.get_object()
+        status_anterior = nec.status
         nec.status = status_novo
         if campos_extra:
             for campo, valor in campos_extra.items():
                 setattr(nec, campo, valor)
         nec.updated_by = request.user
         nec.save()
+        motivo = request.data.get('motivo', '') if hasattr(request, 'data') else ''
+        HistoricoNecessidade.objects.create(
+            necessidade=nec,
+            status_anterior=status_anterior,
+            status_novo=status_novo,
+            usuario=request.user,
+            motivo=motivo or '',
+        )
         serializer = self.get_serializer(nec)
         return Response(serializer.data)
+
+    @action(detail=True, methods=['get'], url_path='export/historico')
+    def export_historico(self, request, pk=None):
+        from exportacao.pdf_utils import gerar_pdf_historico, resposta_pdf
+        nec = self.get_object()
+        pdf = gerar_pdf_historico(
+            titulo='Necessidade de Planejamento',
+            numero_ref=nec.titulo,
+            historico_entries=nec.historico.select_related('usuario').order_by('-criado_em'),
+            org_nome=nec.org_id.nome if nec.org_id else '',
+            org_sigla=nec.org_id.sigla if nec.org_id else None,
+            criado_por=nec.created_by,
+            created_at=nec.created_at,
+        )
+        return resposta_pdf(pdf, f'Historico_Necessidade_{nec.pk}.pdf')
 
     # ── Ações de workflow ──────────────────────────────────────────────────
 

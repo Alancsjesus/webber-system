@@ -117,6 +117,26 @@ class NecessidadePlanejamento(BaseModel):
         return f"{self.titulo} ({self.exercicio_fiscal}) — {self.status}"
 
 
+class HistoricoNecessidade(models.Model):
+    """Registro imutável de cada transição de status da Necessidade."""
+    necessidade     = models.ForeignKey(
+        NecessidadePlanejamento, on_delete=models.CASCADE, related_name='historico',
+    )
+    status_anterior = models.CharField(max_length=30, blank=True, default='')
+    status_novo     = models.CharField(max_length=30)
+    usuario         = models.ForeignKey(
+        'auth.User', on_delete=models.SET_NULL, null=True, related_name='+',
+    )
+    motivo          = models.TextField(blank=True, default='')
+    criado_em       = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-criado_em']
+
+    def __str__(self):
+        return f"Necessidade {self.necessidade_id}: {self.status_anterior} → {self.status_novo}"
+
+
 class ItemPlanoOrcamentario(models.Model):
     """Classificação da origem de cada necessidade em um plano orçamentário."""
     ORIGEM_CHOICES = [
