@@ -2057,3 +2057,105 @@ def gerar_relatorio_procedimento(proc) -> bytes:
 
     doc.build(e, onFirstPage=_rodape, onLaterPages=_rodape)
     return buf.getvalue()
+
+
+def gerar_pdf_auditoria(logs, org, params=None) -> bytes:
+    """Gera PDF da trilha de auditoria para o período/filtros solicitados."""
+    buf     = io.BytesIO()
+    estilos = _estilos()
+
+    def _rodape(canvas, doc):
+        canvas.saveState()
+        canvas.setFont('Helvetica', 7)
+        canvas.setFillColor(CINZA_TXT)
+        canvas.drawString(2 * cm, 1.0 * cm,
+            'Sistema WEBBER — Documento gerado eletronicamente')
+        canvas.drawRightString(A4[0] - 2 * cm, 1.0 * cm,
+            f'Página {doc.page}  •  {datetime.now().strftime("%d/%m/%Y %H:%M")}')
+        canvas.restoreState()
+
+    doc = SimpleDocTemplate(buf, pagesize=A4,
+                             leftMargin=2*cm, rightMargin=2*cm,
+                             topMargin=2*cm, bottomMargin=2.5*cm)
+
+    org_nome  = org.nome  if org else 'Órgão'
+    org_sigla = org.sigla if org else None
+    e = _cabecalho('RELATÓRIO DE AUDITORIA E CONTROLE', '', org_nome, estilos, org_sigla=org_sigla)
+
+    e.append(_secao('Filtros aplicados', estilos))
+    p = params or {}
+    filtros = []
+    if p.get('data_ini'): filtros.append(f"Período início: {p['data_ini']}")
+    if p.get('data_fim'): filtros.append(f"Período fim: {p['data_fim']}")
+    if p.get('modelo'):   filtros.append(f"Módulo: {p['modelo']}")
+    if p.get('acao'):     filtros.append(f"Tipo de evento: {p['acao']}")
+    if p.get('usuario'):  filtros.append(f"Usuário: {p['usuario']}")
+    if p.get('busca'):    filtros.append(f"Busca: {p['busca']}")
+    if not filtros:       filtros = ['Todos os registros (sem filtros)']
+    ft_style = ParagraphStyle('ft', fontSize=8, textColor=CINZA_TXT, leading=12, leftIndent=8)
+    for ft in filtros:
+        e.append(Paragraph(f'• {ft}', ft_style))
+    e.append(Paragraph(
+        f'Total de registros: {len(logs)}  •  Emitido em: {datetime.now().strftime("%d/%m/%Y às %H:%M")}',
+        ParagraphStyle('tot', fontSize=8, textColor=CINZA_TXT, leading=12, spaceBefore=4, leftIndent=8),
+    ))
+    e.append(Spacer(1, 0.4*cm))
+
+    if not logs:
+        e.append(Paragraph('Nenhum registro encontrado para os filtros selecionados.',
+            ParagraphStyle('vz', fontSize=9, textColor=CINZA_TXT)))
+    else:
+        ACAO_ICON = {
+            'created':       '+ Criado',
+            'deleted':       '✕ Excluído',
+            'value_changed': '$ Valor',
+            'sei_changed':   '# SEI',
+            'login':         '> Login',
+            'updated':       '~ Alterado',
+        }
+        ACAO_COR = {
+            'created':       colors.HexColor('#16a34a'),
+            'deleted':       colors.HexColor('#dc2626'),
+            'value_changed': colors.HexColor('#d97706'),
+            'sei_changed':   colors.HexColor('#2563eb'),
+            'login':         colors.HexColor('#7c3aed'),
+            'updated':       colors.HexColor('#475569'),
+        }
+
+        def _ph2(txt):
+            return Paragraph(f'<b>{txt}</b>',
+                ParagraphStyle('ch2', fontSize=7, textColor=BRANCO, fontName='Helvetica-Bold', leading=10))
+
+        cab = [[_ph2('Data / Hora'), _ph2('Módulo'), _ph2('Evento'), _ph2('Descrição'), _ph2('Usuário')]]
+        rows = []
+        for lg in logs:
+            dt       = lg.criado_em.strftime('%d/%m/%Y\n%H:%M') if lg.criado_em else '—'
+            mod      = lg.modelo.split('.')[-1] if '.' in lg.modelo else lg.modelo
+            acao_txt = ACAO_ICON.get(lg.acao, lg.acao)
+            acao_cor = ACAO_COR.get(lg.acao, CINZA_TXT)
+            usr      = (lg.usuario.get_full_name() or lg.usuario.username) if lg.usuario else '—'
+            rows.append([
+                Paragraph(dt,  ParagraphStyle('td0', fontSize=6.5, leading=9,  fontName='Courier')),
+                Paragraph(mod, ParagraphStyle('td1', fontSize=7,   leading=10)),
+                Paragraph(f'<b>{acao_txt}</b>',
+                    ParagraphStyle('ta', fontSize=7, leading=10, textColor=acao_cor, fontName='Helvetica-Bold')),
+                Paragraph(lg.descricao or lg.objeto_repr or '—',
+                    ParagraphStyle('td3', fontSize=7, leading=10)),
+                Paragraph(usr, ParagraphStyle('td4', fontSize=7, leading=10)),
+            ])
+
+        t = Table(cab + rows, colWidths=[2.5*cm, 2.5*cm, 2.2*cm, 7.3*cm, 2.5*cm], repeatRows=1)
+        t.setStyle(TableStyle([
+            ('BACKGROUND',     (0, 0), (-1, 0), AZUL_GOV),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [BRANCO, AZUL_CLARO]),
+            ('GRID',           (0, 0), (-1, -1), 0.4, CINZA_BD),
+            ('VALIGN',         (0, 0), (-1, -1), 'TOP'),
+            ('TOPPADDING',     (0, 0), (-1, -1), 5),
+            ('BOTTOMPADDING',  (0, 0), (-1, -1), 5),
+            ('LEFTPADDING',    (0, 0), (-1, -1), 5),
+            ('RIGHTPADDING',   (0, 0), (-1, -1), 4),
+        ]))
+        e.append(t)
+
+    doc.build(e, onFirstPage=_rodape, onLaterPages=_rodape)
+    return buf.getvalue()

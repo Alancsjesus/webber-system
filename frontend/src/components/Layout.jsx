@@ -13,6 +13,7 @@ const SECTION_ACCENT = {
   'Análise Técnica':    { dot: 'bg-indigo-400',   ring: 'bg-indigo-500/15',  text: 'text-indigo-300' },
   'Licitação':          { dot: 'bg-orange-400',   ring: 'bg-orange-500/15',  text: 'text-orange-300' },
   'Contratos':          { dot: 'bg-teal-400',     ring: 'bg-teal-500/15',    text: 'text-teal-300'   },
+  'Auditoria':          { dot: 'bg-rose-400',     ring: 'bg-rose-500/15',    text: 'text-rose-300'   },
   'Configurações':      { dot: 'bg-gray-400',     ring: 'bg-gray-500/10',    text: 'text-gray-300'   },
 }
 
@@ -240,6 +241,14 @@ function buildSections(papel, tipoUnidade, flags) {
       items: (s.items || []).filter(item => podeAcessar(item.to, papel, tipoUnidade)),
     }))
     .filter(s => (s.items || []).length > 0)
+
+  // Auditoria — visível para admin e auditor
+  if (['admin', 'auditor'].includes(papel)) {
+    sections.push({
+      section: 'Auditoria',
+      items: [{ to: '/auditoria', label: 'Trilha de Auditoria' }],
+    })
+  }
 
   // Seção de configurações agrupada
   let configGroups = null

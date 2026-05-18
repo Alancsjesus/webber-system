@@ -64,6 +64,7 @@ class UserProfile(models.Model):
         ('ordenador',           'Ordenador de Despesas'),
         ('solicitante',         'Solicitante'),
         ('responsavel_tecnico', 'Responsável Técnico'),
+        ('auditor',             'Auditor / Controle Interno'),
     ]
 
     user    = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
@@ -317,22 +318,26 @@ class SecaoArtefato(models.Model):
 
 
 class AuditLog(models.Model):
-    """Immutable audit trail"""
+    """Trilha de auditoria imutável — registra criação, exclusão, alterações de valor e SEI, logins."""
     ACTION_CHOICES = [
-        ('created', 'Created'),
-        ('updated', 'Updated'),
-        ('deleted', 'Deleted'),
-        ('status_changed', 'Status Changed'),
+        ('created',       'Criado'),
+        ('deleted',       'Excluído'),
+        ('value_changed', 'Valor alterado'),
+        ('sei_changed',   'Nº SEI vinculado/alterado'),
+        ('login',         'Login no sistema'),
+        ('updated',       'Atualizado'),
     ]
 
-    org_id      = models.ForeignKey(Orgao, on_delete=models.CASCADE)
-    modelo      = models.CharField(max_length=100)
-    objeto_id   = models.IntegerField()
-    acao        = models.CharField(max_length=50, choices=ACTION_CHOICES)
-    usuario     = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
-    antes_json  = models.JSONField(null=True, blank=True)
-    depois_json = models.JSONField(null=True, blank=True)
-    criado_em   = models.DateTimeField(auto_now_add=True, db_index=True)
+    org_id       = models.ForeignKey(Orgao, on_delete=models.CASCADE, null=True, blank=True)
+    modelo       = models.CharField(max_length=100, db_index=True)
+    objeto_id    = models.IntegerField(null=True, blank=True)
+    objeto_repr  = models.CharField(max_length=300, blank=True, default='')
+    acao         = models.CharField(max_length=50, choices=ACTION_CHOICES, db_index=True)
+    descricao    = models.CharField(max_length=500, blank=True, default='')
+    usuario      = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, blank=True)
+    antes_json   = models.JSONField(null=True, blank=True)
+    depois_json  = models.JSONField(null=True, blank=True)
+    criado_em    = models.DateTimeField(auto_now_add=True, db_index=True)
 
     class Meta:
         ordering = ['-criado_em']

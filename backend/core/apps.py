@@ -7,3 +7,5 @@ class CoreConfig(AppConfig):
 
     def ready(self):
         import core.signals
+        from core.audit_signals import connect_signals
+        connect_signals()

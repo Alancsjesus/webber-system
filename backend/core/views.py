@@ -7,7 +7,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.exceptions import PermissionDenied
 from django.db.models import Sum, Count, Q, Prefetch
 from django.contrib.auth.models import User
-from core.models import Orgao, UnidadeOrganizacional, UserProfile, ParametroSistema, AreaAtuacao, SecaoArtefato, ItemCatalogo, CategoriaItem
+from core.models import Orgao, UnidadeOrganizacional, UserProfile, ParametroSistema, AreaAtuacao, SecaoArtefato, ItemCatalogo, CategoriaItem, AuditLog
 from core.permissions import IsMultiTenant
 
 
@@ -986,6 +986,78 @@ class ItemCatalogoViewSet(viewsets.ModelViewSet):
             'duplicados_ignorados': len(itens_existentes),
             'categorias_criadas':   len(cat_cache),
         })
+
+
+class AuditLogSerializer(drf_serializers.ModelSerializer):
+    usuario_nome  = drf_serializers.SerializerMethodField()
+    acao_display  = drf_serializers.CharField(source='get_acao_display', read_only=True)
+
+    class Meta:
+        model  = AuditLog
+        fields = [
+            'id', 'modelo', 'objeto_id', 'objeto_repr',
+            'acao', 'acao_display', 'descricao',
+            'usuario', 'usuario_nome',
+            'antes_json', 'depois_json', 'criado_em',
+        ]
+        read_only_fields = fields
+
+    def get_usuario_nome(self, obj):
+        if not obj.usuario:
+            return '—'
+        return obj.usuario.get_full_name() or obj.usuario.username
+
+
+from rest_framework.pagination import PageNumberPagination
+
+class _AuditPaginacao(PageNumberPagination):
+    page_size            = 50
+    page_size_query_param = 'page_size'
+    max_page_size        = 200
+
+
+class AuditLogViewSet(viewsets.ReadOnlyModelViewSet):
+    """Trilha de auditoria do órgão. Leitura exclusiva — admin e auditor."""
+    serializer_class   = AuditLogSerializer
+    permission_classes = [IsAuthenticated]
+    pagination_class   = _AuditPaginacao
+    filter_backends    = [filters.OrderingFilter]
+    ordering_fields    = ['criado_em', 'modelo', 'acao']
+    ordering           = ['-criado_em']
+
+    def get_queryset(self):
+        papel = getattr(self.request, 'papel', None)
+        if papel not in ('admin', 'auditor'):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('Acesso restrito a administradores e auditores.')
+        qs = AuditLog.objects.filter(org_id=self.request.org_id).select_related('usuario')
+        p = self.request.query_params
+        if p.get('modelo'):
+            qs = qs.filter(modelo__icontains=p['modelo'])
+        if p.get('acao'):
+            qs = qs.filter(acao=p['acao'])
+        if p.get('usuario'):
+            qs = qs.filter(usuario__username__icontains=p['usuario'])
+        if p.get('data_ini'):
+            qs = qs.filter(criado_em__date__gte=p['data_ini'])
+        if p.get('data_fim'):
+            qs = qs.filter(criado_em__date__lte=p['data_fim'])
+        if p.get('busca'):
+            qs = qs.filter(
+                Q(descricao__icontains=p['busca']) |
+                Q(objeto_repr__icontains=p['busca'])
+            )
+        return qs
+
+    @action(detail=False, methods=['get'], url_path='export/pdf')
+    def export_pdf(self, request):
+        from exportacao.pdf_utils import gerar_pdf_auditoria, resposta_pdf
+        from datetime import datetime
+        qs = self.get_queryset()[:500]   # máx 500 registros no PDF
+        org = Orgao.objects.filter(pk=request.org_id).first()
+        pdf = gerar_pdf_auditoria(list(qs), org, request.query_params)
+        nome = f'Auditoria_{datetime.now().strftime("%Y%m%d_%H%M")}.pdf'
+        return resposta_pdf(pdf, nome)
 
 
 class SecaoArtefatoSerializer(drf_serializers.ModelSerializer):
