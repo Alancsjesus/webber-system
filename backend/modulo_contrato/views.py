@@ -75,3 +75,10 @@ class ContratoViewSet(viewsets.ModelViewSet):
         aditivo = get_object_or_404(Aditivo, pk=aditivo_pk, contrato=contrato)
         aditivo.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=True, methods=['get'], url_path='export/pdf')
+    def export_pdf(self, request, pk=None):
+        from exportacao.pdf_utils import gerar_pdf_contrato, resposta_pdf
+        contrato = self.get_object()
+        pdf = gerar_pdf_contrato(contrato)
+        return resposta_pdf(pdf, f'Contrato_{contrato.numero}.pdf')

@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import useContratoStore from '../stores/contratoStore'
 import useAuthStore from '../stores/authStore'
 import LoadingSpinner from '../components/LoadingSpinner'
+import { downloadFile } from '../services/api'
 
 const STATUS_CLS = {
   Vigente:    'bg-green-100 text-green-700',
@@ -118,6 +119,11 @@ export default function ContratoDetail() {
           <p className="text-xs text-gray-400 mt-1">{current.orgao_executor_sigla} · Ex. {current.exercicio} · {current.tipo_origem_display}</p>
         </div>
         <div className="flex gap-2">
+          <button
+            onClick={() => downloadFile(`/contratos/contrato/${id}/export/pdf/`, `Contrato_${current?.numero || id}.pdf`)}
+            className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-3 py-1.5 rounded-lg">
+            ↓ PDF do Contrato
+          </button>
           {podeEditar && !editing && <button onClick={() => setEditing(true)} className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg">Editar</button>}
           {editing && <>
             <button onClick={handleSave} disabled={saving} className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm px-4 py-1.5 rounded-lg">{saving ? 'Salvando...' : 'Salvar'}</button>

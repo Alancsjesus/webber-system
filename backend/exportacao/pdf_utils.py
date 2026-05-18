@@ -1640,3 +1640,144 @@ def gerar_pdf_pca(plano) -> bytes:
 
     doc.build(e, onFirstPage=_rodape_pca, onLaterPages=_rodape_pca)
     return buf.getvalue()
+
+
+def gerar_pdf_contrato(contrato) -> bytes:
+    """Gera PDF completo do contrato com aditivos e apostilas."""
+    buf    = io.BytesIO()
+    org    = contrato.org_id
+    estilos = _estilos()
+
+    def _rodape(canvas, doc):
+        canvas.saveState()
+        canvas.setFont('Helvetica', 7)
+        canvas.setFillColor(CINZA_TXT)
+        canvas.drawString(2 * cm, 1.0 * cm, 'Sistema WEBBER — Documento gerado eletronicamente')
+        canvas.drawRightString(A4[0] - 2 * cm, 1.0 * cm,
+            f'Página {doc.page}  •  {datetime.now().strftime("%d/%m/%Y %H:%M")}')
+        canvas.restoreState()
+
+    doc = SimpleDocTemplate(buf, pagesize=A4,
+                             leftMargin=2*cm, rightMargin=2*cm,
+                             topMargin=2*cm, bottomMargin=2.5*cm)
+
+    e = _cabecalho('CONTRATO', contrato.numero, org.nome if org else '', estilos,
+                   org_sigla=org.sigla if org else None)
+
+    # ── Identificação ────────────────────────────────────────────────────────
+    e.append(_secao('Identificação do Contrato', estilos))
+
+    def _fmt_data(d):
+        return d.strftime('%d/%m/%Y') if d else '—'
+
+    def _fmt_val(v):
+        return f'R$ {float(v):,.2f}' if v else '—'
+
+    dados_id = [
+        ['Nº do Contrato',          contrato.numero or '—'],
+        ['Exercício Fiscal',        str(contrato.exercicio)],
+        ['Objeto',                  contrato.objeto or '—'],
+        ['Tipo de Origem',          contrato.get_tipo_origem_display() if hasattr(contrato, 'get_tipo_origem_display') else contrato.tipo_origem],
+        ['Nº Processo SEI',         contrato.numero_processo_sei or '—'],
+        ['Valor do Contrato',       _fmt_val(contrato.valor_contrato)],
+        ['Data de Assinatura',      _fmt_data(contrato.data_assinatura)],
+        ['Vigência Início',         _fmt_data(contrato.data_vigencia_inicio)],
+        ['Vigência Fim',            _fmt_data(contrato.data_vigencia_fim)],
+        ['Status',                  contrato.status],
+        ['Fiscal do Contrato',      getattr(contrato.fiscal_contrato, 'get_full_name', lambda: '')() or (contrato.fiscal_contrato.username if contrato.fiscal_contrato else '—')],
+        ['Gestor do Contrato',      getattr(contrato.gestor_contrato, 'get_full_name', lambda: '')() or (contrato.gestor_contrato.username if contrato.gestor_contrato else '—')],
+    ]
+    t_id = Table(dados_id, colWidths=[4.5*cm, 13*cm])
+    t_id.setStyle(TableStyle([
+        ('FONTNAME',      (0, 0), (0, -1), 'Helvetica-Bold'),
+        ('FONTSIZE',      (0, 0), (-1, -1), 8),
+        ('TEXTCOLOR',     (0, 0), (0, -1), CINZA_TXT),
+        ('ROWBACKGROUNDS',(0, 0), (-1, -1), [BRANCO, AZUL_CLARO]),
+        ('GRID',          (0, 0), (-1, -1), 0.5, CINZA_BD),
+        ('VALIGN',        (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING',    (0, 0), (-1, -1), 5),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 5),
+        ('LEFTPADDING',   (0, 0), (-1, -1), 8),
+    ]))
+    e.append(t_id)
+    e.append(Spacer(1, 0.4*cm))
+
+    # ── Garantia ─────────────────────────────────────────────────────────────
+    if contrato.garantia_exigida:
+        e.append(_secao('Garantia Contratual (Lei 14.133/2021, art. 96-98)', estilos))
+        dados_g = [
+            ['Tipo de Garantia',     contrato.get_garantia_tipo_display() if hasattr(contrato, 'get_garantia_tipo_display') else contrato.garantia_tipo],
+            ['Percentual',           f'{contrato.garantia_percentual}%' if contrato.garantia_percentual else '—'],
+            ['Nº Apólice / Título',  contrato.garantia_apolice or '—'],
+            ['Vigência da Garantia', f"{_fmt_data(contrato.garantia_vigencia_inicio)} a {_fmt_data(contrato.garantia_vigencia_fim)}"],
+        ]
+        if contrato.garantia_justificativa_acima_5:
+            dados_g.append(['Justificativa > 5%', contrato.garantia_justificativa_acima_5])
+        t_g = Table(dados_g, colWidths=[4.5*cm, 13*cm])
+        t_g.setStyle(TableStyle([
+            ('FONTNAME',  (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('FONTSIZE',  (0, 0), (-1, -1), 8),
+            ('TEXTCOLOR', (0, 0), (0, -1), CINZA_TXT),
+            ('ROWBACKGROUNDS', (0, 0), (-1, -1), [BRANCO, AZUL_CLARO]),
+            ('GRID',      (0, 0), (-1, -1), 0.5, CINZA_BD),
+            ('VALIGN',    (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING',(0, 0), (-1, -1), 5),
+            ('BOTTOMPADDING',(0,0),(-1,-1), 5),
+            ('LEFTPADDING',(0,0),(-1,-1), 8),
+        ]))
+        e.append(t_g)
+        e.append(Spacer(1, 0.4*cm))
+
+    # ── Apostilas ────────────────────────────────────────────────────────────
+    apostilas = list(contrato.apostilas.all().order_by('created_at'))
+    if apostilas:
+        e.append(_secao(f'Apostilas ({len(apostilas)})', estilos))
+        cab = [['Nº', 'Data', 'Objeto']]
+        rows = [[a.numero, _fmt_data(a.data), a.objeto] for a in apostilas]
+        t_ap = Table(cab + rows, colWidths=[3*cm, 3*cm, 11.5*cm])
+        t_ap.setStyle(TableStyle([
+            ('BACKGROUND',  (0, 0), (-1, 0), AZUL_GOV),
+            ('TEXTCOLOR',   (0, 0), (-1, 0), BRANCO),
+            ('FONTNAME',    (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE',    (0, 0), (-1, -1), 8),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [BRANCO, AZUL_CLARO]),
+            ('GRID',        (0, 0), (-1, -1), 0.5, CINZA_BD),
+            ('VALIGN',      (0, 0), (-1, -1), 'TOP'),
+            ('TOPPADDING',  (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING',(0,0), (-1,-1), 4),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ]))
+        e.append(t_ap)
+        e.append(Spacer(1, 0.4*cm))
+
+    # ── Aditivos ─────────────────────────────────────────────────────────────
+    aditivos = list(contrato.aditivos.all().order_by('created_at'))
+    if aditivos:
+        e.append(_secao(f'Termos Aditivos ({len(aditivos)})', estilos))
+        cab = [['Nº', 'Tipo', 'Data', 'Valor Acréscimo', 'Nova Vigência', 'Objeto']]
+        rows = [[
+            a.numero,
+            a.get_tipo_display() if hasattr(a, 'get_tipo_display') else a.tipo,
+            _fmt_data(a.data),
+            _fmt_val(a.valor_acrescimo),
+            _fmt_data(a.nova_vigencia),
+            a.objeto,
+        ] for a in aditivos]
+        t_ad = Table(cab + rows, colWidths=[2.5*cm, 3*cm, 2.2*cm, 2.8*cm, 2.5*cm, 4.5*cm])
+        t_ad.setStyle(TableStyle([
+            ('BACKGROUND',  (0, 0), (-1, 0), AZUL_GOV),
+            ('TEXTCOLOR',   (0, 0), (-1, 0), BRANCO),
+            ('FONTNAME',    (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE',    (0, 0), (-1, -1), 7),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [BRANCO, AZUL_CLARO]),
+            ('GRID',        (0, 0), (-1, -1), 0.5, CINZA_BD),
+            ('VALIGN',      (0, 0), (-1, -1), 'TOP'),
+            ('TOPPADDING',  (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING',(0,0), (-1,-1), 4),
+            ('LEFTPADDING', (0, 0), (-1, -1), 6),
+        ]))
+        e.append(t_ad)
+        e.append(Spacer(1, 0.4*cm))
+
+    doc.build(e, onFirstPage=_rodape, onLaterPages=_rodape)
+    return buf.getvalue()
