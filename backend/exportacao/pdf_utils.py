@@ -1878,8 +1878,8 @@ def gerar_relatorio_procedimento(proc) -> bytes:
         dfd = proc.dfd
         pecas.append(['DFD', f"SEI: {dfd.numero_sei or '—'} | Status: {dfd.status} | {_fmt_d(dfd.created_at.date() if dfd.created_at else None)}"])
         try:
-            for etp in dfd.etps.all():
-                pecas.append(['ETP', f"SEI: {etp.numero_sei or '—'} | Status: {etp.status}"])
+            etp = dfd.etp  # OneToOne — pode não existir
+            pecas.append(['ETP', f"SEI: {etp.numero_sei or '—'} | Status: {etp.status}"])
         except Exception:
             pass
     if proc.tr:

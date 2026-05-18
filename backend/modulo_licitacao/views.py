@@ -326,8 +326,7 @@ class ProcedimentoViewSet(viewsets.ModelViewSet):
                 'tramitacoes__registrado_por',
                 'resultados__lote',
                 'resultados__contrato_gerado',
-                'dfd__etps',
-                'tr__lotes__itens',
+                'tr__lotes',
             )
             .get(pk=pk)
         )
