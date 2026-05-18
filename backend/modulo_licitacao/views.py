@@ -311,22 +311,28 @@ class ProcedimentoViewSet(viewsets.ModelViewSet):
             **self._serializar(proc),
         }, status=status.HTTP_201_CREATED)
 
-    # ── Export histórico ─────────────────────────────────────────────────────
+    # ── Relatório completo de tramitação ─────────────────────────────────────
 
     @action(detail=True, methods=['get'], url_path='export/historico')
     def export_historico(self, request, pk=None):
-        from exportacao.pdf_utils import gerar_pdf_historico, resposta_pdf
+        from exportacao.pdf_utils import gerar_relatorio_procedimento, resposta_pdf
         proc = self.get_object()
-        pdf = gerar_pdf_historico(
-            titulo=f'{proc.get_modalidade_display()} — {proc.numero}',
-            numero_ref=proc.numero,
-            historico_entries=proc.historico.select_related('usuario').order_by('-criado_em'),
-            org_nome=proc.org_id.nome if proc.org_id else '',
-            org_sigla=proc.org_id.sigla if proc.org_id else None,
-            criado_por=proc.created_by,
-            created_at=proc.created_at,
+        # Pré-carregar relacionamentos para evitar N+1 queries no PDF
+        proc = (
+            self.get_queryset()
+            .select_related('org_id', 'dfd', 'tr', 'unidade_gestora', 'created_by')
+            .prefetch_related(
+                'historico__usuario',
+                'tramitacoes__registrado_por',
+                'resultados__lote',
+                'resultados__contrato_gerado',
+                'dfd__etps',
+                'tr__lotes__itens',
+            )
+            .get(pk=pk)
         )
-        return resposta_pdf(pdf, f'Historico_{proc.numero}.pdf')
+        pdf = gerar_relatorio_procedimento(proc)
+        return resposta_pdf(pdf, f'Relatorio_{proc.numero}.pdf')
 
     # ── Dashboard ─────────────────────────────────────────────────────────────
 

@@ -220,9 +220,9 @@ export default function ProcedimentoDetail() {
         {/* Botões de ação contextuais */}
         <div className="flex gap-2 flex-wrap justify-end">
           <DownloadButton
-              onClick={() => downloadFile(`/licitacao/procedimento/${id}/export/historico/`, `Historico_${current.numero}.pdf`)}
+              onClick={() => downloadFile(`/licitacao/procedimento/${id}/export/historico/`, `Relatorio_${current.numero}.pdf`)}
               className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-3 py-1.5 rounded-lg">
-              ↓ Histórico
+              ↓ Relatório Completo
             </DownloadButton>
           {transicoes.includes('Aguardando Aprovação') && isLicitante && (
             <button onClick={() => act(submeter, id)} disabled={saving}

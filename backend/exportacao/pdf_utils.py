@@ -1781,3 +1781,269 @@ def gerar_pdf_contrato(contrato) -> bytes:
 
     doc.build(e, onFirstPage=_rodape, onLaterPages=_rodape)
     return buf.getvalue()
+
+
+def gerar_relatorio_procedimento(proc) -> bytes:
+    """
+    Relatório completo de tramitação e resultado do Procedimento.
+    Seções: identificação, cronologia, peças instrutórias, fundamento legal,
+    tramitações externas, histórico de status, resultados por lote.
+    """
+    from decimal import Decimal
+
+    buf     = io.BytesIO()
+    org     = proc.org_id
+    estilos = _estilos()
+
+    def _rodape(canvas, doc):
+        canvas.saveState()
+        canvas.setFont('Helvetica', 7)
+        canvas.setFillColor(CINZA_TXT)
+        canvas.drawString(2 * cm, 1.0 * cm, 'Sistema WEBBER — Documento gerado eletronicamente')
+        canvas.drawRightString(A4[0] - 2 * cm, 1.0 * cm,
+            f'Página {doc.page}  •  {datetime.now().strftime("%d/%m/%Y %H:%M")}')
+        canvas.restoreState()
+
+    doc = SimpleDocTemplate(buf, pagesize=A4,
+                             leftMargin=2*cm, rightMargin=2*cm,
+                             topMargin=2*cm, bottomMargin=2.5*cm)
+
+    modalidade_label = proc.get_modalidade_display() if hasattr(proc, 'get_modalidade_display') else proc.modalidade
+    e = _cabecalho(
+        f'RELATÓRIO DE PROCEDIMENTO — {modalidade_label.upper()}',
+        proc.numero,
+        org.nome if org else '',
+        estilos,
+        org_sigla=org.sigla if org else None,
+    )
+
+    def _fmt_d(d):
+        return d.strftime('%d/%m/%Y') if d else '—'
+
+    def _fmt_v(v):
+        return f'R$ {float(v):,.2f}' if v else '—'
+
+    def _tab(dados, c1=4.5*cm, c2=13*cm):
+        t = Table(dados, colWidths=[c1, c2])
+        t.setStyle(TableStyle([
+            ('FONTNAME',       (0, 0), (0, -1), 'Helvetica-Bold'),
+            ('FONTSIZE',       (0, 0), (-1, -1), 8),
+            ('TEXTCOLOR',      (0, 0), (0, -1), CINZA_TXT),
+            ('ROWBACKGROUNDS', (0, 0), (-1, -1), [BRANCO, AZUL_CLARO]),
+            ('GRID',           (0, 0), (-1, -1), 0.5, CINZA_BD),
+            ('VALIGN',         (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING',     (0, 0), (-1, -1), 5),
+            ('BOTTOMPADDING',  (0, 0), (-1, -1), 5),
+            ('LEFTPADDING',    (0, 0), (-1, -1), 8),
+        ]))
+        return t
+
+    sp = lambda: e.append(Spacer(1, 0.3*cm))
+
+    # ── 1. Identificação ──────────────────────────────────────────────────────
+    e.append(_secao('1. Identificação do Procedimento', estilos))
+    e.append(_tab([
+        ['Número',           proc.numero],
+        ['Modalidade',       modalidade_label],
+        ['Status atual',     proc.status],
+        ['Exercício fiscal', str(proc.exercicio)],
+        ['Objeto',           Paragraph(proc.objeto or '—', ParagraphStyle('obj', fontSize=8, leading=11))],
+        ['Valor estimado',   _fmt_v(proc.valor_estimado)],
+        ['Processo SEI',     proc.numero_sei or '—'],
+        ['Unidade gestora',  proc.unidade_gestora.sigla if proc.unidade_gestora else '—'],
+        ['Responsável',      (proc.created_by.get_full_name() or proc.created_by.username) if proc.created_by else '—'],
+        ['Criado em',        proc.created_at.strftime('%d/%m/%Y às %H:%M') if proc.created_at else '—'],
+    ]))
+    sp()
+
+    # ── 2. Cronologia ─────────────────────────────────────────────────────────
+    e.append(_secao('2. Cronologia', estilos))
+    dados_datas = [
+        ['Publicação do edital', _fmt_d(proc.data_publicacao)],
+        ['Abertura das propostas', _fmt_d(proc.data_abertura)],
+        ['Homologação', _fmt_d(proc.data_homologacao)],
+        ['Prazo legal mínimo', f'{proc.prazo_minimo_dias_uteis} dias úteis' if proc.prazo_minimo_dias_uteis else 'N/A'],
+    ]
+    if proc.alerta_prazo:
+        dados_datas.append(['⚠ Alerta de prazo', proc.alerta_prazo])
+    if proc.alerta_teto_dispensa:
+        dados_datas.append(['⚠ Teto de dispensa', proc.alerta_teto_dispensa])
+    e.append(_tab(dados_datas))
+    sp()
+
+    # ── 3. Peças instrutórias ─────────────────────────────────────────────────
+    e.append(_secao('3. Peças Instrutórias', estilos))
+    pecas = []
+    if proc.dfd:
+        dfd = proc.dfd
+        pecas.append(['DFD', f"SEI: {dfd.numero_sei or '—'} | Status: {dfd.status} | {_fmt_d(dfd.created_at.date() if dfd.created_at else None)}"])
+        try:
+            for etp in dfd.etps.all():
+                pecas.append(['ETP', f"SEI: {etp.numero_sei or '—'} | Status: {etp.status}"])
+        except Exception:
+            pass
+    if proc.tr:
+        tr = proc.tr
+        pecas.append(['Termo de Referência', f"SEI: {tr.numero_sei or '—'} | Status: {tr.status} | {_fmt_d(tr.created_at.date() if tr.created_at else None)}"])
+        try:
+            for lt in tr.lotes.all():
+                vl = f" | Val. est.: {_fmt_v(getattr(lt, 'valor_total_estimado', None))}" if hasattr(lt, 'valor_total_estimado') else ''
+                pecas.append([f'  Lote: {lt.titulo or lt.id}', f"Nº itens: {lt.itens.count() if hasattr(lt, 'itens') else '?'}{vl}"])
+        except Exception:
+            pass
+    if not pecas:
+        pecas = [['Peças', 'Nenhuma peça instrutória vinculada.']]
+    e.append(_tab(pecas))
+    sp()
+
+    # ── 4. Fundamento legal ───────────────────────────────────────────────────
+    tem_fund = proc.fundamento_dispensa or proc.fundamento_inexigibilidade or proc.justificativa
+    if tem_fund:
+        e.append(_secao('4. Fundamento Legal', estilos))
+        fund_dados = []
+        if proc.fundamento_dispensa:
+            fund_dados.append(['Fundamento (dispensa)',
+                proc.get_fundamento_dispensa_display() if hasattr(proc, 'get_fundamento_dispensa_display') else proc.fundamento_dispensa])
+        if proc.fundamento_inexigibilidade:
+            fund_dados.append(['Fundamento (inexigibilidade)',
+                proc.get_fundamento_inexigibilidade_display() if hasattr(proc, 'get_fundamento_inexigibilidade_display') else proc.fundamento_inexigibilidade])
+        if proc.valor_acumulado_dispensa:
+            fund_dados.append(['Valor acumulado dispensa', _fmt_v(proc.valor_acumulado_dispensa)])
+        if proc.justificativa:
+            fund_dados.append(['Justificativa',
+                Paragraph(proc.justificativa, ParagraphStyle('jt', fontSize=8, leading=12))])
+        e.append(_tab(fund_dados))
+        sp()
+
+    # ── 5. Tramitações externas ───────────────────────────────────────────────
+    tramitacoes = list(proc.tramitacoes.select_related('registrado_por').order_by('data_envio'))
+    if tramitacoes:
+        e.append(_secao(f'5. Tramitações Externas ({len(tramitacoes)})', estilos))
+        cab = [['Órgão', 'Tipo', 'Nº SEI', 'Envio', 'Prazo retorno', 'Retorno efetivo', 'Situação']]
+        rows = [[
+            t.orgao_label,
+            t.get_tipo_display() if hasattr(t, 'get_tipo_display') else t.tipo,
+            t.numero_sei or '—',
+            _fmt_d(t.data_envio),
+            _fmt_d(t.prazo_esperado),
+            _fmt_d(t.data_retorno),
+            t.status,
+        ] for t in tramitacoes]
+        t_tr = Table(cab + rows, colWidths=[3*cm, 2.5*cm, 2.5*cm, 1.8*cm, 2*cm, 2*cm, 1.7*cm])
+        t_tr.setStyle(TableStyle([
+            ('BACKGROUND',     (0, 0), (-1, 0), AZUL_GOV),
+            ('TEXTCOLOR',      (0, 0), (-1, 0), BRANCO),
+            ('FONTNAME',       (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE',       (0, 0), (-1, -1), 7),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [BRANCO, AZUL_CLARO]),
+            ('GRID',           (0, 0), (-1, -1), 0.5, CINZA_BD),
+            ('VALIGN',         (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING',     (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING',  (0, 0), (-1, -1), 4),
+            ('LEFTPADDING',    (0, 0), (-1, -1), 5),
+        ]))
+        e.append(t_tr)
+        for t in tramitacoes:
+            if t.observacoes:
+                e.append(Paragraph(
+                    f'<b>Obs. {t.orgao_label}:</b> {t.observacoes}',
+                    ParagraphStyle('tobs', fontSize=7, textColor=CINZA_TXT, spaceBefore=3, leftIndent=8),
+                ))
+        sp()
+
+    # ── 6. Histórico de tramitação de status ──────────────────────────────────
+    historico = list(proc.historico.select_related('usuario').order_by('criado_em'))
+    e.append(_secao(f'6. Histórico de Tramitação de Status ({len(historico)} registros)', estilos))
+    if historico:
+        cab = [['Data / Hora', 'Usuário', 'Status anterior', 'Status novo', 'Motivo / Observação']]
+        rows = [[
+            h.criado_em.strftime('%d/%m/%Y\n%H:%M') if h.criado_em else '—',
+            (h.usuario.get_full_name() or h.usuario.username) if h.usuario else '—',
+            h.status_anterior or '—',
+            h.status_novo,
+            Paragraph(h.motivo or '—', ParagraphStyle('mv', fontSize=7, leading=10)),
+        ] for h in historico]
+        t_hist = Table(cab + rows, colWidths=[2.3*cm, 3*cm, 2.8*cm, 2.8*cm, 6.6*cm])
+        t_hist.setStyle(TableStyle([
+            ('BACKGROUND',     (0, 0), (-1, 0), AZUL_GOV),
+            ('TEXTCOLOR',      (0, 0), (-1, 0), BRANCO),
+            ('FONTNAME',       (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE',       (0, 0), (-1, -1), 7),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [BRANCO, AZUL_CLARO]),
+            ('GRID',           (0, 0), (-1, -1), 0.5, CINZA_BD),
+            ('VALIGN',         (0, 0), (-1, -1), 'TOP'),
+            ('TOPPADDING',     (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING',  (0, 0), (-1, -1), 4),
+            ('LEFTPADDING',    (0, 0), (-1, -1), 5),
+        ]))
+        e.append(t_hist)
+    else:
+        e.append(Paragraph('Nenhuma tramitação de status registrada.',
+            ParagraphStyle('vz', fontSize=8, textColor=CINZA_TXT)))
+    sp()
+
+    # ── 7. Resultados por lote ────────────────────────────────────────────────
+    resultados = list(proc.resultados.select_related('lote', 'contrato_gerado').order_by('descricao_lote'))
+    if resultados:
+        e.append(_secao(f'7. Resultados da Sessão / Adjudicação ({len(resultados)} lote{"s" if len(resultados) != 1 else ""})', estilos))
+        cab = [['Lote', 'Resultado', 'Empresa vencedora', 'CNPJ', 'Val. estimado', 'Val. adjudicado', 'Desconto', 'Contrato']]
+        rows = []
+        for r in resultados:
+            ve  = float(r.valor_estimado or 0)
+            vf  = float(r.valor_final   or 0)
+            desc = f'{((ve - vf) / ve * 100):.1f}%' if ve and vf else '—'
+            rows.append([
+                Paragraph(r.descricao_lote or (str(r.lote) if r.lote else f'Lote {r.id}'), ParagraphStyle('lt', fontSize=7, leading=9)),
+                r.get_resultado_display() if hasattr(r, 'get_resultado_display') else r.resultado,
+                Paragraph(r.empresa_vencedora or '—', ParagraphStyle('em', fontSize=7, leading=9)),
+                r.cnpj_vencedor or '—',
+                _fmt_v(r.valor_estimado),
+                _fmt_v(r.valor_final),
+                desc,
+                r.contrato_gerado.numero if r.contrato_gerado else '—',
+            ])
+        t_res = Table(cab + rows, colWidths=[2.3*cm, 2.2*cm, 3*cm, 2.2*cm, 2*cm, 2*cm, 1.3*cm, 2.5*cm])
+        t_res.setStyle(TableStyle([
+            ('BACKGROUND',     (0, 0), (-1, 0), AZUL_GOV),
+            ('TEXTCOLOR',      (0, 0), (-1, 0), BRANCO),
+            ('FONTNAME',       (0, 0), (-1, 0), 'Helvetica-Bold'),
+            ('FONTSIZE',       (0, 0), (-1, -1), 7),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [BRANCO, AZUL_CLARO]),
+            ('GRID',           (0, 0), (-1, -1), 0.5, CINZA_BD),
+            ('VALIGN',         (0, 0), (-1, -1), 'TOP'),
+            ('TOPPADDING',     (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING',  (0, 0), (-1, -1), 4),
+            ('LEFTPADDING',    (0, 0), (-1, -1), 5),
+        ]))
+        e.append(t_res)
+        for r in resultados:
+            if r.observacoes:
+                lote_ref = r.descricao_lote or (str(r.lote) if r.lote else f'Lote {r.id}')
+                e.append(Paragraph(
+                    f'<b>Obs. {lote_ref}:</b> {r.observacoes}',
+                    ParagraphStyle('robs', fontSize=7, textColor=CINZA_TXT, spaceBefore=3, leftIndent=8),
+                ))
+        sp()
+
+    # ── 8. Observações e revogação ────────────────────────────────────────────
+    if proc.motivo_revogacao or proc.observacoes:
+        e.append(_secao('8. Observações e Motivo de Revogação', estilos))
+        if proc.motivo_revogacao:
+            e.append(Paragraph(
+                f'<b>Motivo de revogação/anulação:</b> {proc.motivo_revogacao}',
+                ParagraphStyle('rev', fontSize=8, leading=12, spaceBefore=4)))
+        if proc.observacoes:
+            e.append(Paragraph(
+                f'<b>Observações gerais:</b> {proc.observacoes}',
+                ParagraphStyle('obs2', fontSize=8, leading=12, spaceBefore=4)))
+        sp()
+
+    # ── Rodapé de emissão ─────────────────────────────────────────────────────
+    e.append(Spacer(1, 0.5*cm))
+    e.append(Paragraph(
+        f'Relatório emitido em {datetime.now().strftime("%d/%m/%Y às %H:%M")} pelo Sistema WEBBER.',
+        ParagraphStyle('emit', fontSize=7, textColor=CINZA_TXT, alignment=TA_CENTER),
+    ))
+
+    doc.build(e, onFirstPage=_rodape, onLaterPages=_rodape)
+    return buf.getvalue()
