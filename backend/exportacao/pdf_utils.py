@@ -15,7 +15,7 @@ from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import cm
 import os as _os
 from reportlab.platypus import (
-    HRFlowable, Image as RLImage, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+    HRFlowable, Image as RLImage, KeepTogether, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
 )
 
 _LOGO_DIR = _os.path.join(_os.path.dirname(_os.path.dirname(__file__)), 'static', 'logos')
@@ -1918,7 +1918,6 @@ def gerar_relatorio_procedimento(proc) -> bytes:
     # ── 5. Tramitações externas ───────────────────────────────────────────────
     tramitacoes = list(proc.tramitacoes.select_related('registrado_por').order_by('data_envio'))
     if tramitacoes:
-        e.append(_secao(f'5. Tramitações Externas ({len(tramitacoes)})', estilos))
         cab = [['Órgão', 'Tipo', 'Nº SEI', 'Envio', 'Prazo retorno', 'Retorno efetivo', 'Situação']]
         rows = [[
             t.orgao_label,
@@ -1929,7 +1928,8 @@ def gerar_relatorio_procedimento(proc) -> bytes:
             _fmt_d(t.data_retorno),
             t.status,
         ] for t in tramitacoes]
-        t_tr = Table(cab + rows, colWidths=[3*cm, 2.5*cm, 2.5*cm, 1.8*cm, 2*cm, 2*cm, 1.7*cm])
+        t_tr = Table(cab + rows, colWidths=[3*cm, 2.5*cm, 2.5*cm, 1.8*cm, 2*cm, 2*cm, 1.7*cm],
+                     repeatRows=1)
         t_tr.setStyle(TableStyle([
             ('BACKGROUND',     (0, 0), (-1, 0), AZUL_GOV),
             ('TEXTCOLOR',      (0, 0), (-1, 0), BRANCO),
@@ -1942,18 +1942,18 @@ def gerar_relatorio_procedimento(proc) -> bytes:
             ('BOTTOMPADDING',  (0, 0), (-1, -1), 4),
             ('LEFTPADDING',    (0, 0), (-1, -1), 5),
         ]))
-        e.append(t_tr)
-        for t in tramitacoes:
-            if t.observacoes:
-                e.append(Paragraph(
-                    f'<b>Obs. {t.orgao_label}:</b> {t.observacoes}',
-                    ParagraphStyle('tobs', fontSize=7, textColor=CINZA_TXT, spaceBefore=3, leftIndent=8),
-                ))
+        obs_tram = [Paragraph(
+            f'<b>Obs. {t.orgao_label}:</b> {t.observacoes}',
+            ParagraphStyle('tobs', fontSize=7, textColor=CINZA_TXT, spaceBefore=3, leftIndent=8),
+        ) for t in tramitacoes if t.observacoes]
+        e.append(KeepTogether([
+            _secao(f'5. Tramitações Externas ({len(tramitacoes)})', estilos),
+            t_tr,
+        ] + obs_tram))
         sp()
 
     # ── 6. Histórico de tramitação de status ──────────────────────────────────
     historico = list(proc.historico.select_related('usuario').order_by('criado_em'))
-    e.append(_secao(f'6. Histórico de Tramitação de Status ({len(historico)} registros)', estilos))
     if historico:
         cab = [['Data / Hora', 'Usuário', 'Status anterior', 'Status novo', 'Motivo / Observação']]
         rows = [[
@@ -1963,7 +1963,8 @@ def gerar_relatorio_procedimento(proc) -> bytes:
             h.status_novo,
             Paragraph(h.motivo or '—', ParagraphStyle('mv', fontSize=7, leading=10)),
         ] for h in historico]
-        t_hist = Table(cab + rows, colWidths=[2.3*cm, 3*cm, 2.8*cm, 2.8*cm, 6.6*cm])
+        t_hist = Table(cab + rows, colWidths=[2.3*cm, 3*cm, 2.8*cm, 2.8*cm, 6.6*cm],
+                       repeatRows=1)
         t_hist.setStyle(TableStyle([
             ('BACKGROUND',     (0, 0), (-1, 0), AZUL_GOV),
             ('TEXTCOLOR',      (0, 0), (-1, 0), BRANCO),
@@ -1976,16 +1977,19 @@ def gerar_relatorio_procedimento(proc) -> bytes:
             ('BOTTOMPADDING',  (0, 0), (-1, -1), 4),
             ('LEFTPADDING',    (0, 0), (-1, -1), 5),
         ]))
+        e.append(_secao(f'6. Histórico de Tramitação de Status ({len(historico)} registros)', estilos))
         e.append(t_hist)
     else:
-        e.append(Paragraph('Nenhuma tramitação de status registrada.',
-            ParagraphStyle('vz', fontSize=8, textColor=CINZA_TXT)))
+        e.append(KeepTogether([
+            _secao('6. Histórico de Tramitação de Status (0 registros)', estilos),
+            Paragraph('Nenhuma tramitação de status registrada.',
+                ParagraphStyle('vz', fontSize=8, textColor=CINZA_TXT)),
+        ]))
     sp()
 
     # ── 7. Resultados por lote ────────────────────────────────────────────────
     resultados = list(proc.resultados.select_related('lote', 'contrato_gerado').order_by('descricao_lote'))
     if resultados:
-        e.append(_secao(f'7. Resultados da Sessão / Adjudicação ({len(resultados)} lote{"s" if len(resultados) != 1 else ""})', estilos))
         cab = [['Lote', 'Resultado', 'Empresa vencedora', 'CNPJ', 'Val. estimado', 'Val. adjudicado', 'Desconto', 'Contrato']]
         rows = []
         for r in resultados:
@@ -2002,7 +2006,8 @@ def gerar_relatorio_procedimento(proc) -> bytes:
                 desc,
                 r.contrato_gerado.numero if r.contrato_gerado else '—',
             ])
-        t_res = Table(cab + rows, colWidths=[2.3*cm, 2.2*cm, 3*cm, 2.2*cm, 2*cm, 2*cm, 1.3*cm, 2.5*cm])
+        t_res = Table(cab + rows, colWidths=[2.3*cm, 2.2*cm, 3*cm, 2.2*cm, 2*cm, 2*cm, 1.3*cm, 2.5*cm],
+                      repeatRows=1)
         t_res.setStyle(TableStyle([
             ('BACKGROUND',     (0, 0), (-1, 0), AZUL_GOV),
             ('TEXTCOLOR',      (0, 0), (-1, 0), BRANCO),
@@ -2015,14 +2020,14 @@ def gerar_relatorio_procedimento(proc) -> bytes:
             ('BOTTOMPADDING',  (0, 0), (-1, -1), 4),
             ('LEFTPADDING',    (0, 0), (-1, -1), 5),
         ]))
-        e.append(t_res)
-        for r in resultados:
-            if r.observacoes:
-                lote_ref = r.descricao_lote or (str(r.lote) if r.lote else f'Lote {r.id}')
-                e.append(Paragraph(
-                    f'<b>Obs. {lote_ref}:</b> {r.observacoes}',
-                    ParagraphStyle('robs', fontSize=7, textColor=CINZA_TXT, spaceBefore=3, leftIndent=8),
-                ))
+        obs_res = [Paragraph(
+            f'<b>Obs. {r.descricao_lote or (str(r.lote) if r.lote else f"Lote {r.id}")}:</b> {r.observacoes}',
+            ParagraphStyle('robs', fontSize=7, textColor=CINZA_TXT, spaceBefore=3, leftIndent=8),
+        ) for r in resultados if r.observacoes]
+        e.append(KeepTogether([
+            _secao(f'7. Resultados da Sessão / Adjudicação ({len(resultados)} lote{"s" if len(resultados) != 1 else ""})', estilos),
+            t_res,
+        ] + obs_res))
         sp()
 
     # ── 8. Observações e revogação ────────────────────────────────────────────
