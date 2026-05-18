@@ -161,78 +161,133 @@ export default function AuditoriaList() {
       </div>
 
       {/* ── Relatórios por Processo ─────────────────────────────────────── */}
-      <div className="bg-white border border-blue-200 rounded-xl overflow-hidden">
-        <div className="px-5 py-3 bg-blue-50 border-b border-blue-100 flex items-center gap-2">
-          <span className="text-blue-600 font-semibold text-sm">Relatórios por Processo</span>
-          <span className="text-xs text-blue-400">PDF com logo do órgão e data de extração</span>
-        </div>
-        <div className="p-5 grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-2 gap-4">
 
-          {/* Por Processo SEI */}
-          <div className="space-y-2">
-            <label className="block text-xs font-semibold text-gray-700">Por Número de Processo SEI</label>
-            <p className="text-xs text-gray-400">
-              Consolida DFD, ETP, TR, Procedimento e Contrato vinculados ao processo.
-            </p>
-            <div className="flex gap-2 mt-2">
-              <input value={seiInput} onChange={e => setSeiInput(e.target.value)}
-                placeholder="Ex: 020.16859.2026.0004"
-                className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500"
-                onKeyDown={e => e.key === 'Enter' && seiInput.trim() &&
-                  _download('/core/auditoria/relatorio-sei/', { sei: seiInput.trim() },
-                    `RelatorioSEI_${seiInput.trim().replace(/\./g, '-')}.pdf`, setGerandoSei)} />
-              <button
-                onClick={() => _download('/core/auditoria/relatorio-sei/', { sei: seiInput.trim() },
-                  `RelatorioSEI_${seiInput.trim().replace(/\./g, '-')}.pdf`, setGerandoSei)}
-                disabled={!seiInput.trim() || gerandoSei}
-                className="flex items-center gap-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-sm font-medium px-4 py-2 rounded-lg whitespace-nowrap">
-                {gerandoSei ? 'Gerando...' : '↓ Gerar PDF'}
-              </button>
+        {/* Card 1 — Por Processo SEI */}
+        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+          {/* Header do card */}
+          <div className="flex items-center gap-3 px-5 py-4 bg-gradient-to-r from-blue-600 to-blue-500">
+            <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center text-white text-lg font-bold shrink-0">
+              #
+            </div>
+            <div>
+              <p className="text-white font-semibold text-sm leading-tight">Relatório por Processo SEI</p>
+              <p className="text-blue-100 text-xs mt-0.5">DFD · ETP · TR · Procedimento · Contrato</p>
             </div>
           </div>
 
-          {/* Por Necessidade / Demanda */}
-          <div className="space-y-2">
-            <label className="block text-xs font-semibold text-gray-700">Por Necessidade / Demanda</label>
-            <p className="text-xs text-gray-400">
-              Relatório da cadeia completa: Necessidade → DFD → ETP → TR → Procedimento → Contrato.
+          {/* Corpo */}
+          <div className="p-5 space-y-4">
+            <p className="text-xs text-gray-500 leading-relaxed">
+              Informe o número do processo SEI para gerar um relatório consolidado de todos os artefatos vinculados, com histórico de tramitação e trilha de auditoria.
             </p>
-            <div className="flex gap-2 mt-2">
-              <div className="relative flex-1">
+
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Nº do Processo SEI</label>
+              <input
+                value={seiInput}
+                onChange={e => setSeiInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && seiInput.trim() &&
+                  _download('/core/auditoria/relatorio-sei/', { sei: seiInput.trim() },
+                    `RelatorioSEI_${seiInput.trim().replace(/\./g, '-')}.pdf`, setGerandoSei)}
+                placeholder="Ex: 020.16859.2026.0004"
+                className="w-full border border-gray-300 rounded-xl px-4 py-2.5 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
+            </div>
+
+            <button
+              onClick={() => _download('/core/auditoria/relatorio-sei/', { sei: seiInput.trim() },
+                `RelatorioSEI_${seiInput.trim().replace(/\./g, '-')}.pdf`, setGerandoSei)}
+              disabled={!seiInput.trim() || gerandoSei}
+              className="w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold py-2.5 rounded-xl transition-colors">
+              {gerandoSei
+                ? <><span className="animate-spin">⟳</span> Gerando PDF...</>
+                : <><span>↓</span> Gerar Relatório PDF</>
+              }
+            </button>
+
+            <div className="flex items-center gap-1.5 text-[10px] text-gray-400">
+              <span>📄</span>
+              <span>PDF com logo do órgão e data de extração</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 2 — Por Necessidade / Demanda */}
+        <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
+          {/* Header do card */}
+          <div className="flex items-center gap-3 px-5 py-4 bg-gradient-to-r from-violet-600 to-violet-500">
+            <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center text-white text-lg font-bold shrink-0">
+              ⇢
+            </div>
+            <div>
+              <p className="text-white font-semibold text-sm leading-tight">Relatório por Cadeia de Demanda</p>
+              <p className="text-violet-100 text-xs mt-0.5">Necessidade → DFD → ETP → TR → Procedimento → Contrato</p>
+            </div>
+          </div>
+
+          {/* Corpo */}
+          <div className="p-5 space-y-4">
+            <p className="text-xs text-gray-500 leading-relaxed">
+              Selecione uma necessidade de planejamento para gerar o relatório completo da cadeia de contratação, incluindo históricos e resultados de adjudicação.
+            </p>
+
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1.5">Buscar Necessidade</label>
+              <div className="relative">
                 <input
                   placeholder="Digite o título da necessidade..."
                   onChange={e => { buscarNecessidades(e.target.value); setNecId('') }}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                  className={`w-full border rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-violet-500 focus:border-violet-500 ${
+                    necId ? 'border-green-400 bg-green-50' : 'border-gray-300'
+                  }`}
+                />
+                {necId && (
+                  <span className="absolute right-3 top-1/2 -translate-y-1/2 text-green-500 text-sm">✓</span>
+                )}
                 {(necessidades.length > 0 || loadingNec) && (
-                  <div className="absolute z-20 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-40 overflow-y-auto">
-                    {loadingNec && <p className="px-3 py-2 text-xs text-gray-400 italic">Buscando...</p>}
+                  <div className="absolute z-30 top-full left-0 right-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-xl max-h-48 overflow-y-auto">
+                    {loadingNec && (
+                      <p className="px-4 py-3 text-xs text-gray-400 italic">Buscando...</p>
+                    )}
                     {necessidades.map(n => (
                       <button key={n.id} type="button"
                         onClick={() => { setNecId(String(n.id)); setNecessidades([]) }}
-                        className={`w-full text-left px-3 py-2 text-xs hover:bg-blue-50 border-b border-gray-50 last:border-0 ${necId === String(n.id) ? 'bg-blue-50 font-medium text-blue-700' : ''}`}>
-                        <span className="font-medium">{n.titulo}</span>
-                        <span className="ml-2 text-gray-400">{n.exercicio_fiscal} · {n.status}</span>
+                        className="w-full text-left px-4 py-2.5 hover:bg-violet-50 border-b border-gray-50 last:border-0 transition-colors">
+                        <p className="text-sm font-medium text-gray-800 truncate">{n.titulo}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          Exercício {n.exercicio_fiscal} · <span className="font-medium">{n.status}</span>
+                        </p>
                       </button>
                     ))}
                   </div>
                 )}
               </div>
-              <button
-                onClick={() => _download('/core/auditoria/relatorio-necessidade/', { necessidade_id: necId },
-                  `RelatorioDemanda_${necId}.pdf`, setGerandoNec)}
-                disabled={!necId || gerandoNec}
-                className="flex items-center gap-1 bg-blue-600 hover:bg-blue-700 disabled:opacity-40 text-white text-sm font-medium px-4 py-2 rounded-lg whitespace-nowrap">
-                {gerandoNec ? 'Gerando...' : '↓ Gerar PDF'}
-              </button>
+              {necId && (
+                <p className="text-xs text-green-600 mt-1.5 font-medium">
+                  ✓ Necessidade #{necId} selecionada
+                </p>
+              )}
             </div>
-            {necId && (
-              <p className="text-xs text-green-600">
-                ✓ Necessidade #{necId} selecionada — clique em "Gerar PDF"
-              </p>
-            )}
-          </div>
 
+            <button
+              onClick={() => _download('/core/auditoria/relatorio-necessidade/', { necessidade_id: necId },
+                `RelatorioDemanda_${necId}.pdf`, setGerandoNec)}
+              disabled={!necId || gerandoNec}
+              className="w-full flex items-center justify-center gap-2 bg-violet-600 hover:bg-violet-700 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-semibold py-2.5 rounded-xl transition-colors">
+              {gerandoNec
+                ? <><span className="animate-spin">⟳</span> Gerando PDF...</>
+                : <><span>↓</span> Gerar Relatório PDF</>
+              }
+            </button>
+
+            <div className="flex items-center gap-1.5 text-[10px] text-gray-400">
+              <span>📄</span>
+              <span>PDF com logo do órgão e data de extração</span>
+            </div>
+          </div>
         </div>
+
       </div>
 
       {/* Filtros da trilha */}
