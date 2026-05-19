@@ -200,16 +200,46 @@ def buscar_preview(data_ini: date, data_fim: date,
             resp = client.buscar_contratos(data_ini, data_fim, cnpj=cnpj, uf=uf)
             for item in (resp.get('data') or []):
                 registros.append(_normalizar_contrato(item))
+        except TimeoutError:
+            erros.append(
+                'Contratos: timeout na API do PNCP. Reduza o período de busca ou '
+                'filtre por CNPJ/UF para diminuir o volume de resultados.'
+            )
         except Exception as e:
-            erros.append(f'Contratos: {e}')
+            code = getattr(e, 'code', None)
+            if code == 422:
+                erros.append(
+                    'Contratos: a API do PNCP rejeitou os parâmetros (422). '
+                    'Tente reduzir o período (máx. 90 dias) ou adicionar filtro de CNPJ.'
+                )
+            elif code == 400:
+                erros.append(f'Contratos: parâmetro inválido na API do PNCP (400). Detalhe: {e}')
+            else:
+                erros.append(f'Contratos: {e}')
+            logger.warning('PNCP buscar_contratos erro: %s', e)
 
     if incluir_atas:
         try:
             resp = client.buscar_atas(data_ini, data_fim, cnpj=cnpj, uf=uf)
             for item in (resp.get('data') or []):
                 registros.append(_normalizar_ata(item))
+        except TimeoutError:
+            erros.append(
+                'Atas: timeout na API do PNCP. Reduza o período de busca ou '
+                'filtre por CNPJ/UF para diminuir o volume de resultados.'
+            )
         except Exception as e:
-            erros.append(f'Atas: {e}')
+            code = getattr(e, 'code', None)
+            if code == 422:
+                erros.append(
+                    'Atas: a API do PNCP retornou 422 — muitos registros ou parâmetros inválidos. '
+                    'Reduza o período para ≤ 90 dias ou adicione filtro de CNPJ.'
+                )
+            elif code == 400:
+                erros.append(f'Atas: parâmetro inválido na API do PNCP (400). Detalhe: {e}')
+            else:
+                erros.append(f'Atas: {e}')
+            logger.warning('PNCP buscar_atas erro: %s', e)
 
     if termo:
         registros = _filtrar_termo(registros, termo)

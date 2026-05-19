@@ -27,11 +27,11 @@ export default function PNCPImport({ mapaId, itensDoMapa = [], onImportado }) {
   const [importando,setImportando]= useState(false)
   const [erro,      setErro]      = useState(null)
 
-  // Filtros
+  // Filtros — padrão 90 dias (período de 1 ano causa timeout no PNCP para contratos)
   const hoje = new Date()
-  const umAnoAtras = new Date(hoje.getFullYear() - 1, hoje.getMonth(), hoje.getDate())
+  const noventa = new Date(hoje); noventa.setDate(hoje.getDate() - 90)
   const [filtros, setFiltros] = useState({
-    periodo_inicio:       umAnoAtras.toISOString().split('T')[0],
+    periodo_inicio:       noventa.toISOString().split('T')[0],
     periodo_fim:          hoje.toISOString().split('T')[0],
     cnpj_orgao_referencia:'',
     uf:                   'BA',
@@ -63,9 +63,11 @@ export default function PNCPImport({ mapaId, itensDoMapa = [], onImportado }) {
       setImportacaoId(data.importacao_id)
       setRegistros(data.registros || [])
       setErrosApi(data.erros_api || [])
-      if (data.erros_api?.length) {
-        setErro(`Atenção: ${data.erros_api.join(' | ')}`)
+      if (data.erros_api?.length && !data.registros?.length) {
+        // Sem resultados E com erros — mostrar como erro principal
+        setErro(data.erros_api.join(' | '))
       }
+      // Se há registros mesmo com erros parciais, exibe os registros e os erros como aviso
     } catch (err) {
       const msg = err?.response?.data?.detail || 'Erro ao consultar o PNCP.'
       setErro(msg)
@@ -200,6 +202,13 @@ export default function PNCPImport({ mapaId, itensDoMapa = [], onImportado }) {
           {erro && (
             <div className="mt-3 bg-red-50 border border-red-200 rounded-lg p-3 text-xs text-red-700">
               {erro}
+            </div>
+          )}
+
+          {/* ── Avisos de erros parciais (um tipo falhou mas outro retornou) ── */}
+          {errosApi.length > 0 && registros.length > 0 && (
+            <div className="mt-3 bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800">
+              <strong>Aviso:</strong> {errosApi.join(' | ')}
             </div>
           )}
 

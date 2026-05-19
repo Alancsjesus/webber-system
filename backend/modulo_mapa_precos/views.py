@@ -557,6 +557,18 @@ class MapaComparativoPrecosViewSet(viewsets.ModelViewSet):
         if d_fim < d_ini:
             return Response({'detail': 'periodo_fim deve ser >= periodo_inicio.'}, status=400)
 
+        # Limite máximo de 180 dias para evitar timeout na API do PNCP
+        from datetime import timedelta
+        MAX_DIAS = 180
+        if (d_fim - d_ini).days > MAX_DIAS:
+            return Response({
+                'detail': (
+                    f'Período máximo permitido: {MAX_DIAS} dias. '
+                    f'Intervalo solicitado: {(d_fim - d_ini).days} dias. '
+                    'Reduza o período para evitar timeout na API do PNCP.'
+                )
+            }, status=status.HTTP_400_BAD_REQUEST)
+
         cnpj  = request.data.get('cnpj_orgao_referencia', '')
         uf    = request.data.get('uf', 'BA')
         termo = request.data.get('termo_busca', '')
