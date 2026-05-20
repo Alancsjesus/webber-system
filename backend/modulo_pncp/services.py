@@ -52,10 +52,12 @@ class PNCPClient:
     def buscar_contratos(self, data_ini: date, data_fim: date,
                          cnpj: str = '', uf: str = '',
                          termo: str = '', pagina: int = 1,
-                         tamanho: int = 50) -> dict:
+                         tamanho: int = 20,
+                         timeout_override: int = None) -> dict:
         """
         GET /contratos
         Retorna contratos publicados no período.
+        timeout_override permite usar timeout menor que o padrão do sistema.
         """
         params = {
             'dataInicial': data_ini.strftime('%Y%m%d'),
@@ -68,7 +70,13 @@ class PNCPClient:
         if uf:
             params['uf'] = uf
         url = f"{PNCP_BASE}/contratos?{urllib.parse.urlencode(params)}"
-        return _get_json(url)
+        timeout = timeout_override if timeout_override else _get_timeout()
+        req = urllib.request.Request(
+            url,
+            headers={'Accept': 'application/json', 'User-Agent': 'WEBBER-System/1.0'},
+        )
+        with urllib.request.urlopen(req, timeout=timeout, context=_ssl_ctx()) as resp:
+            return json.loads(resp.read().decode('utf-8'))
 
     def buscar_atas(self, data_ini: date, data_fim: date,
                     cnpj: str = '', uf: str = '',
@@ -196,24 +204,29 @@ def buscar_preview(data_ini: date, data_fim: date,
     erros = []
 
     if incluir_contratos:
+        # Contratos usa timeout reduzido (8s) — sem filtro de objeto tende a ser lento
+        # Resultado parcial é aceito: se timeout, atas ainda funcionam
         try:
-            resp = client.buscar_contratos(data_ini, data_fim, cnpj=cnpj, uf=uf)
+            resp = client.buscar_contratos(
+                data_ini, data_fim, cnpj=cnpj, uf=uf,
+                termo=termo, timeout_override=8,
+            )
             for item in (resp.get('data') or []):
                 registros.append(_normalizar_contrato(item))
         except TimeoutError:
             erros.append(
-                'Contratos: timeout na API do PNCP. Reduza o período de busca ou '
-                'filtre por CNPJ/UF para diminuir o volume de resultados.'
+                'Contratos: a API do PNCP não respondeu a tempo. '
+                'Use o campo "Termo de busca" para filtrar pelo objeto e reduzir o volume, '
+                'ou desmarque "Contratos" e consulte apenas Atas de RP.'
             )
+            logger.warning('PNCP buscar_contratos timeout')
         except Exception as e:
             code = getattr(e, 'code', None)
-            if code == 422:
+            if code in (422, 400):
                 erros.append(
-                    'Contratos: a API do PNCP rejeitou os parâmetros (422). '
-                    'Tente reduzir o período (máx. 90 dias) ou adicionar filtro de CNPJ.'
+                    'Contratos: parâmetros rejeitados pela API do PNCP. '
+                    'Reduza o período ou informe um termo de busca.'
                 )
-            elif code == 400:
-                erros.append(f'Contratos: parâmetro inválido na API do PNCP (400). Detalhe: {e}')
             else:
                 erros.append(f'Contratos: {e}')
             logger.warning('PNCP buscar_contratos erro: %s', e)

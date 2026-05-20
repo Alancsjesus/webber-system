@@ -177,7 +177,7 @@ export default function PNCPImport({ mapaId, itensDoMapa = [], onImportado }) {
                 {TIPO_FONTE_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
             </div>
-            <div className="flex items-end gap-4 pb-1">
+            <div className="flex items-center gap-4 pb-1">
               <label className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
                 <input type="checkbox" checked={filtros.incluir_contratos}
                   onChange={e => setF('incluir_contratos', e.target.checked)}
