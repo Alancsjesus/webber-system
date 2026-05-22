@@ -104,6 +104,23 @@ const useLicitacaoStore = create((set, get) => ({
     const { data } = await api.get('/licitacao/procedimento/teto-dispensa/', { params: { exercicio } })
     return data
   },
+
+  // ── Aprovação/devolução de peças instrutórias ─────────────────────────────
+  aprovarPeca: async (procId, tipo, pecaPk) => {
+    const { data } = await api.post(
+      `/licitacao/procedimento/${procId}/pecas/${tipo}/${pecaPk}/aprovar/`
+    )
+    set({ current: data })
+    return data
+  },
+  devolverPeca: async (procId, tipo, pecaPk, motivo) => {
+    const { data } = await api.post(
+      `/licitacao/procedimento/${procId}/pecas/${tipo}/${pecaPk}/devolver/`,
+      { motivo }
+    )
+    set({ current: data })
+    return data
+  },
 }))
 
 export default useLicitacaoStore

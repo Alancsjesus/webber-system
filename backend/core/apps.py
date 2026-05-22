@@ -9,3 +9,5 @@ class CoreConfig(AppConfig):
         import core.signals
         from core.audit_signals import connect_signals
         connect_signals()
+        from core.notification_signals import conectar_signals
+        conectar_signals()

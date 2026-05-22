@@ -425,3 +425,128 @@ class ProcedimentoViewSet(viewsets.ModelViewSet):
             'percentual_bens': round(float(total_geral / TETO_DISPENSA_BENS_SERVICOS * 100), 1),
             'qtd_procedimentos': dispensas.count(),
         })
+
+    # ── Aprovação de peças instrutórias direto do Procedimento ───────────────────
+
+    @action(detail=True, methods=['post'], url_path=r'pecas/(?P<tipo>[^/.]+)/(?P<peca_pk>[^/.]+)/aprovar')
+    def aprovar_peca(self, request, pk=None, tipo=None, peca_pk=None):
+        """
+        Aprova uma peça instrutória (ETP, TR, Mapa) diretamente do Procedimento.
+        tipo: 'etp' | 'tr' | 'mapa'
+        """
+        err = self._check_licitante(request)
+        if err:
+            return err
+
+        self.get_object()  # verifica acesso ao procedimento
+
+        try:
+            if tipo == 'etp':
+                from modulo_etp.models import ETP, HistoricoETP
+                obj = get_object_or_404(ETP, pk=peca_pk, org_id=request.org_id)
+                if obj.status != 'Em Análise':
+                    return Response({'detail': f'ETP não está em análise (status: {obj.status}).'}, status=400)
+                HistoricoETP.objects.create(etp=obj, status_anterior=obj.status,
+                    status_novo='Aprovado', usuario=request.user,
+                    motivo='Aprovado via painel do Procedimento.')
+                obj.status = 'Aprovado'
+                obj.updated_by = request.user
+                obj.save()
+
+            elif tipo == 'tr':
+                from modulo_tr.models import TR, HistoricoTR
+                obj = get_object_or_404(TR, pk=peca_pk, org_id=request.org_id)
+                if obj.status != 'Em Análise':
+                    return Response({'detail': f'TR não está em análise (status: {obj.status}).'}, status=400)
+                HistoricoTR.objects.create(tr=obj, status_anterior=obj.status,
+                    status_novo='Aprovado', usuario=request.user,
+                    motivo='Aprovado via painel do Procedimento.')
+                obj.status = 'Aprovado'
+                obj.updated_by = request.user
+                obj.save()
+
+            elif tipo == 'mapa':
+                from modulo_mapa_precos.models import MapaComparativoPrecos, HistoricoMapa
+                from datetime import date
+                obj = get_object_or_404(MapaComparativoPrecos, pk=peca_pk, org_id=request.org_id)
+                if obj.status != 'Em Análise':
+                    return Response({'detail': f'Mapa não está em análise (status: {obj.status}).'}, status=400)
+                HistoricoMapa.objects.create(mapa=obj, status_anterior=obj.status,
+                    status_novo='Aprovado', usuario=request.user,
+                    motivo='Aprovado via painel do Procedimento.')
+                obj.status = 'Aprovado'
+                obj.aprovador = request.user
+                obj.data_aprovacao = date.today()
+                obj.updated_by = request.user
+                obj.save()
+
+            else:
+                return Response({'detail': f'Tipo de peça desconhecido: {tipo}.'}, status=400)
+
+        except Exception as e:
+            return Response({'detail': str(e)}, status=400)
+
+        proc = self.get_object()
+        return Response({'detail': f'{tipo.upper()} aprovado com sucesso.', **self._serializar(proc)})
+
+    @action(detail=True, methods=['post'], url_path=r'pecas/(?P<tipo>[^/.]+)/(?P<peca_pk>[^/.]+)/devolver')
+    def devolver_peca(self, request, pk=None, tipo=None, peca_pk=None):
+        """
+        Devolve uma peça instrutória para correção diretamente do Procedimento.
+        tipo: 'etp' | 'tr' | 'mapa'
+        """
+        err = self._check_licitante(request)
+        if err:
+            return err
+
+        motivo = request.data.get('motivo', '').strip()
+        if not motivo:
+            return Response({'detail': 'Motivo da devolução é obrigatório.'}, status=400)
+
+        self.get_object()
+
+        try:
+            if tipo == 'etp':
+                from modulo_etp.models import ETP, HistoricoETP
+                obj = get_object_or_404(ETP, pk=peca_pk, org_id=request.org_id)
+                if obj.status != 'Em Análise':
+                    return Response({'detail': f'ETP não está em análise (status: {obj.status}).'}, status=400)
+                HistoricoETP.objects.create(etp=obj, status_anterior=obj.status,
+                    status_novo='Devolvido', usuario=request.user, motivo=motivo)
+                obj.status = 'Devolvido'
+                obj.motivo_devolucao = motivo
+                obj.updated_by = request.user
+                obj.save()
+
+            elif tipo == 'tr':
+                from modulo_tr.models import TR, HistoricoTR
+                obj = get_object_or_404(TR, pk=peca_pk, org_id=request.org_id)
+                if obj.status != 'Em Análise':
+                    return Response({'detail': f'TR não está em análise (status: {obj.status}).'}, status=400)
+                HistoricoTR.objects.create(tr=obj, status_anterior=obj.status,
+                    status_novo='Devolvido', usuario=request.user, motivo=motivo)
+                obj.status = 'Devolvido'
+                obj.motivo_devolucao = motivo
+                obj.updated_by = request.user
+                obj.save()
+
+            elif tipo == 'mapa':
+                from modulo_mapa_precos.models import MapaComparativoPrecos, HistoricoMapa
+                obj = get_object_or_404(MapaComparativoPrecos, pk=peca_pk, org_id=request.org_id)
+                if obj.status != 'Em Análise':
+                    return Response({'detail': f'Mapa não está em análise (status: {obj.status}).'}, status=400)
+                HistoricoMapa.objects.create(mapa=obj, status_anterior=obj.status,
+                    status_novo='Devolvido', usuario=request.user, motivo=motivo)
+                obj.status = 'Devolvido'
+                obj.motivo_devolucao = motivo
+                obj.updated_by = request.user
+                obj.save()
+
+            else:
+                return Response({'detail': f'Tipo de peça desconhecido: {tipo}.'}, status=400)
+
+        except Exception as e:
+            return Response({'detail': str(e)}, status=400)
+
+        proc = self.get_object()
+        return Response({'detail': f'{tipo.upper()} devolvido. Motivo registrado no histórico.', **self._serializar(proc)})

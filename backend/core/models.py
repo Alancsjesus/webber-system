@@ -350,3 +350,41 @@ class AuditLog(models.Model):
 
     def __str__(self):
         return f"{self.modelo} - {self.acao} - {self.criado_em}"
+
+
+# ── Notificações Internas ──────────────────────────────────────────────────────
+
+class NotificacaoInterna(models.Model):
+    """
+    Notificação interna para um usuário do sistema.
+    Criada automaticamente via signals quando documentos mudam de status.
+    """
+    TIPO_CHOICES = [
+        ('aprovacao',          'Documento aprovado'),
+        ('devolucao',          'Documento devolvido'),
+        ('pendente_aprovacao', 'Aguardando sua aprovação'),
+        ('alerta',             'Alerta do sistema'),
+    ]
+
+    destinatario  = models.ForeignKey(
+        User, on_delete=models.CASCADE,
+        related_name='notificacoes', verbose_name='Destinatário',
+    )
+    tipo          = models.CharField(max_length=25, choices=TIPO_CHOICES)
+    titulo        = models.CharField(max_length=200)
+    mensagem      = models.TextField(blank=True, default='')
+    url_destino   = models.CharField(max_length=200, blank=True, default='',
+                                     help_text='Rota frontend para navegação direta')
+    lida          = models.BooleanField(default=False)
+    criado_em     = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-criado_em']
+        verbose_name = 'Notificação Interna'
+        verbose_name_plural = 'Notificações Internas'
+        indexes = [
+            models.Index(fields=['destinatario', 'lida', '-criado_em']),
+        ]
+
+    def __str__(self):
+        return f'[{self.tipo}] {self.titulo} → {self.destinatario.username}'

@@ -1213,3 +1213,49 @@ class VerificarDocumentoView(APIView):
             'hash':     hash_code,
             'mensagem': 'Código de verificação não encontrado. O documento pode ter sido adulterado ou não pertence a este sistema.',
         }, status=status.HTTP_404_NOT_FOUND)
+
+
+# ── Notificações Internas ──────────────────────────────────────────────────────
+
+class NotificacaoViewSet(viewsets.GenericViewSet):
+    """Notificações internas do usuário autenticado."""
+    permission_classes = [IsAuthenticated]
+
+    def _serializer(self, qs, many=True):
+        from core.models import NotificacaoInterna
+
+        class S(drf_serializers.ModelSerializer):
+            class Meta:
+                model  = NotificacaoInterna
+                fields = ['id', 'tipo', 'titulo', 'mensagem', 'url_destino', 'lida', 'criado_em']
+        return S(qs, many=many).data
+
+    def get_queryset(self):
+        from core.models import NotificacaoInterna
+        return NotificacaoInterna.objects.filter(destinatario=self.request.user)
+
+    def list(self, request):
+        qs = self.get_queryset()
+        nao_lidas = qs.filter(lida=False).count()
+        recentes  = qs[:20]
+        return Response({
+            'nao_lidas': nao_lidas,
+            'notificacoes': self._serializer(recentes),
+        })
+
+    @action(detail=True, methods=['post'], url_path='marcar-lida')
+    def marcar_lida(self, request, pk=None):
+        notif = get_object_or_404(self.get_queryset(), pk=pk)
+        notif.lida = True
+        notif.save(update_fields=['lida'])
+        return Response({'ok': True})
+
+    @action(detail=False, methods=['post'], url_path='marcar-todas-lidas')
+    def marcar_todas_lidas(self, request):
+        self.get_queryset().filter(lida=False).update(lida=True)
+        return Response({'ok': True})
+
+    @action(detail=False, methods=['get'], url_path='nao-lidas-count')
+    def nao_lidas_count(self, request):
+        count = self.get_queryset().filter(lida=False).count()
+        return Response({'count': count})

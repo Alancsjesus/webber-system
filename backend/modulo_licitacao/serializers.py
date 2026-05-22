@@ -145,40 +145,58 @@ class ProcedimentoSerializer(serializers.ModelSerializer):
         return delta
 
     def get_pecas_instutorias(self, obj):
-        """Status unificado das peças instrutórias vinculadas ao DFD/TR."""
+        """Status unificado das peças instrutórias — inclui pk para ações diretas."""
+        ACOES = {
+            # tipo → (pode_aprovar_nos_status, pode_devolver_nos_status)
+            'DFD':           (['Em Análise'],        ['Em Análise']),
+            'ETP':           (['Em Análise'],        ['Em Análise']),
+            'TR':            (['Em Análise'],        ['Em Análise']),
+            'Mapa de Preços':(['Em Análise'],        ['Em Análise']),
+        }
         pecas = []
         if obj.dfd:
             dfd = obj.dfd
             pecas.append({
-                'tipo': 'DFD',
+                'tipo': 'DFD', 'pk': dfd.pk,
                 'numero_sei': dfd.numero_sei,
                 'status': dfd.status,
                 'ok': dfd.status == 'Aprovada',
+                'pode_aprovar': dfd.status in ACOES['DFD'][0],
+                'pode_devolver': dfd.status in ACOES['DFD'][1],
+                'url': f'/demanda/dfd/{dfd.pk}',
             })
             etp = getattr(dfd, 'etp', None)
             if etp:
                 pecas.append({
-                    'tipo': 'ETP',
+                    'tipo': 'ETP', 'pk': etp.pk,
                     'numero_sei': etp.numero_sei,
                     'status': etp.status,
                     'ok': etp.status in ('Aprovado', 'Dispensado'),
+                    'pode_aprovar': etp.status in ACOES['ETP'][0],
+                    'pode_devolver': etp.status in ACOES['ETP'][1],
+                    'url': f'/etp/etps/{etp.pk}',
                 })
                 tr = getattr(etp, 'tr', None)
                 if tr:
                     pecas.append({
-                        'tipo': 'TR',
+                        'tipo': 'TR', 'pk': tr.pk,
                         'numero_sei': tr.numero_sei,
                         'status': tr.status,
                         'ok': tr.status == 'Aprovado',
+                        'pode_aprovar': tr.status in ACOES['TR'][0],
+                        'pode_devolver': tr.status in ACOES['TR'][1],
+                        'url': f'/analise-tecnica/trs/{tr.pk}',
                     })
-                    # Mapa de Preços
-                    for mapa in dfd.mapas_preco.all():
-                        pecas.append({
-                            'tipo': 'Mapa de Preços',
-                            'numero_sei': f'Mapa ID {mapa.pk}',
-                            'status': mapa.status,
-                            'ok': mapa.status == 'Aprovado',
-                        })
+                for mapa in dfd.mapas_preco.all():
+                    pecas.append({
+                        'tipo': 'Mapa de Preços', 'pk': mapa.pk,
+                        'numero_sei': f'Mapa #{mapa.pk}',
+                        'status': mapa.status,
+                        'ok': mapa.status == 'Aprovado',
+                        'pode_aprovar': mapa.status in ACOES['Mapa de Preços'][0],
+                        'pode_devolver': mapa.status in ACOES['Mapa de Preços'][1],
+                        'url': f'/pesquisa/mapa/{mapa.pk}',
+                    })
         return pecas
 
     def create(self, validated_data):

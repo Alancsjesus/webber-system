@@ -12,6 +12,7 @@ from core.views import (
     UserManagementViewSet, PainelOrgaoPaiView, ParametroSistemaViewSet,
     VerificarDocumentoView, AreaAtuacaoViewSet, UserListView,
     SecaoArtefatoViewSet, ItemCatalogoViewSet, CategoriaItemViewSet, AuditLogViewSet,
+    NotificacaoViewSet,
 )
 from core.views_indicadores import IndicadoresOrcamentoView, IndicadoresDevolucoesView, IndicadoresAgrupamentoView, PlanoComprasView
 from core.views_calendario import CalendarioContratacaoView
@@ -28,7 +29,8 @@ router.register(r'core/areas',     AreaAtuacaoViewSet,      basename='area-atuac
 router.register(r'core/secoes',    SecaoArtefatoViewSet,    basename='secao-artefato')
 router.register(r'core/catalogo',   ItemCatalogoViewSet,    basename='item-catalogo')
 router.register(r'core/categorias', CategoriaItemViewSet,   basename='categoria-item')
-router.register(r'core/auditoria',  AuditLogViewSet,        basename='auditoria')
+router.register(r'core/auditoria',      AuditLogViewSet,      basename='auditoria')
+router.register(r'core/notificacoes',   NotificacaoViewSet,   basename='notificacao')
 
 urlpatterns = [
     path('admin/', admin.site.urls),

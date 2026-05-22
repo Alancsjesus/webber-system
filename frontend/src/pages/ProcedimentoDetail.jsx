@@ -67,6 +67,7 @@ export default function ProcedimentoDetail() {
     homologar, declararDeserto, declararFracassado, revogar, anular,
     addTramitacao, updateTramitacao, deleteTramitacao,
     addResultado, updateResultado, deleteResultado, gerarContrato,
+    aprovarPeca, devolverPeca,
   } = useLicitacaoStore()
 
   const [activeTab,  setActiveTab]   = useState('visao_geral')
@@ -75,6 +76,8 @@ export default function ProcedimentoDetail() {
   const [motivoModal, setMotivoModal] = useState(null) // {acao, label}
   const [motivoText,  setMotivoText]  = useState('')
   const [editingMain, setEditingMain] = useState(false)
+  const [devolverPecaModal, setDevolverPecaModal] = useState(null) // {tipo, pk, label}
+  const [motivoPeca, setMotivoPeca]   = useState('')
   const [editForm,    setEditForm]    = useState({})
 
   // Tramitação
@@ -417,39 +420,121 @@ export default function ProcedimentoDetail() {
       {activeTab === 'pecas' && (
         <div className="space-y-3">
           <p className="text-sm text-gray-500">
-            Status das peças vinculadas ao DFD de origem deste procedimento.
-            Todos os documentos devem estar aprovados antes da publicação do edital.
+            Acompanhe e aprove as peças instrutórias diretamente deste painel.
+            {isLicitante && ' Como Unidade Licitante, você pode aprovar ou devolver cada documento.'}
           </p>
+
           {(current.pecas_instutorias || []).length === 0 ? (
             <p className="text-sm text-gray-400 italic">Nenhum DFD vinculado a este procedimento.</p>
           ) : (
             <div className="space-y-2">
-              {current.pecas_instutorias.map((p, i) => (
-                <div key={i} className={`flex items-center justify-between px-4 py-3 rounded-xl border ${p.ok ? 'border-green-200 bg-green-50' : 'border-yellow-200 bg-yellow-50'}`}>
-                  <div className="flex items-center gap-3">
-                    <span className={`text-lg ${p.ok ? '' : 'opacity-50'}`}>{p.ok ? '✅' : '⏳'}</span>
-                    <div>
-                      <p className="text-sm font-semibold text-gray-800">{p.tipo}</p>
-                      <p className="text-xs font-mono text-gray-500">{p.numero_sei}</p>
+              {current.pecas_instutorias.map((p, i) => {
+                const tipoPeca = p.tipo === 'ETP' ? 'etp' : p.tipo === 'TR' ? 'tr' : p.tipo === 'Mapa de Preços' ? 'mapa' : null
+                return (
+                  <div key={i} className={`rounded-xl border ${p.ok ? 'border-green-200 bg-green-50' : p.status === 'Devolvido' ? 'border-red-200 bg-red-50' : 'border-yellow-200 bg-yellow-50'}`}>
+                    <div className="flex items-center justify-between px-4 py-3">
+                      <div className="flex items-center gap-3">
+                        <span className="text-lg">
+                          {p.ok ? '✅' : p.status === 'Devolvido' ? '↩️' : '⏳'}
+                        </span>
+                        <div>
+                          <p className="text-sm font-semibold text-gray-800">{p.tipo}</p>
+                          <div className="flex items-center gap-2">
+                            <p className="text-xs font-mono text-gray-500">{p.numero_sei}</p>
+                            {p.url && (
+                              <button onClick={() => window.open(p.url, '_self')}
+                                className="text-[10px] text-blue-600 hover:underline">
+                                Ver documento →
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${
+                          p.ok ? 'bg-green-100 text-green-700'
+                          : p.status === 'Devolvido' ? 'bg-red-100 text-red-700'
+                          : 'bg-yellow-100 text-yellow-700'
+                        }`}>{p.status}</span>
+
+                        {/* Botões de aprovação — apenas licitante + peças com pk */}
+                        {isLicitante && tipoPeca && p.pk && (
+                          <div className="flex gap-1.5 ml-2">
+                            {p.pode_aprovar && (
+                              <button
+                                disabled={saving}
+                                onClick={() => act(aprovarPeca, id, tipoPeca, p.pk)}
+                                className="text-xs bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white px-2.5 py-1 rounded-lg font-medium">
+                                Aprovar
+                              </button>
+                            )}
+                            {p.pode_devolver && (
+                              <button
+                                disabled={saving}
+                                onClick={() => { setDevolverPecaModal({ tipo: tipoPeca, pk: p.pk, label: p.tipo }); setMotivoPeca('') }}
+                                className="text-xs border border-orange-300 text-orange-600 hover:bg-orange-50 px-2.5 py-1 rounded-lg font-medium">
+                                Devolver
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   </div>
-                  <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${p.ok ? 'bg-green-100 text-green-700' : 'bg-yellow-100 text-yellow-700'}`}>
-                    {p.status}
-                  </span>
-                </div>
-              ))}
+                )
+              })}
+
               {current.pecas_instutorias.every(p => p.ok) && (
                 <div className="bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-sm text-green-800 font-medium">
-                  ✅ Todas as peças instrutórias estão aprovadas. O procedimento pode ser publicado.
+                  ✅ Todas as peças estão aprovadas. O procedimento pode ser publicado.
                 </div>
               )}
               {!current.pecas_instutorias.every(p => p.ok) && (
                 <div className="bg-yellow-50 border border-yellow-200 rounded-xl px-4 py-3 text-sm text-yellow-800">
-                  ⚠️ Existem peças ainda não aprovadas. Complete a instrução antes de publicar.
+                  ⚠️ Existem peças pendentes de aprovação.
+                  {!isLicitante && ' Acesse cada documento para submeter à análise.'}
                 </div>
               )}
             </div>
           )}
+        </div>
+      )}
+
+      {/* Modal devolução de peça */}
+      {devolverPecaModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
+            <h3 className="text-base font-semibold text-gray-800 mb-1">
+              Devolver {devolverPecaModal.label}
+            </h3>
+            <label className="block text-xs font-medium text-gray-600 mb-1 mt-3">Motivo *</label>
+            <textarea rows={3} value={motivoPeca} onChange={e => setMotivoPeca(e.target.value)}
+              placeholder="Descreva os ajustes necessários..."
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400 mb-4" />
+            <div className="flex gap-2">
+              <button
+                disabled={!motivoPeca.trim() || saving}
+                onClick={async () => {
+                  setSaving(true)
+                  setActionMsg(null)
+                  try {
+                    await devolverPeca(id, devolverPecaModal.tipo, devolverPecaModal.pk, motivoPeca)
+                    setDevolverPecaModal(null)
+                    setMotivoPeca('')
+                    setActionMsg({ type: 'success', text: `${devolverPecaModal.label} devolvido com sucesso.` })
+                  } catch (e) {
+                    setActionMsg({ type: 'error', text: e.response?.data?.detail || 'Erro ao devolver.' })
+                  } finally { setSaving(false) }
+                }}
+                className="bg-orange-600 hover:bg-orange-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg">
+                {saving ? '...' : 'Confirmar devolução'}
+              </button>
+              <button onClick={() => { setDevolverPecaModal(null); setMotivoPeca('') }}
+                className="border border-gray-300 text-gray-600 text-sm px-4 py-2 rounded-lg hover:bg-gray-50">
+                Cancelar
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

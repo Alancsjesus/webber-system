@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import useAuthStore from '../stores/authStore'
+import useNotificacaoStore from '../stores/notificacaoStore'
 
 // ── Paleta de cores por seção ─────────────────────────────────────────────────
 const SECTION_ACCENT = {
@@ -274,6 +275,17 @@ export default function Layout() {
   const navigate    = useNavigate()
   const location    = useLocation()
 
+  // ── Notificações ──────────────────────────────────────────────────────────
+  const { notificacoes, naoLidas, fetchNotificacoes, marcarLida, marcarTodasLidas } =
+    useNotificacaoStore()
+  const [showNotif, setShowNotif] = useState(false)
+
+  useEffect(() => {
+    fetchNotificacoes()
+    const id = setInterval(fetchNotificacoes, 60000)  // polling a cada 1 min
+    return () => clearInterval(id)
+  }, [])
+
   const allSections = buildSections(papel, tipoUnidade, flags)
 
   const [open, setOpen] = useState(() =>
@@ -468,6 +480,62 @@ export default function Layout() {
                   </span>
                 </div>
               )}
+              {/* Notificações */}
+              <button
+                onClick={() => { setShowNotif(v => !v); if (!showNotif) fetchNotificacoes() }}
+                className="w-full flex items-center justify-between gap-2 px-3 py-2 text-[13px] text-gray-500 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+              >
+                <span className="flex items-center gap-2">
+                  <span>🔔</span>
+                  Notificações
+                </span>
+                {naoLidas > 0 && (
+                  <span className="bg-red-500 text-white text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center">
+                    {naoLidas > 99 ? '99+' : naoLidas}
+                  </span>
+                )}
+              </button>
+
+              {/* Painel de notificações */}
+              {showNotif && (
+                <div className="mx-1 mb-1 bg-gray-900 border border-gray-700 rounded-xl overflow-hidden max-h-72 flex flex-col">
+                  <div className="flex items-center justify-between px-3 py-2 border-b border-gray-800">
+                    <span className="text-[11px] font-semibold text-gray-400 uppercase">Notificações</span>
+                    {naoLidas > 0 && (
+                      <button onClick={marcarTodasLidas} className="text-[10px] text-blue-400 hover:underline">
+                        Marcar todas
+                      </button>
+                    )}
+                  </div>
+                  <div className="overflow-y-auto">
+                    {notificacoes.length === 0 ? (
+                      <p className="text-[11px] text-gray-600 text-center py-4">Nenhuma notificação</p>
+                    ) : notificacoes.map(n => (
+                      <button key={n.id}
+                        onClick={() => {
+                          marcarLida(n.id)
+                          if (n.url_destino) { navigate(n.url_destino); setShowNotif(false) }
+                        }}
+                        className={`w-full text-left px-3 py-2 border-b border-gray-800/60 hover:bg-gray-800 transition-colors ${n.lida ? 'opacity-50' : ''}`}
+                      >
+                        <div className="flex items-start gap-2">
+                          <span className="text-xs mt-0.5">
+                            {n.tipo === 'aprovacao' ? '✅' : n.tipo === 'devolucao' ? '↩️' : n.tipo === 'pendente_aprovacao' ? '⏳' : '⚠️'}
+                          </span>
+                          <div className="min-w-0">
+                            <p className="text-[11px] font-medium text-gray-300 leading-tight truncate">{n.titulo}</p>
+                            {n.mensagem && (
+                              <p className="text-[10px] text-gray-500 mt-0.5 line-clamp-2 leading-tight">{n.mensagem}</p>
+                            )}
+                          </div>
+                          {!n.lida && <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0 mt-1" />}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
               <NavLink to="/ajuda"
                 className={({ isActive }) =>
                   `flex items-center gap-2 px-3 py-2 text-[13px] rounded-lg transition-colors ${isActive ? 'text-white bg-gray-700' : 'text-gray-500 hover:text-white hover:bg-gray-800'}`
