@@ -32,6 +32,27 @@ const METODOS = [
   { value: 'menor_valido', label: 'Menor preço válido', desc: 'Permite adotar o menor preço após exclusão de inexequíveis.' },
 ]
 
+// ─── Ajuda Contextual ─────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Mapa de Preços — Pesquisa de Mercado',
+  descricao: 'Instrumento para levantamento e sistematização de preços de mercado visando estimar o valor da contratação. Deve conter ao menos 3 fontes válidas para cada item.',
+  acoes: [
+    { label: '+ Item',            texto: 'Adiciona um item ao mapa com descrição, unidade e quantidade.' },
+    { label: '+ Preço',           texto: 'Registra um preço para o item com fonte, tipo (I a V ou HIST), data e valor unitário.' },
+    { label: 'Excluir preço',     texto: 'Remove um preço por motivo de excessivo, inexequível, inconsistente, desatualizado ou manual. O motivo é registrado.' },
+    { label: 'Método',            texto: 'Seleciona o método de apuração: Média (preços homogêneos), Mediana (com outliers) ou Menor Preço Válido.' },
+    { label: 'Recalcular',        texto: 'Atualiza o valor estimado com base nos preços válidos e no método selecionado.' },
+    { label: 'Validar Prazos',    texto: 'Verifica se os preços coletados estão dentro do prazo de validade (180 dias para PNCP, 1 ano para outros).' },
+    { label: 'Importar PNCP',     texto: 'Busca preços de contratações similares no Portal Nacional de Compras Públicas (PNCP) para subsidiar a pesquisa.' },
+    { label: 'Submeter',          texto: 'Envia o mapa para aprovação. Todos os itens devem ter pelo menos 3 preços válidos.' },
+    { label: 'Aprovar',           texto: 'Homologa o mapa de preços. O valor resultante é usado como referência no procedimento licitatório.' },
+    { label: 'Download PDF',      texto: 'Exporta o mapa completo em PDF para compor o processo SEI.' },
+  ],
+  dica: 'Use preços do PNCP (Tipo I — SIMPAS/Comprasnet.BA) como primeira fonte — são os mais aceitos pelos órgãos de controle.',
+  baseLegal: 'Lei 14.133/2021 — Art. 23 e IN SEGES nº 65/2021 (pesquisa de preços).',
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function MapaDetail() {
   const { id }   = useParams()
   const navigate = useNavigate()

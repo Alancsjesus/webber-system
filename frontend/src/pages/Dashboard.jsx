@@ -7,6 +7,20 @@ import OrgaoHero from '../components/OrgaoHero'
 import ModuleGrid from '../components/ModuleGrid'
 import DashboardAnalytics from './DashboardAnalytics'
 
+// ─── Ajuda Contextual ─────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Dashboard — Painel Principal',
+  descricao: 'Ponto de entrada do sistema. Exibe os módulos disponíveis para o seu perfil e os indicadores analíticos das contratações.',
+  acoes: [
+    { label: 'Aba Módulos',    texto: 'Acesso rápido a todas as funcionalidades liberadas para o seu papel e tipo de unidade (demandante, licitante, contratante ou planejamento).' },
+    { label: 'Aba Analytics',  texto: 'Indicadores consolidados: volume de procedimentos por status, valores empenhados, tempo médio de tramitação e distribuição por modalidade.' },
+    { label: 'Aceites',        texto: 'Quando há necessidades de órgãos filhos aguardando aceite, um alerta aparece aqui. Clique para revisar e aceitar as demandas.' },
+    { label: 'Painel',         texto: 'Abre a visão consolidada de demandas por órgão e unidade, com filtros por exercício.' },
+  ],
+  dica: 'Os módulos visíveis variam por perfil. Administradores veem todos; solicitantes veem apenas Planejamento e Demanda.',
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 // ── Abas ──────────────────────────────────────────────────────────────────────
 
 function TabBar({ active, onChange }) {

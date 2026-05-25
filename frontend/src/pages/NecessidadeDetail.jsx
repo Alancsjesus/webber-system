@@ -33,6 +33,20 @@ const PRIO_CLS = {
   Baixa: 'bg-gray-100 text-gray-500',
 }
 
+// ─── Ajuda Contextual ─────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Necessidade de Planejamento — Detalhe',
+  descricao: 'Detalhe de uma necessidade de planejamento. Permite acompanhar o fluxo de aprovação e o DFD vinculado.',
+  acoes: [
+    { label: 'Editar',      texto: 'Habilita edição dos campos enquanto a necessidade estiver em Rascunho ou Devolvida.' },
+    { label: 'Submeter',    texto: 'Envia para análise do gestor de planejamento.' },
+    { label: 'Aprovar',     texto: 'Aprova a necessidade, liberando a criação do DFD correspondente.' },
+    { label: 'Cancelar',    texto: 'Cancela a necessidade definitivamente.' },
+    { label: 'Iniciar DFD', texto: 'Cria automaticamente um DFD vinculado a esta necessidade aprovada.' },
+  ],
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function NecessidadeDetail() {
   const { id } = useParams()
   const navigate = useNavigate()

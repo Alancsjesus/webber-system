@@ -13,6 +13,20 @@ const STATUS_LABEL = {
   Rejeitada:   { cls: 'bg-red-100 text-red-700' },
 }
 
+// ─── Ajuda Contextual ─────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'DFDs — Documentos de Formalização de Demanda',
+  descricao: 'Lista de todos os DFDs da unidade. O DFD formaliza a necessidade de contratação e precede o ETP e o Termo de Referência.',
+  acoes: [
+    { label: '+ Novo DFD',    texto: 'Cria um DFD vinculado a uma necessidade aprovada. Preencha número SEI, descrição, valor estimado e prazo.' },
+    { label: 'Filtro Status', texto: 'Filtra por: Rascunho, Submetida, Em Análise, Devolvida, Aprovada ou Rejeitada.' },
+    { label: 'Buscar',        texto: 'Busca pelo número SEI ou descrição do objeto da demanda.' },
+  ],
+  dica: 'Um DFD aprovado permite criar o ETP. Se devolvido, verifique o motivo no detalhe.',
+  baseLegal: 'Lei 14.133/2021 — Art. 12, § 1º.',
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function DFDList() {
   const navigate = useNavigate()
   const { dfds, total, loading, error, fetchDFDs } = useDFDStore()

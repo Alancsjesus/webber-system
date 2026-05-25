@@ -36,6 +36,32 @@ const MODALIDADES = [
   { value: 'arp_saque',           label: 'Saque de ATA de Registro de Preços' },
 ]
 
+// ─── Ajuda Contextual ─────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'DFD — Documento de Formalização de Demanda',
+  descricao: 'O DFD é o documento que formaliza a necessidade de contratação da unidade demandante. Deve descrever o objeto, justificar a necessidade e estimar o valor. É o ponto de partida do processo de contratação.',
+  acoes: [
+    { label: 'Editar',          texto: 'Permite alterar os campos do DFD enquanto estiver em Rascunho ou Devolvido.' },
+    { label: 'Submeter',        texto: 'Envia o DFD para análise da unidade de planejamento. Após submeter, não é possível editar sem devolução.' },
+    { label: 'Iniciar Análise', texto: 'Disponível para analistas: marca o DFD como Em Análise e inicia o processo de avaliação.' },
+    { label: 'Aprovar',         texto: 'Aprova o DFD, habilitando a criação do ETP. Disponível para gestores de planejamento e ordenadores.' },
+    { label: 'Devolver',        texto: 'Retorna o DFD ao demandante para correções, com categorias de motivo e justificativa obrigatória.' },
+    { label: '+ Item',          texto: 'Adiciona um item ao DFD com descrição, quantidade, unidade e valor estimado unitário.' },
+    { label: 'Download PDF',    texto: 'Gera o DFD em PDF para assinatura e arquivamento no processo SEI.' },
+  ],
+  fluxo: [
+    { status: 'Rascunho',    descricao: 'Em elaboração pelo demandante. Pode ser editado livremente.' },
+    { status: 'Submetida',   descricao: 'Enviado para análise. Aguarda triagem da unidade de planejamento.' },
+    { status: 'Em Análise',  descricao: 'Analista de planejamento está avaliando a pertinência e consistência.' },
+    { status: 'Devolvida',   descricao: 'Devolvido para ajustes. Verifique o motivo informado pelo analista.' },
+    { status: 'Aprovada',    descricao: 'Aprovado. Pronto para dar origem a um ETP.' },
+    { status: 'Rejeitada',   descricao: 'Rejeitado definitivamente, sem possibilidade de reaproveitamento.' },
+  ],
+  dica: 'Vincule o DFD a uma Necessidade de Planejamento já aprovada para garantir rastreabilidade orçamentária.',
+  baseLegal: 'Lei 14.133/2021 — Art. 12, § 1º e IN SEGES nº 65/2021.',
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function DFDDetail() {
   const { id }   = useParams()
   const navigate = useNavigate()

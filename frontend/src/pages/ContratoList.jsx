@@ -13,6 +13,24 @@ const STATUS_CLS = {
 
 const fmt = (v) => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
+// ─── Ajuda Contextual ─────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Contratos',
+  descricao: 'Lista todos os contratos administrativos do órgão. Contratos originam-se de procedimentos homologados ou de contratações diretas.',
+  acoes: [
+    { label: '+ Novo Contrato', texto: 'Cria um contrato manualmente. Prefira gerar via botão "Gerar Contrato" no procedimento homologado para manter o vínculo.' },
+    { label: 'Filtro Status',   texto: 'Filtra por: Vigente, Encerrado, Suspenso ou Rescindido.' },
+  ],
+  fluxo: [
+    { status: 'Vigente',    descricao: 'Contrato em execução dentro do prazo.' },
+    { status: 'Suspenso',   descricao: 'Execução temporariamente paralisada.' },
+    { status: 'Encerrado',  descricao: 'Vigência encerrada normalmente.' },
+    { status: 'Rescindido', descricao: 'Encerrado antecipadamente.' },
+  ],
+  dica: 'Monitore contratos próximos do vencimento para iniciar aditivos de prorrogação com antecedência mínima de 60 dias.',
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function ContratoList() {
   const navigate = useNavigate()
   const { contratos, loading, fetchContratos } = useContratoStore()

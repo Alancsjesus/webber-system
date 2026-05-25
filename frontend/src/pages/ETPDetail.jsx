@@ -20,6 +20,33 @@ const PAPEIS_ANALISTA    = ['admin', 'analista', 'gestor_planejamento', 'gestor_
 const PAPEIS_SOLICITANTE = ['solicitante', 'demandante', 'responsavel_tecnico', 'admin']
 
 
+// ─── Ajuda Contextual ─────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'ETP — Estudo Técnico Preliminar',
+  descricao: 'O ETP documenta a análise técnica que sustenta a contratação: descrição da necessidade, requisitos da solução, estimativa de custo e riscos. É elaborado após aprovação do DFD.',
+  acoes: [
+    { label: 'Editar',          texto: 'Habilita edição do ETP enquanto em Rascunho ou Devolvido.' },
+    { label: 'Submeter',        texto: 'Envia o ETP para análise. Requer preenchimento de todos os campos obrigatórios.' },
+    { label: 'Iniciar Análise', texto: 'Disponível para analistas: inicia formalmente a análise do ETP.' },
+    { label: 'Aprovar',         texto: 'Aprova o ETP e libera a elaboração do Termo de Referência (TR).' },
+    { label: 'Devolver',        texto: 'Retorna para o responsável técnico com justificativa e categorias de pendência.' },
+    { label: 'Reabrir',         texto: 'Reabre um ETP aprovado para correções pontuais. Exige novo número SEI de autorização.' },
+    { label: 'Dispensar',       texto: 'Dispensa o ETP quando a contratação é de baixa complexidade ou valor (art. 18, § 3º, Lei 14.133/2021).' },
+    { label: 'Download PDF',    texto: 'Exporta o ETP completo em PDF para compor o processo SEI.' },
+  ],
+  fluxo: [
+    { status: 'Rascunho',    descricao: 'Em elaboração pelo responsável técnico.' },
+    { status: 'Submetido',   descricao: 'Enviado para análise da unidade de planejamento.' },
+    { status: 'Em Análise',  descricao: 'Analista avaliando viabilidade técnica e adequação da solução.' },
+    { status: 'Devolvido',   descricao: 'Pendências identificadas. Revise os campos indicados.' },
+    { status: 'Aprovado',    descricao: 'Aprovado. Responsável técnico pode iniciar o TR.' },
+    { status: 'Dispensado',  descricao: 'ETP dispensado legalmente. Contratação prossegue diretamente para TR.' },
+    { status: 'Cancelado',   descricao: 'Contratação cancelada. ETP arquivado.' },
+  ],
+  baseLegal: 'Lei 14.133/2021 — Art. 18 e IN SEGES nº 58/2022 (ETP Digital).',
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function ETPDetail() {
   const { id }   = useParams()
   const navigate = useNavigate()

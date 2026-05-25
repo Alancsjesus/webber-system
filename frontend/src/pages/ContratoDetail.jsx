@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import useContratoStore from '../stores/contratoStore'
 import useAuthStore from '../stores/authStore'
 import LoadingSpinner from '../components/LoadingSpinner'
+import HelpTip from '../components/HelpTip'
 import { downloadFile } from '../services/api'
 
 const STATUS_CLS = {
@@ -25,6 +26,28 @@ const TIPOS_ADITIVO = [
   { value: 'rescisao', label: 'Rescisão' },
 ]
 const fmt = (v) => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+
+// ─── Ajuda Contextual ─────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Contrato — Detalhe',
+  descricao: 'Gerencie o contrato administrativo: dados, garantia, apostilas e aditivos. Todas as alterações são registradas no histórico do procedimento.',
+  acoes: [
+    { label: 'Editar',       texto: 'Habilita a edição dos dados do contrato: objeto, valor, datas de assinatura e vigência.' },
+    { label: 'Garantia',     texto: 'Preencha se o edital exigiu garantia contratual. Informe o tipo (caução, seguro-garantia, fiança), percentual (máx. 5%) e apólice. Se superior a 5%, justificativa é obrigatória (art. 96, Lei 14.133/2021).' },
+    { label: '+ Apostila',   texto: 'Registra uma apostila: alteração unilateral de menor importância que não modifica o objeto nem o valor. Informe número, data e objeto da apostila.' },
+    { label: '+ Aditivo',    texto: 'Registra um termo aditivo de prorrogação, acréscimo/redução de valor, alteração de objeto ou rescisão. Prorrogações e acréscimos têm limites legais de 25% (50% para obras).' },
+    { label: 'PDF Contrato', texto: 'Gera o documento do contrato em PDF para assinatura.' },
+    { label: 'Excluir',      texto: 'Remove o contrato do sistema. Disponível apenas para administradores. Ação irreversível.' },
+  ],
+  fluxo: [
+    { status: 'Vigente',    descricao: 'Contrato ativo e em execução.' },
+    { status: 'Suspenso',   descricao: 'Execução temporariamente suspensa por decisão administrativa ou judicial.' },
+    { status: 'Encerrado',  descricao: 'Vigência encerrada normalmente.' },
+    { status: 'Rescindido', descricao: 'Contrato rescindido antes do prazo, unilateral ou consensualmente.' },
+  ],
+  baseLegal: 'Lei 14.133/2021 — Arts. 89 a 107 (execução) e Arts. 96 a 102 (garantias).',
+}
+// ──────────────────────────────────────────────────────────────────────────────
 
 export default function ContratoDetail() {
   const { id } = useParams()
@@ -287,7 +310,10 @@ export default function ContratoDetail() {
         {/* Apostilas */}
         <div className="pt-4 border-t border-gray-100">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-xs font-semibold text-gray-400 uppercase">Apostilas</p>
+            <span className="flex items-center gap-1">
+              <p className="text-xs font-semibold text-gray-400 uppercase">Apostilas</p>
+              <HelpTip text="Apostila: alteração de menor importância que não modifica objeto nem valor. Informe número, data e objeto." position="right" />
+            </span>
             {podeEditar && <button onClick={() => setShowApostila(v => !v)} className="text-xs text-blue-600 hover:text-blue-800 font-medium">+ Adicionar</button>}
           </div>
           {(current.apostilas || []).length === 0
@@ -331,7 +357,10 @@ export default function ContratoDetail() {
         {/* Aditivos */}
         <div className="pt-4 border-t border-gray-100">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-xs font-semibold text-gray-400 uppercase">Aditivos</p>
+            <span className="flex items-center gap-1">
+              <p className="text-xs font-semibold text-gray-400 uppercase">Aditivos</p>
+              <HelpTip text="Aditivo: prorrogação, acréscimo/redução de valor, alteração de objeto ou rescisão. Limite legal: 25% (50% para obras)." position="right" />
+            </span>
             {podeEditar && <button onClick={() => setShowAditivo(v => !v)} className="text-xs text-blue-600 hover:text-blue-800 font-medium">+ Adicionar</button>}
           </div>
           {(current.aditivos || []).length === 0

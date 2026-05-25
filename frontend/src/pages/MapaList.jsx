@@ -13,6 +13,18 @@ const STATUS_CLS = {
 const fmt = (v) =>
   Number(v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
+// ─── Ajuda Contextual ─────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Mapas de Preços — Pesquisa de Mercado',
+  descricao: 'Lista as pesquisas de preços realizadas para estimar o valor das contratações. Cada mapa deve conter ao menos 3 fontes válidas por item.',
+  acoes: [
+    { label: '+ Novo Mapa', texto: 'Cria uma nova pesquisa de preços vinculada a uma necessidade ou procedimento. Defina os itens e colete preços de múltiplas fontes.' },
+  ],
+  dica: 'Use preços do PNCP (Tipo I) como primeira fonte — são os mais aceitos pelos órgãos de controle.',
+  baseLegal: 'Lei 14.133/2021 — Art. 23 e IN SEGES nº 65/2021.',
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function MapaList() {
   const navigate = useNavigate()
   const { mapas, total, loading, error, fetchMapas } = useMapaStore()

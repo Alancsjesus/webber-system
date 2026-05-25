@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import useAuthStore from '../stores/authStore'
 import useNotificacaoStore from '../stores/notificacaoStore'
+import PageHelpPanel from './PageHelpPanel'
 
 // ── Paleta de cores por seção ─────────────────────────────────────────────────
 const SECTION_ACCENT = {
@@ -243,12 +244,16 @@ function buildSections(papel, tipoUnidade, flags) {
     }))
     .filter(s => (s.items || []).length > 0)
 
-  // Auditoria — visível para admin e auditor
+  // Auditoria e Rastreabilidade
+  const auditoriaItems = []
+  if (['admin', 'analista', 'gestor_planejamento', 'ordenador', 'gestor_contrato'].includes(papel)) {
+    auditoriaItems.push({ to: '/rastreabilidade', label: 'Rastreabilidade' })
+  }
   if (['admin', 'auditor'].includes(papel)) {
-    sections.push({
-      section: 'Auditoria',
-      items: [{ to: '/auditoria', label: 'Trilha de Auditoria' }],
-    })
+    auditoriaItems.push({ to: '/auditoria', label: 'Log do Sistema' })
+  }
+  if (auditoriaItems.length > 0) {
+    sections.push({ section: 'Controle', items: auditoriaItems })
   }
 
   // Seção de configurações agrupada
@@ -575,12 +580,14 @@ export default function Layout() {
       <main className="flex-1 overflow-y-auto bg-gray-50 relative">
         <Outlet />
 
+        <PageHelpPanel />
+
         {/* Botão Home flutuante — visível quando não está na página inicial */}
         {!isHome && (
           <button
             onClick={() => navigate('/')}
             title="Página inicial"
-            className="fixed bottom-6 right-6 z-50 flex items-center gap-2 px-4 py-2 bg-gray-900 hover:bg-gray-800 text-gray-300 hover:text-white text-sm font-medium rounded-full shadow-lg border border-gray-700 transition-all hover:shadow-xl hover:-translate-y-0.5"
+            className="fixed bottom-20 right-6 z-50 flex items-center gap-2 px-4 py-2 bg-gray-900 hover:bg-gray-800 text-gray-300 hover:text-white text-sm font-medium rounded-full shadow-lg border border-gray-700 transition-all hover:shadow-xl hover:-translate-y-0.5"
           >
             <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
               <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />

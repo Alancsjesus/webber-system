@@ -19,6 +19,27 @@ const PRIO_CLS = {
   Baixa:  'bg-gray-100 text-gray-500',
 }
 
+// ─── Ajuda Contextual ─────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Necessidades de Planejamento',
+  descricao: 'Registro das demandas que originam contratações. Cada necessidade deve ser aprovada antes de gerar um DFD. São a base do Plano de Contratações Anual (PCA).',
+  acoes: [
+    { label: '+ Nova Necessidade', texto: 'Cadastra uma nova necessidade de planejamento com título, justificativa, valor estimado, exercício fiscal, prioridade e origem.' },
+    { label: 'Filtro Status',      texto: 'Filtra por: Identificada (recém-cadastrada), Em Análise, Aprovada (pronta para DFD), DFD Criado ou Cancelada.' },
+    { label: 'Filtro Prioridade',  texto: 'Filtra por Alta, Média ou Baixa prioridade. Necessidades de alta prioridade devem ter DFD iniciado primeiro.' },
+    { label: 'Filtro Origem',      texto: 'Filtra por origem: demanda interna da unidade ou necessidade herdada de órgão filho (aceite).' },
+  ],
+  fluxo: [
+    { status: 'Identificada', descricao: 'Recém-cadastrada. Aguarda análise do gestor de planejamento.' },
+    { status: 'Em Análise',   descricao: 'Sendo avaliada quanto à pertinência, prioridade e dotação.' },
+    { status: 'Aprovada',     descricao: 'Autorizada. Responsável pode criar o DFD correspondente.' },
+    { status: 'DFD Criado',   descricao: 'Já possui DFD vinculado. Processo em andamento.' },
+    { status: 'Cancelada',    descricao: 'Necessidade cancelada e arquivada.' },
+  ],
+  baseLegal: 'Lei 14.133/2021 — Art. 12 (planejamento das contratações) e Decreto 10.947/2022 (PCA).',
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function NecessidadeList() {
   const navigate  = useNavigate()
   const orgSigla  = useAuthStore((s) => s.orgaoSigla)

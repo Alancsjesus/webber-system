@@ -27,6 +27,20 @@ const STATUS_ETP = {
   Aprovado:    'bg-green-100 text-green-700',
 }
 
+// ─── Ajuda Contextual ─────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Painel Consolidado',
+  descricao: 'Visão gerencial de todas as demandas do órgão, agrupadas por unidade demandante. Permite acompanhar o andamento das necessidades e DFDs em tempo real.',
+  acoes: [
+    { label: 'Filtro Órgão',    texto: 'Restringe a visão a um órgão específico da estrutura hierárquica.' },
+    { label: 'Filtro Exercício',texto: 'Filtra necessidades e DFDs pelo ano fiscal.' },
+    { label: 'Expandir seção',  texto: 'Clique no nome da unidade para expandir/retrair a lista de demandas daquela unidade.' },
+    { label: 'Navegar',         texto: 'Clique em qualquer necessidade ou DFD para abrir o detalhe correspondente.' },
+  ],
+  dica: 'Use o Painel para identificar unidades com demandas paradas ou DFDs sem movimentação há mais de 30 dias.',
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function Painel() {
   const navigate = useNavigate()
   const [data, setData]       = useState([])

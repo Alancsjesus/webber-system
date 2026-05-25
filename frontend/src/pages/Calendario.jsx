@@ -7,6 +7,18 @@ import 'react-big-calendar/lib/css/react-big-calendar.css'
 import useCalendarioStore from '../stores/calendarioStore'
 import LoadingSpinner from '../components/LoadingSpinner'
 
+// ─── Ajuda Contextual ─────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Calendário de Contratações',
+  descricao: 'Visão calendário de todas as datas relevantes: sessões públicas, publicações, prazos de vigência de contratos e devoluções com prazo.',
+  acoes: [
+    { label: 'Navegar meses', texto: 'Use as setas para avançar ou retroceder no calendário.' },
+    { label: 'Clicar evento', texto: 'Clique em um evento para ir diretamente ao procedimento ou contrato correspondente.' },
+  ],
+  dica: 'Eventos em vermelho indicam prazos vencidos ou próximos ao vencimento.',
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 // ── Localização pt-BR ────────────────────────────────────────────────────────
 const localizer = dateFnsLocalizer({
   format,

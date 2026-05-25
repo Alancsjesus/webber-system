@@ -37,6 +37,20 @@ const fmtDt = (s) => s
   ? new Date(s).toLocaleString('pt-BR', { day:'2-digit', month:'2-digit', year:'numeric', hour:'2-digit', minute:'2-digit' })
   : '—'
 
+// ─── Ajuda Contextual ─────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Auditoria e Controle',
+  descricao: 'Log completo de todas as operações realizadas no sistema. Registra criações, alterações, exclusões e transições de status com usuário, data, hora e IP de origem.',
+  acoes: [
+    { label: 'Filtro Evento',   texto: 'Filtra por tipo de evento: criação, alteração de valor, exclusão, login ou transição de status.' },
+    { label: 'Filtro Usuário',  texto: 'Restringe o log a um usuário específico.' },
+    { label: 'Filtro Período',  texto: 'Filtra por intervalo de datas.' },
+    { label: 'Exportar',        texto: 'Exporta o log filtrado em CSV para análise ou envio ao TCE-BA.' },
+  ],
+  dica: 'O log é imutável — nenhum registro pode ser alterado ou excluído, garantindo rastreabilidade total para controle externo.',
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function AuditoriaList() {
   const debounceRef = useRef(null)
 

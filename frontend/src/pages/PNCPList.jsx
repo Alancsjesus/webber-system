@@ -19,6 +19,19 @@ const STATUS_LABEL = {
 const fmt = (v) => v != null ? Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' }) : '—'
 const fmtDate = (s) => s ? new Date(s + 'T00:00:00').toLocaleDateString('pt-BR') : '—'
 
+// ─── Ajuda Contextual ─────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'PNCP — Portal Nacional de Compras Públicas',
+  descricao: 'Consulte e importe preços de contratações similares publicadas no PNCP para subsidiar a pesquisa de mercado dos seus mapas de preços.',
+  acoes: [
+    { label: 'Pesquisar',     texto: 'Busca contratos no PNCP por descrição do objeto, CATMAT/CATSER, UF e período.' },
+    { label: 'Importar',      texto: 'Importa os preços encontrados diretamente para um mapa de preços existente como fonte Tipo I (SIMPAS/Comprasnet.BA).' },
+    { label: 'Ver no PNCP',   texto: 'Abre o contrato original no portal do PNCP para consulta completa.' },
+  ],
+  dica: 'Prefira contratos com objeto idêntico ou muito similar ao seu e que tenham sido executados nos últimos 12 meses.',
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function PNCPList() {
   const navigate = useNavigate()
   const [list, setList]       = useState([])

@@ -184,6 +184,21 @@ function Dashboard({ exercicio }) {
 
 // ── Página principal ──────────────────────────────────────────────────────────
 
+// ─── Ajuda Contextual ─────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Procedimentos Licitatórios',
+  descricao: 'Lista de todas as licitações e contratações diretas. Cada procedimento segue o fluxo de instrução, aprovação, publicação, sessão pública e homologação.',
+  acoes: [
+    { label: '+ Novo Procedimento', texto: 'Cria um novo procedimento. Informe a modalidade (Pregão, Concorrência, Dispensa, Inexigibilidade), objeto, valor estimado e datas.' },
+    { label: 'Painel',              texto: 'Abre o dashboard com KPIs: total de procedimentos, valores, distribuição por modalidade e status. Útil para gestão e relatórios.' },
+    { label: 'Filtro Modalidade',   texto: 'Filtra por Pregão Eletrônico, Concorrência, Dispensa Eletrônica, Dispensa Tradicional ou Inexigibilidade.' },
+    { label: 'Filtro Status',       texto: 'Filtra por fase atual do procedimento: Em Instrução, Aguardando Aprovação, Publicado, Em Sessão, Homologado, etc.' },
+    { label: 'Filtro Exercício',    texto: 'Filtra os procedimentos pelo ano de exercício fiscal.' },
+  ],
+  dica: 'Clique em um procedimento para ver as peças instrutórias, tramitações externas e registrar resultados de lotes.',
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function ProcedimentoList() {
   const navigate  = useNavigate()
   const { procedimentos, total, loading, error, fetchProcedimentos } = useLicitacaoStore()

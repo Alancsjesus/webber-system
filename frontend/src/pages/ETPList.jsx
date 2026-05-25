@@ -14,6 +14,18 @@ const STATUS_CLS = {
   Dispensado:  'bg-purple-100 text-purple-700',
 }
 
+// ─── Ajuda Contextual ─────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'ETPs — Estudos Técnicos Preliminares',
+  descricao: 'Lista os ETPs da unidade. O ETP documenta a análise técnica da contratação: descrição da solução, estimativas e riscos. É elaborado após aprovação do DFD.',
+  acoes: [
+    { label: 'Filtro Status', texto: 'Filtra por: Rascunho, Submetido, Em Análise, Devolvido, Aprovado, Dispensado ou Cancelado.' },
+    { label: 'Buscar',        texto: 'Busca por número SEI do ETP ou da necessidade vinculada.' },
+  ],
+  dica: 'ETPs dispensados (art. 18, § 3º, Lei 14.133/2021) permitem prosseguir diretamente para o TR sem análise técnica prévia.',
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function ETPList() {
   const navigate = useNavigate()
   const { etps, total, loading, error, fetchEtps } = useEtpStore()

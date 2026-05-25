@@ -56,6 +56,8 @@ import PCADetail from './pages/PCADetail'
 import PlanoList from './pages/PlanoList'
 import PNCPList from './pages/PNCPList'
 import AuditoriaList from './pages/AuditoriaList'
+import RastreabilidadeList from './pages/RastreabilidadeList'
+import RastreabilidadeDetail from './pages/RastreabilidadeDetail'
 
 // Wrapper que combina autenticação + autorização por papel
 function Guard({ children }) {
@@ -153,7 +155,9 @@ export default function App() {
           <Route path="config/catalogo"          element={<Guard><CatalogoAdmin /></Guard>} />
           <Route path="config/catalogo/importar" element={<Guard><ImportarCatalogoAdmin /></Guard>} />
           <Route path="config/categorias"        element={<Guard><CategoriaAdmin /></Guard>} />
-          <Route path="auditoria"               element={<Guard><AuditoriaList /></Guard>} />
+          <Route path="auditoria"                  element={<Guard><AuditoriaList /></Guard>} />
+          <Route path="rastreabilidade"            element={<Guard><RastreabilidadeList /></Guard>} />
+          <Route path="rastreabilidade/:id"        element={<Guard><RastreabilidadeDetail /></Guard>} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

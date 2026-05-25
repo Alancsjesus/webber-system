@@ -13,6 +13,19 @@ const STATUS_CLS = {
   Cancelado:   'bg-red-100 text-red-700',
 }
 
+// ─── Ajuda Contextual ─────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'TRs — Termos de Referência',
+  descricao: 'Lista os Termos de Referência da unidade. O TR define o objeto da contratação, especificações técnicas, critérios de habilitação e modelo de execução.',
+  acoes: [
+    { label: 'Filtro Status', texto: 'Filtra por: Rascunho, Submetido, Em Análise, Devolvido, Aprovado ou Cancelado.' },
+    { label: 'Buscar',        texto: 'Busca pelo número SEI ou objeto do TR.' },
+  ],
+  dica: 'O TR aprovado é a principal peça instrutória do procedimento licitatório. Verifique especificações antes de submeter.',
+  baseLegal: 'Lei 14.133/2021 — Art. 6º, XXIII (Termo de Referência).',
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function TRList() {
   const navigate = useNavigate()
   const { trs, total, loading, error, fetchTrs } = useTrStore()

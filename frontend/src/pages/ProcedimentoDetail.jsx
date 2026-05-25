@@ -5,6 +5,7 @@ import useAuthStore from '../stores/authStore'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { downloadFile } from '../services/api'
 import DownloadButton from '../components/DownloadButton'
+import HelpTip from '../components/HelpTip'
 
 const fmt = v => Number(v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const fmtPct = v => v != null ? `${Number(v).toFixed(1)}%` : '—'
@@ -53,6 +54,36 @@ const TRAM_STATUS_CLS = {
   Atrasado:  'bg-red-100 text-red-700',
   Pendente:  'bg-yellow-100 text-yellow-700',
 }
+
+// ─── Ajuda Contextual ─────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Procedimento Licitatório — Detalhe',
+  descricao: 'Gerencie as etapas, peças instrutórias e tramitações de um procedimento licitatório ou contratação direta conforme a Lei 14.133/2021.',
+  acoes: [
+    { label: 'Submeter',      texto: 'Envia o procedimento para análise da unidade licitante. Após submeter, o documento não pode ser editado sem devolução.' },
+    { label: 'Aprovar',       texto: 'Aprova o procedimento internamente e libera para publicação no PNCP/DOU. Disponível para gestores e ordenadores.' },
+    { label: 'Devolver',      texto: 'Retorna o procedimento para ajustes com justificativa obrigatória. O responsável receberá notificação.' },
+    { label: 'Publicar',      texto: 'Registra a publicação oficial no PNCP ou diário oficial. Informe a data e o veículo de publicação.' },
+    { label: 'Iniciar Sessão',texto: 'Marca o início da sessão pública de abertura de propostas. A data de sessão deve estar preenchida.' },
+    { label: 'Homologar',     texto: 'Confirma o resultado da sessão pública e habilita a geração do contrato. Use após registrar o resultado por lote.' },
+    { label: 'Deserto',       texto: 'Declara o procedimento deserto por ausência de propostas válidas.' },
+    { label: 'Fracassado',    texto: 'Declara o procedimento fracassado quando nenhuma proposta atende os requisitos.' },
+    { label: 'Revogar',       texto: 'Encerra o procedimento por interesse público superveniente, com justificativa. Ato irreversível.' },
+    { label: '+ Tramitação',  texto: 'Registra envio a órgão externo (PGE, SAEB, TCE-BA, CGE, etc.) para parecer jurídico, técnico ou anuência prévia. Informe o prazo de retorno.' },
+    { label: '+ Resultado',   texto: 'Lança o resultado por lote: empresa vencedora, CNPJ, valor homologado. Necessário antes de homologar.' },
+  ],
+  fluxo: [
+    { status: 'Em Instrução',         descricao: 'Procedimento em montagem. Peças instrutórias sendo anexadas.' },
+    { status: 'Aguardando Aprovação', descricao: 'Submetido. Aguarda análise da unidade licitante.' },
+    { status: 'Aprovado',             descricao: 'Aprovado internamente. Pronto para publicação.' },
+    { status: 'Publicado',            descricao: 'Publicado no PNCP/DOU. Prazo de impugnação em curso.' },
+    { status: 'Em Sessão',            descricao: 'Sessão pública iniciada. Propostas sendo analisadas.' },
+    { status: 'Homologado',           descricao: 'Resultado homologado. Contrato pode ser gerado.' },
+    { status: 'Contratado',           descricao: 'Contrato assinado e vigente.' },
+  ],
+  baseLegal: 'Lei 14.133/2021 — Arts. 17 a 90 (licitações) e Arts. 72 a 90 (contratações diretas).',
+}
+// ──────────────────────────────────────────────────────────────────────────────
 
 export default function ProcedimentoDetail() {
   const { id }    = useParams()
@@ -227,42 +258,48 @@ export default function ProcedimentoDetail() {
               className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-3 py-1.5 rounded-lg">
               ↓ Relatório Completo
             </DownloadButton>
-          {transicoes.includes('Aguardando Aprovação') && isLicitante && (
+          {transicoes.includes('Aguardando Aprovação') && isLicitante && (<>
             <button onClick={() => act(submeter, id)} disabled={saving}
               className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm px-3 py-1.5 rounded-lg">
               Submeter
             </button>
-          )}
-          {transicoes.includes('Aprovado') && podeAprovar && (
+            <HelpTip text="Envia o procedimento para análise. Após submeter, não é possível editar sem devolução." />
+          </>)}
+          {transicoes.includes('Aprovado') && podeAprovar && (<>
             <button onClick={() => act(aprovar, id)} disabled={saving}
               className="bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white text-sm px-3 py-1.5 rounded-lg">
               Aprovar
             </button>
-          )}
-          {transicoes.includes('Em Instrução') && current.status === 'Aguardando Aprovação' && isLicitante && (
+            <HelpTip text="Aprova internamente e libera para publicação no PNCP/DOU." />
+          </>)}
+          {transicoes.includes('Em Instrução') && current.status === 'Aguardando Aprovação' && isLicitante && (<>
             <button onClick={() => { setMotivoModal({ acao: 'devolver', label: 'Devolver para instrução' }); setMotivoText('') }}
               className="border border-orange-300 text-orange-600 hover:bg-orange-50 text-sm px-3 py-1.5 rounded-lg">
               Devolver
             </button>
-          )}
-          {transicoes.includes('Publicado') && isLicitante && (
+            <HelpTip text="Retorna para ajustes com justificativa obrigatória. O responsável receberá notificação." />
+          </>)}
+          {transicoes.includes('Publicado') && isLicitante && (<>
             <button onClick={() => act(publicar, id)} disabled={saving}
               className="bg-blue-500 hover:bg-blue-600 disabled:opacity-50 text-white text-sm px-3 py-1.5 rounded-lg">
               Publicar edital
             </button>
-          )}
-          {transicoes.includes('Em Sessão') && isLicitante && (
+            <HelpTip text="Registra a publicação oficial no PNCP ou diário oficial. Informe a data e o veículo." />
+          </>)}
+          {transicoes.includes('Em Sessão') && isLicitante && (<>
             <button onClick={() => act(iniciarSessao, id)} disabled={saving}
               className="bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white text-sm px-3 py-1.5 rounded-lg">
               Iniciar Sessão
             </button>
-          )}
-          {transicoes.includes('Homologado') && isLicitante && (
+            <HelpTip text="Marca o início da sessão pública de abertura de propostas. A data de sessão deve estar preenchida." />
+          </>)}
+          {transicoes.includes('Homologado') && isLicitante && (<>
             <button onClick={() => act(homologar, id)} disabled={saving}
               className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm px-3 py-1.5 rounded-lg">
               Homologar
             </button>
-          )}
+            <HelpTip text="Confirma o resultado da sessão pública e habilita a geração do contrato." />
+          </>)}
           {/* Contratado direto (dispensas aprovadas) */}
           {transicoes.includes('Contratado') && current.status === 'Aprovado' && isLicitante && (
             <button onClick={() => act(homologar, id)} disabled={saving}
@@ -270,24 +307,27 @@ export default function ProcedimentoDetail() {
               Confirmar contratação
             </button>
           )}
-          {transicoes.includes('Deserto') && isLicitante && (
+          {transicoes.includes('Deserto') && isLicitante && (<>
             <button onClick={() => { setMotivoModal({ acao: 'deserto', label: 'Declarar Deserto' }); setMotivoText('Nenhuma proposta recebida.') }}
               className="border border-red-300 text-red-600 hover:bg-red-50 text-sm px-3 py-1.5 rounded-lg">
               Deserto
             </button>
-          )}
-          {transicoes.includes('Fracassado') && isLicitante && (
+            <HelpTip text="Declara o procedimento deserto por ausência de propostas válidas." />
+          </>)}
+          {transicoes.includes('Fracassado') && isLicitante && (<>
             <button onClick={() => { setMotivoModal({ acao: 'fracassado', label: 'Declarar Fracassado' }); setMotivoText('') }}
               className="border border-red-300 text-red-600 hover:bg-red-50 text-sm px-3 py-1.5 rounded-lg">
               Fracassado
             </button>
-          )}
-          {transicoes.includes('Revogado') && isLicitante && (
+            <HelpTip text="Declara fracassado quando nenhuma proposta atende os requisitos editalícios." />
+          </>)}
+          {transicoes.includes('Revogado') && isLicitante && (<>
             <button onClick={() => { setMotivoModal({ acao: 'revogar', label: 'Revogar' }); setMotivoText('') }}
               className="border border-gray-300 text-gray-500 hover:bg-gray-50 text-sm px-3 py-1.5 rounded-lg">
               Revogar
             </button>
-          )}
+            <HelpTip text="Encerra o procedimento por interesse público superveniente. Ato irreversível — exige justificativa." />
+          </>)}
         </div>
       </div>
 

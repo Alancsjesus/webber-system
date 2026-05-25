@@ -14,6 +14,18 @@ const SUGESTAO_CLS = {
 
 const STATUS_OPTS = ['Rascunho', 'Submetida', 'Em Análise', 'Devolvida', 'Aprovada']
 
+// ─── Ajuda Contextual ─────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Plano de Contratações Anual (PCA)',
+  descricao: 'Visão consolidada do planejamento anual de contratações do órgão. Agrupa necessidades aprovadas por exercício fiscal para compor o PCA exigido pelo Decreto 10.947/2022.',
+  acoes: [
+    { label: 'Iniciar Aquisição', texto: 'Transforma uma necessidade aprovada no PCA em um processo de contratação, criando DFD e demais peças automaticamente.' },
+    { label: 'Exportar',          texto: 'Exporta o PCA em formato Excel ou PDF para encaminhamento ao órgão central.' },
+  ],
+  baseLegal: 'Lei 14.133/2021 — Art. 12, IV e Decreto 10.947/2022 (PCA).',
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function PlanoCompras() {
   const navigate = useNavigate()
   const [dados,    setDados]    = useState(null)

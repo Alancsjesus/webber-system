@@ -13,6 +13,27 @@ const STATUS_CLS = {
   Cancelada:     'bg-red-100 text-red-700',
 }
 
+// ─── Ajuda Contextual ─────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Dotações Orçamentárias',
+  descricao: 'Gerencie as dotações orçamentárias vinculadas às necessidades de planejamento. Cada dotação define a fonte de recursos (ação, elemento de despesa, fonte, unidade orçamentária) para cobrir uma contratação.',
+  acoes: [
+    { label: '+ Nova Dotação',    texto: 'Cadastra uma dotação com exercício fiscal, ação orçamentária, elemento de despesa, fonte de recurso e valor disponível.' },
+    { label: 'Filtro Status',     texto: 'Proposta (aguardando aprovação), Em Análise, Aprovada (disponível para indicação), Em Execução ou Concluída.' },
+    { label: 'Filtro Exercício',  texto: 'Filtra dotações por ano de exercício fiscal.' },
+  ],
+  fluxo: [
+    { status: 'Proposta',      descricao: 'Dotação cadastrada. Aguarda análise orçamentária.' },
+    { status: 'Em Análise',    descricao: 'Sendo avaliada pela área orçamentária.' },
+    { status: 'Aprovada',      descricao: 'Disponível para indicação a procedimentos.' },
+    { status: 'Em Execução',   descricao: 'Com indicação vinculada a procedimento ativo.' },
+    { status: 'Concluída',     descricao: 'Execução concluída. Contrato encerrado.' },
+  ],
+  dica: 'Uma dotação aprovada pode ser indicada parcialmente a múltiplos procedimentos até esgotar o saldo disponível.',
+  baseLegal: 'Lei 14.133/2021 — Art. 7º (indicação orçamentária como condição para licitação).',
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function OrcamentoList() {
   const navigate = useNavigate()
   const { dotacoes, total, loading, error, fetchDotacoes } = useOrcamentoStore()

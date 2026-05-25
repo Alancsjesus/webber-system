@@ -18,6 +18,29 @@ const STATUS_CLS = {
 const PAPEIS_ANALISTA  = ['analista', 'gestor_contrato', 'fiscal_contrato', 'ordenador', 'admin']
 const PAPEIS_SOLICITANTE = ['solicitante', 'demandante', 'responsavel_tecnico', 'admin']
 
+// ─── Ajuda Contextual ─────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Termo de Referência — Detalhe',
+  descricao: 'O TR define o objeto da contratação, especificações técnicas, modelo de execução, critérios de habilitação e julgamento. É a principal peça do processo licitatório.',
+  acoes: [
+    { label: 'Editar',          texto: 'Habilita edição do TR enquanto em Rascunho ou Devolvido.' },
+    { label: 'Submeter',        texto: 'Envia o TR para análise da unidade de planejamento.' },
+    { label: 'Iniciar Análise', texto: 'Disponível para analistas: inicia formalmente a análise do TR.' },
+    { label: 'Aprovar',         texto: 'Aprova o TR. O procedimento licitatório pode ser iniciado.' },
+    { label: 'Devolver',        texto: 'Retorna para o responsável técnico com justificativa de pendências.' },
+    { label: 'Download PDF',    texto: 'Exporta o TR em PDF para compor o processo SEI.' },
+  ],
+  fluxo: [
+    { status: 'Rascunho',   descricao: 'Em elaboração.' },
+    { status: 'Submetido',  descricao: 'Enviado para análise.' },
+    { status: 'Em Análise', descricao: 'Analista avaliando especificações e conformidade legal.' },
+    { status: 'Devolvido',  descricao: 'Pendências a corrigir.' },
+    { status: 'Aprovado',   descricao: 'Pronto para uso no procedimento licitatório.' },
+  ],
+  baseLegal: 'Lei 14.133/2021 — Art. 6º, XXIII e Art. 40.',
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function TRDetail() {
   const { id }    = useParams()
   const navigate  = useNavigate()

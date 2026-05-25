@@ -181,6 +181,49 @@ Procedimentos get auto-numbered as `{PREFIXO}-{UNIDADE_SIGLA}-{SEQ:03d}/{ANO}` v
 
 `reportlab` is used for PDF generation (via `exportacao/` module). HTML export targets SEI import. Documents requiring signatures embed creator + approver names.
 
+---
+
+## Ajuda Contextual — Regra de Manutenção
+
+O sistema possui ajuda contextual por página via dois componentes:
+- `HelpTip` — tooltip `?` inline ao lado de botões e campos críticos
+- `PageHelpPanel` — painel lateral acessível pelo botão `?` flutuante no canto inferior direito
+
+### Regra obrigatória
+
+**Sempre que uma página ganhar, remover ou alterar um botão, ação ou campo relevante, o bloco `export const pageHelp` no topo do arquivo deve ser atualizado na mesma operação.**
+
+Páginas novas devem:
+1. Exportar `pageHelp` no topo do arquivo (após os imports)
+2. Ter a rota registrada em `frontend/src/help/helpContent.js`
+
+### Estrutura do pageHelp
+
+```jsx
+// ─── Ajuda Contextual ────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo:    'Nome da Página',
+  descricao: 'Explicação do propósito da página em 1-2 frases.',
+  acoes: [
+    { label: 'Nome do Botão', texto: 'O que este botão faz e suas implicações.' },
+  ],
+  fluxo: [  // opcional — para páginas com fluxo de status
+    { status: 'Rascunho', descricao: 'Descrição do estado.' },
+  ],
+  dica:      'Dica prática para o usuário.',  // opcional
+  baseLegal: 'Lei 14.133/2021 — Art. XX.',   // opcional
+}
+// ─────────────────────────────────────────────────────────────────────────────
+```
+
+### Validar cobertura
+
+```powershell
+node scripts/check-help.js
+```
+
+---
+
 ### Test Users (from `setup_dev`)
 | Username | Password | Role | Org |
 |---|---|---|---|
