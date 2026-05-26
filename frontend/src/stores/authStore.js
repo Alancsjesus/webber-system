@@ -45,10 +45,10 @@ const useAuthStore = create((set) => ({
   error:         null,
   loading:       false,
 
-  login: async (username, password) => {
+  login: async (username, password, captchaToken = '') => {
     set({ loading: true, error: null })
     try {
-      const { data } = await axios.post('/api/token/', { username, password })
+      const { data } = await axios.post('/api/token/', { username, password, captcha_token: captchaToken })
       localStorage.setItem('access_token', data.access)
       localStorage.setItem('refresh_token', data.refresh)
       const p = parseJwt(data.access)
@@ -67,7 +67,15 @@ const useAuthStore = create((set) => ({
         loading: false,
       })
     } catch (err) {
-      const msg = err.response?.data?.detail || 'Credenciais inválidas. Tente novamente.'
+      const status = err.response?.status
+      let msg
+      if (status === 429) {
+        msg = '429'
+      } else if (status === 400 && err.response?.data?.captcha) {
+        msg = 'Verificação CAPTCHA inválida. Tente novamente.'
+      } else {
+        msg = err.response?.data?.detail || 'Credenciais inválidas. Tente novamente.'
+      }
       set({ error: msg, loading: false })
     }
   },

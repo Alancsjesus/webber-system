@@ -1,6 +1,9 @@
+from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
 from .models import Orgao, ParametroSistema
+from .throttles import LoginRateThrottle
+from .hcaptcha import verify_hcaptcha
 
 FLAGS_MODULOS = [
     'modulo_planejamento_ativo',
@@ -13,6 +16,14 @@ FLAGS_MODULOS = [
 
 class WebberTokenObtainPairSerializer(TokenObtainPairSerializer):
     """JWT customizado com orgao_id, unidade_id, tipo_unidade, papel e feature flags."""
+
+    captcha_token = serializers.CharField(required=False, write_only=True, default='', allow_blank=True)
+
+    def validate(self, attrs):
+        captcha_token = attrs.pop('captcha_token', '')
+        if not verify_hcaptcha(captcha_token):
+            raise serializers.ValidationError({'captcha': 'Verificação CAPTCHA inválida.'})
+        return super().validate(attrs)
 
     @classmethod
     def get_token(cls, user):
@@ -67,3 +78,4 @@ class WebberTokenObtainPairSerializer(TokenObtainPairSerializer):
 
 class WebberTokenObtainPairView(TokenObtainPairView):
     serializer_class = WebberTokenObtainPairSerializer
+    throttle_classes = [LoginRateThrottle]

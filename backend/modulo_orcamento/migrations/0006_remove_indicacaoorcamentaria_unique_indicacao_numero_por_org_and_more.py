@@ -18,19 +18,22 @@ class Migration(migrations.Migration):
         # quando constraint/index já não existem (diferença entre ambientes)
         migrations.SeparateDatabaseAndState(
             database_operations=[
-                migrations.RunSQL(
-                    sql="ALTER TABLE modulo_orcamento_indicacaoorcamentaria DROP CONSTRAINT IF EXISTS unique_indicacao_numero_por_org;",
-                    reverse_sql=migrations.RunSQL.noop,
+                migrations.RunPython(
+                    lambda apps, se: se.execute(
+                        "ALTER TABLE modulo_orcamento_indicacaoorcamentaria "
+                        "DROP CONSTRAINT IF EXISTS unique_indicacao_numero_por_org;"
+                    ) if se.connection.vendor == 'postgresql' else None,
+                    reverse_code=migrations.RunPython.noop,
                 ),
-                migrations.RunSQL(
-                    sql="""
+                migrations.RunPython(
+                    lambda apps, se: se.execute("""
 DO $$
 BEGIN
     IF EXISTS (SELECT 1 FROM pg_indexes WHERE indexname = 'indicacao_org_created_idx')
     THEN ALTER INDEX indicacao_org_created_idx RENAME TO modulo_orca_org_id__63a40f_idx;
     END IF;
-END$$;""",
-                    reverse_sql=migrations.RunSQL.noop,
+END$$;""") if se.connection.vendor == 'postgresql' else None,
+                    reverse_code=migrations.RunPython.noop,
                 ),
             ],
             state_operations=[

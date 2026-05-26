@@ -103,6 +103,11 @@ AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
 ]
 
+PASSWORD_HASHERS = [
+    'django.contrib.auth.hashers.Argon2PasswordHasher',
+    'django.contrib.auth.hashers.PBKDF2PasswordHasher',
+]
+
 LANGUAGE_CODE = 'pt-br'
 TIME_ZONE = 'America/Sao_Paulo'
 USE_I18N = True
@@ -130,7 +135,9 @@ REST_FRAMEWORK = {
     ),
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
-    
+    'DEFAULT_THROTTLE_RATES': {
+        'login': '5/min',
+    },
 }
 
 # JWT
@@ -144,6 +151,10 @@ SIMPLE_JWT = {
 # CORS
 _cors_default = 'http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173'
 CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', _cors_default).split(',')
+
+# hCaptcha
+HCAPTCHA_SECRET = os.getenv('HCAPTCHA_SECRET', '0x0000000000000000000000000000000000000000')
+HCAPTCHA_BYPASS = os.getenv('HCAPTCHA_BYPASS', 'True') == 'True'
 
 # Logging
 LOGGING = {
