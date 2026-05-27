@@ -41,9 +41,9 @@ export default function DFDList() {
   }, [search, status])
 
   return (
-    <div className="p-8">
+    <div className="p-6 lg:p-8">
       {/* Cabeçalho */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div>
           <h1 className="text-xl font-bold text-gray-800">DFDs</h1>
           <p className="text-sm text-gray-500 mt-0.5">
@@ -59,7 +59,7 @@ export default function DFDList() {
       </div>
 
       {/* Filtros */}
-      <div className="flex gap-3 mb-5">
+      <div className="flex flex-wrap gap-3 mb-5">
         <input
           type="text"
           placeholder="Buscar por número SEI ou descrição..."
@@ -107,7 +107,8 @@ export default function DFDList() {
             />
           ) : (
             <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-              <table className="w-full text-sm">
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm min-w-[640px]">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
                     <th className="text-left px-5 py-3 font-medium text-gray-500">Nº SEI</th>
@@ -147,6 +148,7 @@ export default function DFDList() {
                   })}
                 </tbody>
               </table>
+              </div>
             </div>
           )}
 

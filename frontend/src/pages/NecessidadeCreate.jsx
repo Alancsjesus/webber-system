@@ -110,7 +110,7 @@ export default function NecessidadeCreate() {
   }
 
   return (
-    <div className="p-8 max-w-2xl">
+    <div className="p-6 lg:p-8 max-w-3xl">
       <button onClick={() => navigate(-1)} className="text-sm text-gray-400 hover:text-gray-600 mb-4">
         ← Voltar
       </button>
@@ -132,7 +132,7 @@ export default function NecessidadeCreate() {
             className={inp(errors.descricao)} />
         </Field>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Field label="Departamento solicitante" error={errors.departamento_solicitante}>
             <input type="text" value={form.departamento_solicitante}
               onChange={(e) => set('departamento_solicitante', e.target.value)}
@@ -146,7 +146,7 @@ export default function NecessidadeCreate() {
           </Field>
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Field label="Valor estimado (R$)" error={errors.valor_estimado}>
             <input type="number" min="0" step="0.01" value={form.valor_estimado}
               onChange={(e) => set('valor_estimado', e.target.value)}

@@ -264,7 +264,7 @@ export default function RastreabilidadeList() {
       {!loading && !error && lista.length > 0 && (
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
           {/* Cabeçalho da tabela */}
-          <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+          <div className="px-5 py-3 border-b border-gray-100 flex flex-wrap items-center justify-between gap-2">
             <span className="text-sm font-medium text-gray-600">
               {count} necessidade{count !== 1 ? 's' : ''}
               {temFiltroAtivo && <span className="text-blue-600"> (filtrado)</span>}
@@ -279,7 +279,8 @@ export default function RastreabilidadeList() {
             </div>
           </div>
 
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[640px]">
             <thead>
               <tr className="text-xs text-gray-500 bg-gray-50 border-b border-gray-100">
                 <th className="text-left px-5 py-3 font-medium">Necessidade</th>
@@ -340,6 +341,7 @@ export default function RastreabilidadeList() {
               })}
             </tbody>
           </table>
+          </div>
 
           <Paginacao
             page={currentPage}

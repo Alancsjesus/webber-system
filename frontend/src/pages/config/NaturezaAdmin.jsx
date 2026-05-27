@@ -78,7 +78,7 @@ export default function NaturezaAdmin() {
   }
 
   return (
-    <div className="p-8 max-w-3xl">
+    <div className="p-6 lg:p-8 max-w-3xl">
       <div className="mb-6">
         <h1 className="text-xl font-bold text-gray-800">Naturezas de Despesa</h1>
         <p className="text-sm text-gray-500 mt-0.5">Formato 3.3.90.30 — ex: 339030 (Material de Consumo), 449052 (Equipamentos)</p>
@@ -92,7 +92,7 @@ export default function NaturezaAdmin() {
 
       <form onSubmit={handleSubmit} className="bg-white border border-gray-200 rounded-xl p-5 mb-6 space-y-4">
         <h2 className="text-sm font-semibold text-gray-700">{editId ? 'Editar natureza' : 'Nova natureza de despesa'}</h2>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Código (6 dígitos) *</label>
             <input type="text" maxLength={6} value={form.codigo}
@@ -147,7 +147,8 @@ export default function NaturezaAdmin() {
           description="Cadastre as naturezas de despesa no formato 3.3.90.30 (ex: 339030, 339039, 449052)" />
       ) : (
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[640px]">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="text-left px-5 py-3 font-medium text-gray-500">Código</th>
@@ -178,6 +179,7 @@ export default function NaturezaAdmin() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

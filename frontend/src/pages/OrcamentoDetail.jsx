@@ -161,7 +161,7 @@ export default function OrcamentoDetail() {
   if (!current || !form) return null
 
   return (
-    <div className="p-8 max-w-2xl">
+    <div className="p-6 lg:p-8 max-w-3xl">
       <button
         onClick={() => navigate(-1)}
         className="text-sm text-gray-400 hover:text-gray-600 mb-4 inline-flex items-center gap-1"
@@ -320,7 +320,7 @@ export default function OrcamentoDetail() {
         {/* Pipeline de Valores */}
         <div className="bg-gray-50 rounded-xl border border-gray-200 p-4">
           <p className="text-xs font-semibold text-gray-400 uppercase mb-3">Pipeline Orçamentário</p>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {[
               { key: 'valor_dotado',        label: 'Dotado',         color: 'text-gray-800' },
               { key: 'valor_indicado',      label: 'Indicado',       color: 'text-blue-700' },

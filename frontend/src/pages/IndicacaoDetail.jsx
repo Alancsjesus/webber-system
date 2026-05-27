@@ -119,7 +119,7 @@ export default function IndicacaoDetail() {
   const podeAprovar = isSubmetida && ['admin', 'ordenador'].includes(papel)
 
   return (
-    <div className="p-8 max-w-3xl">
+    <div className="p-6 lg:p-8 max-w-3xl">
       <button onClick={() => navigate(-1)} className="text-sm text-gray-400 hover:text-gray-600 mb-4">
         ← Voltar
       </button>
@@ -256,7 +256,7 @@ export default function IndicacaoDetail() {
             <form onSubmit={handleVincular}
               className="mb-4 bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
               <p className="text-sm font-semibold text-gray-700">Vincular dotação</p>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Dotação *</label>
                   <select value={vincForm.dotacao_id}

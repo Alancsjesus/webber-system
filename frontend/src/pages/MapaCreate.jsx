@@ -49,7 +49,7 @@ export default function MapaCreate() {
   }
 
   return (
-    <div className="p-8 max-w-2xl">
+    <div className="p-6 lg:p-8 max-w-3xl">
       <button onClick={() => navigate(-1)} className="text-sm text-gray-400 hover:text-gray-600 mb-4">← Voltar</button>
       <h1 className="text-xl font-bold text-gray-800 mb-1">Novo Mapa Comparativo de Preços</h1>
       <p className="text-sm text-gray-500 mb-2">Decreto Estadual 22.886/2024 — Art. 3º e Art. 8º</p>
@@ -67,7 +67,7 @@ export default function MapaCreate() {
             className={inp(errors.objeto)} />
         </Field>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Field label="Exercício fiscal *" error={errors.exercicio_fiscal}>
             <input type="number" min="2020" max="2050" value={form.exercicio_fiscal}
               onChange={(e) => set('exercicio_fiscal', e.target.value)}

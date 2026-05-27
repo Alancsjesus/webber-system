@@ -85,7 +85,7 @@ export default function OrcamentoCreate() {
   }
 
   return (
-    <div className="p-8 max-w-2xl">
+    <div className="p-6 lg:p-8 max-w-3xl">
       <button onClick={() => navigate(-1)} className="text-sm text-gray-400 hover:text-gray-600 mb-4">
         ← Voltar
       </button>
@@ -94,7 +94,7 @@ export default function OrcamentoCreate() {
       <form onSubmit={handleSubmit} className="space-y-5">
         <FormErrors errors={errors} />
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Field label="Exercício fiscal" error={errors.exercicio_fiscal}>
             <input type="number" min="2020" max="2050" value={form.exercicio_fiscal}
               onChange={(e) => set('exercicio_fiscal', e.target.value)}

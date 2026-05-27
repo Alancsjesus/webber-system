@@ -48,7 +48,7 @@ export default function AcaoAdmin() {
   }
 
   return (
-    <div className="p-8 max-w-4xl">
+    <div className="p-6 lg:p-8 max-w-4xl">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-gray-800">Ações Orçamentárias</h1>
@@ -63,7 +63,7 @@ export default function AcaoAdmin() {
       {form && (
         <div className="mb-6 border border-blue-200 bg-blue-50 rounded-xl p-5">
           <h2 className="text-sm font-semibold text-blue-800 mb-4">{form.id ? 'Editar ação' : 'Nova ação'}</h2>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <F label="Código *" error={errors.codigo}>
               <input value={form.codigo} onChange={e => set('codigo', e.target.value)}
                 className={inp(errors.codigo)} placeholder="Ex: 2024.001" />
@@ -106,7 +106,8 @@ export default function AcaoAdmin() {
 
       {loading ? <p className="text-sm text-gray-400">Carregando...</p> : (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[640px]">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="text-left px-5 py-3 font-medium text-gray-500">Código</th>
@@ -136,6 +137,7 @@ export default function AcaoAdmin() {
             </tbody>
           </table>
           {list.length === 0 && <p className="text-center py-8 text-sm text-gray-400">Nenhuma ação cadastrada.</p>}
+          </div>
         </div>
       )}
     </div>

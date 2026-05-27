@@ -227,7 +227,7 @@ export default function ProcedimentoDetail() {
   ]
 
   return (
-    <div className="p-8 max-w-4xl">
+    <div className="p-6 lg:p-8 max-w-4xl">
       <button onClick={() => navigate(-1)} className="text-sm text-gray-400 hover:text-gray-600 mb-4">
         ← Voltar
       </button>
@@ -407,7 +407,7 @@ export default function ProcedimentoDetail() {
           ))}
 
           {/* Info adicionais */}
-          <div className="grid grid-cols-2 gap-4 pt-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
             {current.unidade_gestora_sigla && (
               <div>
                 <p className="text-xs font-semibold text-gray-400 uppercase mb-1">Unidade Gestora</p>
@@ -591,7 +591,7 @@ export default function ProcedimentoDetail() {
           {showTramForm && (
             <form onSubmit={handleAddTramitacao} className="border border-blue-200 bg-blue-50 rounded-xl p-4 space-y-3">
               <p className="text-sm font-semibold text-blue-800">Nova Tramitação Externa</p>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Órgão externo *</label>
                   <select value={tramForm.orgao_externo} required
@@ -695,7 +695,7 @@ export default function ProcedimentoDetail() {
           {showResForm && (
             <form onSubmit={handleAddResultado} className="border border-green-200 bg-green-50 rounded-xl p-4 space-y-3">
               <p className="text-sm font-semibold text-green-800">Resultado do Lote</p>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="col-span-2">
                   <label className="block text-xs font-medium text-gray-600 mb-1">Descrição do lote *</label>
                   <input type="text" value={resForm.descricao_lote} required

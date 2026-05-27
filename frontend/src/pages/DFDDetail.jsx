@@ -301,7 +301,7 @@ export default function DFDDetail() {
   const totalItens = itens.reduce((acc, i) => acc + parseFloat(i.valor_total_estimado || 0), 0)
 
   return (
-    <div className="p-8 max-w-2xl">
+    <div className="p-6 lg:p-8 max-w-3xl">
       <button
         onClick={() => navigate(-1)}
         className="text-sm text-gray-400 hover:text-gray-600 mb-4 inline-flex items-center gap-1"
@@ -528,7 +528,7 @@ export default function DFDDetail() {
             </div>
           )}
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <RespCard
             label="Fiscal Titular"
             username={current.fiscal_contrato_username}
@@ -734,7 +734,7 @@ export default function DFDDetail() {
           {showAddItem && (
             <div className="mt-3 border border-blue-200 rounded-lg p-3 bg-blue-50">
               <p className="text-xs font-semibold text-blue-700 mb-2">Novo item</p>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 {/* Busca no catálogo */}
                 <div className="col-span-2">
                   <label className="block text-xs text-gray-500 mb-0.5">Buscar no catálogo (opcional)</label>
@@ -885,7 +885,7 @@ export default function DFDDetail() {
           {showAddProcesso && (
             <div className="mt-3 border border-blue-200 rounded-lg p-3 bg-blue-50">
               <p className="text-xs font-semibold text-blue-700 mb-2">Vincular número de processo</p>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div className="col-span-2">
                   <label className="block text-xs text-gray-500 mb-0.5">Número do processo</label>
                   <input type="text" value={newProcesso.numero}

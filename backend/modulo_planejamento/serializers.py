@@ -1,8 +1,16 @@
 from datetime import date
 from django.db.models import Sum
 from rest_framework import serializers
-from .models import NecessidadePlanejamento, PlanoOrcamentario, ItemPlanoOrcamentario
+from .models import NecessidadePlanejamento, HistoricoNecessidade, PlanoOrcamentario, ItemPlanoOrcamentario
 from core.models import Orgao
+
+
+class HistoricoNecessidadeSerializer(serializers.ModelSerializer):
+    usuario_username = serializers.CharField(source='usuario.username', read_only=True)
+
+    class Meta:
+        model  = HistoricoNecessidade
+        fields = ['id', 'status_anterior', 'status_novo', 'usuario_username', 'motivo', 'criado_em']
 
 
 class NecessidadeSerializer(serializers.ModelSerializer):
@@ -18,6 +26,7 @@ class NecessidadeSerializer(serializers.ModelSerializer):
     itens_plano_count    = serializers.SerializerMethodField()
     planos_ids           = serializers.PrimaryKeyRelatedField(source='planos', many=True, read_only=True)
     origem               = serializers.SerializerMethodField()
+    historico            = HistoricoNecessidadeSerializer(many=True, read_only=True)
 
     def get_itens_plano_count(self, obj):
         return obj.itens_plano.count()
@@ -57,6 +66,7 @@ class NecessidadeSerializer(serializers.ModelSerializer):
             'org_gestor_nome',
             'unidade_demandante',
             'aceite_pai',
+            'historico',
             'org_id',
             'org_nome',
             'org_sigla',
@@ -72,7 +82,7 @@ class NecessidadeSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at',
             'org_gestor', 'org_gestor_sigla', 'org_gestor_nome',
             'orgao_executor_sigla', 'orgao_executor_nome',
-            'dfd_numero_sei', 'itens_plano_count', 'planos_ids', 'origem',
+            'dfd_numero_sei', 'itens_plano_count', 'planos_ids', 'origem', 'historico',
         ]
 
     def validate_prazo_desejado(self, value):

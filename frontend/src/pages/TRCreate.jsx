@@ -312,7 +312,7 @@ export default function TRCreate() {
 
         {/* Seção 1 — Condições Gerais */}
         <Secao titulo="1. Condições Gerais" cor="teal">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <F label="Tipo de objeto">
               <select value={form.tipo_objeto} onChange={e => set('tipo_objeto', e.target.value)} className={sel()}>
                 <option value="">— Selecione —</option>
@@ -329,7 +329,7 @@ export default function TRCreate() {
               </select>
             </F>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Toggle label="Contratação Delegada" checked={form.contratacao_delegada} onChange={() => set('contratacao_delegada', !form.contratacao_delegada)} />
             <Toggle label="Sistema de Registro de Preços (ARP)" checked={form.sistema_registro_precos} onChange={() => set('sistema_registro_precos', !form.sistema_registro_precos)} />
           </div>
@@ -410,14 +410,14 @@ export default function TRCreate() {
           )}
 
           {/* 4.6 Garantia */}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Toggle label="4.6.1 Garantia de proposta (art. 58)"
               checked={form.req_garantia_proposta} onChange={() => set('req_garantia_proposta', !form.req_garantia_proposta)} />
             <Toggle label="4.6.2 Garantia da contratação (art. 96)"
               checked={form.req_garantia_contratacao} onChange={() => set('req_garantia_contratacao', !form.req_garantia_contratacao)} />
           </div>
           {form.req_garantia_contratacao && (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <F label="Percentual (%) — máx. 5%; até 10% justificado (art. 98)">
                 <input type="number" min="1" max="10" step="0.5" value={form.req_garantia_percentual}
                   onChange={e => set('req_garantia_percentual', e.target.value)} className={inp()} placeholder="Ex: 5" />
@@ -456,7 +456,7 @@ export default function TRCreate() {
               <input value={form.bens_validade_pereciveis} onChange={e => set('bens_validade_pereciveis', e.target.value)}
                 placeholder="Ex: mínimo de 12 meses a contar da entrega" className={inp()} />
             </F>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <F label="Prazo de garantia técnica (meses)">
                 <input type="number" min="1" value={form.bens_garantia_tecnica_prazo}
                   onChange={e => set('bens_garantia_tecnica_prazo', e.target.value)}
@@ -528,7 +528,7 @@ export default function TRCreate() {
               <p className="text-xs text-teal-800 leading-relaxed">{form.prazo_observacao}</p>
             </div>
           )}
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <F label="Estimativa de valor (R$)">
               <input type="number" min="0" step="0.01" value={form.estimativa_valor}
                 onChange={e => set('estimativa_valor', e.target.value)} className={inp()} />
@@ -544,7 +544,7 @@ export default function TRCreate() {
 
         {/* Seção 6 — Obrigações e Critérios */}
         <Secao titulo="6. Obrigações e Critérios" cor="teal">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <F label="Obrigações da contratada">
               <textarea rows={4} value={form.obrigacoes_contratada} onChange={e => set('obrigacoes_contratada', e.target.value)} className={inp()} />
             </F>
@@ -552,7 +552,7 @@ export default function TRCreate() {
               <textarea rows={4} value={form.obrigacoes_contratante} onChange={e => set('obrigacoes_contratante', e.target.value)} className={inp()} />
             </F>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <F label="Critérios de seleção do fornecedor">
               <textarea rows={2} value={form.criterios_selecao} onChange={e => set('criterios_selecao', e.target.value)} className={inp()} />
             </F>

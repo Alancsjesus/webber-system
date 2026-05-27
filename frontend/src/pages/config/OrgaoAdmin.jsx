@@ -46,7 +46,7 @@ export default function OrgaoAdmin() {
   const filhos = list.filter(o => o.parent)
 
   return (
-    <div className="p-8 max-w-3xl">
+    <div className="p-6 lg:p-8 max-w-3xl">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-gray-800">Órgãos</h1>
@@ -61,7 +61,7 @@ export default function OrgaoAdmin() {
       {form && (
         <div className="mb-6 border border-blue-200 bg-blue-50 rounded-xl p-5">
           <h2 className="text-sm font-semibold text-blue-800 mb-4">{form.id ? 'Editar órgão' : 'Novo órgão'}</h2>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <F label="Sigla *" error={errors.sigla}>
               <input value={form.sigla} onChange={e => set('sigla', e.target.value.toUpperCase())}
                 className={inp(errors.sigla)} placeholder="Ex: SSP" />
@@ -101,7 +101,8 @@ export default function OrgaoAdmin() {
 
       {loading ? <p className="text-sm text-gray-400">Carregando...</p> : (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[640px]">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="text-left px-5 py-3 font-medium text-gray-500">Sigla</th>
@@ -134,6 +135,7 @@ export default function OrgaoAdmin() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

@@ -141,7 +141,7 @@ export default function ProcedimentoCreate() {
   }
 
   return (
-    <div className="p-8 max-w-2xl">
+    <div className="p-6 lg:p-8 max-w-3xl">
       <button onClick={() => navigate(-1)} className="text-sm text-gray-400 hover:text-gray-600 mb-4">
         ← Voltar
       </button>
@@ -152,7 +152,7 @@ export default function ProcedimentoCreate() {
 
       <form onSubmit={handleSubmit} className="space-y-5">
         {/* Modalidade + Exercício */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Field label="Modalidade *" error={errors.modalidade}>
             <select value={form.modalidade} onChange={e => set('modalidade', e.target.value)} className={inp(errors.modalidade)}>
               <optgroup label="Licitações">
@@ -228,7 +228,7 @@ export default function ProcedimentoCreate() {
         </Field>
 
         {/* Valor e SEI */}
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Field label="Valor estimado (R$)" error={errors.valor_estimado}>
             <input type="number" min="0" step="0.01" value={form.valor_estimado}
               onChange={e => set('valor_estimado', e.target.value)} className={inp(errors.valor_estimado)}
@@ -243,7 +243,7 @@ export default function ProcedimentoCreate() {
 
         {/* Datas (licitações) */}
         {ehLicitacao && (
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Data de publicação" error={errors.data_publicacao}>
               <input type="date" value={form.data_publicacao}
                 onChange={e => set('data_publicacao', e.target.value)} className={inp(errors.data_publicacao)} />

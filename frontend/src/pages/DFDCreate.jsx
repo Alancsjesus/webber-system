@@ -230,7 +230,7 @@ export default function DFDCreate() {
   )
 
   return (
-    <div className="p-8 max-w-3xl">
+    <div className="p-6 lg:p-8 max-w-3xl">
       <button onClick={() => navigate(-1)}
         className="text-sm text-gray-400 hover:text-gray-600 mb-4 inline-flex items-center gap-1">
         ← Voltar
@@ -458,7 +458,7 @@ export default function DFDCreate() {
                         className="text-xs text-red-400 hover:text-red-600">Remover</button>
                     )}
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div className="col-span-2">
                       <label className="block text-xs text-gray-500 mb-0.5">Objeto / Descrição</label>
                       <input type="text" value={item.objeto}
@@ -521,7 +521,7 @@ export default function DFDCreate() {
           {/* Unidades responsáveis */}
           <div className="border border-gray-200 rounded-xl p-4 bg-gray-50">
             <p className="text-sm font-medium text-gray-700 mb-3">Unidades responsáveis</p>
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
               <Field label="Unidade licitante (opcional)">
                 <select value={unidLicitante} onChange={e => setUnidLicitante(e.target.value)}
                   className={inputCls()}>

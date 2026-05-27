@@ -65,7 +65,7 @@ export default function UnidadeAdmin() {
   }
 
   return (
-    <div className="p-8 max-w-4xl">
+    <div className="p-6 lg:p-8 max-w-4xl">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-gray-800">Unidades Organizacionais</h1>
@@ -80,7 +80,7 @@ export default function UnidadeAdmin() {
       {form && (
         <div className="mb-6 border border-blue-200 bg-blue-50 rounded-xl p-5">
           <h2 className="text-sm font-semibold text-blue-800 mb-4">{form.id ? 'Editar unidade' : 'Nova unidade'}</h2>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <F label="Órgão *" error={errors.orgao}>
               <select value={form.orgao || ''} onChange={e => set('orgao', e.target.value)} className={inp(errors.orgao)}>
                 <option value="">— selecione —</option>
@@ -121,7 +121,7 @@ export default function UnidadeAdmin() {
         </div>
       )}
 
-      <div className="flex gap-3 mb-4">
+      <div className="flex flex-wrap gap-3 mb-4">
         <select value={filterOrg} onChange={e => setFilterOrg(e.target.value)}
           className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
           <option value="">Todos os órgãos</option>
@@ -136,7 +136,8 @@ export default function UnidadeAdmin() {
 
       {loading ? <p className="text-sm text-gray-400">Carregando...</p> : (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[640px]">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="text-left px-5 py-3 font-medium text-gray-500">Órgão</th>
@@ -169,6 +170,7 @@ export default function UnidadeAdmin() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

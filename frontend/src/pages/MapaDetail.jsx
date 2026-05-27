@@ -132,7 +132,7 @@ export default function MapaDetail() {
   const isDevolvido = current.status === 'Devolvido'
 
   return (
-    <div className="p-8 max-w-5xl">
+    <div className="p-6 lg:p-8 max-w-5xl">
       <button onClick={() => navigate(-1)} className="text-sm text-gray-400 hover:text-gray-600 mb-4">← Voltar</button>
 
       {/* Cabeçalho */}
@@ -822,7 +822,7 @@ function FonteForm({ metadados, onSave }) {
   }
 
   return (
-    <div className="grid grid-cols-2 gap-3">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
       <div>
         <label className="block text-xs font-medium text-gray-600 mb-1">Parâmetro (Art. 5º) *</label>
         <select value={form.tipo} onChange={(e) => setForm(p => ({ ...p, tipo: e.target.value }))}

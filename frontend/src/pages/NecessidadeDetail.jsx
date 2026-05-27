@@ -43,6 +43,7 @@ export const pageHelp = {
     { label: 'Aprovar',     texto: 'Aprova a necessidade, liberando a criação do DFD correspondente.' },
     { label: 'Cancelar',    texto: 'Cancela a necessidade definitivamente.' },
     { label: 'Iniciar DFD', texto: 'Cria automaticamente um DFD vinculado a esta necessidade aprovada.' },
+    { label: 'Tramitação',  texto: 'Exibe o histórico completo de transições de status da necessidade, com data, usuário responsável e motivo de cada etapa.' },
   ],
 }
 // ──────────────────────────────────────────────────────────────────────────────
@@ -57,6 +58,7 @@ export default function NecessidadeDetail() {
   const isPlanejamento = tipoUnidade === 'planejamento' ||
     ['gestor_planejamento', 'admin'].includes(papel)
 
+  const [activeTab, setActiveTab]   = useState('detalhes')
   const [editing, setEditing]       = useState(false)
   const [form, setForm]             = useState(null)
   const [saving, setSaving]         = useState(false)
@@ -152,7 +154,7 @@ export default function NecessidadeDetail() {
   const podeRecusar   = isPlanejamento && current.tipo_execucao === 'externa' && current.aceite_pai === 'pendente'
 
   return (
-    <div className="p-8 max-w-2xl">
+    <div className="p-6 lg:p-8 max-w-3xl">
       <button onClick={() => navigate(-1)} className="text-sm text-gray-400 hover:text-gray-600 mb-4">
         ← Voltar
       </button>
@@ -258,6 +260,23 @@ export default function NecessidadeDetail() {
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="flex gap-1 border-b border-gray-200 mb-6">
+        {[
+          { key: 'detalhes',   label: 'Detalhes' },
+          { key: 'tramitacao', label: `Tramitação (${current.historico?.length ?? 0})` },
+        ].map(tab => (
+          <button key={tab.key} onClick={() => setActiveTab(tab.key)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              activeTab === tab.key
+                ? 'border-blue-600 text-blue-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}>
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
       {/* Aceite pendente aviso */}
       {current.aceite_pai === 'pendente' && (
         <div className="bg-amber-50 border border-amber-200 rounded-lg px-4 py-3 mb-5 text-sm text-amber-700">
@@ -293,14 +312,55 @@ export default function NecessidadeDetail() {
         </div>
       )}
 
-      <div className="space-y-5">
+      {/* ── Tab: Tramitação ──────────────────────────────────────────────── */}
+      {activeTab === 'tramitacao' && (
+        <div className="space-y-3">
+          {(!current.historico || current.historico.length === 0) ? (
+            <p className="text-sm text-gray-400 italic">Nenhuma transição de status registrada ainda.</p>
+          ) : (
+            current.historico.map((h, idx) => (
+              <div key={h.id} className="flex gap-3">
+                <div className="flex flex-col items-center">
+                  <div className="w-2.5 h-2.5 rounded-full bg-blue-400 mt-1 shrink-0" />
+                  {idx < current.historico.length - 1 && (
+                    <div className="w-px flex-1 bg-gray-200 mt-1" />
+                  )}
+                </div>
+                <div className="pb-4 min-w-0">
+                  <div className="flex flex-wrap items-center gap-2 mb-0.5">
+                    <span className="text-xs text-gray-400">
+                      {new Date(h.criado_em).toLocaleString('pt-BR')}
+                    </span>
+                    <span className="text-xs text-gray-500 font-medium">{h.usuario_username}</span>
+                  </div>
+                  <div className="flex items-center gap-1.5 text-xs">
+                    {h.status_anterior && (
+                      <>
+                        <span className="px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">{h.status_anterior}</span>
+                        <span className="text-gray-400">→</span>
+                      </>
+                    )}
+                    <span className="px-1.5 py-0.5 rounded bg-blue-100 text-blue-700 font-medium">{h.status_novo}</span>
+                  </div>
+                  {h.motivo && (
+                    <p className="mt-1 text-xs text-gray-500 italic">{h.motivo}</p>
+                  )}
+                </div>
+              </div>
+            ))
+          )}
+        </div>
+      )}
+
+      {/* ── Tab: Detalhes ─────────────────────────────────────────────────── */}
+      {activeTab === 'detalhes' && <div className="space-y-5">
         <DF label="Descrição" error={formErrors.descricao}>
           {editing
             ? <textarea rows={3} value={form.descricao} onChange={(e) => set('descricao', e.target.value)} className={inp(formErrors.descricao)} />
             : <p className="text-sm text-gray-700">{current.descricao}</p>}
         </DF>
 
-        <div className="grid grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <DF label="Departamento solicitante" error={formErrors.departamento_solicitante}>
             {editing
               ? <input type="text" value={form.departamento_solicitante} onChange={(e) => set('departamento_solicitante', e.target.value)} className={inp(formErrors.departamento_solicitante)} />
@@ -313,7 +373,7 @@ export default function NecessidadeDetail() {
           </DF>
         </div>
 
-        <div className="grid grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <DF label="Valor estimado">
             {editing
               ? <input type="number" step="0.01" value={form.valor_estimado} onChange={(e) => set('valor_estimado', e.target.value)} className={inp()} />
@@ -414,7 +474,7 @@ export default function NecessidadeDetail() {
           <p>Criado em: {new Date(current.created_at).toLocaleString('pt-BR')}</p>
           <p>Atualizado em: {new Date(current.updated_at).toLocaleString('pt-BR')}</p>
         </div>
-      </div>
+      </div>}
     </div>
   )
 }

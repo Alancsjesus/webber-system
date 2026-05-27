@@ -129,7 +129,7 @@ export default function ContratoDetail() {
   const podeEditar = !['Encerrado', 'Rescindido'].includes(current.status)
 
   return (
-    <div className="p-8 max-w-2xl">
+    <div className="p-6 lg:p-8 max-w-3xl">
       <button onClick={() => navigate(-1)} className="text-sm text-gray-400 hover:text-gray-600 mb-4">← Voltar</button>
 
       {/* Cabeçalho */}
@@ -165,7 +165,7 @@ export default function ContratoDetail() {
         </Section>
 
         {/* Valor e status */}
-        <div className="grid grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <Section label="Valor do contrato">
             {editing
               ? <input type="number" step="0.01" value={form.valor_contrato} onChange={e => set('valor_contrato', e.target.value)} className={inp()} />
@@ -226,7 +226,7 @@ export default function ContratoDetail() {
               </label>
               {form.garantia_exigida && (
                 <div className="space-y-3 pl-7">
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <p className="text-xs text-gray-500 mb-1">Tipo</p>
                       <select value={form.garantia_tipo || ''} onChange={e => set('garantia_tipo', e.target.value)} className={inp()}>
@@ -255,7 +255,7 @@ export default function ContratoDetail() {
                     <input type="text" value={form.garantia_apolice || ''}
                       onChange={e => set('garantia_apolice', e.target.value)} className={inp()} />
                   </div>
-                  <div className="grid grid-cols-2 gap-3">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                     <div>
                       <p className="text-xs text-gray-500 mb-1">Início da vigência</p>
                       <input type="date" value={form.garantia_vigencia_inicio || ''}
@@ -333,7 +333,7 @@ export default function ContratoDetail() {
           {showApostila && (
             <div className="mt-3 border border-blue-200 rounded-lg p-3 bg-blue-50">
               <p className="text-xs font-semibold text-blue-700 mb-2">Nova apostila</p>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div className="col-span-2">
                   <label className="block text-xs text-gray-500 mb-0.5">Objeto *</label>
                   <textarea rows={2} value={apostilaForm.objeto} onChange={e => setApostilaForm(p => ({ ...p, objeto: e.target.value }))} className={inp()} />
@@ -382,7 +382,7 @@ export default function ContratoDetail() {
           {showAditivo && (
             <div className="mt-3 border border-blue-200 rounded-lg p-3 bg-blue-50">
               <p className="text-xs font-semibold text-blue-700 mb-2">Novo aditivo</p>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                 <div>
                   <label className="block text-xs text-gray-500 mb-0.5">Tipo *</label>
                   <select value={aditivoForm.tipo} onChange={e => setAditivoForm(p => ({ ...p, tipo: e.target.value }))} className={inp()}>

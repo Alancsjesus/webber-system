@@ -41,7 +41,7 @@ function ItemForm({ form, setForm, errors, categorias, compact = false }) {
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
   return (
     <div className="space-y-4">
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <Field label="Código SIMPAS">
           <input value={form.codigo_simpas} onChange={e => set('codigo_simpas', e.target.value)}
             placeholder="Ex: 70.15.00.00178869-8"
@@ -85,7 +85,7 @@ function ItemForm({ form, setForm, errors, categorias, compact = false }) {
           <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Atributos SIMPAS</span>
         </div>
         <div className="p-4 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Classificação">
               <select value={form.classificacao_tipo} onChange={e => set('classificacao_tipo', e.target.value)}
                 className={cls.select}>
@@ -95,7 +95,7 @@ function ItemForm({ form, setForm, errors, categorias, compact = false }) {
                 <option value="servico">Serviço</option>
               </select>
             </Field>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="Valor referência (R$)">
                 <input type="number" min="0" step="0.01" value={form.valor_referencia}
                   onChange={e => set('valor_referencia', e.target.value)}
@@ -108,7 +108,7 @@ function ItemForm({ form, setForm, errors, categorias, compact = false }) {
               </Field>
             </div>
           </div>
-          <div className="grid grid-cols-2 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <Field label="Nº licitação de referência">
               <input type="text" value={form.num_licitacao_ref}
                 onChange={e => set('num_licitacao_ref', e.target.value)}
@@ -330,7 +330,7 @@ export default function CatalogoAdmin() {
       {/* Barra de filtros */}
       <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
         {/* Linha 1: busca + família */}
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <div className="relative flex-1">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
             <input value={busca} onChange={e => { setBusca(e.target.value); setPage(1) }}
@@ -386,8 +386,9 @@ export default function CatalogoAdmin() {
           description={busca || familiaFiltro || filtroClassif ? 'Tente ajustar os filtros.' : 'Cadastre itens manualmente ou importe um CSV do SIMPAS.'} />
       ) : (
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          <div className="overflow-x-auto">
           {/* 5 colunas: Código | Descrição + meta | Unid. | Atributos | Ações */}
-          <table className="w-full text-sm table-fixed">
+          <table className="w-full text-sm table-fixed min-w-[640px]">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase tracking-wide">
                 <th className="text-left px-4 py-3 w-28">Código</th>
@@ -482,6 +483,7 @@ export default function CatalogoAdmin() {
               ))}
             </tbody>
           </table>
+          </div>
 
           {/* Paginação */}
           <div className="px-4 py-3 border-t border-gray-100 flex items-center justify-between bg-gray-50">

@@ -60,7 +60,7 @@ export default function AreaAdmin() {
   }
 
   return (
-    <div className="p-8 max-w-2xl">
+    <div className="p-6 lg:p-8 max-w-2xl">
       <div className="mb-6">
         <h1 className="text-xl font-bold text-gray-800">Áreas de Atuação</h1>
         <p className="text-sm text-gray-500 mt-0.5">
@@ -76,7 +76,7 @@ export default function AreaAdmin() {
 
       <form onSubmit={handleSubmit} className="bg-white border border-gray-200 rounded-xl p-5 mb-6 space-y-4">
         <h2 className="text-sm font-semibold text-gray-700">{editId ? 'Editar área' : 'Nova área de atuação'}</h2>
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Código *</label>
             <input value={form.codigo} onChange={e => { setForm(p => ({ ...p, codigo: e.target.value })); setErrors(p => ({ ...p, codigo: undefined })) }}
@@ -106,7 +106,8 @@ export default function AreaAdmin() {
         <EmptyState icon="clipboard" title="Nenhuma área cadastrada" description="Cadastre as áreas de atuação utilizadas no planejamento de contratações." />
       ) : (
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[640px]">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="text-left px-5 py-3 font-medium text-gray-500">Código</th>
@@ -133,6 +134,7 @@ export default function AreaAdmin() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

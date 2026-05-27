@@ -62,7 +62,7 @@ export default function ParametroAdmin() {
   const setN = (k, v) => setNovoForm(p => ({ ...p, [k]: v }))
 
   return (
-    <div className="p-8 max-w-4xl">
+    <div className="p-6 lg:p-8 max-w-4xl">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-gray-800">Parâmetros do Sistema</h1>
@@ -87,7 +87,7 @@ export default function ParametroAdmin() {
       {showNovo && (
         <div className="mb-6 bg-blue-50 border border-blue-200 rounded-xl p-5">
           <h2 className="text-sm font-semibold text-blue-800 mb-4">Novo parâmetro</h2>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <div>
               <label className="block text-xs font-medium text-gray-600 mb-1">Chave (identificador único) *</label>
               <input value={novoForm.chave} onChange={e => setN('chave', e.target.value)}
@@ -127,7 +127,8 @@ export default function ParametroAdmin() {
 
       {loading ? <LoadingSpinner /> : (
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[640px]">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="text-left px-5 py-3 font-medium text-gray-500">Parâmetro</th>
@@ -215,6 +216,7 @@ export default function ParametroAdmin() {
               )}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

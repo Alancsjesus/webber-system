@@ -37,7 +37,7 @@ export default function PlanoList() {
 
   return (
     <div className="p-6 max-w-4xl mx-auto">
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div>
           <h1 className="text-xl font-bold text-gray-800">Plano de Compras / PCA</h1>
           <p className="text-sm text-gray-500 mt-0.5">Planos de Contratações Anuais por exercício</p>

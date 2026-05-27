@@ -89,7 +89,7 @@ export default function ImportarCatalogoAdmin() {
 
   // ── render ────────────────────────────────────────────────────────────────
   return (
-    <div className="p-8 max-w-4xl">
+    <div className="p-6 lg:p-8 max-w-4xl">
       {/* Cabeçalho */}
       <div className="mb-6">
         <button onClick={() => navigate('/config/catalogo')}
@@ -277,7 +277,7 @@ export default function ImportarCatalogoAdmin() {
           )}
 
           {/* Ações */}
-          <div className="flex gap-3">
+          <div className="flex flex-wrap gap-3">
             <button onClick={handleImportar} disabled={loading || preview.novos === 0}
               className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm font-medium px-5 py-2.5 rounded-lg">
               {loading ? 'Importando...' : `Importar ${fmt(preview.novos)} item${preview.novos !== 1 ? 'ns' : ''} →`}

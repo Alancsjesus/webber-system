@@ -56,11 +56,11 @@ export default function Painel() {
 
   const toggle = (key) => setExpanded(p => ({ ...p, [key]: !p[key] }))
 
-  if (loading) return <div className="p-8"><LoadingSpinner message="Carregando painel..." /></div>
-  if (error)   return <p className="p-8 text-sm text-red-600">{error}</p>
+  if (loading) return <div className="p-6 lg:p-8"><LoadingSpinner message="Carregando painel..." /></div>
+  if (error)   return <p className="p-6 lg:p-8 text-sm text-red-600">{error}</p>
 
   return (
-    <div className="p-8">
+    <div className="p-6 lg:p-8">
       <div className="mb-6">
         <h1 className="text-xl font-bold text-gray-800">Painel de Demandas</h1>
         <p className="text-sm text-gray-500 mt-0.5">Visão consolidada por órgão e unidade demandante</p>

@@ -175,7 +175,7 @@ export default function AuditoriaList() {
       </div>
 
       {/* ── Relatórios por Processo ─────────────────────────────────────── */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
 
         {/* Card 1 — Por Processo SEI */}
         <div className="bg-white border border-gray-200 rounded-2xl shadow-sm overflow-hidden">
@@ -306,7 +306,7 @@ export default function AuditoriaList() {
 
       {/* Filtros da trilha */}
       <div className="bg-white border border-gray-200 rounded-xl p-4 space-y-3">
-        <div className="flex gap-3">
+        <div className="flex flex-wrap gap-3">
           <div className="relative flex-1">
             <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">🔍</span>
             <input value={busca} onChange={e => setBusca(e.target.value)}
@@ -347,8 +347,9 @@ export default function AuditoriaList() {
           description={temFiltro ? 'Tente ajustar os filtros.' : 'Nenhum evento de auditoria registrado ainda.'} />
       ) : (
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+          <div className="overflow-x-auto">
           {/* Cabeçalho da tabela */}
-          <div className="grid grid-cols-[2rem_8.5rem_7rem_2.5rem_1fr_8rem] gap-x-3 px-5 py-2.5 bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase tracking-wide">
+          <div className="grid grid-cols-[2rem_8.5rem_7rem_2.5rem_1fr_8rem] gap-x-3 px-5 py-2.5 bg-gray-50 border-b border-gray-200 text-xs font-semibold text-gray-500 uppercase tracking-wide min-w-[640px]">
             <span></span>
             <span>Data / Hora</span>
             <span>Módulo</span>
@@ -415,6 +416,7 @@ export default function AuditoriaList() {
                 </div>
               )
             })}
+          </div>
           </div>
 
           {/* Paginação */}

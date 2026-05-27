@@ -95,14 +95,14 @@ export default function ContratoCreate() {
   }
 
   return (
-    <div className="p-8 max-w-2xl">
+    <div className="p-6 lg:p-8 max-w-3xl">
       <button onClick={() => navigate(-1)} className="text-sm text-gray-400 hover:text-gray-600 mb-4">← Voltar</button>
       <h1 className="text-xl font-bold text-gray-800 mb-6">Novo Contrato</h1>
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <FormErrors errors={errors} />
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Field label="Exercício fiscal *" error={errors.exercicio}>
             <input type="number" min="2020" max="2050" value={form.exercicio}
               onChange={e => set('exercicio', e.target.value)} className={inp(errors.exercicio)} />
@@ -167,7 +167,7 @@ export default function ContratoCreate() {
 
           {form.garantia_exigida && (
             <div className="space-y-4 pt-2 border-t border-gray-100">
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Field label="Tipo de garantia *">
                   <select value={form.garantia_tipo} onChange={e => set('garantia_tipo', e.target.value)} className={inp()}>
                     <option value="">Selecione...</option>
@@ -199,7 +199,7 @@ export default function ContratoCreate() {
                   className={inp()} />
               </Field>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <Field label="Início da vigência da garantia">
                   <input type="date" value={form.garantia_vigencia_inicio}
                     onChange={e => set('garantia_vigencia_inicio', e.target.value)} className={inp()} />

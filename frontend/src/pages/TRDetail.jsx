@@ -130,7 +130,7 @@ export default function TRDetail() {
   const podeReabrir   = ['Aprovado', 'Cancelado'].includes(current.status) && papel === 'admin'
 
   return (
-    <div className="p-8 max-w-3xl">
+    <div className="p-6 lg:p-8 max-w-3xl">
       <button onClick={() => navigate(-1)} className="text-sm text-gray-400 hover:text-gray-600 mb-4">
         ← Voltar
       </button>
@@ -302,7 +302,7 @@ export default function TRDetail() {
             : <p className="text-sm text-gray-700 whitespace-pre-wrap text-justify">{current.requisitos_contratacao || '—'}</p>}
         </Section>
 
-        <div className="grid grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <Section label="Obrigações da contratada">
             {editing
               ? <textarea rows={3} value={form.obrigacoes_contratada}
@@ -317,7 +317,7 @@ export default function TRDetail() {
           </Section>
         </div>
 
-        <div className="grid grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <Section label="Critérios de seleção">
             {editing
               ? <textarea rows={2} value={form.criterios_selecao}
@@ -340,7 +340,7 @@ export default function TRDetail() {
           )}
         </Section>
 
-        <div className="grid grid-cols-2 gap-5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <Section label="Estimativa de valor">
             {editing
               ? <input type="number" step="0.01" value={form.estimativa_valor || ''}
@@ -421,7 +421,7 @@ export default function TRDetail() {
               <span className="ml-auto text-xs bg-white/20 px-2 py-0.5 rounded-full">BENS</span>
             </div>
             <div className="p-4 space-y-2 text-sm text-gray-700">
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div className="flex items-center gap-2">
                   <span className={`w-4 h-4 rounded-full flex items-center justify-center text-white text-xs ${current.bens_nao_luxo ? 'bg-green-500' : 'bg-gray-300'}`}>✓</span>
                   <span>Não se enquadra como bem de luxo (art. 20)</span>
@@ -609,7 +609,7 @@ function LotesSection({ tr, podeEditar, onCriarLote, onExcluirLote, onAdicionarI
       {/* Form novo lote */}
       {showNovoLote && (
         <div className="mb-3 border border-blue-200 rounded-lg p-3 bg-blue-50">
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <div className="col-span-2">
               <label className="block text-xs text-gray-500 mb-0.5">Descrição do lote *</label>
               <input type="text" value={novoLoteForm.descricao}
@@ -920,7 +920,7 @@ function PrazoVigenciaEditor({ form, set }) {
         </select>
       </div>
       {precisaMeses && (
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className="block text-xs text-gray-500 mb-1">
               Prazo em meses {tipo === 'continuo' ? '(máx. 60)' : tipo === 'emergencial' ? '(máx. 12)' : '(máx. 120)'}

@@ -90,7 +90,7 @@ export default function UsuarioAdmin() {
   }
 
   return (
-    <div className="p-8 max-w-4xl">
+    <div className="p-6 lg:p-8 max-w-4xl">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-gray-800">Usuários</h1>
@@ -105,7 +105,7 @@ export default function UsuarioAdmin() {
       {form && (
         <div className="mb-6 border border-blue-200 bg-blue-50 rounded-xl p-5">
           <h2 className="text-sm font-semibold text-blue-800 mb-4">{form.id ? 'Editar usuário' : 'Novo usuário'}</h2>
-          <div className="grid grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <F label="Username *" error={errors.username}>
               <input value={form.username} onChange={e => set('username', e.target.value)}
                 disabled={!!form.id} className={inp(errors.username)} placeholder="login" />
@@ -162,7 +162,8 @@ export default function UsuarioAdmin() {
 
       {loading ? <p className="text-sm text-gray-400">Carregando...</p> : (
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+          <table className="w-full text-sm min-w-[640px]">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="text-left px-4 py-3 font-medium text-gray-500">Usuário</th>
@@ -193,6 +194,7 @@ export default function UsuarioAdmin() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

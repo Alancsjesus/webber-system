@@ -73,7 +73,7 @@ export default function PlanoCompras() {
   }
 
   return (
-    <div className="p-8">
+    <div className="p-6 lg:p-8">
       {/* Cabeçalho */}
       <div className="flex items-start justify-between mb-6">
         <div>
@@ -122,7 +122,7 @@ export default function PlanoCompras() {
       ) : (
         <>
           {/* Cards de resumo */}
-          <div className="grid grid-cols-4 gap-4 mb-6">
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
             {[
               { label: 'Famílias',        value: dados.total_familias,              cls: 'text-gray-800' },
               { label: 'Valor Total',      value: fmt(dados.valor_total),           cls: 'text-blue-700' },

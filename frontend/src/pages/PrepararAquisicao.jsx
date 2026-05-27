@@ -277,7 +277,7 @@ export default function PrepararAquisicao() {
   const temDisponiveis = resumo?.aprovados_sem_etp > 0
 
   return (
-    <div className="p-8 max-w-4xl">
+    <div className="p-6 lg:p-8 max-w-4xl">
       <button onClick={() => navigate(-1)} className="text-sm text-gray-400 hover:text-gray-600 mb-4">
         ← Voltar
       </button>
@@ -584,7 +584,7 @@ export default function PrepararAquisicao() {
         {/* ── SEÇÃO C — Metadados do DFD ───────────────────────────── */}
         <div className="bg-white border border-gray-200 rounded-xl p-5 space-y-5">
           <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">Dados do DFD</p>
-          <div className="grid grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <Field label="Número SEI *" error={errors.numero_sei}>
               <input type="text" value={form.numero_sei}
                 onChange={e => setF('numero_sei', e.target.value)}

@@ -138,7 +138,7 @@ export default function CategoriaAdmin() {
   }
 
   return (
-    <div className="p-8 max-w-3xl">
+    <div className="p-6 lg:p-8 max-w-3xl">
       <div className="mb-6">
         <h1 className="text-xl font-bold text-gray-800">Categorias de Itens</h1>
         <p className="text-sm text-gray-500 mt-0.5">
@@ -159,7 +159,7 @@ export default function CategoriaAdmin() {
           {editId ? 'Editar categoria' : 'Nova categoria'}
         </h2>
 
-        <div className="grid grid-cols-2 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
             <label className="block text-xs font-medium text-gray-600 mb-1">Nome *</label>
             <input

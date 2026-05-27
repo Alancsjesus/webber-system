@@ -38,8 +38,8 @@ export default function ContratoList() {
   useEffect(() => { fetchContratos() }, [])
 
   return (
-    <div className="p-8">
-      <div className="flex items-center justify-between mb-6">
+    <div className="p-6 lg:p-8">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div>
           <h1 className="text-xl font-bold text-gray-800">Contratos</h1>
           <p className="text-sm text-gray-500 mt-0.5">Contratos, apostilas e aditivos do órgão</p>
@@ -55,7 +55,8 @@ export default function ContratoList() {
           description="Registre os contratos celebrados pelo órgão." />
       ) : (
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[640px]">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="text-left px-5 py-3 font-medium text-gray-500">Número</th>
@@ -86,6 +87,7 @@ export default function ContratoList() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>

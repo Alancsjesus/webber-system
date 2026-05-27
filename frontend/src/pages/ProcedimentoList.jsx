@@ -216,9 +216,9 @@ export default function ProcedimentoList() {
   if (loading) return <div className="p-8"><LoadingSpinner message="Carregando procedimentos..." /></div>
 
   return (
-    <div className="p-8">
+    <div className="p-6 lg:p-8">
       {/* Cabeçalho */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-6">
         <div>
           <h1 className="text-2xl font-bold text-gray-800">Licitações e Contratações Diretas</h1>
           <p className="text-sm text-gray-500 mt-0.5">{total} procedimento(s) encontrado(s)</p>
@@ -280,7 +280,8 @@ export default function ProcedimentoList() {
         </div>
       ) : (
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-          <table className="w-full text-sm">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm min-w-[640px]">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
                 <th className="text-left px-4 py-3 font-medium text-gray-500">Número</th>
@@ -329,6 +330,7 @@ export default function ProcedimentoList() {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
       )}
     </div>
