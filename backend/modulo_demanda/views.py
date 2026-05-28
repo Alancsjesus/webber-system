@@ -9,6 +9,7 @@ from django_filters.rest_framework import DjangoFilterBackend
 from .models import DFD, HistoricoTramitacao, ItemDFD, NumeroProcesso
 from .serializers import DFDSerializer, ItemDFDSerializer, NumeroProcessoSerializer
 from core.permissions import IsMultiTenant, PAPEIS_ANALISTA, PAPEIS_SOLICITANTE
+from core.checklist_engine import ChecklistEngine
 from exportacao.pdf_utils import gerar_pdf_dfd, gerar_html, resposta_pdf, resposta_html
 
 
@@ -86,6 +87,35 @@ class DFDViewSet(viewsets.ModelViewSet):
 
         serializer = self.get_serializer(dfd)
         return Response(serializer.data)
+
+    # ------------------------------------------------------------------ #
+    # checklist                                                            #
+    # ------------------------------------------------------------------ #
+
+    @action(detail=True, methods=['get'])
+    def checklist(self, request, pk=None):
+        dfd = self.get_object()
+        resultado = ChecklistEngine.avaliar_dfd(dfd)
+        return Response({
+            'score': resultado.score,
+            'total': resultado.total,
+            'percentual': resultado.percentual,
+            'pode_submeter': resultado.pode_submeter,
+            'bloqueadores': [
+                {
+                    'campo': r.campo, 'descricao': r.descricao,
+                    'base_legal': r.base_legal, 'detalhe': r.detalhe,
+                }
+                for r in resultado.bloqueadores
+            ],
+            'avisos': [
+                {
+                    'campo': r.campo, 'descricao': r.descricao,
+                    'base_legal': r.base_legal, 'detalhe': r.detalhe,
+                }
+                for r in resultado.avisos
+            ],
+        })
 
     # ------------------------------------------------------------------ #
     # actions de workflow                                                   #

@@ -5,6 +5,7 @@ import useDFDStore from '../stores/dfdStore'
 import useAuthStore from '../stores/authStore'
 import api, { downloadFile } from '../services/api'
 import DownloadButton from '../components/DownloadButton'
+import ChecklistBadge from '../components/ChecklistBadge'
 
 const STATUS_CLS = {
   Rascunho:    'bg-gray-100 text-gray-600',
@@ -48,6 +49,7 @@ export const pageHelp = {
     { label: 'Devolver',        texto: 'Retorna o DFD ao demandante para correções, com categorias de motivo e justificativa obrigatória.' },
     { label: '+ Item',          texto: 'Adiciona um item ao DFD com descrição, quantidade, unidade e valor estimado unitário.' },
     { label: 'Download PDF',    texto: 'Gera o DFD em PDF para assinatura e arquivamento no processo SEI.' },
+    { label: 'Checklist SSP-BA', texto: 'Badge colorido mostrando quantos campos do checklist estão preenchidos. Vermelho = campos obrigatórios pendentes (bloqueia submissão). Amarelo = campos recomendados em falta. Verde = completo.' },
   ],
   fluxo: [
     { status: 'Rascunho',    descricao: 'Em elaboração pelo demandante. Pode ser editado livremente.' },
@@ -166,6 +168,8 @@ export default function DFDDetail() {
         observacoes:                   form.observacoes,
         local_entrega:                 form.local_entrega,
         justificativa_sem_planejamento: form.justificativa_sem_planejamento,
+        pca_previsto:                  form.pca_previsto,
+        pca_justificativa_ausencia:    form.pca_justificativa_ausencia,
       })
       setEditing(false)
     } catch (err) {
@@ -317,7 +321,8 @@ export default function DFDDetail() {
             {current.status}
           </span>
         </div>
-        <div className="flex gap-2 flex-wrap justify-end">
+        <div className="flex gap-2 flex-wrap justify-end items-center">
+          <ChecklistBadge tipo="dfd" id={id} status={current.status} />
           {!editing ? (
             <>
               {podeCriarEtp && (
@@ -661,6 +666,74 @@ export default function DFDDetail() {
             <p className="text-sm text-gray-500">{current.local_entrega || '—'}</p>
           )}
         </DetailField>
+
+        {/* ── PCA — Plano de Contratações Anual ── */}
+        <div className="pt-4 border-t border-gray-100">
+          <div className="flex items-center gap-2 mb-3">
+            <p className="text-xs font-semibold text-gray-400 uppercase">Plano de Contratações Anual (PCA)</p>
+            <span className="text-[10px] bg-indigo-100 text-indigo-700 px-1.5 py-0.5 rounded font-medium">Lei 14.133, art. 12, VII</span>
+          </div>
+
+          <div className={`rounded-xl border px-4 py-3 ${
+            (editing ? form.pca_previsto : current.pca_previsto) === true
+              ? 'bg-green-50 border-green-200'
+              : (editing ? form.pca_previsto : current.pca_previsto) === false
+              ? 'bg-amber-50 border-amber-300'
+              : 'bg-gray-50 border-gray-200'
+          }`}>
+            {editing ? (
+              <div className="space-y-3">
+                <div>
+                  <p className="text-xs font-medium text-gray-600 mb-1.5">Previsto no PCA?</p>
+                  <div className="flex gap-3">
+                    {[true, false, null].map((val) => (
+                      <label key={String(val)} className="flex items-center gap-1.5 cursor-pointer text-sm">
+                        <input
+                          type="radio"
+                          name="pca_previsto"
+                          checked={(form.pca_previsto ?? null) === val}
+                          onChange={() => setField('pca_previsto', val)}
+                          className="accent-indigo-600"
+                        />
+                        {val === true ? 'Sim' : val === false ? 'Não' : 'Não respondido'}
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                {form.pca_previsto === false && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">
+                      Justificativa de ausência no PCA *
+                    </label>
+                    <textarea
+                      rows={2}
+                      value={form.pca_justificativa_ausencia || ''}
+                      onChange={(e) => setField('pca_justificativa_ausencia', e.target.value)}
+                      placeholder="Ex.: ausência de regulamentação estadual do PCA; demanda emergencial..."
+                      className={inputCls()}
+                    />
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div>
+                <p className="text-sm font-medium text-gray-700">
+                  {current.pca_previsto === true
+                    ? '✓ Previsto no PCA'
+                    : current.pca_previsto === false
+                    ? '✗ Não previsto no PCA'
+                    : '— Não respondido'}
+                </p>
+                {current.pca_previsto === false && current.pca_justificativa_ausencia && (
+                  <p className="text-xs text-amber-700 mt-1 whitespace-pre-wrap">{current.pca_justificativa_ausencia}</p>
+                )}
+                {current.pca_previsto === false && !current.pca_justificativa_ausencia && (
+                  <p className="text-xs text-red-500 mt-1 italic">Justificativa de ausência não informada — necessária para conformidade.</p>
+                )}
+              </div>
+            )}
+          </div>
+        </div>
 
         {/* Itens da demanda */}
         <div className="pt-4 border-t border-gray-100">

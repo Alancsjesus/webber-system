@@ -184,6 +184,8 @@ class DFDSerializer(serializers.ModelSerializer):
             'gestor_contrato_username',
             'gestor_suplente',
             'gestor_suplente_username',
+            'pca_previsto',
+            'pca_justificativa_ausencia',
         ]
         read_only_fields = [
             'id', 'org_id', 'created_by', 'updated_by',

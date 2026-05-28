@@ -101,6 +101,24 @@
   </div>
 </div>
 
+{% if dfd.pca_previsto %}
+<div class="section-title">Previsão no Plano de Contratações Anual (PCA)</div>
+<div class="field">
+  <div class="field-label">Previsto no PCA</div>
+  <div class="field-value">
+    {% if dfd.pca_previsto == 'sim' %}<span class="badge badge-green">Sim — previsto no PCA</span>
+    {% elif dfd.pca_previsto == 'nao' %}<span class="badge badge-red">Não previsto</span>
+    {% else %}Não respondido{% endif %}
+  </div>
+</div>
+{% if dfd.pca_justificativa_ausencia %}
+<div class="field">
+  <div class="field-label">Justificativa de ausência no PCA</div>
+  <div class="field-value">{{ dfd.pca_justificativa_ausencia|linebreaksbr }}</div>
+</div>
+{% endif %}
+{% endif %}
+
 {% if dfd.observacoes %}
 <div class="section-title">Observações</div>
 <div class="field"><div class="field-value">{{ dfd.observacoes|linebreaksbr }}</div></div>

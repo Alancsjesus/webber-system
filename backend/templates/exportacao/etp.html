@@ -108,6 +108,48 @@
 </div>
 {% endif %}
 
+{% if etp.posicionamento_conclusivo %}
+<div class="section-title">Posicionamento Conclusivo</div>
+<div class="field"><div class="field-value" style="white-space:pre-wrap">{{ etp.posicionamento_conclusivo }}</div></div>
+{% endif %}
+{% if etp.classificacao_sensivel %}
+<div class="section-title">Classificação quanto à Sensibilidade</div>
+<div class="field">
+  <div class="field-label">Sensibilidade</div>
+  <div class="field-value">
+    {% if etp.classificacao_sensivel == 'sim' %}<span class="badge badge-red">Sensível</span>
+    {% elif etp.classificacao_sensivel == 'nao' %}<span class="badge badge-green">Não sensível</span>
+    {% else %}Não respondido{% endif %}
+  </div>
+</div>
+{% if etp.classificacao_sensivel_justificativa %}
+<div class="field">
+  <div class="field-label">Justificativa</div>
+  <div class="field-value">{{ etp.classificacao_sensivel_justificativa|linebreaksbr }}</div>
+</div>
+{% endif %}
+{% endif %}
+{% if etp.alinhamento_planesp %}
+<div class="section-title">Alinhamento ao PLANESP</div>
+<div class="field"><div class="field-value" style="white-space:pre-wrap">{{ etp.alinhamento_planesp }}</div></div>
+{% endif %}
+{% if etp.contratacoes_correlatas %}
+<div class="section-title">Contratações Correlatas ou Interdependentes</div>
+<div class="field"><div class="field-value" style="white-space:pre-wrap">{{ etp.contratacoes_correlatas }}</div></div>
+{% endif %}
+{% if etp.impacto_ambiental %}
+<div class="section-title">Impacto Ambiental</div>
+<div class="field"><div class="field-value" style="white-space:pre-wrap">{{ etp.impacto_ambiental }}</div></div>
+{% endif %}
+{% if etp.providencias_pre_contrato %}
+<div class="section-title">Providências para Adequação do Ambiente</div>
+<div class="field"><div class="field-value" style="white-space:pre-wrap">{{ etp.providencias_pre_contrato }}</div></div>
+{% endif %}
+{% if etp.compra_vs_locacao %}
+<div class="section-title">Análise de Compra vs. Locação/Comodato</div>
+<div class="field"><div class="field-value" style="white-space:pre-wrap">{{ etp.compra_vs_locacao }}</div></div>
+{% endif %}
+
 {% if etp.observacoes %}
 <div class="section-title">Observações</div>
 <div class="field"><div class="field-value" style="white-space:pre-wrap">{{ etp.observacoes }}</div></div>

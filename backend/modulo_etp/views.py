@@ -5,6 +5,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from django_filters.rest_framework import DjangoFilterBackend
 from core.permissions import IsMultiTenant, PAPEIS_ANALISTA, check_licitante
+from core.checklist_engine import ChecklistEngine
 from .models import ETP, HistoricoETP
 from .serializers import ETPSerializer
 from exportacao.pdf_utils import gerar_pdf_etp, gerar_html, resposta_pdf, resposta_html
@@ -68,8 +69,33 @@ class ETPViewSet(viewsets.ModelViewSet):
         return Response(self.get_serializer(etp).data)
 
     # ------------------------------------------------------------------ #
-    # workflow actions                                                     #
+    # checklist                                                            #
     # ------------------------------------------------------------------ #
+
+    @action(detail=True, methods=['get'])
+    def checklist(self, request, pk=None):
+        etp = self.get_object()
+        resultado = ChecklistEngine.avaliar_etp(etp)
+        return Response({
+            'score': resultado.score,
+            'total': resultado.total,
+            'percentual': resultado.percentual,
+            'pode_submeter': resultado.pode_submeter,
+            'bloqueadores': [
+                {
+                    'campo': r.campo, 'descricao': r.descricao,
+                    'base_legal': r.base_legal, 'detalhe': r.detalhe,
+                }
+                for r in resultado.bloqueadores
+            ],
+            'avisos': [
+                {
+                    'campo': r.campo, 'descricao': r.descricao,
+                    'base_legal': r.base_legal, 'detalhe': r.detalhe,
+                }
+                for r in resultado.avisos
+            ],
+        })
 
     # ------------------------------------------------------------------ #
     # export actions                                                       #

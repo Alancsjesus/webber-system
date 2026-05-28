@@ -17,10 +17,11 @@ TIPO_FONTE_CHOICES = [
     ('I',    'Parâmetro I — SIMPAS / Comprasnet.BA / banco de preços em saúde'),
     ('II',   'Parâmetro II — Contratações similares (Administração Pública)'),
     ('III',  'Parâmetro III — Mídia especializada / sítios eletrônicos'),
-    ('IV',   'Parâmetro IV — Pesquisa direta com fornecedores'),
-    ('V',    'Parâmetro V — Base de notas fiscais eletrônicas'),
+    ('IV',   'Parâmetro IV — Base de notas fiscais eletrônicas'),
+    ('V',    'Parâmetro V — Pesquisa direta com fornecedores (≥ 3 fornecedores)'),
     ('HIST', 'Histórico WEBBER — Aquisições anteriores do sistema'),
 ]
+# IV = NF-e | V = Pesquisa direta — alinhado ao Decreto Estadual 22.886/2024, Art. 5º
 
 METODO_CALCULO_CHOICES = [
     ('media',        'Média aritmética dos preços válidos'),
@@ -110,6 +111,12 @@ class MapaComparativoPrecos(BaseModel):
     justificativa_metodologia = models.TextField(
         blank=True, default='',
         verbose_name='Justificativa da metodologia adotada',
+        help_text='Art. 3º, inc. VI — Descrever a metodologia e por que foi adotada.',
+    )
+    parametros_combinados_justificativa = models.TextField(
+        blank=True, default='',
+        verbose_name='Justificativa pela não combinação de parâmetros',
+        help_text='Art. 5º, §1º — Preencher quando não foi possível combinar múltiplos parâmetros.',
     )
     observacoes = models.TextField(blank=True, default='', verbose_name='Observações')
 
@@ -221,6 +228,12 @@ class FonteConsultada(models.Model):
     justificativa_infrutífera = models.TextField(
         blank=True, default='',
         verbose_name='Justificativa da consulta infrutífera',
+    )
+    # P1 — Parâmetro V: justificativa da escolha dos fornecedores
+    justificativa_escolha_fornecedores = models.TextField(
+        blank=True, default='',
+        verbose_name='Justificativa da escolha dos fornecedores',
+        help_text='Art. 3º, inc. VII — Obrigatório para Parâmetro V (pesquisa direta). Indicar critério de seleção.',
     )
 
     class Meta:
@@ -402,3 +415,75 @@ class PrecoColetado(models.Model):
     def __str__(self):
         status = '✓' if self.valido else '✗'
         return f'{status} R$ {self.valor_unitario} [{self.fonte.tipo}] {self.origem_orgao_empresa}'
+
+
+class SolicitacaoCotacao(models.Model):
+    """
+    Registro de solicitação formal de cotação a fornecedor — Parâmetro V.
+    Rastreia o workflow: envio do e-mail → prazo → resposta → upload de documentos.
+    Decreto Estadual 22.886/2024, Art. 5º, IV c/c Art. 7º, IV.
+    """
+    STATUS_CHOICES = [
+        ('enviada',    'Enviada — aguardando resposta'),
+        ('respondida', 'Respondida — cotação recebida'),
+        ('expirada',   'Expirada — prazo encerrado sem resposta'),
+        ('recusada',   'Recusada — fornecedor declinou'),
+    ]
+
+    mapa = models.ForeignKey(
+        MapaComparativoPrecos, on_delete=models.CASCADE,
+        related_name='solicitacoes_cotacao',
+        verbose_name='Mapa de preços',
+    )
+    fonte = models.ForeignKey(
+        FonteConsultada, null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='solicitacoes',
+        verbose_name='Fonte (Parâmetro V)',
+        help_text='Vincular à FonteConsultada de tipo V criada para este fornecedor.',
+    )
+
+    # Identificação do fornecedor
+    fornecedor_nome = models.CharField(max_length=300, verbose_name='Nome / Razão social')
+    fornecedor_cnpj = models.CharField(max_length=18, blank=True, default='', verbose_name='CNPJ')
+    fornecedor_email = models.EmailField(verbose_name='E-mail do fornecedor')
+
+    # Rastreamento do envio
+    data_envio = models.DateField(verbose_name='Data de envio da solicitação')
+    prazo_resposta = models.DateField(verbose_name='Prazo para resposta')
+    status = models.CharField(max_length=15, choices=STATUS_CHOICES, default='enviada')
+
+    # Documentação comprobatória — Art. 7º, IV
+    email_enviado_pdf = models.FileField(
+        upload_to='cotacoes/solicitacoes/', null=True, blank=True,
+        verbose_name='PDF do e-mail enviado',
+        help_text='Decreto 22.886/2024, Art. 7º, IV — obrigatório para comprovação.',
+    )
+
+    # Resposta do fornecedor
+    respondeu = models.BooleanField(default=False, verbose_name='Fornecedor respondeu?')
+    valor_respondido = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True,
+        verbose_name='Valor unitário respondido (R$)',
+    )
+    resposta_pdf = models.FileField(
+        upload_to='cotacoes/respostas/', null=True, blank=True,
+        verbose_name='PDF da proposta/cotação recebida',
+    )
+    justificativa_escolha = models.TextField(
+        blank=True, default='',
+        verbose_name='Justificativa da escolha deste fornecedor',
+        help_text='Art. 3º, inc. VII — Por que este fornecedor foi selecionado para receber a solicitação.',
+    )
+    observacoes = models.TextField(blank=True, default='', verbose_name='Observações')
+
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['mapa', 'data_envio', 'fornecedor_nome']
+        verbose_name = 'Solicitação de Cotação'
+        verbose_name_plural = 'Solicitações de Cotação'
+
+    def __str__(self):
+        return f'{self.fornecedor_nome} — {self.get_status_display()} ({self.data_envio})'

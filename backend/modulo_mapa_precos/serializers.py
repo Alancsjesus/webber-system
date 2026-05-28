@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import MapaComparativoPrecos, HistoricoMapa, FonteConsultada, ItemMapa, PrecoColetado
+from .models import MapaComparativoPrecos, HistoricoMapa, FonteConsultada, ItemMapa, PrecoColetado, SolicitacaoCotacao
 
 
 class HistoricoMapaSerializer(serializers.ModelSerializer):
@@ -63,8 +63,41 @@ class ItemMapaSerializer(serializers.ModelSerializer):
         ]
 
 
+class SolicitacaoCotacaoSerializer(serializers.ModelSerializer):
+    status_display = serializers.CharField(source='get_status_display', read_only=True)
+    email_enviado_pdf_url = serializers.SerializerMethodField()
+    resposta_pdf_url = serializers.SerializerMethodField()
+
+    class Meta:
+        model  = SolicitacaoCotacao
+        fields = [
+            'id', 'mapa', 'fonte',
+            'fornecedor_nome', 'fornecedor_cnpj', 'fornecedor_email',
+            'data_envio', 'prazo_resposta', 'status', 'status_display',
+            'email_enviado_pdf', 'email_enviado_pdf_url',
+            'respondeu', 'valor_respondido',
+            'resposta_pdf', 'resposta_pdf_url',
+            'justificativa_escolha', 'observacoes',
+            'criado_em', 'atualizado_em',
+        ]
+        read_only_fields = ['id', 'status_display', 'email_enviado_pdf_url', 'resposta_pdf_url', 'criado_em', 'atualizado_em']
+
+    def get_email_enviado_pdf_url(self, obj):
+        if not obj.email_enviado_pdf:
+            return None
+        request = self.context.get('request')
+        return request.build_absolute_uri(obj.email_enviado_pdf.url) if request else obj.email_enviado_pdf.url
+
+    def get_resposta_pdf_url(self, obj):
+        if not obj.resposta_pdf:
+            return None
+        request = self.context.get('request')
+        return request.build_absolute_uri(obj.resposta_pdf.url) if request else obj.resposta_pdf.url
+
+
 class FonteConsultadaSerializer(serializers.ModelSerializer):
     tipo_display = serializers.CharField(source='get_tipo_display', read_only=True)
+    solicitacoes = SolicitacaoCotacaoSerializer(many=True, read_only=True)
 
     class Meta:
         model  = FonteConsultada
@@ -72,8 +105,10 @@ class FonteConsultadaSerializer(serializers.ModelSerializer):
             'id', 'tipo', 'tipo_display', 'descricao', 'referencia',
             'data_consulta', 'documento_sei',
             'infrutífera', 'justificativa_infrutífera',
+            'justificativa_escolha_fornecedores',
+            'solicitacoes',
         ]
-        read_only_fields = ['id']
+        read_only_fields = ['id', 'solicitacoes']
 
 
 class MapaComparativoPrecosSerializer(serializers.ModelSerializer):
@@ -101,6 +136,7 @@ class MapaComparativoPrecosSerializer(serializers.ModelSerializer):
             'responsavel', 'responsavel_nome',
             'aprovador', 'aprovador_nome', 'data_aprovacao', 'motivo_devolucao',
             'justificativa_metodologia', 'observacoes',
+            'parametros_combinados_justificativa',
             'fontes', 'itens', 'historico',
             'qtd_itens', 'qtd_fontes',
             'org_id', 'org_nome',

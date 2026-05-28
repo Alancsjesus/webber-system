@@ -144,6 +144,16 @@ class TRSerializer(serializers.ModelSerializer):
             'serv_transicao_contratual', 'serv_transicao_descricao',
             'serv_regime_execucao', 'serv_materiais',
             'serv_qualificacao_tecnica', 'serv_parcelas_relevancia',
+            # Campos Checklist SSP-BA (C0)
+            'permite_consorcio', 'permite_consorcio_justificativa',
+            'qualificacao_juridica', 'qualificacao_juridica_suprimida',
+            'qualificacao_juridica_suprimida_justificativa',
+            'qualificacao_economica', 'qualificacao_economica_dispensada',
+            'degrau_lances',
+            'adequacao_orcamentaria',
+            'prazo_recebimento_provisorio_dias', 'prazo_recebimento_definitivo_dias',
+            'prazo_liquidacao_dias', 'prazo_pagamento_dias',
+            'prazo_providencia_irregularidade_dias',
             # Workflow
             'status', 'motivo_devolucao', 'observacoes',
             'org_id', 'org_sigla',

@@ -5,6 +5,7 @@ import useAuthStore from '../stores/authStore'
 import api, { downloadFile } from '../services/api'
 import DownloadButton from '../components/DownloadButton'
 import ModalDevolver, { MOTIVOS_TR } from '../components/ModalDevolver'
+import ChecklistBadge from '../components/ChecklistBadge'
 
 const STATUS_CLS = {
   Rascunho:    'bg-gray-100 text-gray-600',
@@ -29,6 +30,7 @@ export const pageHelp = {
     { label: 'Aprovar',         texto: 'Aprova o TR. O procedimento licitatório pode ser iniciado.' },
     { label: 'Devolver',        texto: 'Retorna para o responsável técnico com justificativa de pendências.' },
     { label: 'Download PDF',    texto: 'Exporta o TR em PDF para compor o processo SEI.' },
+    { label: 'Checklist SSP-BA', texto: 'Badge colorido mostrando quantos campos do checklist SSP-BA estão preenchidos. Vermelho = bloqueadores pendentes. Amarelo = recomendados em falta. Verde = completo.' },
   ],
   fluxo: [
     { status: 'Rascunho',   descricao: 'Em elaboração.' },
@@ -89,6 +91,21 @@ export default function TRDetail() {
         garantia_contrato:      form.garantia_contrato,
         estimativa_valor:       form.estimativa_valor ? Number(form.estimativa_valor) : null,
         observacoes:            form.observacoes,
+        // Checklist SSP-BA
+        permite_consorcio:                              form.permite_consorcio,
+        permite_consorcio_justificativa:                form.permite_consorcio_justificativa                ?? '',
+        qualificacao_juridica:                          form.qualificacao_juridica                          ?? '',
+        qualificacao_juridica_suprimida:                form.qualificacao_juridica_suprimida                ?? null,
+        qualificacao_juridica_suprimida_justificativa:  form.qualificacao_juridica_suprimida_justificativa  ?? '',
+        qualificacao_economica:                         form.qualificacao_economica                         ?? '',
+        qualificacao_economica_dispensada:              form.qualificacao_economica_dispensada              ?? null,
+        degrau_lances:                  form.degrau_lances ? Number(form.degrau_lances) : null,
+        adequacao_orcamentaria:         form.adequacao_orcamentaria         ?? '',
+        prazo_recebimento_provisorio_dias: form.prazo_recebimento_provisorio_dias ? Number(form.prazo_recebimento_provisorio_dias) : null,
+        prazo_recebimento_definitivo_dias: form.prazo_recebimento_definitivo_dias ? Number(form.prazo_recebimento_definitivo_dias) : null,
+        prazo_liquidacao_dias:          form.prazo_liquidacao_dias          ? Number(form.prazo_liquidacao_dias) : null,
+        prazo_pagamento_dias:           form.prazo_pagamento_dias           ? Number(form.prazo_pagamento_dias) : null,
+        prazo_providencia_irregularidade_dias: form.prazo_providencia_irregularidade_dias ? Number(form.prazo_providencia_irregularidade_dias) : null,
       })
       setEditing(false)
     } catch (err) {
@@ -152,7 +169,8 @@ export default function TRDetail() {
           </div>
         </div>
 
-        <div className="flex gap-2 flex-wrap justify-end">
+        <div className="flex gap-2 flex-wrap justify-end items-center">
+          <ChecklistBadge tipo="tr" id={id} status={current.status} />
           {podeSubmeter && (
             <button onClick={() => doAction(() => submeterTr(id))} disabled={actionLoading}
               className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm px-4 py-1.5 rounded-lg font-medium">
@@ -482,6 +500,174 @@ export default function TRDetail() {
             </div>
           </div>
         )}
+
+        {/* ── Checklist SSP-BA — C0 ── */}
+        <div className="pt-4 border-t border-gray-100">
+          <div className="flex items-center gap-2 mb-3">
+            <p className="text-xs font-semibold text-gray-400 uppercase">Aderência ao Checklist SSP-BA</p>
+            <span className="text-[10px] bg-teal-100 text-teal-700 px-1.5 py-0.5 rounded font-medium">Lei 14.133 · IN SEGES 77/2022</span>
+          </div>
+          <div className="space-y-5">
+
+            {/* Adequação orçamentária */}
+            <Section label="Adequação orçamentária (art. 6º, XXIII, j) *" error={formErrors.adequacao_orcamentaria}>
+              {editing
+                ? <textarea rows={2} value={form.adequacao_orcamentaria || ''} onChange={e => set('adequacao_orcamentaria', e.target.value)}
+                    placeholder="Ex.: As despesas correrão à conta de recursos da Dotação Orçamentária a ser emitida pela Diretoria Geral/SSP."
+                    className={inp(formErrors.adequacao_orcamentaria)} />
+                : <p className="text-sm text-gray-700 whitespace-pre-wrap text-justify">{current.adequacao_orcamentaria || '—'}</p>}
+            </Section>
+
+            {/* Consórcio */}
+            <Section label="Participação de consórcios (Lei 14.133, art. 15)">
+              <div className={`rounded-xl border px-4 py-3 ${
+                (editing ? form.permite_consorcio : current.permite_consorcio) === false
+                  ? 'bg-amber-50 border-amber-200'
+                  : 'bg-gray-50 border-gray-200'
+              }`}>
+                {editing ? (
+                  <div className="space-y-3">
+                    <div className="flex gap-4">
+                      {[true, false, null].map((val) => (
+                        <label key={String(val)} className="flex items-center gap-1.5 cursor-pointer text-sm">
+                          <input type="radio" name="permite_consorcio"
+                            checked={(form.permite_consorcio ?? null) === val}
+                            onChange={() => set('permite_consorcio', val)}
+                            className="accent-teal-600" />
+                          {val === true ? 'Permite' : val === false ? 'Veda' : 'Não respondido'}
+                        </label>
+                      ))}
+                    </div>
+                    {form.permite_consorcio === false && (
+                      <textarea rows={2} value={form.permite_consorcio_justificativa || ''}
+                        onChange={e => set('permite_consorcio_justificativa', e.target.value)}
+                        placeholder="Justificativa para vedação de consórcios..."
+                        className={inp()} />
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">
+                      {current.permite_consorcio === true ? '✓ Permite consórcios'
+                        : current.permite_consorcio === false ? '✗ Veda consórcios'
+                        : '— Não respondido'}
+                    </p>
+                    {current.permite_consorcio === false && current.permite_consorcio_justificativa && (
+                      <p className="text-xs text-amber-700 mt-1">{current.permite_consorcio_justificativa}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </Section>
+
+            {/* Qualificação jurídica */}
+            <Section label="Qualificação jurídica (art. 62, I)">
+              {editing ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-1.5 text-sm cursor-pointer">
+                      <input type="checkbox" checked={form.qualificacao_juridica_suprimida ?? false}
+                        onChange={e => set('qualificacao_juridica_suprimida', e.target.checked)}
+                        className="accent-teal-600" />
+                      Suprimida com justificativa
+                    </label>
+                  </div>
+                  {form.qualificacao_juridica_suprimida ? (
+                    <textarea rows={2} value={form.qualificacao_juridica_suprimida_justificativa || ''}
+                      onChange={e => set('qualificacao_juridica_suprimida_justificativa', e.target.value)}
+                      placeholder="Justificativa para supressão da qualificação jurídica..."
+                      className={inp()} />
+                  ) : (
+                    <textarea rows={2} value={form.qualificacao_juridica || ''}
+                      onChange={e => set('qualificacao_juridica', e.target.value)}
+                      placeholder="Descrever as exigências de qualificação jurídica..."
+                      className={inp()} />
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-700 whitespace-pre-wrap text-justify">
+                  {current.qualificacao_juridica_suprimida
+                    ? `[Suprimida] ${current.qualificacao_juridica_suprimida_justificativa || ''}`
+                    : current.qualificacao_juridica || '—'}
+                </p>
+              )}
+            </Section>
+
+            {/* Qualificação econômico-financeira */}
+            <Section label="Qualificação econômico-financeira (art. 62, IV + IN SAEB 010/2024)">
+              {editing ? (
+                <div className="space-y-2">
+                  <div className="flex items-center gap-3">
+                    <label className="flex items-center gap-1.5 text-sm cursor-pointer">
+                      <input type="checkbox" checked={form.qualificacao_economica_dispensada ?? false}
+                        onChange={e => set('qualificacao_economica_dispensada', e.target.checked)}
+                        className="accent-teal-600" />
+                      Dispensada (IN SAEB 010/2024)
+                    </label>
+                  </div>
+                  {!form.qualificacao_economica_dispensada && (
+                    <textarea rows={2} value={form.qualificacao_economica || ''}
+                      onChange={e => set('qualificacao_economica', e.target.value)}
+                      placeholder="Descrever os índices ou requisitos de qualificação econômico-financeira..."
+                      className={inp()} />
+                  )}
+                </div>
+              ) : (
+                <p className="text-sm text-gray-700 whitespace-pre-wrap text-justify">
+                  {current.qualificacao_economica_dispensada
+                    ? '[Dispensada — IN SAEB 010/2024]'
+                    : current.qualificacao_economica || '—'}
+                </p>
+              )}
+            </Section>
+
+            {/* Prazos recebimento/pagamento */}
+            <div>
+              <p className="text-xs font-medium text-gray-500 mb-2">Prazos de recebimento e pagamento (IN SEGES/ME 77/2022)</p>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                {[
+                  ['prazo_recebimento_provisorio_dias', 'Rec. provisório (dias úteis)', '5'],
+                  ['prazo_recebimento_definitivo_dias', 'Rec. definitivo (dias úteis)', '5'],
+                  ['prazo_liquidacao_dias',             'Liquidação (dias úteis)',      '10'],
+                  ['prazo_pagamento_dias',              'Pagamento (dias úteis)',       '10'],
+                ].map(([field, label, placeholder]) => (
+                  <div key={field}>
+                    <label className="block text-xs text-gray-500 mb-1">{label}</label>
+                    {editing
+                      ? <input type="number" min="1" value={form[field] || ''} onChange={e => set(field, e.target.value)}
+                          placeholder={placeholder} className={inp()} />
+                      : <p className="text-sm text-gray-700">{current[field] != null ? `${current[field]} dias` : '—'}</p>}
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Prazo irregularidade + degrau */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Prazo p/ providência de irregularidade (dias úteis)</label>
+                {editing
+                  ? <input type="number" min="1" value={form.prazo_providencia_irregularidade_dias || ''}
+                      onChange={e => set('prazo_providencia_irregularidade_dias', e.target.value)}
+                      placeholder="5" className={inp()} />
+                  : <p className="text-sm text-gray-700">{current.prazo_providencia_irregularidade_dias != null ? `${current.prazo_providencia_irregularidade_dias} dias` : '—'}</p>}
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-500 mb-1">Degrau mínimo entre lances — R$ (art. 57)</label>
+                {editing
+                  ? <input type="number" min="0" step="0.01" value={form.degrau_lances || ''}
+                      onChange={e => set('degrau_lances', e.target.value)}
+                      placeholder="0.01" className={inp()} />
+                  : <p className="text-sm text-gray-700">
+                      {current.degrau_lances != null
+                        ? Number(current.degrau_lances).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+                        : '—'}
+                    </p>}
+              </div>
+            </div>
+
+          </div>
+        </div>
 
         <Section label="Observações">
           {editing

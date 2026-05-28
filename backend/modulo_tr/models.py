@@ -167,6 +167,90 @@ class TR(BaseModel):
         verbose_name='Estimativa de valor (R$)',
     )
 
+    # ── Campos do Checklist TR — SSP-BA (C0) ─────────────────────────────────
+    # Todos opcionais no banco; obrigatoriedade controlada pelo ChecklistEngine.
+
+    # Seção 4.7 — Consórcio
+    permite_consorcio = models.BooleanField(
+        null=True, blank=True,
+        verbose_name='Permite participação de consórcios?',
+        help_text='Lei 14.133, art. 15. Regra: admitir. Vedação requer justificativa.',
+    )
+    permite_consorcio_justificativa = models.TextField(
+        blank=True, default='',
+        verbose_name='Justificativa para vedação de consórcios',
+    )
+
+    # Seção 8.2 — Qualificação Jurídica
+    qualificacao_juridica = models.TextField(
+        blank=True, default='',
+        verbose_name='Qualificação jurídica exigida',
+        help_text='Descrever exigências ou informar "Não exigida" com justificativa (art. 62, I).',
+    )
+    qualificacao_juridica_suprimida = models.BooleanField(
+        null=True, blank=True,
+        verbose_name='Qualificação jurídica suprimida?',
+    )
+    qualificacao_juridica_suprimida_justificativa = models.TextField(
+        blank=True, default='',
+        verbose_name='Justificativa da supressão da qualificação jurídica',
+    )
+
+    # Seção 8.4 — Qualificação Econômico-Financeira
+    qualificacao_economica = models.TextField(
+        blank=True, default='',
+        verbose_name='Qualificação econômico-financeira exigida',
+        help_text='Descrever ou justificar dispensa (art. 62, IV + IN SAEB 010/2024).',
+    )
+    qualificacao_economica_dispensada = models.BooleanField(
+        null=True, blank=True,
+        verbose_name='Qualificação econômico-financeira dispensada?',
+        help_text='IN SAEB 010/2024: pode dispensar para entrega imediata ou baixo valor.',
+    )
+
+    # Seção 8.2 — Degrau de lances (art. 57)
+    degrau_lances = models.DecimalField(
+        max_digits=10, decimal_places=2, null=True, blank=True,
+        verbose_name='Degrau mínimo entre lances (R$)',
+        help_text='Preferir R$ 0,01 (art. 57). Checklist SSP-BA, item 8.2.',
+    )
+
+    # Seção 9.1 — Adequação orçamentária
+    adequacao_orcamentaria = models.TextField(
+        blank=True, default='',
+        verbose_name='Adequação orçamentária',
+        help_text='Lei 14.133, art. 6º, XXIII, j. Texto padrão: "As despesas correrão à conta de recursos da Dotação Orçamentária a ser emitida pela Diretoria Geral/SSP."',
+    )
+
+    # Seção 7.1 — Prazos de recebimento e pagamento (IN SEGES/ME 77/2022)
+    prazo_recebimento_provisorio_dias = models.PositiveIntegerField(
+        null=True, blank=True,
+        verbose_name='Prazo de recebimento provisório (dias úteis)',
+        help_text='Sugerido: 5 dias úteis.',
+    )
+    prazo_recebimento_definitivo_dias = models.PositiveIntegerField(
+        null=True, blank=True,
+        verbose_name='Prazo de recebimento definitivo (dias úteis)',
+        help_text='Sugerido: 5 dias úteis.',
+    )
+    prazo_liquidacao_dias = models.PositiveIntegerField(
+        null=True, blank=True,
+        verbose_name='Prazo de liquidação (dias úteis)',
+        help_text='Sugerido: 10 dias úteis (IN SEGES/ME 77/2022).',
+    )
+    prazo_pagamento_dias = models.PositiveIntegerField(
+        null=True, blank=True,
+        verbose_name='Prazo de pagamento (dias úteis)',
+        help_text='Sugerido: 10 dias úteis (IN SEGES/ME 77/2022).',
+    )
+
+    # Seção 6.1 — Prazo de providência de irregularidade
+    prazo_providencia_irregularidade_dias = models.PositiveIntegerField(
+        null=True, blank=True,
+        verbose_name='Prazo para providência de irregularidade (dias úteis)',
+        help_text='Sugerido: 5 dias úteis. Checklist SSP-BA, item 6.1.',
+    )
+
     status           = models.CharField(max_length=15, choices=STATUS_CHOICES, default='Rascunho')
     motivo_devolucao = models.TextField(blank=True, null=True, verbose_name='Motivo da devolução')
     observacoes      = models.TextField(blank=True, default='', verbose_name='Observações')

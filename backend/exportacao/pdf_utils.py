@@ -272,6 +272,42 @@ def _get_secoes(tipo, modalidade=None):
 
 def _valor_secao_tr(codigo, tr):
     """Mapeia código de SecaoArtefato → valor de campo do TR."""
+
+    def _permite_consorcio_texto():
+        val = getattr(tr, 'permite_consorcio', None)
+        if not val:
+            return None
+        partes = [{'sim': 'Permite consórcio', 'nao': 'Veda consórcio'}.get(val, val)]
+        just = getattr(tr, 'permite_consorcio_justificativa', None)
+        if just:
+            partes.append(f'Justificativa: {just}')
+        return '\n'.join(partes)
+
+    def _qualificacao_juridica_texto():
+        if getattr(tr, 'qualificacao_juridica_suprimida', False):
+            just = getattr(tr, 'qualificacao_juridica_justificativa', '') or ''
+            return f'Suprimida — {just}' if just else 'Suprimida'
+        return getattr(tr, 'qualificacao_juridica', None)
+
+    def _qualificacao_economica_texto():
+        if getattr(tr, 'qualificacao_economica_dispensada', False):
+            return 'Dispensada'
+        return getattr(tr, 'qualificacao_economica', None)
+
+    def _prazos_texto():
+        partes = []
+        for campo, label in [
+            ('prazo_recebimento_provisorio_dias', 'Recebimento Provisório'),
+            ('prazo_recebimento_definitivo_dias', 'Recebimento Definitivo'),
+            ('prazo_liquidacao_dias',             'Liquidação'),
+            ('prazo_pagamento_dias',              'Pagamento'),
+            ('prazo_providencia_irregularidade_dias', 'Providência por Irregularidade'),
+        ]:
+            v = getattr(tr, campo, None)
+            if v is not None:
+                partes.append(f'{label}: {v} dia(s)')
+        return '\n'.join(partes) if partes else None
+
     mapa = {
         'objeto':              tr.objeto_contratacao,
         'justificativa':       tr.justificativa,
@@ -286,6 +322,13 @@ def _valor_secao_tr(codigo, tr):
         'estimativa_valor':    _fmt_valor(tr.estimativa_valor) if tr.estimativa_valor else None,
         'observacoes':         tr.observacoes,
         'parcelamento_etp':    _valor_parcelamento_etp(tr),
+        # Checklist SSP-BA (C0)
+        'adequacao_orcamentaria':  getattr(tr, 'adequacao_orcamentaria', None),
+        'permite_consorcio':       _permite_consorcio_texto(),
+        'qualificacao_juridica':   _qualificacao_juridica_texto(),
+        'qualificacao_economica':  _qualificacao_economica_texto(),
+        'prazos_execucao':         _prazos_texto(),
+        'degrau_lances':           getattr(tr, 'degrau_lances', None),
     }
     return mapa.get(codigo) or None
 
@@ -314,6 +357,14 @@ def _valor_secao_etp(codigo, etp):
             partes.append('Licitação exclusiva ME/EPP: SIM (até R$80.000)')
         return '\n'.join(partes) if partes else None
 
+    def _classificacao_sensivel_texto():
+        val = getattr(etp, 'classificacao_sensivel', None)
+        if not val:
+            return None
+        label = {'sim': 'Sensível', 'nao': 'Não sensível'}.get(val, val)
+        just = getattr(etp, 'classificacao_sensivel_justificativa', None)
+        return f'{label} — {just}' if just else label
+
     mapa = {
         'necessidade':         etp.necessidade_contratacao,
         'requisitos':          etp.requisitos_contratacao,
@@ -326,6 +377,14 @@ def _valor_secao_etp(codigo, etp):
         'parcelamento':        _parcelamento_texto(),
         'cota_me_epp':         _cota_meepp_texto(),
         'observacoes':         etp.observacoes,
+        # Checklist SSP-BA (C0)
+        'posicionamento_conclusivo': getattr(etp, 'posicionamento_conclusivo', None),
+        'classificacao_sensivel':    _classificacao_sensivel_texto(),
+        'alinhamento_planesp':       getattr(etp, 'alinhamento_planesp', None),
+        'contratacoes_correlatas':   getattr(etp, 'contratacoes_correlatas', None),
+        'impacto_ambiental':         getattr(etp, 'impacto_ambiental', None),
+        'providencias_pre_contrato': getattr(etp, 'providencias_pre_contrato', None),
+        'compra_vs_locacao':         getattr(etp, 'compra_vs_locacao', None),
     }
     return mapa.get(codigo) or None
 
@@ -375,6 +434,15 @@ def _renderizar_secao_dfd(codigo, dfd, estilos):
             e += _campo('Exercício', str(nec.exercicio_fiscal), estilos)
         elif dfd.justificativa_sem_planejamento:
             e += _campo('Situação', 'Fora do planejamento — justificativa registrada', estilos)
+
+    elif codigo == 'pca':
+        pca = getattr(dfd, 'pca_previsto', None)
+        if pca is not None:
+            labels = {'sim': 'Sim — previsto no PCA', 'nao': 'Não previsto no PCA'}
+            e += _campo('Previsto no PCA', labels.get(pca, 'Não respondido'), estilos)
+        just = getattr(dfd, 'pca_justificativa_ausencia', None)
+        if just:
+            e += _campo('Justificativa de ausência no PCA', just, estilos)
 
     elif codigo == 'observacoes':
         if dfd.observacoes:
@@ -534,6 +602,12 @@ def _renderizar_secoes_tr(tr, estilos):
             ('local_entrega',        'Local de Entrega'),
             ('garantia',             'Garantia Contratual'),
             ('estimativa_valor',     'Estimativa de Valor'),
+            ('adequacao_orcamentaria',  'Adequação Orçamentária e Financeira'),
+            ('permite_consorcio',       'Admissibilidade de Consórcio'),
+            ('qualificacao_juridica',   'Qualificação Jurídica'),
+            ('qualificacao_economica',  'Qualificação Econômico-Financeira'),
+            ('prazos_execucao',         'Prazos de Execução e Pagamento'),
+            ('degrau_lances',           'Degrau de Lances / Percentual Mínimo de Desconto'),
         ]
         for codigo, titulo in fallback:
             if codigo in FLOWABLE_CODES:
@@ -575,17 +649,24 @@ def _renderizar_secoes_etp(etp, estilos):
                 e += _campo('', valor, estilos)
     else:
         fallback = [
-            ('necessidade',         'Necessidade da Contratação'),
-            ('requisitos',          'Requisitos da Contratação'),
-            ('levantamento_mercado','Levantamento de Mercado'),
-            ('solucao',             'Descrição da Solução'),
-            ('justificativa',       'Justificativa da Solução'),
-            ('estimativa_valor',    'Estimativa de Valor'),
-            ('riscos',              'Mapa de Riscos'),
-            ('sustentabilidade',    'Sustentabilidade'),
-            ('parcelamento',        'Parcelamento da Solução e Adjudicação'),
-            ('cota_me_epp',         'Reserva de Cota ME/EPP (LC 123/2006)'),
-            ('observacoes',         'Observações'),
+            ('necessidade',              'Necessidade da Contratação'),
+            ('requisitos',               'Requisitos da Contratação'),
+            ('levantamento_mercado',     'Levantamento de Mercado'),
+            ('solucao',                  'Descrição da Solução'),
+            ('justificativa',            'Justificativa da Solução'),
+            ('estimativa_valor',         'Estimativa de Valor'),
+            ('riscos',                   'Mapa de Riscos'),
+            ('sustentabilidade',         'Sustentabilidade'),
+            ('parcelamento',             'Parcelamento da Solução e Adjudicação'),
+            ('cota_me_epp',              'Reserva de Cota ME/EPP (LC 123/2006)'),
+            ('posicionamento_conclusivo','Posicionamento Conclusivo'),
+            ('classificacao_sensivel',   'Classificação quanto à Sensibilidade'),
+            ('alinhamento_planesp',      'Alinhamento ao PLANESP'),
+            ('contratacoes_correlatas',  'Contratações Correlatas ou Interdependentes'),
+            ('impacto_ambiental',        'Impacto Ambiental'),
+            ('providencias_pre_contrato','Providências para Adequação do Ambiente'),
+            ('compra_vs_locacao',        'Análise de Compra vs. Locação/Comodato'),
+            ('observacoes',              'Observações'),
         ]
         for codigo, titulo in fallback:
             valor = _valor_secao_etp(codigo, etp)
@@ -612,7 +693,7 @@ def _renderizar_secoes_dfd(dfd, estilos):
         fallback_codigos = [
             'identificacao', 'descricao', 'justificativa',
             'area_aplicacao', 'prazo', 'unidades',
-            'responsaveis', 'vinculo_orcamentario', 'itens', 'observacoes',
+            'responsaveis', 'vinculo_orcamentario', 'pca', 'itens', 'observacoes',
         ]
         titulos_fallback = {
             'identificacao': 'Identificação',
@@ -623,6 +704,7 @@ def _renderizar_secoes_dfd(dfd, estilos):
             'unidades': 'Unidades Responsáveis',
             'responsaveis': 'Responsáveis pelo Contrato',
             'vinculo_orcamentario': 'Vínculo Orçamentário',
+            'pca': 'Previsão no Plano de Contratações Anual (PCA)',
             'itens': 'Itens da Demanda',
             'observacoes': 'Observações',
         }

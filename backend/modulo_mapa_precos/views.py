@@ -9,11 +9,11 @@ from rest_framework.response import Response
 from core.permissions import IsMultiTenant
 from .models import (
     MapaComparativoPrecos, HistoricoMapa, FonteConsultada, ItemMapa,
-    PrecoColetado, TIPO_FONTE_CHOICES, METODO_CALCULO_CHOICES, TRANSICOES_MAPA,
+    PrecoColetado, SolicitacaoCotacao, TIPO_FONTE_CHOICES, METODO_CALCULO_CHOICES, TRANSICOES_MAPA,
 )
 from .serializers import (
     MapaComparativoPrecosSerializer, FonteConsultadaSerializer,
-    ItemMapaSerializer, PrecoColetadoSerializer,
+    ItemMapaSerializer, PrecoColetadoSerializer, SolicitacaoCotacaoSerializer,
 )
 
 
@@ -675,3 +675,30 @@ class MapaComparativoPrecosViewSet(viewsets.ModelViewSet):
 
         resultado = ImportadorPNCP().executar(importacao, ids)
         return Response(resultado)
+
+    # ── CRUD de Solicitações de Cotação (Parâmetro V) ──────────────────────────
+    @action(detail=True, methods=['get', 'post'], url_path='solicitacoes-cotacao')
+    def solicitacoes_cotacao(self, request, pk=None):
+        mapa = self.get_object()
+        ctx = {'request': request}
+        if request.method == 'POST':
+            serializer = SolicitacaoCotacaoSerializer(data=request.data, context=ctx)
+            serializer.is_valid(raise_exception=True)
+            serializer.save(mapa=mapa)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        qs = mapa.solicitacoes_cotacao.select_related('fonte').order_by('-criado_em')
+        return Response(SolicitacaoCotacaoSerializer(qs, many=True, context=ctx).data)
+
+    @action(detail=True, methods=['patch', 'delete'],
+            url_path='solicitacoes-cotacao/(?P<sol_pk>[^/.]+)')
+    def solicitacao_cotacao_detail(self, request, pk=None, sol_pk=None):
+        mapa = self.get_object()
+        sol  = get_object_or_404(SolicitacaoCotacao, pk=sol_pk, mapa=mapa)
+        ctx  = {'request': request}
+        if request.method == 'DELETE':
+            sol.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        serializer = SolicitacaoCotacaoSerializer(sol, data=request.data, partial=True, context=ctx)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(serializer.data)

@@ -5,6 +5,7 @@ import useEtpStore from '../stores/etpStore'
 import useAuthStore from '../stores/authStore'
 import { downloadFile } from '../services/api'
 import DownloadButton from '../components/DownloadButton'
+import ChecklistBadge from '../components/ChecklistBadge'
 
 const STATUS_CLS = {
   Rascunho:     'bg-gray-100 text-gray-600',
@@ -33,6 +34,7 @@ export const pageHelp = {
     { label: 'Reabrir',         texto: 'Reabre um ETP aprovado para correções pontuais. Exige novo número SEI de autorização.' },
     { label: 'Dispensar',       texto: 'Dispensa o ETP quando a contratação é de baixa complexidade ou valor (art. 18, § 3º, Lei 14.133/2021).' },
     { label: 'Download PDF',    texto: 'Exporta o ETP completo em PDF para compor o processo SEI.' },
+    { label: 'Checklist SSP-BA', texto: 'Badge colorido mostrando quantos campos do checklist estão preenchidos. Vermelho = obrigatórios pendentes (bloqueia submissão). Amarelo = recomendados em falta. Verde = completo.' },
   ],
   fluxo: [
     { status: 'Rascunho',    descricao: 'Em elaboração pelo responsável técnico.' },
@@ -99,6 +101,14 @@ export default function ETPDetail() {
         reserva_cota_me_epp:        form.reserva_cota_me_epp        ?? false,
         reserva_cota_justificativa: form.reserva_cota_justificativa ?? '',
         licitacao_exclusiva_me_epp: form.licitacao_exclusiva_me_epp ?? false,
+        posicionamento_conclusivo:              form.posicionamento_conclusivo              ?? '',
+        classificacao_sensivel:                form.classificacao_sensivel                ?? null,
+        classificacao_sensivel_justificativa:  form.classificacao_sensivel_justificativa  ?? '',
+        alinhamento_planesp:                   form.alinhamento_planesp                   ?? '',
+        contratacoes_correlatas:               form.contratacoes_correlatas               ?? '',
+        impacto_ambiental:                     form.impacto_ambiental                     ?? '',
+        providencias_pre_contrato:             form.providencias_pre_contrato             ?? '',
+        compra_vs_locacao:                     form.compra_vs_locacao                     ?? '',
         observacoes:             form.observacoes,
       }
       if (numeroSeiAlterado && motivoNumeroSEI.trim()) {
@@ -177,7 +187,8 @@ export default function ETPDetail() {
           </div>
         </div>
 
-        <div className="flex gap-2 flex-wrap justify-end">
+        <div className="flex gap-2 flex-wrap justify-end items-center">
+          <ChecklistBadge tipo="etp" id={id} status={current.status} />
           {podeCriarTR && (
             <button onClick={() => navigate('/analise-tecnica/trs/novo', { state: { etp: current } })}
               className="bg-teal-600 hover:bg-teal-700 text-white text-sm px-4 py-1.5 rounded-lg font-medium">
@@ -515,6 +526,85 @@ export default function ETPDetail() {
                 Nenhum benefício ME/EPP aplicado — todos os lotes do TR serão de <strong>Ampla Concorrência</strong>.
               </p>
             )}
+          </div>
+        </div>
+
+        {/* ── Checklist SSP-BA — C0 ── */}
+        <div className="pt-4 border-t border-gray-100">
+          <div className="flex items-center gap-2 mb-3">
+            <p className="text-xs font-semibold text-gray-400 uppercase">Aderência ao Checklist SSP-BA</p>
+            <span className="text-[10px] bg-purple-100 text-purple-700 px-1.5 py-0.5 rounded font-medium">Decreto 22.598/2024 · Lei 14.133</span>
+          </div>
+          <div className="space-y-4">
+
+            {/* Posicionamento conclusivo */}
+            <DF label="Posicionamento conclusivo (art. 18, §1º, XIII) *" error={formErrors.posicionamento_conclusivo}>
+              {editing
+                ? <textarea rows={3} value={form.posicionamento_conclusivo || ''} onChange={e => set('posicionamento_conclusivo', e.target.value)}
+                    placeholder="Descreva se a contratação é adequada ao interesse público, identificando as alternativas avaliadas e por que a solução escolhida é a mais vantajosa..."
+                    className={inp(formErrors.posicionamento_conclusivo)} />
+                : <p className="text-sm text-gray-700 whitespace-pre-wrap text-justify">{current.posicionamento_conclusivo || '—'}</p>}
+            </DF>
+
+            {/* Classificação sigilosa */}
+            <DF label="ETP sensível/sigiloso? (Decreto 22.598/2024, art. 8º) *">
+              <div className={`rounded-xl border px-4 py-3 ${
+                (editing ? form.classificacao_sensivel : current.classificacao_sensivel) === true
+                  ? 'bg-red-50 border-red-200'
+                  : (editing ? form.classificacao_sensivel : current.classificacao_sensivel) === false
+                  ? 'bg-gray-50 border-gray-200'
+                  : 'bg-amber-50 border-amber-200'
+              }`}>
+                {editing ? (
+                  <div className="space-y-3">
+                    <div className="flex gap-4">
+                      {[true, false, null].map((val) => (
+                        <label key={String(val)} className="flex items-center gap-1.5 cursor-pointer text-sm">
+                          <input type="radio" name="classificacao_sensivel"
+                            checked={(form.classificacao_sensivel ?? null) === val}
+                            onChange={() => set('classificacao_sensivel', val)}
+                            className="accent-red-600" />
+                          {val === true ? 'Sim — ETP sigiloso' : val === false ? 'Não — ETP público' : 'Não respondido'}
+                        </label>
+                      ))}
+                    </div>
+                    {form.classificacao_sensivel === true && (
+                      <textarea rows={2} value={form.classificacao_sensivel_justificativa || ''}
+                        onChange={e => set('classificacao_sensivel_justificativa', e.target.value)}
+                        placeholder="Justifique a classificação como sigiloso e indique o fundamento legal..."
+                        className={inp()} />
+                    )}
+                  </div>
+                ) : (
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">
+                      {current.classificacao_sensivel === true ? '🔒 ETP classificado como sigiloso'
+                        : current.classificacao_sensivel === false ? '🔓 ETP não sigiloso (público)'
+                        : '— Não respondido'}
+                    </p>
+                    {current.classificacao_sensivel === true && current.classificacao_sensivel_justificativa && (
+                      <p className="text-xs text-red-700 mt-1 whitespace-pre-wrap">{current.classificacao_sensivel_justificativa}</p>
+                    )}
+                  </div>
+                )}
+              </div>
+            </DF>
+
+            {/* Campos recomendados — grade 2 colunas */}
+            {[
+              ['alinhamento_planesp',     'Alinhamento ao PLANESP / PCA',                    2, 'Ex.: Objetivo Estratégico 3.2 — Modernização da gestão operacional'],
+              ['contratacoes_correlatas', 'Contratações correlatas ou interdependentes',      2, 'Outras contratações em andamento que interagem com esta (art. 18, §1º, XI)'],
+              ['impacto_ambiental',       'Impactos ambientais e medidas mitigadoras',        2, 'Logística reversa, baixo consumo energético, etc. (art. 18, §1º, XII)'],
+              ['providencias_pre_contrato','Providências antes da celebração do contrato',    2, 'Capacitações, obras de adequação, etc. (art. 18, §1º, X)'],
+              ['compra_vs_locacao',       'Análise compra × locação (para bens)',             2, 'Custos e benefícios de cada opção (art. 44 + Decreto 22.598/2024, art. 6º, V, c)'],
+            ].map(([field, label, rows, placeholder]) => (
+              <DF key={field} label={label}>
+                {editing
+                  ? <textarea rows={rows} value={form[field] || ''} onChange={e => set(field, e.target.value)}
+                      placeholder={placeholder} className={inp()} />
+                  : <p className="text-sm text-gray-700 whitespace-pre-wrap text-justify">{current[field] || '—'}</p>}
+              </DF>
+            ))}
           </div>
         </div>
 

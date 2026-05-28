@@ -79,6 +79,49 @@ class ETP(BaseModel):
     reserva_cota_justificativa = models.TextField(blank=True, default='', verbose_name='Justificativa da não-reserva de cota')
     licitacao_exclusiva_me_epp = models.BooleanField(default=False, verbose_name='Licitação exclusiva ME/EPP (até R$80.000)')
 
+    # ── Campos obrigatórios do Checklist ETP — SSP-BA (C0) ───────────────────
+    # Todos opcionais no banco; obrigatoriedade controlada pelo ChecklistEngine.
+
+    posicionamento_conclusivo = models.TextField(
+        blank=True, default='',
+        verbose_name='Posicionamento conclusivo',
+        help_text='OBRIGATÓRIO — Adequação da contratação ao interesse público (Lei 14.133, art. 18, §1º, XIII).',
+    )
+    classificacao_sensivel = models.BooleanField(
+        null=True, blank=True,
+        verbose_name='ETP sensível/sigiloso?',
+        help_text='OBRIGATÓRIO — Avaliação justificada (Decreto 22.598/2024, art. 8º).',
+    )
+    classificacao_sensivel_justificativa = models.TextField(
+        blank=True, default='',
+        verbose_name='Justificativa de classificação sigilosa',
+    )
+    alinhamento_planesp = models.TextField(
+        blank=True, default='',
+        verbose_name='Alinhamento ao PLANESP',
+        help_text='Objetivo Estratégico do PLANESP ou PCA atendido (específico SSP-BA).',
+    )
+    contratacoes_correlatas = models.TextField(
+        blank=True, default='',
+        verbose_name='Contratações correlatas ou interdependentes',
+        help_text='Outras contratações em andamento ou planejadas que interagem com esta (art. 18, §1º, XI).',
+    )
+    impacto_ambiental = models.TextField(
+        blank=True, default='',
+        verbose_name='Impactos ambientais e medidas mitigadoras',
+        help_text='Incluir logística reversa, baixo consumo de energia etc. (art. 18, §1º, XII).',
+    )
+    providencias_pre_contrato = models.TextField(
+        blank=True, default='',
+        verbose_name='Providências antes da celebração',
+        help_text='Capacitação, adequações físicas, etc. necessárias antes da contratação (art. 18, §1º, X).',
+    )
+    compra_vs_locacao = models.TextField(
+        blank=True, default='',
+        verbose_name='Análise compra vs. locação',
+        help_text='Para bens: custos e benefícios de cada opção (art. 44 + Decreto 22.598/2024, art. 6º, V, c).',
+    )
+
     status           = models.CharField(max_length=15, choices=STATUS_CHOICES, default='Rascunho')
     motivo_devolucao = models.TextField(blank=True, null=True, verbose_name='Motivo da devolução')
     dispensa_motivo  = models.TextField(blank=True, null=True, verbose_name='Motivo da dispensa de ETP')

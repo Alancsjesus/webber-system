@@ -111,6 +111,18 @@ class DFD(BaseModel):
         on_delete=models.SET_NULL, related_name='dfds_contratados',
     )
 
+    # PCA — Plano de Contratações Anual (Lei 14.133, art. 12, VII)
+    pca_previsto = models.BooleanField(
+        null=True, blank=True,
+        verbose_name='Previsto no PCA?',
+        help_text='Indicar se a contratação consta no Plano de Contratações Anual.',
+    )
+    pca_justificativa_ausencia = models.TextField(
+        blank=True, default='',
+        verbose_name='Justificativa de ausência no PCA',
+        help_text='Obrigatório quando pca_previsto=False. Ex.: ausência de regulamentação estadual (checklist DFD, item 4).',
+    )
+
     # Responsáveis pelo contrato
     fiscal_contrato = models.ForeignKey(
         User, null=True, blank=True, on_delete=models.SET_NULL,

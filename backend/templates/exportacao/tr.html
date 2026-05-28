@@ -103,6 +103,60 @@
 {% endfor %}
 {% endif %}
 
+{% if tr.adequacao_orcamentaria %}
+<div class="section-title">Adequação Orçamentária e Financeira</div>
+<div class="field"><div class="field-value" style="white-space:pre-wrap">{{ tr.adequacao_orcamentaria }}</div></div>
+{% endif %}
+{% if tr.permite_consorcio %}
+<div class="section-title">Admissibilidade de Consórcio</div>
+<div class="field">
+  <div class="field-label">Consórcio</div>
+  <div class="field-value">
+    {% if tr.permite_consorcio == 'sim' %}<span class="badge badge-green">Permite consórcio</span>
+    {% elif tr.permite_consorcio == 'nao' %}<span class="badge badge-red">Veda consórcio</span>
+    {% else %}Não respondido{% endif %}
+  </div>
+</div>
+{% if tr.permite_consorcio_justificativa %}
+<div class="field">
+  <div class="field-label">Justificativa</div>
+  <div class="field-value">{{ tr.permite_consorcio_justificativa|linebreaksbr }}</div>
+</div>
+{% endif %}
+{% endif %}
+{% if tr.qualificacao_juridica or tr.qualificacao_juridica_suprimida %}
+<div class="section-title">Qualificação Jurídica</div>
+{% if tr.qualificacao_juridica_suprimida %}
+<div class="field"><div class="field-value"><span class="badge badge-orange">Suprimida</span>{% if tr.qualificacao_juridica_justificativa %} — {{ tr.qualificacao_juridica_justificativa }}{% endif %}</div></div>
+{% else %}
+<div class="field"><div class="field-value" style="white-space:pre-wrap">{{ tr.qualificacao_juridica }}</div></div>
+{% endif %}
+{% endif %}
+{% if tr.qualificacao_economica or tr.qualificacao_economica_dispensada %}
+<div class="section-title">Qualificação Econômico-Financeira</div>
+{% if tr.qualificacao_economica_dispensada %}
+<div class="field"><div class="field-value"><span class="badge badge-orange">Dispensada</span></div></div>
+{% else %}
+<div class="field"><div class="field-value" style="white-space:pre-wrap">{{ tr.qualificacao_economica }}</div></div>
+{% endif %}
+{% endif %}
+{% with p1=tr.prazo_recebimento_provisorio_dias p2=tr.prazo_recebimento_definitivo_dias p3=tr.prazo_liquidacao_dias p4=tr.prazo_pagamento_dias p5=tr.prazo_providencia_irregularidade_dias %}
+{% if p1 or p2 or p3 or p4 or p5 %}
+<div class="section-title">Prazos de Execução e Pagamento</div>
+<div class="grid-2">
+  {% if p1 %}<div class="field"><div class="field-label">Recebimento Provisório</div><div class="field-value">{{ p1 }} dia(s)</div></div>{% endif %}
+  {% if p2 %}<div class="field"><div class="field-label">Recebimento Definitivo</div><div class="field-value">{{ p2 }} dia(s)</div></div>{% endif %}
+  {% if p3 %}<div class="field"><div class="field-label">Liquidação</div><div class="field-value">{{ p3 }} dia(s)</div></div>{% endif %}
+  {% if p4 %}<div class="field"><div class="field-label">Pagamento</div><div class="field-value">{{ p4 }} dia(s)</div></div>{% endif %}
+  {% if p5 %}<div class="field"><div class="field-label">Providência por Irregularidade</div><div class="field-value">{{ p5 }} dia(s)</div></div>{% endif %}
+</div>
+{% endif %}
+{% endwith %}
+{% if tr.degrau_lances %}
+<div class="section-title">Degrau de Lances / Percentual Mínimo de Desconto</div>
+<div class="field"><div class="field-value">{{ tr.degrau_lances }}</div></div>
+{% endif %}
+
 {% if tr.observacoes %}
 <div class="section-title">Observações</div>
 <div class="field"><div class="field-value" style="white-space:pre-wrap">{{ tr.observacoes }}</div></div>

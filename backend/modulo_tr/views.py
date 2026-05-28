@@ -7,6 +7,7 @@ from django.shortcuts import get_object_or_404
 from .models import TR, HistoricoTR, LoteTR, ItemLoteTR
 from .serializers import TRSerializer, LoteTRSerializer, ItemLoteTRSerializer
 from core.permissions import IsMultiTenant, PAPEIS_ANALISTA, check_licitante
+from core.checklist_engine import ChecklistEngine
 from exportacao.pdf_utils import gerar_pdf_tr, gerar_html, resposta_pdf, resposta_html
 
 PAPEIS_SOLICITANTE = ('solicitante', 'demandante', 'responsavel_tecnico', 'admin')
@@ -107,6 +108,35 @@ class TRViewSet(viewsets.ModelViewSet):
         tr.updated_by = request.user
         tr.save()
         return Response(TRSerializer(tr, context={'request': request}).data)
+
+    # ------------------------------------------------------------------ #
+    # checklist                                                            #
+    # ------------------------------------------------------------------ #
+
+    @action(detail=True, methods=['get'])
+    def checklist(self, request, pk=None):
+        tr = self.get_object()
+        resultado = ChecklistEngine.avaliar_tr(tr)
+        return Response({
+            'score': resultado.score,
+            'total': resultado.total,
+            'percentual': resultado.percentual,
+            'pode_submeter': resultado.pode_submeter,
+            'bloqueadores': [
+                {
+                    'campo': r.campo, 'descricao': r.descricao,
+                    'base_legal': r.base_legal, 'detalhe': r.detalhe,
+                }
+                for r in resultado.bloqueadores
+            ],
+            'avisos': [
+                {
+                    'campo': r.campo, 'descricao': r.descricao,
+                    'base_legal': r.base_legal, 'detalhe': r.detalhe,
+                }
+                for r in resultado.avisos
+            ],
+        })
 
     # ------------------------------------------------------------------ #
     # export actions                                                       #
