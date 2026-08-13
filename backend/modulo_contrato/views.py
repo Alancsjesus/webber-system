@@ -6,8 +6,11 @@ from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 
 from core.permissions import IsMultiTenant
-from .models import Contrato, Apostila, Aditivo
-from .serializers import ContratoSerializer, ApostilaSerializer, AditivoSerializer
+from .models import Contrato, Apostila, Aditivo, CronogramaEntrega, Medicao, Pagamento
+from .serializers import (
+    ContratoSerializer, ApostilaSerializer, AditivoSerializer,
+    CronogramaEntregaSerializer, MedicaoSerializer, PagamentoSerializer,
+)
 
 PAPEIS_GESTORES = ['admin', 'gestor_contrato', 'analista', 'ordenador']
 
@@ -26,13 +29,16 @@ class ContratoViewSet(viewsets.ModelViewSet):
             org_id=self.request.org_id
         ).select_related(
             'orgao_executor', 'dfd', 'fiscal_contrato', 'gestor_contrato', 'ordenador', 'org_id', 'created_by'
-        ).prefetch_related('apostilas', 'aditivos')
+        ).prefetch_related('apostilas', 'aditivos', 'cronograma', 'medicoes__pagamentos', 'pagamentos')
 
     def perform_update(self, serializer):
-        if serializer.instance.status in ('Encerrado', 'Rescindido'):
-            from rest_framework.exceptions import PermissionDenied
-            raise PermissionDenied('Contratos encerrados ou rescindidos não podem ser editados.')
+        self._bloquear_se_encerrado(serializer.instance)
         serializer.save(updated_by=self.request.user)
+
+    def _reload(self, contrato):
+        # get_object() prefetches related sets; após criar/alterar um filho, o cache
+        # fica desatualizado. Recarrega para a resposta refletir o estado atual.
+        return self.get_queryset().get(pk=contrato.pk)
 
     # ── Apostilas ──────────────────────────────────────────────────────────────
     @action(detail=True, methods=['post'], url_path='apostilas')
@@ -41,7 +47,7 @@ class ContratoViewSet(viewsets.ModelViewSet):
         serializer = ApostilaSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         serializer.save(contrato=contrato)
-        return Response(ContratoSerializer(contrato, context={'request': request}).data,
+        return Response(ContratoSerializer(self._reload(contrato), context={'request': request}).data,
                         status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['delete'], url_path=r'apostilas/(?P<apostila_pk>[^/.]+)')
@@ -66,7 +72,7 @@ class ContratoViewSet(viewsets.ModelViewSet):
         if aditivo.tipo == 'valor' and aditivo.valor_acrescimo:
             contrato.valor_contrato += aditivo.valor_acrescimo
             contrato.save(update_fields=['valor_contrato'])
-        return Response(ContratoSerializer(contrato, context={'request': request}).data,
+        return Response(ContratoSerializer(self._reload(contrato), context={'request': request}).data,
                         status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['delete'], url_path=r'aditivos/(?P<aditivo_pk>[^/.]+)')
@@ -75,6 +81,89 @@ class ContratoViewSet(viewsets.ModelViewSet):
         aditivo = get_object_or_404(Aditivo, pk=aditivo_pk, contrato=contrato)
         aditivo.delete()
         return Response(status=status.HTTP_204_NO_CONTENT)
+
+    def _bloquear_se_encerrado(self, contrato):
+        if contrato.status in ('Encerrado', 'Rescindido'):
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('Contratos encerrados ou rescindidos não podem ser editados.')
+
+    # ── Cronograma de Entrega ─────────────────────────────────────────────────
+    @action(detail=True, methods=['post'], url_path='cronograma')
+    def add_cronograma(self, request, pk=None):
+        contrato = self.get_object()
+        self._bloquear_se_encerrado(contrato)
+        serializer = CronogramaEntregaSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save(contrato=contrato)
+        return Response(ContratoSerializer(self._reload(contrato), context={'request': request}).data,
+                        status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['patch', 'delete'], url_path=r'cronograma/(?P<item_pk>[^/.]+)')
+    def cronograma_item(self, request, pk=None, item_pk=None):
+        contrato = self.get_object()
+        self._bloquear_se_encerrado(contrato)
+        item = get_object_or_404(CronogramaEntrega, pk=item_pk, contrato=contrato)
+        if request.method == 'DELETE':
+            item.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        serializer = CronogramaEntregaSerializer(item, data=request.data, partial=True, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(ContratoSerializer(self._reload(contrato), context={'request': request}).data)
+
+    # ── Medições ───────────────────────────────────────────────────────────────
+    @action(detail=True, methods=['post'], url_path='medicoes')
+    def add_medicao(self, request, pk=None):
+        contrato = self.get_object()
+        self._bloquear_se_encerrado(contrato)
+        serializer = MedicaoSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save(contrato=contrato)
+        return Response(ContratoSerializer(self._reload(contrato), context={'request': request}).data,
+                        status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['patch', 'delete'], url_path=r'medicoes/(?P<medicao_pk>[^/.]+)')
+    def medicao_item(self, request, pk=None, medicao_pk=None):
+        contrato = self.get_object()
+        self._bloquear_se_encerrado(contrato)
+        medicao = get_object_or_404(Medicao, pk=medicao_pk, contrato=contrato)
+        if request.method == 'DELETE':
+            medicao.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        serializer = MedicaoSerializer(medicao, data=request.data, partial=True, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(ContratoSerializer(self._reload(contrato), context={'request': request}).data)
+
+    # ── Pagamentos ─────────────────────────────────────────────────────────────
+    @action(detail=True, methods=['post'], url_path='pagamentos')
+    def add_pagamento(self, request, pk=None):
+        contrato = self.get_object()
+        self._bloquear_se_encerrado(contrato)
+        medicao_id = request.data.get('medicao')
+        if medicao_id and not contrato.medicoes.filter(pk=medicao_id).exists():
+            return Response({'medicao': 'Medição não pertence a este contrato.'}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = PagamentoSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save(contrato=contrato)
+        return Response(ContratoSerializer(self._reload(contrato), context={'request': request}).data,
+                        status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['patch', 'delete'], url_path=r'pagamentos/(?P<pagamento_pk>[^/.]+)')
+    def pagamento_item(self, request, pk=None, pagamento_pk=None):
+        contrato = self.get_object()
+        self._bloquear_se_encerrado(contrato)
+        pagamento = get_object_or_404(Pagamento, pk=pagamento_pk, contrato=contrato)
+        if request.method == 'DELETE':
+            pagamento.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        medicao_id = request.data.get('medicao')
+        if medicao_id and not contrato.medicoes.filter(pk=medicao_id).exists():
+            return Response({'medicao': 'Medição não pertence a este contrato.'}, status=status.HTTP_400_BAD_REQUEST)
+        serializer = PagamentoSerializer(pagamento, data=request.data, partial=True, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(ContratoSerializer(self._reload(contrato), context={'request': request}).data)
 
     @action(detail=True, methods=['get'], url_path='export/pdf')
     def export_pdf(self, request, pk=None):

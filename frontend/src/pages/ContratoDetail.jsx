@@ -5,6 +5,9 @@ import useAuthStore from '../stores/authStore'
 import LoadingSpinner from '../components/LoadingSpinner'
 import HelpTip from '../components/HelpTip'
 import { downloadFile } from '../services/api'
+import CronogramaSection from '../components/contrato/CronogramaSection'
+import MedicoesSection from '../components/contrato/MedicoesSection'
+import PagamentosSection from '../components/contrato/PagamentosSection'
 
 const STATUS_CLS = {
   Vigente:    'bg-green-100 text-green-700',
@@ -30,14 +33,17 @@ const fmt = (v) => Number(v).toLocaleString('pt-BR', { style: 'currency', curren
 // ─── Ajuda Contextual ─────────────────────────────────────────────────────────
 export const pageHelp = {
   titulo: 'Contrato — Detalhe',
-  descricao: 'Gerencie o contrato administrativo: dados, garantia, apostilas e aditivos. Todas as alterações são registradas no histórico do procedimento.',
+  descricao: 'Gerencie o contrato administrativo: dados, garantia, apostilas, aditivos e execução contratual (cronograma, medições e pagamentos). Organizado em abas.',
   acoes: [
-    { label: 'Editar',       texto: 'Habilita a edição dos dados do contrato: objeto, valor, datas de assinatura e vigência.' },
-    { label: 'Garantia',     texto: 'Preencha se o edital exigiu garantia contratual. Informe o tipo (caução, seguro-garantia, fiança), percentual (máx. 5%) e apólice. Se superior a 5%, justificativa é obrigatória (art. 96, Lei 14.133/2021).' },
-    { label: '+ Apostila',   texto: 'Registra uma apostila: alteração unilateral de menor importância que não modifica o objeto nem o valor. Informe número, data e objeto da apostila.' },
-    { label: '+ Aditivo',    texto: 'Registra um termo aditivo de prorrogação, acréscimo/redução de valor, alteração de objeto ou rescisão. Prorrogações e acréscimos têm limites legais de 25% (50% para obras).' },
-    { label: 'PDF Contrato', texto: 'Gera o documento do contrato em PDF para assinatura.' },
-    { label: 'Excluir',      texto: 'Remove o contrato do sistema. Disponível apenas para administradores. Ação irreversível.' },
+    { label: 'Editar',           texto: 'Habilita a edição dos dados do contrato: objeto, valor, datas de assinatura e vigência.' },
+    { label: 'Garantia',         texto: 'Preencha se o edital exigiu garantia contratual. Informe o tipo (caução, seguro-garantia, fiança), percentual (máx. 5%) e apólice. Se superior a 5%, justificativa é obrigatória (art. 96, Lei 14.133/2021).' },
+    { label: '+ Apostila',       texto: 'Registra uma apostila: alteração unilateral de menor importância que não modifica o objeto nem o valor. Informe número, data e objeto da apostila.' },
+    { label: '+ Aditivo',        texto: 'Registra um termo aditivo de prorrogação, acréscimo/redução de valor, alteração de objeto ou rescisão. Prorrogações e acréscimos têm limites legais de 25% (50% para obras).' },
+    { label: '+ Item de cronograma', texto: 'Aba Execução Contratual: planeja uma etapa/item a ser entregue, com data prevista. Pode ser marcado como entregue depois.' },
+    { label: '+ Nova medição',   texto: 'Aba Execução Contratual: registra a medição do fiscal para um período, com percentual/valor executado. Precisa ser aprovada para liberar pagamento.' },
+    { label: '+ Novo pagamento', texto: 'Aba Execução Contratual: registra um pagamento vinculado a uma medição aprovada ou avulso (ex. pagamento único).' },
+    { label: 'PDF Contrato',     texto: 'Gera o documento do contrato em PDF para assinatura.' },
+    { label: 'Excluir',          texto: 'Remove o contrato do sistema. Disponível apenas para administradores. Ação irreversível.' },
   ],
   fluxo: [
     { status: 'Vigente',    descricao: 'Contrato ativo e em execução.' },
@@ -58,6 +64,7 @@ export default function ContratoDetail() {
   const [editing, setEditing]   = useState(false)
   const [form, setForm]         = useState(null)
   const [saving, setSaving]     = useState(false)
+  const [activeTab, setActiveTab] = useState('geral')
 
   const [showApostila, setShowApostila] = useState(false)
   const [apostilaForm, setApostilaForm] = useState({ objeto: '', data: '' })
@@ -129,7 +136,7 @@ export default function ContratoDetail() {
   const podeEditar = !['Encerrado', 'Rescindido'].includes(current.status)
 
   return (
-    <div className="p-6 lg:p-8 max-w-3xl">
+    <div className="p-6 lg:p-8 max-w-4xl">
       <button onClick={() => navigate(-1)} className="text-sm text-gray-400 hover:text-gray-600 mb-4">← Voltar</button>
 
       {/* Cabeçalho */}
@@ -156,6 +163,27 @@ export default function ContratoDetail() {
         </div>
       </div>
 
+      {/* Abas */}
+      <div className="flex gap-1 border-b border-gray-200 mb-5">
+        {[
+          { key: 'geral',     label: 'Dados Gerais' },
+          { key: 'garantia',  label: 'Garantia' },
+          { key: 'alteracoes', label: `Apostilas & Aditivos (${(current.apostilas?.length || 0) + (current.aditivos?.length || 0)})` },
+          { key: 'execucao',  label: `Execução Contratual (${(current.cronograma?.length || 0) + (current.medicoes?.length || 0) + (current.pagamentos?.length || 0)})` },
+        ].map(({ key, label }) => (
+          <button key={key} onClick={() => setActiveTab(key)}
+            className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
+              activeTab === key
+                ? 'border-b-2 border-blue-600 text-blue-700 bg-blue-50'
+                : 'text-gray-500 hover:text-gray-700'
+            }`}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab: Dados Gerais */}
+      {activeTab === 'geral' && (
       <div className="space-y-5">
         {/* Objeto */}
         <Section label="Objeto">
@@ -213,8 +241,17 @@ export default function ContratoDetail() {
             : <p className="text-sm text-gray-500 text-justify">{current.observacoes || '—'}</p>}
         </Section>
 
-        {/* Garantia contratual */}
-        <div className="pt-4 border-t border-gray-100">
+        {/* Metadados */}
+        <div className="pt-4 border-t border-gray-100 text-xs text-gray-400 space-y-1">
+          <p>Criado por: {current.created_by_username} em {new Date(current.created_at).toLocaleString('pt-BR')}</p>
+        </div>
+      </div>
+      )}
+
+      {/* Tab: Garantia */}
+      {activeTab === 'garantia' && (
+      <div className="space-y-5">
+        <div>
           <p className="text-xs font-semibold text-gray-400 uppercase mb-3">Garantia Contratual</p>
           {editing ? (
             <div className="space-y-4">
@@ -306,7 +343,12 @@ export default function ContratoDetail() {
             <p className="text-xs text-gray-400 italic">Garantia não exigida para este contrato.</p>
           )}
         </div>
+      </div>
+      )}
 
+      {/* Tab: Apostilas & Aditivos */}
+      {activeTab === 'alteracoes' && (
+      <div className="space-y-5">
         {/* Apostilas */}
         <div className="pt-4 border-t border-gray-100">
           <div className="flex items-center justify-between mb-3">
@@ -420,12 +462,38 @@ export default function ContratoDetail() {
             </div>
           )}
         </div>
+      </div>
+      )}
 
-        {/* Metadados */}
-        <div className="pt-4 border-t border-gray-100 text-xs text-gray-400 space-y-1">
-          <p>Criado por: {current.created_by_username} em {new Date(current.created_at).toLocaleString('pt-BR')}</p>
+      {/* Tab: Execução Contratual */}
+      {activeTab === 'execucao' && (
+      <div className="space-y-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="bg-gray-50 rounded-lg px-4 py-3">
+            <p className="text-xs text-gray-400 uppercase">Valor medido (aprovado)</p>
+            <p className="text-base font-bold text-gray-800">{fmt(current.valor_medido_total || 0)}</p>
+          </div>
+          <div className="bg-gray-50 rounded-lg px-4 py-3">
+            <p className="text-xs text-gray-400 uppercase">Valor pago</p>
+            <p className="text-base font-bold text-green-700">{fmt(current.valor_pago_total || 0)}</p>
+          </div>
+          <div className="bg-gray-50 rounded-lg px-4 py-3">
+            <p className="text-xs text-gray-400 uppercase">Saldo a pagar</p>
+            <p className="text-base font-bold text-amber-700">{fmt(current.saldo_a_pagar || 0)}</p>
+          </div>
+        </div>
+
+        <div className="pt-2">
+          <CronogramaSection contratoId={id} itens={current.cronograma || []} podeEditar={podeEditar} />
+        </div>
+        <div className="pt-4 border-t border-gray-100">
+          <MedicoesSection contratoId={id} medicoes={current.medicoes || []} podeEditar={podeEditar} />
+        </div>
+        <div className="pt-4 border-t border-gray-100">
+          <PagamentosSection contratoId={id} pagamentos={current.pagamentos || []} medicoes={current.medicoes || []} podeEditar={podeEditar} />
         </div>
       </div>
+      )}
     </div>
   )
 }

@@ -2,6 +2,7 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.db.models.signals import pre_save
 from django.dispatch import receiver
+from django.utils import timezone
 from core.models import BaseModel
 
 
@@ -101,6 +102,90 @@ class Aditivo(BaseModel):
         return f'Aditivo {self.numero} ({self.get_tipo_display()})'
 
 
+class CronogramaEntrega(BaseModel):
+    STATUS_CHOICES = [
+        ('pendente',  'Pendente'),
+        ('entregue',  'Entregue'),
+        ('atrasado',  'Atrasado'),
+        ('cancelado', 'Cancelado'),
+    ]
+    contrato       = models.ForeignKey(Contrato, on_delete=models.CASCADE, related_name='cronograma')
+    numero         = models.CharField(max_length=40, editable=False, verbose_name='Número do item')
+    descricao      = models.TextField(verbose_name='Etapa / item a entregar')
+    quantidade     = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    unidade_medida = models.CharField(max_length=20, blank=True, default='')
+    data_prevista  = models.DateField(verbose_name='Data prevista de entrega')
+    data_realizada = models.DateField(null=True, blank=True, verbose_name='Data de entrega realizada')
+    status         = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pendente')
+    observacoes    = models.TextField(blank=True, default='')
+
+    class Meta(BaseModel.Meta):
+        ordering = ['data_prevista']
+        verbose_name = 'Cronograma de Entrega'
+        verbose_name_plural = 'Cronograma de Entregas'
+
+    def __str__(self):
+        return f'{self.numero} — {self.descricao[:60]}'
+
+    @property
+    def is_atrasado(self):
+        return self.status == 'pendente' and self.data_prevista < timezone.localdate()
+
+
+class Medicao(BaseModel):
+    STATUS_CHOICES = [
+        ('pendente',  'Pendente'),
+        ('aprovada',  'Aprovada'),
+        ('rejeitada', 'Rejeitada'),
+    ]
+    contrato              = models.ForeignKey(Contrato, on_delete=models.CASCADE, related_name='medicoes')
+    numero                = models.CharField(max_length=40, editable=False, verbose_name='Número da medição')
+    competencia_inicio    = models.DateField(verbose_name='Início do período medido')
+    competencia_fim       = models.DateField(verbose_name='Fim do período medido')
+    data_medicao          = models.DateField(verbose_name='Data da medição')
+    percentual_executado  = models.DecimalField(max_digits=5, decimal_places=2, null=True, blank=True, verbose_name='Percentual executado (%)')
+    valor_medido          = models.DecimalField(max_digits=15, decimal_places=2, verbose_name='Valor medido (R$)')
+    fiscal_responsavel    = models.ForeignKey(User, null=True, blank=True, on_delete=models.SET_NULL, related_name='medicoes_fiscal')
+    status                = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pendente')
+    parecer_fiscal        = models.TextField(blank=True, default='')
+    data_aprovacao        = models.DateField(null=True, blank=True)
+
+    class Meta(BaseModel.Meta):
+        ordering = ['competencia_inicio']
+        verbose_name = 'Medição'
+        verbose_name_plural = 'Medições'
+
+    def __str__(self):
+        return f'{self.numero} ({self.get_status_display()})'
+
+
+class Pagamento(BaseModel):
+    STATUS_CHOICES = [
+        ('pendente',  'Pendente'),
+        ('pago',      'Pago'),
+        ('atrasado',  'Atrasado'),
+        ('cancelado', 'Cancelado'),
+    ]
+    contrato           = models.ForeignKey(Contrato, on_delete=models.CASCADE, related_name='pagamentos')
+    medicao            = models.ForeignKey(Medicao, null=True, blank=True, on_delete=models.SET_NULL, related_name='pagamentos', verbose_name='Medição vinculada')
+    numero             = models.CharField(max_length=40, editable=False, verbose_name='Número do pagamento')
+    numero_empenho     = models.CharField(max_length=50, blank=True, default='', verbose_name='Nº da nota de empenho')
+    numero_nota_fiscal = models.CharField(max_length=50, blank=True, default='', verbose_name='Nº da nota fiscal')
+    valor_pago         = models.DecimalField(max_digits=15, decimal_places=2, verbose_name='Valor (R$)')
+    data_vencimento    = models.DateField(null=True, blank=True)
+    data_pagamento     = models.DateField(null=True, blank=True, verbose_name='Data de efetivação do pagamento')
+    status              = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pendente')
+    observacoes         = models.TextField(blank=True, default='')
+
+    class Meta(BaseModel.Meta):
+        ordering = ['-data_vencimento']
+        verbose_name = 'Pagamento'
+        verbose_name_plural = 'Pagamentos'
+
+    def __str__(self):
+        return f'{self.numero} — {self.get_status_display()}'
+
+
 # ── Numeração automática ───────────────────────────────────────────────────────
 
 @receiver(pre_save, sender=Contrato)
@@ -133,3 +218,27 @@ def gerar_numero_aditivo(sender, instance, **kwargs):
         return
     seq = instance.contrato.aditivos.count() + 1
     instance.numero = f'{instance.contrato.numero}-ADT-{seq:03d}'
+
+
+@receiver(pre_save, sender=CronogramaEntrega)
+def gerar_numero_cronograma(sender, instance, **kwargs):
+    if instance.numero:
+        return
+    seq = instance.contrato.cronograma.count() + 1
+    instance.numero = f'{instance.contrato.numero}-CRG-{seq:03d}'
+
+
+@receiver(pre_save, sender=Medicao)
+def gerar_numero_medicao(sender, instance, **kwargs):
+    if instance.numero:
+        return
+    seq = instance.contrato.medicoes.count() + 1
+    instance.numero = f'{instance.contrato.numero}-MED-{seq:03d}'
+
+
+@receiver(pre_save, sender=Pagamento)
+def gerar_numero_pagamento(sender, instance, **kwargs):
+    if instance.numero:
+        return
+    seq = instance.contrato.pagamentos.count() + 1
+    instance.numero = f'{instance.contrato.numero}-PAG-{seq:03d}'
