@@ -3,6 +3,7 @@ import { Outlet, NavLink, useNavigate, useLocation } from 'react-router-dom'
 import useAuthStore from '../stores/authStore'
 import useNotificacaoStore from '../stores/notificacaoStore'
 import PageHelpPanel from './PageHelpPanel'
+import CommandPalette from './CommandPalette'
 
 // ── Paleta de cores por seção ─────────────────────────────────────────────────
 const SECTION_ACCENT = {
@@ -291,6 +292,20 @@ export default function Layout() {
     return () => clearInterval(id)
   }, [])
 
+  // ── Busca global (Ctrl+K) ─────────────────────────────────────────────────
+  const [paletteOpen, setPaletteOpen] = useState(false)
+
+  useEffect(() => {
+    const handler = (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        setPaletteOpen(true)
+      }
+    }
+    window.addEventListener('keydown', handler)
+    return () => window.removeEventListener('keydown', handler)
+  }, [])
+
   const allSections = buildSections(papel, tipoUnidade, flags)
 
   const [open, setOpen] = useState(() =>
@@ -485,6 +500,18 @@ export default function Layout() {
                   </span>
                 </div>
               )}
+              {/* Busca global */}
+              <button
+                onClick={() => setPaletteOpen(true)}
+                className="w-full flex items-center justify-between gap-2 px-3 py-2 text-[13px] text-gray-500 hover:text-white hover:bg-gray-800 rounded-lg transition-colors"
+              >
+                <span className="flex items-center gap-2">
+                  <span>🔎</span>
+                  Buscar
+                </span>
+                <kbd className="text-[10px] text-gray-600 border border-gray-700 rounded px-1 py-0.5">Ctrl K</kbd>
+              </button>
+
               {/* Notificações */}
               <button
                 onClick={() => { setShowNotif(v => !v); if (!showNotif) fetchNotificacoes() }}
@@ -581,6 +608,8 @@ export default function Layout() {
         <Outlet />
 
         <PageHelpPanel />
+
+        <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
 
         {/* Botão Home flutuante — visível quando não está na página inicial */}
         {!isHome && (

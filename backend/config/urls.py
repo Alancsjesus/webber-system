@@ -17,6 +17,7 @@ from core.views import (
 from core.views_indicadores import IndicadoresOrcamentoView, IndicadoresDevolucoesView, IndicadoresAgrupamentoView, PlanoComprasView
 from core.views_calendario import CalendarioContratacaoView
 from core.views_rastreabilidade import RastreabilidadeListView, RastreabilidadeDetailView
+from core.views_busca_global import BuscaGlobalView
 
 router = DefaultRouter()
 router.register(r'demanda/dfd', DFDViewSet, basename='dfd')
@@ -46,6 +47,7 @@ urlpatterns = [
     path('api/verificar/<str:hash_code>/', VerificarDocumentoView.as_view(), name='verificar-documento'),
     path('api/core/users-list/', UserListView.as_view(), name='user-list'),
     path('api/calendario/', CalendarioContratacaoView.as_view(), name='calendario'),
+    path('api/busca-global/',           BuscaGlobalView.as_view(),           name='busca-global'),
     path('api/rastreabilidade/',        RastreabilidadeListView.as_view(),   name='rastreabilidade-list'),
     path('api/rastreabilidade/<int:pk>/', RastreabilidadeDetailView.as_view(), name='rastreabilidade-detail'),
     path('api/', include(router.urls)),

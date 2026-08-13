@@ -3,6 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import useIndicacaoStore from '../stores/indicacaoStore'
 import EmptyState from '../components/EmptyState'
 import LoadingSpinner from '../components/LoadingSpinner'
+import Pagination from '../components/Pagination'
+import useDebouncedValue from '../hooks/useDebouncedValue'
+
+const PAGE_SIZE = 20
 
 const STATUS_CLS = {
   Rascunho:  'bg-gray-100 text-gray-600',
@@ -19,13 +23,19 @@ export default function IndicacaoList() {
   const { indicacoes, total, loading, error, fetchIndicacoes } = useIndicacaoStore()
   const [status, setStatus]     = useState('')
   const [exercicio, setExercicio] = useState('')
+  const [searchInput, setSearchInput] = useState('')
+  const [page, setPage] = useState(1)
+  const search = useDebouncedValue(searchInput)
+
+  useEffect(() => { setPage(1) }, [status, exercicio, search])
 
   useEffect(() => {
-    const params = {}
+    const params = { page, page_size: PAGE_SIZE }
     if (status)    params.status           = status
     if (exercicio) params.exercicio_fiscal = exercicio
+    if (search)    params.search           = search
     fetchIndicacoes(params)
-  }, [status, exercicio])
+  }, [status, exercicio, search, page])
 
   return (
     <div className="p-6 lg:p-8">
@@ -45,6 +55,11 @@ export default function IndicacaoList() {
       </div>
 
       <div className="flex flex-wrap gap-3 mb-5">
+        <input
+          type="text" placeholder="Buscar por número, observações, SEI..."
+          value={searchInput} onChange={(e) => setSearchInput(e.target.value)}
+          className="flex-1 min-w-[220px] border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
         <input
           type="number" placeholder="Exercício"
           value={exercicio} onChange={(e) => setExercicio(e.target.value)}
@@ -73,12 +88,12 @@ export default function IndicacaoList() {
           icon="currency"
           title="Nenhuma indicação encontrada"
           description={
-            status || exercicio
+            status || exercicio || search
               ? 'Tente ajustar os filtros.'
               : 'Crie uma indicação orçamentária para formalizar a alocação de recursos para uma demanda.'
           }
-          actionLabel={!status && !exercicio ? '+ Nova Indicação' : undefined}
-          onAction={!status && !exercicio ? () => navigate('/orcamento/indicacoes/nova') : undefined}
+          actionLabel={!status && !exercicio && !search ? '+ Nova Indicação' : undefined}
+          onAction={!status && !exercicio && !search ? () => navigate('/orcamento/indicacoes/nova') : undefined}
         />
       )}
 
@@ -128,7 +143,7 @@ export default function IndicacaoList() {
             </table>
             </div>
           </div>
-          <p className="text-xs text-gray-400 mt-3">{total} registro(s)</p>
+          <Pagination page={page} count={total} pageSize={PAGE_SIZE} itemLabel="registro(s)" onPage={setPage} />
         </>
       )}
     </div>

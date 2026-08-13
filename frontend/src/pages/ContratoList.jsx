@@ -1,8 +1,12 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useContratoStore from '../stores/contratoStore'
 import EmptyState from '../components/EmptyState'
 import LoadingSpinner from '../components/LoadingSpinner'
+import Pagination from '../components/Pagination'
+import useDebouncedValue from '../hooks/useDebouncedValue'
+
+const PAGE_SIZE = 20
 
 const STATUS_CLS = {
   Vigente:    'bg-green-100 text-green-700',
@@ -19,6 +23,7 @@ export const pageHelp = {
   descricao: 'Lista todos os contratos administrativos do órgão. Contratos originam-se de procedimentos homologados ou de contratações diretas.',
   acoes: [
     { label: '+ Novo Contrato', texto: 'Cria um contrato manualmente. Prefira gerar via botão "Gerar Contrato" no procedimento homologado para manter o vínculo.' },
+    { label: 'Buscar',          texto: 'Busca pelo número do contrato ou pelo objeto.' },
     { label: 'Filtro Status',   texto: 'Filtra por: Vigente, Encerrado, Suspenso ou Rescindido.' },
   ],
   fluxo: [
@@ -33,9 +38,18 @@ export const pageHelp = {
 
 export default function ContratoList() {
   const navigate = useNavigate()
-  const { contratos, loading, fetchContratos } = useContratoStore()
+  const { contratos, total, loading, fetchContratos } = useContratoStore()
+  const [searchInput, setSearchInput] = useState('')
+  const [page, setPage] = useState(1)
+  const search = useDebouncedValue(searchInput)
 
-  useEffect(() => { fetchContratos() }, [])
+  useEffect(() => { setPage(1) }, [search])
+
+  useEffect(() => {
+    const params = { page, page_size: PAGE_SIZE }
+    if (search) params.search = search
+    fetchContratos(params)
+  }, [search, page])
 
   return (
     <div className="p-6 lg:p-8">
@@ -50,9 +64,19 @@ export default function ContratoList() {
         </button>
       </div>
 
+      <div className="mb-5">
+        <input
+          type="text"
+          placeholder="Buscar por número ou objeto..."
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
+          className="w-full sm:w-80 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      </div>
+
       {loading ? <LoadingSpinner /> : contratos.length === 0 ? (
         <EmptyState icon="document" title="Nenhum contrato cadastrado"
-          description="Registre os contratos celebrados pelo órgão." />
+          description={search ? 'Tente ajustar a busca.' : 'Registre os contratos celebrados pelo órgão.'} />
       ) : (
         <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
           <div className="overflow-x-auto">
@@ -88,6 +112,7 @@ export default function ContratoList() {
             </tbody>
           </table>
           </div>
+          <Pagination page={page} count={total} pageSize={PAGE_SIZE} itemLabel="contrato(s)" onPage={setPage} />
         </div>
       )}
     </div>

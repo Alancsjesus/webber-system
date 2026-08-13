@@ -2,7 +2,11 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useLicitacaoStore from '../stores/licitacaoStore'
 import LoadingSpinner from '../components/LoadingSpinner'
+import Pagination from '../components/Pagination'
+import useDebouncedValue from '../hooks/useDebouncedValue'
 import api from '../services/api'
+
+const PAGE_SIZE = 20
 
 const MODALIDADE_LABEL = {
   pregao_eletronico:    'Pregão Eletrônico',
@@ -191,6 +195,7 @@ export const pageHelp = {
   acoes: [
     { label: '+ Novo Procedimento', texto: 'Cria um novo procedimento. Informe a modalidade (Pregão, Concorrência, Dispensa, Inexigibilidade), objeto, valor estimado e datas.' },
     { label: 'Painel',              texto: 'Abre o dashboard com KPIs: total de procedimentos, valores, distribuição por modalidade e status. Útil para gestão e relatórios.' },
+    { label: 'Buscar',              texto: 'Busca pelo número, objeto, número SEI do DFD de origem ou empresa vencedora.' },
     { label: 'Filtro Modalidade',   texto: 'Filtra por Pregão Eletrônico, Concorrência, Dispensa Eletrônica, Dispensa Tradicional ou Inexigibilidade.' },
     { label: 'Filtro Status',       texto: 'Filtra por fase atual do procedimento: Em Instrução, Aguardando Aprovação, Publicado, Em Sessão, Homologado, etc.' },
     { label: 'Filtro Exercício',    texto: 'Filtra os procedimentos pelo ano de exercício fiscal.' },
@@ -203,15 +208,21 @@ export default function ProcedimentoList() {
   const navigate  = useNavigate()
   const { procedimentos, total, loading, error, fetchProcedimentos } = useLicitacaoStore()
   const [filtros, setFiltros] = useState({ modalidade: '', status: '', exercicio: new Date().getFullYear().toString() })
+  const [searchInput, setSearchInput] = useState('')
+  const [page, setPage] = useState(1)
   const [verPainel, setVerPainel] = useState(false)
+  const search = useDebouncedValue(searchInput)
+
+  useEffect(() => { setPage(1) }, [filtros, search])
 
   useEffect(() => {
-    const p = {}
+    const p = { page, page_size: PAGE_SIZE }
     if (filtros.modalidade) p.modalidade = filtros.modalidade
     if (filtros.status)     p.status     = filtros.status
     if (filtros.exercicio)  p.exercicio  = filtros.exercicio
+    if (search)              p.search     = search
     fetchProcedimentos(p)
-  }, [filtros])
+  }, [filtros, search, page])
 
   if (loading) return <div className="p-8"><LoadingSpinner message="Carregando procedimentos..." /></div>
 
@@ -242,6 +253,9 @@ export default function ProcedimentoList() {
 
       {/* Filtros */}
       <div className="flex gap-3 mb-5 flex-wrap">
+        <input type="text" placeholder="Buscar por número, objeto..." value={searchInput}
+          onChange={e => setSearchInput(e.target.value)}
+          className="flex-1 min-w-[220px] border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
         <select value={filtros.modalidade}
           onChange={e => setFiltros(p => ({ ...p, modalidade: e.target.value }))}
           className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
@@ -331,6 +345,7 @@ export default function ProcedimentoList() {
             </tbody>
           </table>
           </div>
+          <Pagination page={page} count={total} pageSize={PAGE_SIZE} itemLabel="procedimento(s)" onPage={setPage} />
         </div>
       )}
     </div>

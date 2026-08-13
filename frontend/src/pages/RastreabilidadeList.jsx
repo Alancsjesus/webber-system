@@ -1,8 +1,10 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useRastreabilidadeStore from '../stores/rastreabilidadeStore'
 import LoadingSpinner from '../components/LoadingSpinner'
 import EmptyState from '../components/EmptyState'
+import Pagination from '../components/Pagination'
+import useDebouncedValue from '../hooks/useDebouncedValue'
 
 // ─── Ajuda Contextual ────────────────────────────────────────────────────────
 export const pageHelp = {
@@ -96,68 +98,26 @@ function SearchInput({ value, onChange, placeholder, icon }) {
   )
 }
 
-function Paginacao({ page, totalPages, count, pageSize, onPage }) {
-  if (totalPages <= 1) return null
-  const inicio = (page - 1) * pageSize + 1
-  const fim    = Math.min(page * pageSize, count)
-  return (
-    <div className="flex items-center justify-between px-5 py-3 border-t border-gray-100 text-sm text-gray-500">
-      <span>{inicio}–{fim} de {count} necessidades</span>
-      <div className="flex items-center gap-1">
-        <button
-          onClick={() => onPage(page - 1)}
-          disabled={page <= 1}
-          className="px-2 py-1 rounded border border-gray-200 disabled:opacity-40 hover:bg-gray-50"
-        >
-          ←
-        </button>
-        <span className="px-3 py-1 text-gray-700 font-medium">
-          {page} / {totalPages}
-        </span>
-        <button
-          onClick={() => onPage(page + 1)}
-          disabled={page >= totalPages}
-          className="px-2 py-1 rounded border border-gray-200 disabled:opacity-40 hover:bg-gray-50"
-        >
-          →
-        </button>
-      </div>
-    </div>
-  )
-}
-
 export default function RastreabilidadeList() {
   const navigate = useNavigate()
-  const { lista, loading, error, count, page, totalPages, pageSize, fetchLista } =
+  const { lista, loading, error, count, pageSize, fetchLista } =
     useRastreabilidadeStore()
 
   // Valores de digitação imediata
   const [buscaInput, setBuscaInput]   = useState('')
   const [seiInput, setSeiInput]       = useState('')
-  // Valores debounced (enviados ao backend)
-  const [busca, setBusca]             = useState('')
-  const [sei, setSei]                 = useState('')
   // Selects aplicados imediatamente
   const [exercicio, setExercicio]     = useState('')
   const [prioridade, setPrioridade]   = useState('')
   const [etapa, setEtapa]             = useState('')
   const [currentPage, setCurrentPage] = useState(1)
 
-  const debounceRef = useRef(null)
+  // Valores debounced (enviados ao backend)
+  const busca = useDebouncedValue(buscaInput).trim()
+  const sei   = useDebouncedValue(seiInput).trim()
 
-  // Debounce para campos de texto livres
-  useEffect(() => {
-    clearTimeout(debounceRef.current)
-    debounceRef.current = setTimeout(() => {
-      setBusca(buscaInput.trim())
-      setSei(seiInput.trim())
-      setCurrentPage(1)
-    }, 400)
-    return () => clearTimeout(debounceRef.current)
-  }, [buscaInput, seiInput])
-
-  // Ao trocar selects, volta pra página 1
-  useEffect(() => { setCurrentPage(1) }, [exercicio, prioridade, etapa])
+  // Ao trocar filtros, volta pra página 1
+  useEffect(() => { setCurrentPage(1) }, [busca, sei, exercicio, prioridade, etapa])
 
   // Dispara fetch sempre que algum filtro ou página mudar
   useEffect(() => {
@@ -343,11 +303,11 @@ export default function RastreabilidadeList() {
           </table>
           </div>
 
-          <Paginacao
+          <Pagination
             page={currentPage}
-            totalPages={totalPages}
             count={count}
             pageSize={pageSize}
+            itemLabel="necessidade(s)"
             onPage={setCurrentPage}
           />
         </div>

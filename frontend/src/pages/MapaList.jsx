@@ -3,6 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import useMapaStore from '../stores/mapaStore'
 import EmptyState from '../components/EmptyState'
 import LoadingSpinner from '../components/LoadingSpinner'
+import Pagination from '../components/Pagination'
+import useDebouncedValue from '../hooks/useDebouncedValue'
+
+const PAGE_SIZE = 20
 
 const STATUS_CLS = {
   Rascunho:   'bg-gray-100 text-gray-600',
@@ -19,6 +23,7 @@ export const pageHelp = {
   descricao: 'Lista as pesquisas de preços realizadas para estimar o valor das contratações. Cada mapa deve conter ao menos 3 fontes válidas por item.',
   acoes: [
     { label: '+ Novo Mapa', texto: 'Cria uma nova pesquisa de preços vinculada a uma necessidade ou procedimento. Defina os itens e colete preços de múltiplas fontes.' },
+    { label: 'Buscar',      texto: 'Busca pelo objeto do mapa ou pelo número SEI do DFD vinculado.' },
   ],
   dica: 'Use preços do PNCP (Tipo I) como primeira fonte — são os mais aceitos pelos órgãos de controle.',
   baseLegal: 'Lei 14.133/2021 — Art. 23 e IN SEGES nº 65/2021.',
@@ -30,13 +35,19 @@ export default function MapaList() {
   const { mapas, total, loading, error, fetchMapas } = useMapaStore()
   const [status, setStatus]     = useState('')
   const [exercicio, setExercicio] = useState('')
+  const [searchInput, setSearchInput] = useState('')
+  const [page, setPage] = useState(1)
+  const search = useDebouncedValue(searchInput)
+
+  useEffect(() => { setPage(1) }, [status, exercicio, search])
 
   useEffect(() => {
-    const params = {}
+    const params = { page, page_size: PAGE_SIZE }
     if (status)    params.status           = status
     if (exercicio) params.exercicio_fiscal = exercicio
+    if (search)    params.search           = search
     fetchMapas(params)
-  }, [status, exercicio])
+  }, [status, exercicio, search, page])
 
   return (
     <div className="p-6 lg:p-8">
@@ -54,6 +65,9 @@ export default function MapaList() {
       </div>
 
       <div className="flex flex-wrap gap-3 mb-5">
+        <input type="text" placeholder="Buscar por objeto ou SEI do DFD..."
+          value={searchInput} onChange={(e) => setSearchInput(e.target.value)}
+          className="flex-1 min-w-[220px] border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
         <input type="number" placeholder="Exercício"
           value={exercicio} onChange={(e) => setExercicio(e.target.value)}
           className="w-32 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
@@ -71,9 +85,9 @@ export default function MapaList() {
 
       {!loading && mapas.length === 0 && (
         <EmptyState icon="search" title="Nenhum mapa encontrado"
-          description={status || exercicio ? 'Ajuste os filtros.' : 'Inicie a pesquisa de preços criando um novo Mapa Comparativo.'}
-          actionLabel={!status && !exercicio ? '+ Novo Mapa' : undefined}
-          onAction={!status && !exercicio ? () => navigate('/pesquisa/mapa/novo') : undefined} />
+          description={status || exercicio || search ? 'Ajuste os filtros.' : 'Inicie a pesquisa de preços criando um novo Mapa Comparativo.'}
+          actionLabel={!status && !exercicio && !search ? '+ Novo Mapa' : undefined}
+          onAction={!status && !exercicio && !search ? () => navigate('/pesquisa/mapa/novo') : undefined} />
       )}
 
       {!loading && mapas.length > 0 && (
@@ -113,7 +127,7 @@ export default function MapaList() {
             </table>
             </div>
           </div>
-          <p className="text-xs text-gray-400 mt-3">{total} registro(s)</p>
+          <Pagination page={page} count={total} pageSize={PAGE_SIZE} itemLabel="registro(s)" onPage={setPage} />
         </>
       )}
     </div>

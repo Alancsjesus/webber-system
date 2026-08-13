@@ -3,6 +3,10 @@ import { useNavigate } from 'react-router-dom'
 import useTrStore from '../stores/trStore'
 import EmptyState from '../components/EmptyState'
 import LoadingSpinner from '../components/LoadingSpinner'
+import Pagination from '../components/Pagination'
+import useDebouncedValue from '../hooks/useDebouncedValue'
+
+const PAGE_SIZE = 20
 
 const STATUS_CLS = {
   Rascunho:    'bg-gray-100 text-gray-600',
@@ -29,15 +33,19 @@ export const pageHelp = {
 export default function TRList() {
   const navigate = useNavigate()
   const { trs, total, loading, error, fetchTrs } = useTrStore()
-  const [search, setSearch] = useState('')
+  const [searchInput, setSearchInput] = useState('')
   const [statusFiltro, setStatusFiltro] = useState('')
+  const [page, setPage] = useState(1)
+  const search = useDebouncedValue(searchInput)
+
+  useEffect(() => { setPage(1) }, [search, statusFiltro])
 
   useEffect(() => {
-    const params = {}
+    const params = { page, page_size: PAGE_SIZE }
     if (search) params.search = search
     if (statusFiltro) params.status = statusFiltro
     fetchTrs(params)
-  }, [search, statusFiltro])
+  }, [search, statusFiltro, page])
 
   return (
     <div className="p-6 lg:p-8">
@@ -50,7 +58,7 @@ export default function TRList() {
 
       <div className="flex flex-wrap gap-3 mb-5">
         <input type="text" placeholder="Buscar por SEI ou objeto..."
-          value={search} onChange={(e) => setSearch(e.target.value)}
+          value={searchInput} onChange={(e) => setSearchInput(e.target.value)}
           className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
         <select value={statusFiltro} onChange={(e) => setStatusFiltro(e.target.value)}
           className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
@@ -114,7 +122,7 @@ export default function TRList() {
             </table>
             </div>
           </div>
-          <p className="text-xs text-gray-400 mt-3">{total} registro(s)</p>
+          <Pagination page={page} count={total} pageSize={PAGE_SIZE} itemLabel="registro(s)" onPage={setPage} />
         </>
       )}
     </div>

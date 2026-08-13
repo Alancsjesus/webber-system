@@ -4,6 +4,10 @@ import usePlanejamentoStore from '../stores/planejamentoStore'
 import useAuthStore from '../stores/authStore'
 import EmptyState from '../components/EmptyState'
 import LoadingSpinner from '../components/LoadingSpinner'
+import Pagination from '../components/Pagination'
+import useDebouncedValue from '../hooks/useDebouncedValue'
+
+const PAGE_SIZE = 20
 
 const STATUS_CLS = {
   Identificada:  'bg-gray-100 text-gray-600',
@@ -44,18 +48,22 @@ export default function NecessidadeList() {
   const navigate  = useNavigate()
   const orgSigla  = useAuthStore((s) => s.orgaoSigla)
   const { necessidades, total, loading, error, fetchNecessidades } = usePlanejamentoStore()
-  const [search, setSearch]   = useState('')
+  const [searchInput, setSearchInput] = useState('')
   const [status, setStatus]   = useState('')
   const [prioridade, setPrio] = useState('')
   const [origem, setOrigem]   = useState('')
+  const [page, setPage]       = useState(1)
+  const search = useDebouncedValue(searchInput)
+
+  useEffect(() => { setPage(1) }, [search, status, prioridade])
 
   useEffect(() => {
-    const params = {}
+    const params = { page, page_size: PAGE_SIZE }
     if (search)    params.search    = search
     if (status)    params.status    = status
     if (prioridade) params.prioridade = prioridade
     fetchNecessidades(params)
-  }, [search, status, prioridade])
+  }, [search, status, prioridade, page])
 
   const necFiltradas = origem
     ? necessidades.filter((n) => n.origem === origem)
@@ -84,8 +92,8 @@ export default function NecessidadeList() {
         <input
           type="text"
           placeholder="Buscar por título, descrição ou departamento..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
+          value={searchInput}
+          onChange={(e) => setSearchInput(e.target.value)}
           className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
         <select
@@ -201,7 +209,7 @@ export default function NecessidadeList() {
               </div>
             </div>
           )}
-          <p className="text-xs text-gray-400 mt-3">{total} registro(s) · {necFiltradas.length} exibido(s)</p>
+          <Pagination page={page} count={total} pageSize={PAGE_SIZE} itemLabel="registro(s)" onPage={setPage} />
         </>
       )}
     </div>
