@@ -7,6 +7,15 @@ python manage.py migrate --noinput
 echo "==> Coletando arquivos estáticos..."
 python manage.py collectstatic --noinput --clear
 
+# Gatilho manual único: definir RUN_SETUP_DEV=True nas env vars do serviço
+# (ex: Render, sem acesso a Shell no plano free) para criar órgãos/usuários de
+# teste. Idempotente (setup_dev checa existência antes de criar) — mas depois
+# de rodar uma vez, remova a variável ou volte para False.
+if [ "$RUN_SETUP_DEV" = "True" ]; then
+    echo "==> RUN_SETUP_DEV=True — rodando setup_dev..."
+    python manage.py setup_dev || echo "==> setup_dev falhou (ver log acima), seguindo mesmo assim."
+fi
+
 echo "==> Iniciando Gunicorn..."
 exec gunicorn config.wsgi:application \
     --bind 0.0.0.0:${PORT:-8000} \
