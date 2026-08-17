@@ -18,7 +18,9 @@ services:
     dockerContext: .
     plan: free
     region: oregon
-    healthCheckPath: /api/
+    # Sem healthCheckPath — /api/ exige autenticação (401), o que fazia o Render
+    # achar o serviço "não saudável" e reiniciar em loop. Sem essa chave, o Render
+    # só confirma que a porta está respondendo, o que já é suficiente aqui.
     envVars:
       - key: SECRET_KEY
         generateValue: true
