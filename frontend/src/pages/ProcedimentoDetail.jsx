@@ -6,6 +6,7 @@ import LoadingSpinner from '../components/LoadingSpinner'
 import { downloadFile } from '../services/api'
 import DownloadButton from '../components/DownloadButton'
 import HelpTip from '../components/HelpTip'
+import CampoSei, { NumeroSeiTexto } from '../components/CampoSei'
 
 const fmt = v => Number(v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const fmtPct = v => v != null ? `${Number(v).toFixed(1)}%` : '—'
@@ -90,6 +91,7 @@ export default function ProcedimentoDetail() {
   const navigate  = useNavigate()
   const papel       = useAuthStore(s => s.papel)
   const tipoUnidade = useAuthStore(s => s.tipoUnidade)
+  const seiBaseUrl  = useAuthStore(s => s.seiBaseUrl)
 
   const {
     current, loading, error,
@@ -391,11 +393,17 @@ export default function ProcedimentoDetail() {
             <div key={key}>
               <p className="text-xs font-semibold text-gray-400 uppercase mb-1">{label}</p>
               {editingMain
-                ? type === 'textarea'
+                ? key === 'numero_sei'
+                  ? <CampoSei value={editForm[key] || ''} onChange={v => setEditForm(p => ({ ...p, [key]: v }))}
+                      seiBaseUrl={seiBaseUrl}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                : type === 'textarea'
                   ? <textarea rows={3} value={editForm[key] || ''} onChange={e => setEditForm(p => ({ ...p, [key]: e.target.value }))}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                   : <input type={type} value={editForm[key] || ''} onChange={e => setEditForm(p => ({ ...p, [key]: e.target.value }))}
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                : key === 'numero_sei'
+                  ? (current[key] ? <NumeroSeiTexto valor={current[key]} seiBaseUrl={seiBaseUrl} className="text-sm text-gray-700 font-mono" /> : <p className="text-sm text-gray-400">—</p>)
                 : <p className="text-sm text-gray-700">
                     {key === 'valor_estimado' ? fmt(current[key]) : (current[key] ? (
                       ['data_publicacao','data_abertura'].includes(key)
@@ -624,9 +632,10 @@ export default function ProcedimentoDetail() {
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Nº SEI da tramitação</label>
-                  <input type="text" value={tramForm.numero_sei}
-                    onChange={e => setTramForm(p => ({ ...p, numero_sei: e.target.value }))}
-                    placeholder="020.16859.2026.0000000-00"
+                  <CampoSei value={tramForm.numero_sei}
+                    onChange={v => setTramForm(p => ({ ...p, numero_sei: v }))}
+                    seiBaseUrl={seiBaseUrl}
+                    placeholder="099.8188.2025.0027815-30"
                     className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs" />
                 </div>
                 <div>
@@ -671,7 +680,9 @@ export default function ProcedimentoDetail() {
                       <span>Prazo: {t.prazo_esperado ? new Date(t.prazo_esperado+'T12:00').toLocaleDateString('pt-BR') : '—'}</span>
                       <span>Retorno: {t.data_retorno ? new Date(t.data_retorno+'T12:00').toLocaleDateString('pt-BR') : '—'}</span>
                     </div>
-                    {t.numero_sei && <p className="text-xs font-mono text-blue-600 mt-1">SEI: {t.numero_sei}</p>}
+                    {t.numero_sei && (
+                      <p className="text-xs mt-1">SEI: <NumeroSeiTexto valor={t.numero_sei} seiBaseUrl={seiBaseUrl} className="font-mono text-blue-600" /></p>
+                    )}
                     {t.observacoes && <p className="text-xs text-gray-500 mt-1">{t.observacoes}</p>}
                   </div>
                 ))}

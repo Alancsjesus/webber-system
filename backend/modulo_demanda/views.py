@@ -12,6 +12,16 @@ from core.permissions import IsMultiTenant, PAPEIS_ANALISTA, PAPEIS_SOLICITANTE
 from core.checklist_engine import ChecklistEngine
 from exportacao.pdf_utils import gerar_pdf_dfd, gerar_html, resposta_pdf, resposta_html
 
+# Códigos de SecaoArtefato já exibidos estaticamente em templates/exportacao/dfd.html —
+# usado para não duplicar conteúdo ao acrescentar seções custom (ver core/document_engine.py).
+# 'unidades' aqui = "Unidades Responsáveis" (unidade_demandante/licitante/contratante),
+# NÃO cobre 'responsaveis' (fiscal/gestor) nem 'vinculo_orcamentario' — esses não têm
+# bloco estático próprio no template, então precisam passar pelo loop genérico.
+CODIGOS_ESTATICOS_DFD = [
+    'identificacao', 'descricao', 'justificativa', 'area_aplicacao', 'prazo',
+    'unidades', 'pca', 'itens', 'observacoes',
+]
+
 
 class DFDFilter(django_filters.FilterSet):
     status = django_filters.CharFilter(field_name='status', lookup_expr='exact')
@@ -519,8 +529,13 @@ class DFDViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'], url_path='export/html')
     def export_html(self, request, pk=None):
+        from core.document_engine import DocumentEngine
         dfd = self.get_object()
-        html = gerar_html('dfd', {'dfd': dfd})
+        html = gerar_html('dfd', {
+            'dfd': dfd,
+            'secoes_geradas': DocumentEngine.gerar('DFD', dfd, modalidade=dfd.modalidade_aquisicao),
+            'codigos_estaticos': CODIGOS_ESTATICOS_DFD,
+        })
         return resposta_html(html, f'DFD_{dfd.numero_sei}.html')
 
     @action(detail=True, methods=['get'], url_path='export/historico')
@@ -537,6 +552,12 @@ class DFDViewSet(viewsets.ModelViewSet):
             created_at=dfd.created_at,
         )
         return resposta_pdf(pdf, f'Historico_DFD_{dfd.numero_sei}.pdf')
+
+    @action(detail=True, methods=['get'], url_path='gerar-texto')
+    def gerar_texto(self, request, pk=None):
+        from core.document_engine import DocumentEngine
+        dfd = self.get_object()
+        return Response(DocumentEngine.gerar('DFD', dfd, modalidade=dfd.modalidade_aquisicao))
 
     @action(detail=True, methods=['get', 'post'], url_path='itens')
     def itens(self, request, pk=None):

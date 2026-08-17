@@ -6,6 +6,9 @@ import useAuthStore from '../stores/authStore'
 import { downloadFile } from '../services/api'
 import DownloadButton from '../components/DownloadButton'
 import ChecklistBadge from '../components/ChecklistBadge'
+import ModalPreviewTexto from '../components/ModalPreviewTexto'
+import HelpTip from '../components/HelpTip'
+import CampoSei, { NumeroSeiTexto } from '../components/CampoSei'
 
 const STATUS_CLS = {
   Rascunho:     'bg-gray-100 text-gray-600',
@@ -33,6 +36,7 @@ export const pageHelp = {
     { label: 'Devolver',        texto: 'Retorna para o responsável técnico com justificativa e categorias de pendência.' },
     { label: 'Reabrir',         texto: 'Reabre um ETP aprovado para correções pontuais. Exige novo número SEI de autorização.' },
     { label: 'Dispensar',       texto: 'Dispensa o ETP quando a contratação é de baixa complexidade ou valor (art. 18, § 3º, Lei 14.133/2021).' },
+    { label: 'Pré-visualizar texto', texto: 'Mostra o texto pronto (composto a partir dos campos já preenchidos, seguindo os modelos configurados em Configurações → Estrutura de Artefatos) para copiar e colar no SEI. É apenas uma pré-visualização — não altera nem preenche os campos do ETP.' },
     { label: 'Download PDF',    texto: 'Exporta o ETP completo em PDF para compor o processo SEI.' },
     { label: 'Checklist SSP-BA', texto: 'Badge colorido mostrando quantos campos do checklist estão preenchidos. Vermelho = obrigatórios pendentes (bloqueia submissão). Amarelo = recomendados em falta. Verde = completo.' },
   ],
@@ -54,7 +58,7 @@ export default function ETPDetail() {
   const navigate = useNavigate()
   const { current, loading, error, fetchEtp, updateEtp,
           submeterEtp, iniciarAnaliseEtp, aprovarEtp, devolverEtp, reabrirEtp } = useEtpStore()
-  const { papel, tipoUnidade } = useAuthStore()
+  const { papel, tipoUnidade, seiBaseUrl } = useAuthStore()
 
   const [editing, setEditing]       = useState(false)
   const [form, setForm]             = useState(null)
@@ -66,6 +70,7 @@ export default function ETPDetail() {
   const [actionAviso, setActionAviso]       = useState(null)
   const [showDevolverModal, setShowDevolverModal]   = useState(false)
   const [showReabrirModal, setShowReabrirModal]     = useState(false)
+  const [showPreviewTexto, setShowPreviewTexto]     = useState(false)
   const [motivoReabrir, setMotivoReabrir]           = useState('')
   const [motivoNumeroSEI, setMotivoNumeroSEI]       = useState('')
 
@@ -201,6 +206,13 @@ export default function ETPDetail() {
               Ver TR
             </button>
           )}
+          <span className="inline-flex items-center gap-1">
+            <button onClick={() => setShowPreviewTexto(true)}
+                className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg">
+                Pré-visualizar texto
+              </button>
+              <HelpTip text="Mostra o texto pronto (gerado a partir dos campos já preenchidos, conforme os modelos configurados em Configurações → Estrutura de Artefatos) para copiar e colar no processo SEI. Não altera os campos deste ETP." />
+          </span>
           <DownloadButton
               onClick={() => downloadFile(`/etp/etp/${id}/export/pdf/`, `ETP_${current.numero_sei}.pdf`)}
               className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg">
@@ -314,6 +326,12 @@ export default function ETPDetail() {
         categorias={MOTIVOS_ETP}
       />
 
+      <ModalPreviewTexto
+        open={showPreviewTexto}
+        onClose={() => setShowPreviewTexto(false)}
+        endpoint={`/etp/etp/${id}/`}
+      />
+
       {showReabrirModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
@@ -353,8 +371,9 @@ export default function ETPDetail() {
         <DF label="Número SEI do ETP">
           {editing ? (
             <>
-              <input type="text" value={form.numero_sei}
-                onChange={(e) => set('numero_sei', e.target.value)}
+              <CampoSei value={form.numero_sei}
+                onChange={(v) => set('numero_sei', v)}
+                seiBaseUrl={seiBaseUrl}
                 className={inp(formErrors.numero_sei)} />
               {numeroSeiAlterado && (
                 <input type="text" value={motivoNumeroSEI}
@@ -364,7 +383,7 @@ export default function ETPDetail() {
               )}
             </>
           ) : (
-            <p className="text-sm text-gray-800 font-mono">{current.numero_sei}</p>
+            <NumeroSeiTexto valor={current.numero_sei} seiBaseUrl={seiBaseUrl} className="text-sm text-gray-800 font-mono" />
           )}
         </DF>
 

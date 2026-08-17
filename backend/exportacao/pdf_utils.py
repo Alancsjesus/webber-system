@@ -5,6 +5,7 @@ Usa ReportLab para PDF e templates Django para HTML.
 import hashlib
 import io
 from datetime import datetime
+from types import SimpleNamespace
 
 from django.http import HttpResponse
 from django.template.loader import render_to_string
@@ -389,12 +390,15 @@ def _valor_secao_etp(codigo, etp):
     return mapa.get(codigo) or None
 
 
-def _renderizar_secao_dfd(codigo, dfd, estilos):
+def _renderizar_secao_dfd(secao, dfd, estilos):
     """
     Retorna lista de flowables para uma seção do DFD.
-    Seções com lógica especial (itens, responsáveis) têm renderer próprio.
+    Seções com lógica especial (itens, responsáveis) têm renderer próprio; qualquer
+    outro código cai no fallback genérico do Document Engine (template_texto ou
+    campo homônimo do contexto — ver core/document_engine.py).
     Retorna [] quando não há conteúdo.
     """
+    codigo = secao.codigo
     e = []
 
     if codigo == 'identificacao':
@@ -447,8 +451,8 @@ def _renderizar_secao_dfd(codigo, dfd, estilos):
     elif codigo == 'observacoes':
         if dfd.observacoes:
             e += _campo('Observações', dfd.observacoes, estilos)
-        if dfd.local_entrega:
-            e += _campo('Local de Entrega', dfd.local_entrega, estilos)
+        # Local de Entrega tem seção própria (codigo='local_entrega') via fallback
+        # genérico do Document Engine — não duplicar aqui.
 
     elif codigo == 'itens':
         itens = dfd.itens.all()
@@ -482,6 +486,15 @@ def _renderizar_secao_dfd(codigo, dfd, estilos):
                 ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
             ]))
             e.append(t)
+
+    else:
+        # Seção sem renderer especial (ex: uma nova seção criada no admin) — usa o
+        # Document Engine: respeita template_texto se configurado, senão cai no
+        # campo homônimo do contexto do DFD (ex: codigo='local_entrega').
+        from core.document_engine import renderizar_secao
+        texto = renderizar_secao('DFD', secao, dfd)
+        if texto:
+            e += _campo('', texto, estilos)
 
     return e
 
@@ -571,6 +584,7 @@ def _renderizar_secoes_tr(tr, estilos):
     FLOWABLE_CODES = {'lotes'}
 
     if secoes:
+        from core.document_engine import renderizar_secao
         for secao in secoes:
             if secao.codigo in FLOWABLE_CODES:
                 flowables = _renderizar_lotes_tr(tr, estilos)
@@ -578,7 +592,7 @@ def _renderizar_secoes_tr(tr, estilos):
                     e.append(_secao(secao.titulo, estilos))
                     e += flowables
             else:
-                valor = _valor_secao_tr(secao.codigo, tr)
+                valor = renderizar_secao('TR', secao, tr)
                 if valor and str(valor).strip():
                     e.append(_secao(secao.titulo, estilos))
                     if secao.descricao:
@@ -642,8 +656,9 @@ def _renderizar_secoes_etp(etp, estilos):
     e = []
 
     if secoes:
+        from core.document_engine import renderizar_secao
         for secao in secoes:
-            valor = _valor_secao_etp(secao.codigo, etp)
+            valor = renderizar_secao('ETP', secao, etp)
             if valor and str(valor).strip():
                 e.append(_secao(secao.titulo, estilos))
                 e += _campo('', valor, estilos)
@@ -684,7 +699,7 @@ def _renderizar_secoes_dfd(dfd, estilos):
 
     if secoes:
         for secao in secoes:
-            flowables = _renderizar_secao_dfd(secao.codigo, dfd, estilos)
+            flowables = _renderizar_secao_dfd(secao, dfd, estilos)
             if flowables:
                 e.append(_secao(secao.titulo, estilos))
                 e += flowables
@@ -693,7 +708,8 @@ def _renderizar_secoes_dfd(dfd, estilos):
         fallback_codigos = [
             'identificacao', 'descricao', 'justificativa',
             'area_aplicacao', 'prazo', 'unidades',
-            'responsaveis', 'vinculo_orcamentario', 'pca', 'itens', 'observacoes',
+            'responsaveis', 'vinculo_orcamentario', 'pca', 'itens',
+            'local_entrega', 'observacoes',
         ]
         titulos_fallback = {
             'identificacao': 'Identificação',
@@ -706,10 +722,12 @@ def _renderizar_secoes_dfd(dfd, estilos):
             'vinculo_orcamentario': 'Vínculo Orçamentário',
             'pca': 'Previsão no Plano de Contratações Anual (PCA)',
             'itens': 'Itens da Demanda',
+            'local_entrega': 'Local de Entrega',
             'observacoes': 'Observações',
         }
         for codigo in fallback_codigos:
-            flowables = _renderizar_secao_dfd(codigo, dfd, estilos)
+            secao_ficticia = SimpleNamespace(codigo=codigo, template_texto='')
+            flowables = _renderizar_secao_dfd(secao_ficticia, dfd, estilos)
             if flowables:
                 e.append(_secao(titulos_fallback.get(codigo, codigo), estilos))
                 e += flowables

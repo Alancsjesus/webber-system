@@ -144,7 +144,7 @@ const CONFIG_GROUPS_ADMIN = [
   {
     label: 'Documentos',
     items: [
-      { to: '/config/artefatos', label: 'Seções de Artefatos' },
+      { to: '/config/artefatos', label: 'Estrutura de Artefatos' },
     ],
   },
 ]
@@ -201,6 +201,13 @@ const ACESSO_UNIDADE = {
   planejamento: ['/orcamento', '/planejamento', '/plano-compras'],
   contratante:  ['/contratos', '/licitacao'],
   demandante:   ['/demanda', '/pesquisa'],
+}
+
+// Uma seção começa aberta apenas se a rota atual estiver dentro dela — as demais
+// iniciam recolhidas, para não sobrecarregar o menu com todas as opções visíveis.
+function sectionMatchesPath(sec, pathname) {
+  const items = sec.type === 'grouped' ? sec.groups.flatMap(g => g.items) : (sec.items || [])
+  return items.some(({ to }) => pathname === to || pathname.startsWith(to + '/'))
 }
 
 function podeAcessar(to, papel, tipoUnidade) {
@@ -309,7 +316,7 @@ export default function Layout() {
   const allSections = buildSections(papel, tipoUnidade, flags)
 
   const [open, setOpen] = useState(() =>
-    Object.fromEntries(allSections.map(({ section }) => [section, true]))
+    Object.fromEntries(allSections.map((sec) => [sec.section, sectionMatchesPath(sec, location.pathname)]))
   )
   const toggle = (section) => setOpen(p => ({ ...p, [section]: !p[section] }))
 

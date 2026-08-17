@@ -306,6 +306,8 @@ class SecaoArtefato(models.Model):
                                           help_text='Lista vazia = todas as modalidades')
     aplica_tipo_objeto = models.JSONField(default=list, verbose_name='Aplica para tipo de objeto',
                                           help_text='Ex: ["bens","hibrido"]. Lista vazia = todos os tipos')
+    template_texto     = models.TextField(blank=True, default='', verbose_name='Modelo de texto (Jinja2)',
+                                          help_text='Ex: "O objeto desta contratação é {{ objeto_contratacao }}..."')
 
     class Meta:
         unique_together = [('tipo', 'codigo')]

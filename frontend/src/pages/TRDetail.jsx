@@ -6,6 +6,8 @@ import api, { downloadFile } from '../services/api'
 import DownloadButton from '../components/DownloadButton'
 import ModalDevolver, { MOTIVOS_TR } from '../components/ModalDevolver'
 import ChecklistBadge from '../components/ChecklistBadge'
+import ModalPreviewTexto from '../components/ModalPreviewTexto'
+import HelpTip from '../components/HelpTip'
 
 const STATUS_CLS = {
   Rascunho:    'bg-gray-100 text-gray-600',
@@ -29,6 +31,7 @@ export const pageHelp = {
     { label: 'Iniciar Análise', texto: 'Disponível para analistas: inicia formalmente a análise do TR.' },
     { label: 'Aprovar',         texto: 'Aprova o TR. O procedimento licitatório pode ser iniciado.' },
     { label: 'Devolver',        texto: 'Retorna para o responsável técnico com justificativa de pendências.' },
+    { label: 'Pré-visualizar texto', texto: 'Mostra o texto pronto (composto a partir dos campos já preenchidos, seguindo os modelos configurados em Configurações → Estrutura de Artefatos) para copiar e colar no SEI. É apenas uma pré-visualização — não altera nem preenche os campos do TR.' },
     { label: 'Download PDF',    texto: 'Exporta o TR em PDF para compor o processo SEI.' },
     { label: 'Checklist SSP-BA', texto: 'Badge colorido mostrando quantos campos do checklist SSP-BA estão preenchidos. Vermelho = bloqueadores pendentes. Amarelo = recomendados em falta. Verde = completo.' },
   ],
@@ -60,6 +63,7 @@ export default function TRDetail() {
   const [actionLoading, setActionLoading] = useState(false)
   const [showDevolver, setShowDevolver]   = useState(false)
   const [showReabrir, setShowReabrir]     = useState(false)
+  const [showPreviewTexto, setShowPreviewTexto] = useState(false)
   const [motivo, setMotivo]               = useState('')
   const [motivoReabrir, setMotivoReabrir] = useState('')
   const [formErrors, setFormErrors]       = useState({})
@@ -201,6 +205,13 @@ export default function TRDetail() {
               Reabrir
             </button>
           )}
+          <span className="inline-flex items-center gap-1">
+            <button onClick={() => setShowPreviewTexto(true)}
+                className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg">
+                Pré-visualizar texto
+              </button>
+              <HelpTip text="Mostra o texto pronto (gerado a partir dos campos já preenchidos, conforme os modelos configurados em Configurações → Estrutura de Artefatos) para copiar e colar no processo SEI. Não altera os campos deste TR." />
+          </span>
           <DownloadButton
               onClick={() => downloadFile(`/tr/tr/${id}/export/pdf/`, `TR_${current.numero_sei}.pdf`)}
               className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg">
@@ -265,6 +276,12 @@ export default function TRDetail() {
         loading={actionLoading}
         titulo="Devolver TR para ajuste"
         categorias={MOTIVOS_TR}
+      />
+
+      <ModalPreviewTexto
+        open={showPreviewTexto}
+        onClose={() => setShowPreviewTexto(false)}
+        endpoint={`/tr/tr/${id}/`}
       />
 
       {/* Modal reabrir */}

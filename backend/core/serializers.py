@@ -1,3 +1,4 @@
+from django.conf import settings
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from rest_framework_simplejwt.views import TokenObtainPairView
@@ -72,6 +73,7 @@ class WebberTokenObtainPairSerializer(TokenObtainPairSerializer):
             param = ParametroSistema.objects.filter(chave=chave).first()
             flags[chave] = (param.valor.lower() == 'true') if param else True
         token['flags'] = flags
+        token['sei_base_url'] = settings.SEI_BASE_URL
 
         return token
 

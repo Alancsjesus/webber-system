@@ -5,6 +5,7 @@ import usePlanejamentoStore from '../stores/planejamentoStore'
 import useAuthStore from '../stores/authStore'
 import api from '../services/api'
 import FormErrors from '../components/FormErrors'
+import CampoSei from '../components/CampoSei'
 
 const MODALIDADES = [
   { value: 'licitacao',           label: 'Licitação' },
@@ -45,6 +46,7 @@ export default function DFDCreate() {
   const { createDFD } = useDFDStore()
   const { updateNecessidade } = usePlanejamentoStore()
   const orgId = useAuthStore((s) => s.orgId)
+  const seiBaseUrl = useAuthStore((s) => s.seiBaseUrl)
 
   // necessidade passada via navigate state (vindo da tela de Necessidades)
   const necessidadePreSelecionada = location.state?.necessidade ?? null
@@ -353,9 +355,9 @@ export default function DFDCreate() {
           </Field>
 
           <Field label="Número SEI" error={errors.numero_sei}>
-            <input type="text" value={form.numero_sei}
-              onChange={e => set('numero_sei', e.target.value)}
-              placeholder="Ex: 00060.000123/2025-00"
+            <CampoSei value={form.numero_sei}
+              onChange={v => set('numero_sei', v)}
+              seiBaseUrl={seiBaseUrl}
               className={inputCls(errors.numero_sei)} />
           </Field>
 

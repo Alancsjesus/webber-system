@@ -12,6 +12,16 @@ from exportacao.pdf_utils import gerar_pdf_tr, gerar_html, resposta_pdf, respost
 
 PAPEIS_SOLICITANTE = ('solicitante', 'demandante', 'responsavel_tecnico', 'admin')
 
+# Códigos de SecaoArtefato já exibidos estaticamente em templates/exportacao/tr.html —
+# usado para não duplicar conteúdo ao acrescentar seções custom (ver core/document_engine.py)
+CODIGOS_ESTATICOS_TR = [
+    'numero_sei', 'objeto', 'justificativa', 'requisitos', 'obrigacoes_contratada',
+    'obrigacoes_contratante', 'criterios_selecao', 'criterios_medicao', 'prazo_vigencia',
+    'local_entrega', 'garantia', 'lotes', 'adequacao_orcamentaria', 'permite_consorcio',
+    'qualificacao_juridica', 'qualificacao_economica', 'prazos_execucao', 'degrau_lances',
+    'estimativa_valor', 'observacoes',
+]
+
 
 def _buscar_preco_referencia(item_dfd):
     """
@@ -165,9 +175,22 @@ class TRViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'], url_path='export/html')
     def export_html(self, request, pk=None):
+        from core.document_engine import DocumentEngine
         tr = self.get_object()
-        html = gerar_html('tr', {'tr': tr})
+        modalidade = getattr(tr, 'modalidade_aquisicao', None)
+        html = gerar_html('tr', {
+            'tr': tr,
+            'secoes_geradas': DocumentEngine.gerar('TR', tr, modalidade=modalidade),
+            'codigos_estaticos': CODIGOS_ESTATICOS_TR,
+        })
         return resposta_html(html, f'TR_{tr.numero_sei}.html')
+
+    @action(detail=True, methods=['get'], url_path='gerar-texto')
+    def gerar_texto(self, request, pk=None):
+        from core.document_engine import DocumentEngine
+        tr = self.get_object()
+        modalidade = getattr(tr, 'modalidade_aquisicao', None)
+        return Response(DocumentEngine.gerar('TR', tr, modalidade=modalidade))
 
     @action(detail=True, methods=['post'])
     def submeter(self, request, pk=None):

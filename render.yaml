@@ -1,0 +1,82 @@
+# Blueprint do Render.com — sobe banco + backend + frontend com um único "Apply".
+# Doc: https://render.com/docs/blueprint-spec
+# Uso: New → Blueprint no painel do Render, apontar para este repositório.
+
+databases:
+  - name: webber-db
+    databaseName: webber_db
+    user: webber_user
+    plan: free
+    region: oregon
+
+services:
+  # ── Backend Django (Docker, usa o Dockerfile/entrypoint.prod.sh já existentes) ──
+  - type: web
+    name: webber-backend
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    plan: free
+    region: oregon
+    healthCheckPath: /api/
+    envVars:
+      - key: SECRET_KEY
+        generateValue: true
+      - key: DEBUG
+        value: "False"
+      - key: USE_POSTGRES
+        value: "True"
+      - key: DB_NAME
+        fromDatabase:
+          name: webber-db
+          property: database
+      - key: DB_USER
+        fromDatabase:
+          name: webber-db
+          property: user
+      - key: DB_PASSWORD
+        fromDatabase:
+          name: webber-db
+          property: password
+      - key: DB_HOST
+        fromDatabase:
+          name: webber-db
+          property: host
+      - key: DB_PORT
+        fromDatabase:
+          name: webber-db
+          property: port
+      - key: ALLOWED_HOSTS
+        fromService:
+          type: web
+          name: webber-backend
+          property: host
+      - key: CORS_ALLOWED_ORIGIN_HOST
+        fromService:
+          type: web
+          name: webber-frontend
+          property: host
+      # Sem chave hCaptcha real configurada — ambiente de teste fica com o bypass
+      # já usado localmente (ver backend/.env). Trocar para uma chave real antes
+      # de expor a instância além de testes internos.
+      - key: HCAPTCHA_BYPASS
+        value: "True"
+      - key: HCAPTCHA_SECRET
+        value: "0x0000000000000000000000000000000000000000"
+
+  # ── Frontend React (build estático, sem servidor próprio) ──────────────────────
+  - type: web
+    name: webber-frontend
+    runtime: static
+    buildCommand: cd frontend && npm ci && npm run build
+    staticPublishPath: frontend/dist
+    envVars:
+      - key: VITE_API_HOST
+        fromService:
+          type: web
+          name: webber-backend
+          property: host
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html

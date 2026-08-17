@@ -1,5 +1,6 @@
 import { create } from 'zustand'
 import axios from 'axios'
+import { API_BASE_URL } from '../services/api'
 
 function parseJwt(token) {
   try {
@@ -41,6 +42,7 @@ const useAuthStore = create((set) => ({
   tipoUnidade:   getFieldFromToken('tipo_unidade'),
   tipoOrg:       getFieldFromToken('tipo_unidade') || 'demandante',
   flags:         getFlagsFromToken(),
+  seiBaseUrl:    getFieldFromToken('sei_base_url') || '',
   isAuthenticated: !!localStorage.getItem('access_token'),
   error:         null,
   loading:       false,
@@ -48,7 +50,7 @@ const useAuthStore = create((set) => ({
   login: async (username, password, captchaToken = '') => {
     set({ loading: true, error: null })
     try {
-      const { data } = await axios.post('/api/token/', { username, password, captcha_token: captchaToken })
+      const { data } = await axios.post(`${API_BASE_URL}/token/`, { username, password, captcha_token: captchaToken })
       localStorage.setItem('access_token', data.access)
       localStorage.setItem('refresh_token', data.refresh)
       const p = parseJwt(data.access)
@@ -64,6 +66,7 @@ const useAuthStore = create((set) => ({
         tipoUnidade:  p.tipo_unidade  || null,
         tipoOrg:      p.tipo_unidade  || 'demandante',
         flags:        p.flags         || DEFAULT_FLAGS,
+        seiBaseUrl:   p.sei_base_url  || '',
         loading: false,
       })
     } catch (err) {
@@ -90,6 +93,7 @@ const useAuthStore = create((set) => ({
       unidadeId: null, unidadeSigla: null, unidadeNome: null,
       tipoUnidade: null, tipoOrg: 'demandante',
       flags: DEFAULT_FLAGS,
+      seiBaseUrl: '',
     })
   },
 }))

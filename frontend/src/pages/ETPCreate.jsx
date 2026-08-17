@@ -1,12 +1,15 @@
 import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import useEtpStore from '../stores/etpStore'
+import useAuthStore from '../stores/authStore'
+import CampoSei from '../components/CampoSei'
 
 export default function ETPCreate() {
   const navigate  = useNavigate()
   const location  = useLocation()
   const dfd       = location.state?.dfd
   const { createEtp } = useEtpStore()
+  const seiBaseUrl = useAuthStore((s) => s.seiBaseUrl)
 
   const [form, setForm] = useState({
     numero_sei: dfd?.numero_sei ?? '',
@@ -103,8 +106,9 @@ export default function ETPCreate() {
       <form onSubmit={handleSubmit} className="space-y-5">
 
         <Field label="Número SEI do ETP" error={errors.numero_sei}>
-          <input type="text" value={form.numero_sei}
-            onChange={(e) => set('numero_sei', e.target.value)}
+          <CampoSei value={form.numero_sei}
+            onChange={(v) => set('numero_sei', v)}
+            seiBaseUrl={seiBaseUrl}
             className={inp(errors.numero_sei)} />
         </Field>
 

@@ -1110,7 +1110,8 @@ class SecaoArtefatoSerializer(drf_serializers.ModelSerializer):
     class Meta:
         model  = SecaoArtefato
         fields = ['id', 'tipo', 'tipo_display', 'codigo', 'titulo', 'descricao',
-                  'ordem', 'ativo', 'obrigatorio', 'aplica_modalidades', 'aplica_tipo_objeto']
+                  'ordem', 'ativo', 'obrigatorio', 'aplica_modalidades', 'aplica_tipo_objeto',
+                  'template_texto']
 
 
 class SecaoArtefatoViewSet(viewsets.ModelViewSet):

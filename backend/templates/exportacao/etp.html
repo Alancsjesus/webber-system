@@ -173,6 +173,13 @@
 </table>
 {% endif %}
 
+{% for s in secoes_geradas %}
+{% if s.codigo not in codigos_estaticos %}
+<div class="section-title">{{ s.titulo }}</div>
+<div class="field"><div class="field-value">{{ s.texto|linebreaksbr }}</div></div>
+{% endif %}
+{% endfor %}
+
 <div class="warning">
   Este documento requer assinatura física ou digital (GOV.BR / SEI) para ter validade jurídica.
 </div>

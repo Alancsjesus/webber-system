@@ -6,6 +6,8 @@ import useAuthStore from '../stores/authStore'
 import api, { downloadFile } from '../services/api'
 import DownloadButton from '../components/DownloadButton'
 import ChecklistBadge from '../components/ChecklistBadge'
+import ModalPreviewTexto from '../components/ModalPreviewTexto'
+import HelpTip from '../components/HelpTip'
 
 const STATUS_CLS = {
   Rascunho:    'bg-gray-100 text-gray-600',
@@ -48,6 +50,7 @@ export const pageHelp = {
     { label: 'Aprovar',         texto: 'Aprova o DFD, habilitando a criação do ETP. Disponível para gestores de planejamento e ordenadores.' },
     { label: 'Devolver',        texto: 'Retorna o DFD ao demandante para correções, com categorias de motivo e justificativa obrigatória.' },
     { label: '+ Item',          texto: 'Adiciona um item ao DFD com descrição, quantidade, unidade e valor estimado unitário.' },
+    { label: 'Pré-visualizar texto', texto: 'Mostra o texto pronto (composto a partir dos campos já preenchidos, seguindo os modelos configurados em Configurações → Estrutura de Artefatos) para copiar e colar no SEI. É apenas uma pré-visualização — não altera nem preenche os campos do DFD.' },
     { label: 'Download PDF',    texto: 'Gera o DFD em PDF para assinatura e arquivamento no processo SEI.' },
     { label: 'Checklist SSP-BA', texto: 'Badge colorido mostrando quantos campos do checklist estão preenchidos. Vermelho = campos obrigatórios pendentes (bloqueia submissão). Amarelo = campos recomendados em falta. Verde = completo.' },
   ],
@@ -81,6 +84,7 @@ export default function DFDDetail() {
   const [showDevolverModal, setShowDevolverModal]   = useState(false)
   const [motivoDevolucao, setMotivoDevolucao]       = useState('')
   const [showDispensaModal, setShowDispensaModal]   = useState(false)
+  const [showPreviewTexto, setShowPreviewTexto]     = useState(false)
   const [motivoDispensa, setMotivoDispensa]         = useState('')
   const [dispensando, setDispensando]               = useState(false)
 
@@ -355,6 +359,13 @@ export default function DFDDetail() {
                   Editar
                 </button>
               )}
+              <span className="inline-flex items-center gap-1">
+                <button onClick={() => setShowPreviewTexto(true)}
+                  className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg transition-colors">
+                  Pré-visualizar texto
+                </button>
+                <HelpTip text="Mostra o texto pronto (gerado a partir dos campos já preenchidos, conforme os modelos configurados em Configurações → Estrutura de Artefatos) para copiar e colar no processo SEI. Não altera os campos deste DFD." />
+              </span>
               <DownloadButton
               onClick={() => downloadFile(`/demanda/dfd/${id}/export/pdf/`, `DFD_${current.numero_sei}.pdf`)}
               className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg transition-colors">
@@ -440,6 +451,12 @@ export default function DFDDetail() {
         loading={actionLoading}
         titulo="Devolver DFD para ajuste"
         categorias={MOTIVOS_DFD}
+      />
+
+      <ModalPreviewTexto
+        open={showPreviewTexto}
+        onClose={() => setShowPreviewTexto(false)}
+        endpoint={`/demanda/dfd/${id}/`}
       />
 
       {showDispensaModal && (

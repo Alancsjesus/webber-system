@@ -12,6 +12,16 @@ from exportacao.pdf_utils import gerar_pdf_etp, gerar_html, resposta_pdf, respos
 
 PAPEIS_SOLICITANTE = ('solicitante', 'demandante', 'responsavel_tecnico', 'admin')
 
+# Códigos de SecaoArtefato já exibidos estaticamente em templates/exportacao/etp.html —
+# usado para não duplicar conteúdo ao acrescentar seções custom (ver core/document_engine.py)
+CODIGOS_ESTATICOS_ETP = [
+    'numero_sei', 'necessidade', 'requisitos', 'levantamento_mercado', 'solucao',
+    'justificativa', 'estimativa_valor', 'riscos', 'sustentabilidade', 'parcelamento',
+    'cota_me_epp', 'posicionamento_conclusivo', 'classificacao_sensivel',
+    'alinhamento_planesp', 'contratacoes_correlatas', 'impacto_ambiental',
+    'providencias_pre_contrato', 'compra_vs_locacao', 'observacoes',
+]
+
 
 class ETPViewSet(viewsets.ModelViewSet):
     serializer_class   = ETPSerializer
@@ -124,9 +134,20 @@ class ETPViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'], url_path='export/html')
     def export_html(self, request, pk=None):
+        from core.document_engine import DocumentEngine
         etp = self.get_object()
-        html = gerar_html('etp', {'etp': etp})
+        html = gerar_html('etp', {
+            'etp': etp,
+            'secoes_geradas': DocumentEngine.gerar('ETP', etp),
+            'codigos_estaticos': CODIGOS_ESTATICOS_ETP,
+        })
         return resposta_html(html, f'ETP_{etp.numero_sei}.html')
+
+    @action(detail=True, methods=['get'], url_path='gerar-texto')
+    def gerar_texto(self, request, pk=None):
+        from core.document_engine import DocumentEngine
+        etp = self.get_object()
+        return Response(DocumentEngine.gerar('ETP', etp))
 
     @action(detail=True, methods=['post'])
     def submeter(self, request, pk=None):

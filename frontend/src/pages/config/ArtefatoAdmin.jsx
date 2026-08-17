@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import api from '../../services/api'
 import LoadingSpinner from '../../components/LoadingSpinner'
 
@@ -24,7 +24,28 @@ const TIPOS_OBJETO = [
   { value: 'obras',               label: 'Obras' },
 ]
 
-const BLANK = { tipo: 'TR', codigo: '', titulo: '', descricao: '', ordem: 0, ativo: true, obrigatorio: false, aplica_modalidades: [], aplica_tipo_objeto: [] }
+const BLANK = { tipo: 'TR', codigo: '', titulo: '', descricao: '', ordem: 0, ativo: true, obrigatorio: false, aplica_modalidades: [], aplica_tipo_objeto: [], template_texto: '' }
+
+// Variáveis disponíveis para o modelo de texto (Jinja2), por tipo de artefato —
+// espelha as chaves de contexto geradas em backend/core/document_engine.py
+const VARIAVEIS_TEXTO = {
+  DFD: ['numero_sei', 'descricao', 'valor_estimado', 'area_aplicacao', 'prazo_necessidade',
+        'modalidade_aquisicao', 'observacoes', 'local_entrega', 'responsaveis', 'pca', 'itens'],
+  ETP: ['numero_sei', 'necessidade', 'requisitos', 'levantamento_mercado', 'solucao', 'justificativa',
+        'estimativa_valor', 'riscos', 'sustentabilidade', 'parcelamento', 'cota_me_epp', 'observacoes',
+        'posicionamento_conclusivo', 'classificacao_sensivel', 'alinhamento_planesp',
+        'contratacoes_correlatas', 'impacto_ambiental', 'providencias_pre_contrato', 'compra_vs_locacao'],
+  TR:  ['numero_sei', 'objeto', 'justificativa', 'requisitos', 'obrigacoes_contratada', 'obrigacoes_contratante',
+        'criterios_selecao', 'criterios_medicao', 'prazo_vigencia', 'local_entrega', 'garantia',
+        'estimativa_valor', 'observacoes', 'adequacao_orcamentaria', 'permite_consorcio',
+        'qualificacao_juridica', 'qualificacao_economica', 'prazos_execucao', 'degrau_lances',
+        'cond_gerais', 'fundamentacao', 'solucao', 'req_sustentabilidade', 'req_marca', 'req_exame',
+        'req_vistoria', 'req_subcontratacao', 'req_garantia_prop', 'req_garantia_contr',
+        'bens_nao_luxo', 'bens_reserva_cota', 'bens_carta_solidariedade', 'bens_validade',
+        'bens_garantia_tecnica', 'serv_transicao', 'serv_regime_execucao', 'serv_materiais',
+        'serv_qualificacao', 'serv_parcelas_relevancia', 'hab_fiscal', 'hab_juridica',
+        'hab_economica', 'hab_tecnica_servicos', 'parcelamento_etp'],
+}
 
 // ── Preview simulado do documento ─────────────────────────────────────────────
 function PreviewDocumento({ tipo, secoes }) {
@@ -136,6 +157,7 @@ export default function ArtefatoAdmin() {
   const [msg, setMsg]               = useState(null)
   const [modalMsg, setModalMsg]     = useState(null)   // erro/sucesso dentro do modal
   const [reordering, setReordering] = useState(false)
+  const templateTextareaRef = useRef(null)
 
   const load = useCallback(() => {
     setLoading(true)
@@ -164,6 +186,7 @@ export default function ArtefatoAdmin() {
       obrigatorio:        s.obrigatorio,
       aplica_modalidades:  s.aplica_modalidades  || [],
       aplica_tipo_objeto:  s.aplica_tipo_objeto  || [],
+      template_texto:      s.template_texto || '',
     })
     setEditItem(s.id)
     setModalMsg(null)
@@ -184,6 +207,7 @@ export default function ArtefatoAdmin() {
         obrigatorio:        Boolean(form.obrigatorio),
         aplica_modalidades: form.aplica_modalidades || [],
         aplica_tipo_objeto: form.aplica_tipo_objeto  || [],
+        template_texto:     form.template_texto || '',
       }
       if (editItem === 'new') {
         await api.post('/core/secoes/', payload)
@@ -230,6 +254,26 @@ export default function ArtefatoAdmin() {
     } catch {
       load() // reverte se API falhar
     }
+  }
+
+  // Insere {{ variavel }} no modelo de texto, na posição do cursor (ou no fim, se não houver foco)
+  const inserirVariavel = (nome) => {
+    const el = templateTextareaRef.current
+    const token = `{{ ${nome} }}`
+    const start = el ? (el.selectionStart ?? el.value.length) : (form.template_texto || '').length
+    const end   = el ? (el.selectionEnd   ?? el.value.length) : start
+
+    setForm(p => {
+      const atual = p.template_texto || ''
+      return { ...p, template_texto: atual.slice(0, start) + token + atual.slice(end) }
+    })
+
+    requestAnimationFrame(() => {
+      if (!el) return
+      el.focus()
+      const pos = start + token.length
+      el.setSelectionRange(pos, pos)
+    })
   }
 
   const toggleTipoObjeto = (tipo) => {
@@ -462,6 +506,36 @@ export default function ArtefatoAdmin() {
                   onChange={e => setForm(p => ({ ...p, descricao: e.target.value }))}
                   placeholder="Instrução exibida ao elaborador do documento..."
                   className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+              </div>
+
+              <div>
+                <label className="block text-xs font-medium text-gray-600 mb-1">Modelo de texto (Jinja2)</label>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg px-3 py-2 mb-2 text-[11px] text-blue-800 leading-relaxed">
+                  <strong>Isto não preenche o formulário do documento.</strong> O texto gerado aqui aparece como
+                  pré-visualização somente-leitura em <em>Pré-visualizar texto</em>, na tela de detalhe do
+                  DFD/ETP/TR já salvo — pronto para copiar e colar no processo SEI, depois que os campos do
+                  documento já foram preenchidos.
+                </div>
+                <textarea
+                  ref={templateTextareaRef}
+                  rows={4}
+                  value={form.template_texto}
+                  onChange={e => setForm(p => ({ ...p, template_texto: e.target.value }))}
+                  placeholder={`Ex: "O objeto desta contratação é {{ objeto }}, com vigência de {{ prazo_vigencia }}."`}
+                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                <p className="text-[10px] text-gray-400 mt-1 mb-1.5">
+                  Vazio no modelo → o texto gerado usa o campo padrão da seção (mesmo comportamento de antes).
+                  Clique em uma variável abaixo para inseri-la no ponto do cursor:
+                </p>
+                <div className="flex flex-wrap gap-1.5">
+                  {(VARIAVEIS_TEXTO[form.tipo] || []).map(v => (
+                    <button key={v} type="button" onClick={() => inserirVariavel(v)}
+                      title={`Inserir {{ ${v} }} no modelo`}
+                      className="font-mono text-[11px] px-2 py-0.5 rounded-full border border-gray-300 bg-gray-50 text-gray-600 hover:bg-blue-50 hover:border-blue-300 hover:text-blue-700 transition-colors">
+                      {v}
+                    </button>
+                  ))}
+                </div>
               </div>
 
               <div>

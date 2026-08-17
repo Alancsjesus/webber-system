@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useLicitacaoStore from '../stores/licitacaoStore'
+import useAuthStore from '../stores/authStore'
 import api from '../services/api'
+import CampoSei from '../components/CampoSei'
 
 const ANO = new Date().getFullYear()
 
@@ -39,6 +41,7 @@ function Field({ label, error, children, hint }) {
 export default function ProcedimentoCreate() {
   const navigate = useNavigate()
   const { createProcedimento } = useLicitacaoStore()
+  const seiBaseUrl = useAuthStore((s) => s.seiBaseUrl)
   const [dfds, setDfds]           = useState([])
   const [trs, setTrs]             = useState([])
   const [unidades, setUnidades]   = useState([])
@@ -235,9 +238,10 @@ export default function ProcedimentoCreate() {
               placeholder="0,00" />
           </Field>
           <Field label="Número do processo SEI" error={errors.numero_sei}>
-            <input type="text" value={form.numero_sei}
-              onChange={e => set('numero_sei', e.target.value)} className={inp(errors.numero_sei)}
-              placeholder="020.16859.2026.0000000-00" />
+            <CampoSei value={form.numero_sei}
+              onChange={v => set('numero_sei', v)} className={inp(errors.numero_sei)}
+              seiBaseUrl={seiBaseUrl}
+              placeholder="099.8188.2025.0027815-30" />
           </Field>
         </div>
 

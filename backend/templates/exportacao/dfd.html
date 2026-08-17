@@ -124,6 +124,13 @@
 <div class="field"><div class="field-value">{{ dfd.observacoes|linebreaksbr }}</div></div>
 {% endif %}
 
+{% for s in secoes_geradas %}
+{% if s.codigo not in codigos_estaticos %}
+<div class="section-title">{{ s.titulo }}</div>
+<div class="field"><div class="field-value">{{ s.texto|linebreaksbr }}</div></div>
+{% endif %}
+{% endfor %}
+
 {% if dfd.historico.exists %}
 <div class="section-title">Histórico de Tramitação</div>
 <table>

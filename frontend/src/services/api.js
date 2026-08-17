@@ -1,7 +1,14 @@
 import axios from 'axios'
 
+// VITE_API_URL: URL completa (ex: domínio próprio). VITE_API_HOST: só o hostname
+// (o que o Render injeta automaticamente via `fromService` no render.yaml, sem
+// precisar montar a URL na mão). Sem nenhuma das duas, cai no proxy relativo /api
+// (dev local via Vite, ou mesmo domínio via nginx no docker-compose.prod.yml).
+const apiHost = import.meta.env.VITE_API_HOST
+export const API_BASE_URL = import.meta.env.VITE_API_URL || (apiHost ? `https://${apiHost}/api` : '/api')
+
 const api = axios.create({
-  baseURL: '/api',
+  baseURL: API_BASE_URL,
   headers: { 'Content-Type': 'application/json' },
 })
 
@@ -21,7 +28,7 @@ api.interceptors.response.use(
       const refresh = localStorage.getItem('refresh_token')
       if (refresh) {
         try {
-          const { data } = await axios.post('/api/token/refresh/', { refresh })
+          const { data } = await axios.post(`${API_BASE_URL}/token/refresh/`, { refresh })
           localStorage.setItem('access_token', data.access)
           original.headers.Authorization = `Bearer ${data.access}`
           return api(original)
@@ -41,7 +48,7 @@ api.interceptors.response.use(
  */
 export async function downloadFile(path, filename) {
   const token = localStorage.getItem('access_token')
-  const res = await fetch(`/api${path}`, {
+  const res = await fetch(`${API_BASE_URL}${path}`, {
     headers: token ? { Authorization: `Bearer ${token}` } : {},
   })
   if (!res.ok) {

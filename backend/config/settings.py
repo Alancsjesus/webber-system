@@ -12,6 +12,10 @@ SECRET_KEY = os.getenv('SECRET_KEY', 'django-insecure-dev-key-change-in-producti
 DEBUG = os.getenv('DEBUG', 'True') == 'True'
 ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', 'localhost,127.0.0.1').split(',')
 
+# URL de consulta externa do SEI-BA (ex: https://sei.ba.gov.br/sei/controlador_externo.php?...&id_processo=).
+# Vazio por padrão — o botão "Abrir no SEI" no frontend só aparece quando configurada.
+SEI_BASE_URL = os.getenv('SEI_BASE_URL', '')
+
 INSTALLED_APPS = [
     'django.contrib.admin',
     'django.contrib.auth',
@@ -151,6 +155,12 @@ SIMPLE_JWT = {
 # CORS
 _cors_default = 'http://localhost:3000,http://127.0.0.1:3000,http://localhost:5173,http://127.0.0.1:5173'
 CORS_ALLOWED_ORIGINS = os.getenv('CORS_ALLOWED_ORIGINS', _cors_default).split(',')
+
+# CORS_ALLOWED_ORIGIN_HOST: hostname puro (sem esquema), útil quando a origem vem de
+# `fromService` num Blueprint do Render — evita precisar montar a URL completa na mão.
+_cors_host = os.getenv('CORS_ALLOWED_ORIGIN_HOST', '')
+if _cors_host:
+    CORS_ALLOWED_ORIGINS.append(f'https://{_cors_host}')
 
 # hCaptcha
 HCAPTCHA_SECRET = os.getenv('HCAPTCHA_SECRET', '0x0000000000000000000000000000000000000000')
