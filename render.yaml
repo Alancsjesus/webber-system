@@ -46,11 +46,11 @@ services:
         fromDatabase:
           name: webber-db
           property: port
+      # "*" — ambiente de teste; o Render também expõe subdomínio dinâmico e
+      # referenciar o próprio serviço via fromService não resolveu de forma
+      # confiável no ALLOWED_HOSTS.
       - key: ALLOWED_HOSTS
-        fromService:
-          type: web
-          name: webber-backend
-          property: host
+        value: "*"
       - key: CORS_ALLOWED_ORIGIN_HOST
         fromService:
           type: web
