@@ -53,11 +53,11 @@ services:
       # confiável no ALLOWED_HOSTS.
       - key: ALLOWED_HOSTS
         value: "*"
+      # Domínio fixo em vez de fromService: a property "host" do Render devolve
+      # só o nome curto do serviço (ex: "webber-backend"), não o hostname público
+      # completo (".onrender.com") -- causava DisallowedHost/URL quebrada.
       - key: CORS_ALLOWED_ORIGIN_HOST
-        fromService:
-          type: web
-          name: webber-frontend
-          property: host
+        value: webber-frontend.onrender.com
       # Sem chave hCaptcha real configurada — ambiente de teste fica com o bypass
       # já usado localmente (ver backend/.env). Trocar para uma chave real antes
       # de expor a instância além de testes internos.
@@ -73,11 +73,9 @@ services:
     buildCommand: cd frontend && npm ci && npm run build
     staticPublishPath: frontend/dist
     envVars:
+      # Domínio fixo — ver comentário equivalente no CORS_ALLOWED_ORIGIN_HOST acima.
       - key: VITE_API_HOST
-        fromService:
-          type: web
-          name: webber-backend
-          property: host
+        value: webber-backend.onrender.com
     routes:
       - type: rewrite
         source: /*
