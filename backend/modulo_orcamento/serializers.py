@@ -4,18 +4,32 @@ from .models import (
     AcaoOrcamentaria, ElementoDespesa, NaturezaDespesa, FonteRecurso,
     DotacaoOrcamentaria, IndicacaoOrcamentaria, IndicacaoDotacao, HistoricoIndicacao,
     DescentralizacaoOrcamentaria, ConcessaoOrcamentaria,
+    TipoAcaoOrcamentaria, TipoFonteRecurso,
 )
+
+
+class TipoAcaoOrcamentariaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TipoAcaoOrcamentaria
+        fields = ['id', 'descricao', 'ativo']
+
+
+class TipoFonteRecursoSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = TipoFonteRecurso
+        fields = ['id', 'descricao', 'ativo']
 
 
 class AcaoOrcamentariaSerializer(serializers.ModelSerializer):
     org_nome = serializers.CharField(source='org_id.nome', read_only=True)
+    tipo_descricao = serializers.CharField(source='tipo.descricao', read_only=True)
     created_by_username = serializers.CharField(source='created_by.username', read_only=True)
     updated_by_username = serializers.CharField(source='updated_by.username', read_only=True)
 
     class Meta:
         model = AcaoOrcamentaria
         fields = [
-            'id', 'codigo', 'nome', 'tipo', 'descricao', 'ativa',
+            'id', 'codigo', 'nome', 'tipo', 'tipo_descricao', 'descricao', 'ativa',
             'org_id', 'org_nome',
             'created_by', 'created_by_username',
             'updated_by', 'updated_by_username',
@@ -56,13 +70,14 @@ class NaturezaDespesaSerializer(serializers.ModelSerializer):
 
 class FonteRecursoSerializer(serializers.ModelSerializer):
     org_nome = serializers.CharField(source='org_id.nome', read_only=True)
+    tipo_descricao = serializers.CharField(source='tipo.descricao', read_only=True)
     created_by_username = serializers.CharField(source='created_by.username', read_only=True)
     updated_by_username = serializers.CharField(source='updated_by.username', read_only=True)
 
     class Meta:
         model = FonteRecurso
         fields = [
-            'id', 'codigo', 'nome', 'tipo', 'exercicio_anterior',
+            'id', 'codigo', 'nome', 'tipo', 'tipo_descricao', 'exercicio_anterior',
             'org_id', 'org_nome',
             'created_by', 'created_by_username',
             'updated_by', 'updated_by_username',

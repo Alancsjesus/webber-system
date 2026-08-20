@@ -1,15 +1,11 @@
 import { useEffect, useState } from 'react'
 import api from '../../services/api'
 
-const TIPOS = [
-  'Obra / Equipamento', 'Funcionamento / Operação', 'Capacitação', 'Equipamento',
-  'Publicidade', 'Estudo / Projeto Obra', 'Outras Atividades', 'Serviço',
-  'Outros Projetos', 'Outras Operações Especiais', 'Reserva de Contingência',
-]
-const empty = () => ({ codigo: '', nome: '', tipo: TIPOS[0], descricao: '', ativa: true })
+const empty = (tipos) => ({ codigo: '', nome: '', tipo: tipos[0]?.id ?? '', descricao: '', ativa: true })
 
 export default function AcaoAdmin() {
   const [list, setList]       = useState([])
+  const [tipos, setTipos]     = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch]   = useState('')
   const [form, setForm]       = useState(null)
@@ -23,6 +19,11 @@ export default function AcaoAdmin() {
       .finally(() => setLoading(false))
   }
   useEffect(load, [search])
+
+  useEffect(() => {
+    api.get('/orcamento/tipo-acao/', { params: { page_size: 200 } })
+      .then(({ data }) => setTipos(data.results ?? data))
+  }, [])
 
   const set = (k, v) => { setForm(p => ({ ...p, [k]: v })); setErrors(p => ({ ...p, [k]: undefined })) }
 
@@ -54,7 +55,7 @@ export default function AcaoAdmin() {
           <h1 className="text-xl font-bold text-gray-800">Ações Orçamentárias</h1>
           <p className="text-sm text-gray-500 mt-0.5">Ações do orçamento por órgão</p>
         </div>
-        <button onClick={() => setForm(empty())}
+        <button onClick={() => setForm(empty(tipos))}
           className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg">
           + Nova ação
         </button>
@@ -69,8 +70,8 @@ export default function AcaoAdmin() {
                 className={inp(errors.codigo)} placeholder="Ex: 2024.001" />
             </F>
             <F label="Tipo *" error={errors.tipo}>
-              <select value={form.tipo} onChange={e => set('tipo', e.target.value)} className={inp(errors.tipo)}>
-                {TIPOS.map(t => <option key={t} value={t}>{t}</option>)}
+              <select value={form.tipo} onChange={e => set('tipo', Number(e.target.value))} className={inp(errors.tipo)}>
+                {tipos.map(t => <option key={t.id} value={t.id}>{t.descricao}</option>)}
               </select>
             </F>
             <F label="Nome *" error={errors.nome}>
@@ -122,7 +123,7 @@ export default function AcaoAdmin() {
                 <tr key={a.id} className="hover:bg-gray-50">
                   <td className="px-5 py-3 font-mono text-gray-800 font-semibold">{a.codigo}</td>
                   <td className="px-5 py-3 text-gray-700 max-w-xs truncate">{a.nome}</td>
-                  <td className="px-5 py-3 text-gray-500 text-xs">{a.tipo}</td>
+                  <td className="px-5 py-3 text-gray-500 text-xs">{a.tipo_descricao}</td>
                   <td className="px-5 py-3">
                     <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${a.ativa ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
                       {a.ativa ? 'Ativa' : 'Inativa'}

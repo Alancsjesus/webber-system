@@ -3,25 +3,9 @@ from django.contrib.auth.models import User
 from core.models import BaseModel
 
 
-TIPO_ACAO_CHOICES = [
-    ('Obra / Equipamento', 'Obra / Equipamento'),
-    ('Funcionamento / Operação', 'Funcionamento / Operação'),
-    ('Capacitação', 'Capacitação'),
-    ('Equipamento', 'Equipamento'),
-    ('Publicidade', 'Publicidade'),
-    ('Estudo / Projeto Obra', 'Estudo / Projeto Obra'),
-    ('Outras Atividades', 'Outras Atividades'),
-    ('Serviço', 'Serviço'),
-    ('Outros Projetos', 'Outros Projetos'),
-    ('Outras Operações Especiais', 'Outras Operações Especiais'),
-    ('Reserva de Contingência', 'Reserva de Contingência'),
-]
-
-TIPO_FONTE_CHOICES = [
-    ('Tesouro', 'Tesouro'),
-    ('FESP', 'FESP'),
-    ('FUNEBOM', 'FUNEBOM'),
-]
+# Valores originais de TIPO_ACAO_CHOICES/TIPO_FONTE_CHOICES, mantidos aqui só como
+# referência histórica da migração 0007 (seed de TipoAcaoOrcamentaria/TipoFonteRecurso).
+# Os tipos hoje são parametrizáveis via TipoAcaoOrcamentaria/TipoFonteRecurso (ver abaixo).
 
 STATUS_DOTACAO_CHOICES = [
     ('Proposta', 'Proposta'),
@@ -33,6 +17,43 @@ STATUS_DOTACAO_CHOICES = [
 ]
 
 
+class TipoAcaoOrcamentaria(models.Model):
+    """
+    Catálogo parametrizável de tipos de Ação Orçamentária (classificação PPA:
+    Obra/Equipamento, Serviço, Capacitação etc.). Global — não escopado por
+    org_id, mesmo padrão de ElementoDespesa. Editável em Configurações →
+    Orçamento → Tipos de Ação, sem exigir alteração de código.
+    """
+    descricao = models.CharField(max_length=100, unique=True, verbose_name='Descrição')
+    ativo = models.BooleanField(default=True, verbose_name='Ativo')
+
+    class Meta:
+        ordering = ['descricao']
+        verbose_name = 'Tipo de Ação Orçamentária'
+        verbose_name_plural = 'Tipos de Ação Orçamentária'
+
+    def __str__(self):
+        return self.descricao
+
+
+class TipoFonteRecurso(models.Model):
+    """
+    Catálogo parametrizável de tipos de Fonte de Recurso (Tesouro, FESP,
+    FUNEBOM etc.). Global — não escopado por org_id, mesmo padrão de
+    ElementoDespesa. Editável em Configurações → Orçamento → Tipos de Fonte.
+    """
+    descricao = models.CharField(max_length=100, unique=True, verbose_name='Descrição')
+    ativo = models.BooleanField(default=True, verbose_name='Ativo')
+
+    class Meta:
+        ordering = ['descricao']
+        verbose_name = 'Tipo de Fonte de Recurso'
+        verbose_name_plural = 'Tipos de Fonte de Recurso'
+
+    def __str__(self):
+        return self.descricao
+
+
 class AcaoOrcamentaria(BaseModel):
     """
     Ação orçamentária da organização. Codes differ per org/fund,
@@ -40,8 +61,9 @@ class AcaoOrcamentaria(BaseModel):
     """
     codigo = models.CharField(max_length=20, verbose_name='Código')
     nome = models.CharField(max_length=255, verbose_name='Nome')
-    tipo = models.CharField(
-        max_length=50, choices=TIPO_ACAO_CHOICES, verbose_name='Tipo'
+    tipo = models.ForeignKey(
+        TipoAcaoOrcamentaria, on_delete=models.PROTECT,
+        related_name='acoes', verbose_name='Tipo',
     )
     descricao = models.TextField(blank=True, default='', verbose_name='Descrição')
     ativa = models.BooleanField(default=True, verbose_name='Ativa')
@@ -110,8 +132,9 @@ class FonteRecurso(BaseModel):
     """
     codigo = models.IntegerField(verbose_name='Código')
     nome = models.CharField(max_length=100, verbose_name='Nome')
-    tipo = models.CharField(
-        max_length=20, choices=TIPO_FONTE_CHOICES, verbose_name='Tipo'
+    tipo = models.ForeignKey(
+        TipoFonteRecurso, on_delete=models.PROTECT,
+        related_name='fontes', verbose_name='Tipo',
     )
     exercicio_anterior = models.BooleanField(
         default=False,

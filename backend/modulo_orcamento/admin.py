@@ -1,5 +1,24 @@
 from django.contrib import admin
-from .models import AcaoOrcamentaria, ElementoDespesa, FonteRecurso, DotacaoOrcamentaria
+from .models import (
+    AcaoOrcamentaria, ElementoDespesa, FonteRecurso, DotacaoOrcamentaria,
+    TipoAcaoOrcamentaria, TipoFonteRecurso,
+)
+
+
+@admin.register(TipoAcaoOrcamentaria)
+class TipoAcaoOrcamentariaAdmin(admin.ModelAdmin):
+    list_display = ['descricao', 'ativo']
+    list_filter = ['ativo']
+    search_fields = ['descricao']
+    ordering = ['descricao']
+
+
+@admin.register(TipoFonteRecurso)
+class TipoFonteRecursoAdmin(admin.ModelAdmin):
+    list_display = ['descricao', 'ativo']
+    list_filter = ['ativo']
+    search_fields = ['descricao']
+    ordering = ['descricao']
 
 
 @admin.register(AcaoOrcamentaria)

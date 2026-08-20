@@ -19,6 +19,7 @@ from .filters import AcaoOrcamentariaFilter, FonteRecursoFilter, DotacaoOrcament
 from .models import (
     AcaoOrcamentaria, ElementoDespesa, NaturezaDespesa, FonteRecurso,
     DotacaoOrcamentaria, IndicacaoOrcamentaria, IndicacaoDotacao, HistoricoIndicacao,
+    TipoAcaoOrcamentaria, TipoFonteRecurso,
 )
 from .serializers import (
     AcaoOrcamentariaSerializer,
@@ -29,7 +30,78 @@ from .serializers import (
     VincularNecessidadeSerializer,
     IndicacaoOrcamentariaSerializer,
     VincularDotacaoSerializer,
+    TipoAcaoOrcamentariaSerializer,
+    TipoFonteRecursoSerializer,
 )
+
+
+def _check_permissao_planejamento(request):
+    """Restringe escrita nos catálogos globais de Orçamento a Planejamento/Admin."""
+    papel = getattr(request, 'papel', None)
+    tipo_unidade = getattr(request, 'tipo_unidade', None)
+    if papel not in ('admin', 'gestor_planejamento') and tipo_unidade != 'planejamento':
+        from rest_framework.exceptions import PermissionDenied
+        raise PermissionDenied('Apenas Planejamento ou Admin podem gerenciar este catálogo.')
+
+
+class TipoAcaoOrcamentariaViewSet(viewsets.ModelViewSet):
+    """Catálogo parametrizável de tipos de Ação Orçamentária (Configurações → Orçamento)."""
+    serializer_class = TipoAcaoOrcamentariaSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['descricao']
+    ordering_fields = ['descricao']
+    ordering = ['descricao']
+
+    def get_queryset(self):
+        mostrar_inativos = self.request.query_params.get('inativos') == 'true'
+        qs = TipoAcaoOrcamentaria.objects.all()
+        if not mostrar_inativos:
+            qs = qs.filter(ativo=True)
+        return qs
+
+    def perform_create(self, serializer):
+        _check_permissao_planejamento(self.request)
+        serializer.save()
+
+    def perform_update(self, serializer):
+        _check_permissao_planejamento(self.request)
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        _check_permissao_planejamento(self.request)
+        instance.ativo = False
+        instance.save()
+
+
+class TipoFonteRecursoViewSet(viewsets.ModelViewSet):
+    """Catálogo parametrizável de tipos de Fonte de Recurso (Configurações → Orçamento)."""
+    serializer_class = TipoFonteRecursoSerializer
+    permission_classes = [IsAuthenticated]
+    filter_backends = [filters.SearchFilter, filters.OrderingFilter]
+    search_fields = ['descricao']
+    ordering_fields = ['descricao']
+    ordering = ['descricao']
+
+    def get_queryset(self):
+        mostrar_inativos = self.request.query_params.get('inativos') == 'true'
+        qs = TipoFonteRecurso.objects.all()
+        if not mostrar_inativos:
+            qs = qs.filter(ativo=True)
+        return qs
+
+    def perform_create(self, serializer):
+        _check_permissao_planejamento(self.request)
+        serializer.save()
+
+    def perform_update(self, serializer):
+        _check_permissao_planejamento(self.request)
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        _check_permissao_planejamento(self.request)
+        instance.ativo = False
+        instance.save()
 
 
 class AcaoOrcamentariaViewSet(viewsets.ModelViewSet):

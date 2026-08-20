@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import api from '../../services/api'
 
-const TIPOS = ['Tesouro', 'FESP', 'FUNEBOM']
-const empty = () => ({ codigo: '', nome: '', tipo: 'Tesouro', exercicio_anterior: false })
+const empty = (tipos) => ({ codigo: '', nome: '', tipo: tipos[0]?.id ?? '', exercicio_anterior: false })
 
 export default function FonteAdmin() {
   const [list, setList]       = useState([])
+  const [tipos, setTipos]     = useState([])
   const [loading, setLoading] = useState(true)
   const [form, setForm]       = useState(null)
   const [saving, setSaving]   = useState(false)
@@ -18,6 +18,11 @@ export default function FonteAdmin() {
       .finally(() => setLoading(false))
   }
   useEffect(load, [])
+
+  useEffect(() => {
+    api.get('/orcamento/tipo-fonte/', { params: { page_size: 200 } })
+      .then(({ data }) => setTipos(data.results ?? data))
+  }, [])
 
   const set = (k, v) => { setForm(p => ({ ...p, [k]: v })); setErrors(p => ({ ...p, [k]: undefined })) }
 
@@ -54,7 +59,7 @@ export default function FonteAdmin() {
           <h1 className="text-xl font-bold text-gray-800">Fontes de Recurso</h1>
           <p className="text-sm text-gray-500 mt-0.5">Fontes orçamentárias por órgão</p>
         </div>
-        <button onClick={() => setForm(empty())}
+        <button onClick={() => setForm(empty(tipos))}
           className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg">
           + Nova fonte
         </button>
@@ -69,8 +74,8 @@ export default function FonteAdmin() {
                 className={inp(errors.codigo)} placeholder="Ex: 100" />
             </F>
             <F label="Tipo *" error={errors.tipo}>
-              <select value={form.tipo} onChange={e => set('tipo', e.target.value)} className={inp(errors.tipo)}>
-                {TIPOS.map(t => <option key={t} value={t}>{t}</option>)}
+              <select value={form.tipo} onChange={e => set('tipo', Number(e.target.value))} className={inp(errors.tipo)}>
+                {tipos.map(t => <option key={t.id} value={t.id}>{t.descricao}</option>)}
               </select>
             </F>
             <F label="Nome *" error={errors.nome}>
@@ -116,7 +121,7 @@ export default function FonteAdmin() {
                 <tr key={f.id} className="hover:bg-gray-50">
                   <td className="px-5 py-3 font-mono font-semibold text-gray-800">{f.codigo}</td>
                   <td className="px-5 py-3 text-gray-700">{f.nome}</td>
-                  <td className="px-5 py-3 text-gray-500 text-xs">{f.tipo}</td>
+                  <td className="px-5 py-3 text-gray-500 text-xs">{f.tipo_descricao}</td>
                   <td className="px-5 py-3 text-xs text-gray-500">{f.exercicio_anterior ? 'Sim' : 'Não'}</td>
                   <td className="px-5 py-3 text-right space-x-2">
                     <button onClick={() => setForm({ ...f })} className="text-xs text-blue-600 hover:underline">Editar</button>

@@ -6,6 +6,8 @@ from .views import (
     FonteRecursoViewSet,
     DotacaoOrcamentariaViewSet,
     IndicacaoOrcamentariaViewSet,
+    TipoAcaoOrcamentariaViewSet,
+    TipoFonteRecursoViewSet,
 )
 
 router = DefaultRouter()
@@ -15,5 +17,7 @@ router.register(r'natureza-despesa', NaturezaDespesaViewSet, basename='natureza-
 router.register(r'fonte-recurso', FonteRecursoViewSet, basename='fonte-recurso')
 router.register(r'dotacao', DotacaoOrcamentariaViewSet, basename='dotacao-orcamentaria')
 router.register(r'indicacao', IndicacaoOrcamentariaViewSet, basename='indicacao-orcamentaria')
+router.register(r'tipo-acao', TipoAcaoOrcamentariaViewSet, basename='tipo-acao-orcamentaria')
+router.register(r'tipo-fonte', TipoFonteRecursoViewSet, basename='tipo-fonte-recurso')
 
 urlpatterns = router.urls
