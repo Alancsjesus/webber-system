@@ -23,6 +23,7 @@ const ACESSO_POR_PAPEL = {
     '/orcamento',
     '/licitacao',
     '/contratos',
+    '/fornecedores',
     '/calendario',
     '/rastreabilidade',
   ],
@@ -56,6 +57,7 @@ const ACESSO_POR_PAPEL = {
     '/analise-tecnica',
     '/licitacao',
     '/contratos',
+    '/fornecedores',
     '/calendario',
     '/rastreabilidade',
   ],
@@ -76,6 +78,7 @@ const ACESSO_POR_PAPEL = {
     '/plano-compras',
     '/orcamento',
     '/contratos',
+    '/fornecedores',
     '/licitacao',
     '/calendario',
     '/rastreabilidade',
@@ -105,9 +108,9 @@ const ACESSO_POR_PAPEL = {
 
 // Extensões por tipo de unidade (ampliam o papel base)
 const ACESSO_EXTRA_POR_UNIDADE = {
-  licitante:    ['/licitacao', '/etp', '/analise-tecnica', '/pesquisa', '/contratos', '/plano-compras', '/config/parametros'],
+  licitante:    ['/licitacao', '/etp', '/analise-tecnica', '/pesquisa', '/contratos', '/fornecedores', '/plano-compras', '/config/parametros'],
   planejamento: ['/orcamento', '/planejamento', '/plano-compras'],
-  contratante:  ['/contratos', '/licitacao'],
+  contratante:  ['/contratos', '/fornecedores', '/licitacao'],
   demandante:   ['/demanda', '/pesquisa'],
 }
 

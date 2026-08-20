@@ -49,6 +49,9 @@ import PlanoCompras from './pages/PlanoCompras'
 import ContratoList from './pages/ContratoList'
 import ContratoCreate from './pages/ContratoCreate'
 import ContratoDetail from './pages/ContratoDetail'
+import FornecedorList from './pages/FornecedorList'
+import FornecedorCreate from './pages/FornecedorCreate'
+import FornecedorDetail from './pages/FornecedorDetail'
 import ProcedimentoList from './pages/ProcedimentoList'
 import ProcedimentoCreate from './pages/ProcedimentoCreate'
 import ProcedimentoDetail from './pages/ProcedimentoDetail'
@@ -141,6 +144,11 @@ export default function App() {
           <Route path="contratos"      element={<Guard><ContratoList /></Guard>} />
           <Route path="contratos/novo" element={<Guard><ContratoCreate /></Guard>} />
           <Route path="contratos/:id"  element={<Guard><ContratoDetail /></Guard>} />
+
+          {/* Fornecedores */}
+          <Route path="fornecedores"      element={<Guard><FornecedorList /></Guard>} />
+          <Route path="fornecedores/novo" element={<Guard><FornecedorCreate /></Guard>} />
+          <Route path="fornecedores/:id"  element={<Guard><FornecedorDetail /></Guard>} />
 
           {/* Configurações — somente admin */}
           <Route path="config/orgaos"    element={<Guard><OrgaoAdmin /></Guard>} />

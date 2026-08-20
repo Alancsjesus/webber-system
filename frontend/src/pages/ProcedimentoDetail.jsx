@@ -7,6 +7,7 @@ import { downloadFile } from '../services/api'
 import DownloadButton from '../components/DownloadButton'
 import HelpTip from '../components/HelpTip'
 import CampoSei, { NumeroSeiTexto } from '../components/CampoSei'
+import FornecedorPicker from '../components/FornecedorPicker'
 
 const fmt = v => Number(v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const fmtPct = v => v != null ? `${Number(v).toFixed(1)}%` : '—'
@@ -125,9 +126,10 @@ export default function ProcedimentoDetail() {
   const [showResForm, setShowResForm] = useState(false)
   const [resForm, setResForm] = useState({
     lote: '', descricao_lote: '', resultado: 'homologado',
-    empresa_vencedora: '', cnpj_vencedor: '',
+    fornecedor: null, empresa_vencedora: '', cnpj_vencedor: '',
     valor_estimado: '', valor_final: '', observacoes: '',
   })
+  const [resFornecedorLabel, setResFornecedorLabel] = useState('')
 
   useEffect(() => { fetchProcedimento(id) }, [id])
   useEffect(() => {
@@ -210,7 +212,8 @@ export default function ProcedimentoDetail() {
       await addResultado(id, payload)
       setShowResForm(false)
       setResForm({ lote: '', descricao_lote: '', resultado: 'homologado',
-        empresa_vencedora: '', cnpj_vencedor: '', valor_estimado: '', valor_final: '', observacoes: '' })
+        fornecedor: null, empresa_vencedora: '', cnpj_vencedor: '', valor_estimado: '', valor_final: '', observacoes: '' })
+      setResFornecedorLabel('')
     } catch (e) { setActionMsg({ type: 'error', text: e.response?.data?.detail || 'Erro.' }) }
     finally { setSaving(false) }
   }
@@ -727,6 +730,17 @@ export default function ProcedimentoDetail() {
                 </div>
                 {resForm.resultado === 'homologado' && (
                   <>
+                    <div className="col-span-2">
+                      <label className="block text-xs font-medium text-gray-600 mb-1">Fornecedor cadastrado (opcional — verifica histórico com a administração)</label>
+                      <FornecedorPicker
+                        value={resForm.fornecedor}
+                        valueLabel={resFornecedorLabel}
+                        onChange={(fid, fornecedor) => {
+                          setResForm(p => ({ ...p, fornecedor: fid }))
+                          setResFornecedorLabel(fornecedor ? `${fornecedor.documento} — ${fornecedor.nome_razao_social}` : '')
+                        }}
+                      />
+                    </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">Empresa vencedora</label>
                       <input type="text" value={resForm.empresa_vencedora}

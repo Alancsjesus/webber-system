@@ -53,7 +53,7 @@ class ResultadoLoteSerializer(serializers.ModelSerializer):
         model  = ResultadoLote
         fields = [
             'id', 'lote', 'lote_numero', 'lote_descricao', 'descricao_lote',
-            'resultado', 'resultado_display',
+            'resultado', 'resultado_display', 'fornecedor',
             'empresa_vencedora', 'cnpj_vencedor',
             'valor_estimado', 'valor_final', 'percentual_desconto',
             'contrato_gerado', 'contrato_numero',

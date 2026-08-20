@@ -367,10 +367,15 @@ class PrecoColetado(models.Model):
     fonte = models.ForeignKey(
         FonteConsultada, on_delete=models.PROTECT, related_name='precos',
     )
+    fornecedor = models.ForeignKey(
+        'modulo_fornecedor.Fornecedor', null=True, blank=True,
+        on_delete=models.PROTECT, related_name='precos_coletados',
+        verbose_name='Fornecedor',
+    )
     valor_unitario = models.DecimalField(
         max_digits=15, decimal_places=2, verbose_name='Valor unitário (R$)',
     )
-    # Identificação da origem (orgão, empresa, certame)
+    # Identificação da origem (orgão, empresa, certame) — mantido como histórico/fallback
     origem_orgao_empresa = models.CharField(
         max_length=255, blank=True, default='',
         verbose_name='Órgão / Empresa de origem',
@@ -444,6 +449,11 @@ class SolicitacaoCotacao(models.Model):
     )
 
     # Identificação do fornecedor
+    fornecedor = models.ForeignKey(
+        'modulo_fornecedor.Fornecedor', null=True, blank=True,
+        on_delete=models.PROTECT, related_name='cotacoes',
+        verbose_name='Fornecedor cadastrado',
+    )
     fornecedor_nome = models.CharField(max_length=300, verbose_name='Nome / Razão social')
     fornecedor_cnpj = models.CharField(max_length=18, blank=True, default='', verbose_name='CNPJ')
     fornecedor_email = models.EmailField(verbose_name='E-mail do fornecedor')

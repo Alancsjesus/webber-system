@@ -374,8 +374,12 @@ class ResultadoLote(models.Model):
                                          verbose_name='Descrição do lote')
     resultado         = models.CharField(max_length=15, choices=RESULTADO_CHOICES,
                                          verbose_name='Resultado')
+    fornecedor        = models.ForeignKey('modulo_fornecedor.Fornecedor', null=True, blank=True,
+                                          on_delete=models.PROTECT,
+                                          related_name='resultados_licitacao',
+                                          verbose_name='Fornecedor vencedor')
     empresa_vencedora = models.CharField(max_length=200, blank=True, default='',
-                                         verbose_name='Empresa vencedora')
+                                         verbose_name='Empresa vencedora (histórico)')
     cnpj_vencedor     = models.CharField(max_length=20, blank=True, default='',
                                          verbose_name='CNPJ do vencedor')
     valor_estimado    = models.DecimalField(max_digits=15, decimal_places=2,

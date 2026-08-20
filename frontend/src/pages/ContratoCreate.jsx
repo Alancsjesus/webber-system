@@ -4,6 +4,7 @@ import useContratoStore from '../stores/contratoStore'
 import useAuthStore from '../stores/authStore'
 import api from '../services/api'
 import FormErrors from '../components/FormErrors'
+import FornecedorPicker from '../components/FornecedorPicker'
 
 const TIPOS_ORIGEM = [
   { value: 'licitacao',       label: 'Licitação' },
@@ -28,6 +29,7 @@ export default function ContratoCreate() {
   const [form, setForm] = useState({
     exercicio: new Date().getFullYear(),
     orgao_executor: '',
+    fornecedor: '',
     objeto: '',
     tipo_origem: 'licitacao',
     dfd: '',
@@ -44,6 +46,7 @@ export default function ContratoCreate() {
     garantia_vigencia_fim: '',
     garantia_justificativa_acima_5: '',
   })
+  const [fornecedorLabel, setFornecedorLabel] = useState('')
   const [orgaos, setOrgaos]   = useState([])
   const [dfds, setDfds]       = useState([])
   const [saving, setSaving]   = useState(false)
@@ -77,6 +80,7 @@ export default function ContratoCreate() {
         ...form,
         exercicio: Number(form.exercicio),
         orgao_executor: Number(form.orgao_executor),
+        fornecedor: form.fornecedor ? Number(form.fornecedor) : null,
         valor_contrato: Number(form.valor_contrato),
         dfd: form.dfd ? Number(form.dfd) : null,
         data_assinatura: form.data_assinatura || null,
@@ -119,6 +123,17 @@ export default function ContratoCreate() {
             <option value="">Selecione...</option>
             {orgaos.map(o => <option key={o.id} value={o.id}>{o.sigla} — {o.nome}</option>)}
           </select>
+        </Field>
+
+        <Field label="Fornecedor contratado (opcional)">
+          <FornecedorPicker
+            value={form.fornecedor}
+            valueLabel={fornecedorLabel}
+            onChange={(id, fornecedor) => {
+              set('fornecedor', id)
+              setFornecedorLabel(fornecedor ? `${fornecedor.documento} — ${fornecedor.nome_razao_social}` : '')
+            }}
+          />
         </Field>
 
         <Field label="DFD de origem (opcional)">

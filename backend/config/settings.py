@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     'modulo_analise',
     'modulo_planejamento',
     'modulo_orcamento',
+    'modulo_fornecedor',
     'modulo_etp',
     'modulo_tr',
     'modulo_mapa_precos',

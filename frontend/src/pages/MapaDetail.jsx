@@ -6,6 +6,7 @@ import useMapaStore from '../stores/mapaStore'
 import useAuthStore from '../stores/authStore'
 import LoadingSpinner from '../components/LoadingSpinner'
 import PNCPImport from '../components/PNCPImport'
+import FornecedorPicker from '../components/FornecedorPicker'
 
 const fmt = (v) => Number(v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
@@ -938,8 +939,9 @@ function PrecoForm({ itemId, fontes, onSave }) {
   const hoje = new Date().toISOString().split('T')[0]
   const [form, setForm] = useState({
     fonte: '', valor_unitario: '', origem_orgao_empresa: '',
-    numero_certame: '', data_referencia: hoje, observacao: '',
+    numero_certame: '', data_referencia: hoje, observacao: '', fornecedor: null,
   })
+  const [fornecedorLabel, setFornecedorLabel] = useState('')
   const [arquivo, setArquivo] = useState(null)
   const [saving, setSaving] = useState(false)
 
@@ -957,11 +959,18 @@ function PrecoForm({ itemId, fontes, onSave }) {
         payload.append('data_referencia', form.data_referencia)
         payload.append('observacao', form.observacao)
         payload.append('arquivo', arquivo)
+        if (form.fornecedor) payload.append('fornecedor', form.fornecedor)
       } else {
-        payload = { ...form, valor_unitario: Number(form.valor_unitario), fonte: Number(form.fonte) }
+        payload = {
+          ...form,
+          valor_unitario: Number(form.valor_unitario),
+          fonte: Number(form.fonte),
+          fornecedor: form.fornecedor || null,
+        }
       }
       await onSave(payload)
-      setForm(p => ({ ...p, valor_unitario: '', origem_orgao_empresa: '', numero_certame: '', observacao: '' }))
+      setForm(p => ({ ...p, valor_unitario: '', origem_orgao_empresa: '', numero_certame: '', observacao: '', fornecedor: null }))
+      setFornecedorLabel('')
       setArquivo(null)
     } finally { setSaving(false) }
   }
@@ -985,6 +994,17 @@ function PrecoForm({ itemId, fontes, onSave }) {
           <input type="number" min="0" step="0.01" value={form.valor_unitario}
             onChange={(e) => setForm(p => ({ ...p, valor_unitario: e.target.value }))}
             className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500" />
+        </div>
+        <div className="col-span-3">
+          <label className="block text-xs text-gray-500 mb-1">Fornecedor cadastrado (opcional — verifica histórico com a administração)</label>
+          <FornecedorPicker
+            value={form.fornecedor}
+            valueLabel={fornecedorLabel}
+            onChange={(id, fornecedor) => {
+              setForm(p => ({ ...p, fornecedor: id }))
+              setFornecedorLabel(fornecedor ? `${fornecedor.documento} — ${fornecedor.nome_razao_social}` : '')
+            }}
+          />
         </div>
         <div>
           <label className="block text-xs text-gray-500 mb-1">Órgão / Empresa origem</label>

@@ -26,7 +26,7 @@ class PrecoColetadoSerializer(serializers.ModelSerializer):
     class Meta:
         model  = PrecoColetado
         fields = [
-            'id', 'fonte', 'fonte_tipo', 'fonte_descricao',
+            'id', 'fonte', 'fonte_tipo', 'fonte_descricao', 'fornecedor',
             'valor_unitario',
             'origem_orgao_empresa', 'numero_certame', 'data_referencia',
             'valido', 'motivo_exclusao', 'motivo_exclusao_display',
@@ -71,7 +71,7 @@ class SolicitacaoCotacaoSerializer(serializers.ModelSerializer):
     class Meta:
         model  = SolicitacaoCotacao
         fields = [
-            'id', 'mapa', 'fonte',
+            'id', 'mapa', 'fonte', 'fornecedor',
             'fornecedor_nome', 'fornecedor_cnpj', 'fornecedor_email',
             'data_envio', 'prazo_resposta', 'status', 'status_display',
             'email_enviado_pdf', 'email_enviado_pdf_url',

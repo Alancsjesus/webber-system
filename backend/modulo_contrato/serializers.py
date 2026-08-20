@@ -120,6 +120,7 @@ class ContratoSerializer(serializers.ModelSerializer):
     gestor_username        = serializers.CharField(source='gestor_contrato.username', read_only=True)
     ordenador_username     = serializers.CharField(source='ordenador.username',     read_only=True)
     tipo_origem_display    = serializers.CharField(source='get_tipo_origem_display', read_only=True)
+    fornecedor_nome        = serializers.CharField(source='fornecedor.nome_razao_social', read_only=True, default='')
     created_by_username    = serializers.CharField(source='created_by.username',    read_only=True)
     apostilas              = ApostilaSerializer(many=True, read_only=True)
     aditivos               = AditivoSerializer(many=True, read_only=True)
@@ -139,6 +140,7 @@ class ContratoSerializer(serializers.ModelSerializer):
             'id', 'numero', 'exercicio',
             'orgao_executor', 'orgao_executor_sigla', 'orgao_executor_nome',
             'objeto', 'tipo_origem', 'tipo_origem_display',
+            'fornecedor', 'fornecedor_nome',
             'dfd', 'dfd_numero_sei',
             'lotes', 'numero_processo_sei',
             'valor_contrato',

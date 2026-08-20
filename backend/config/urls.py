@@ -52,6 +52,7 @@ urlpatterns = [
     path('api/rastreabilidade/<int:pk>/', RastreabilidadeDetailView.as_view(), name='rastreabilidade-detail'),
     path('api/', include(router.urls)),
     path('api/orcamento/', include('modulo_orcamento.urls')),
+    path('api/fornecedores/', include('modulo_fornecedor.urls')),
     path('api/etp/',       include('modulo_etp.urls')),
     path('api/tr/',        include('modulo_tr.urls')),
     path('api/pesquisa/',   include('modulo_mapa_precos.urls')),
