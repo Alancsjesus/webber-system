@@ -23,6 +23,8 @@ const ACESSO_POR_PAPEL = {
     '/orcamento',
     '/licitacao',
     '/contratos',
+    '/calendario',
+    '/rastreabilidade',
   ],
 
   gestor_planejamento: [
@@ -34,6 +36,16 @@ const ACESSO_POR_PAPEL = {
     '/demanda',
     '/pesquisa',
     '/orcamento',
+    '/calendario',
+    '/config/parametros',
+    '/config/areas',
+    '/config/acoes',
+    '/config/naturezas',
+    '/config/elementos',
+    '/config/fontes',
+    '/config/tipo-acao',
+    '/config/tipo-fonte',
+    '/rastreabilidade',
   ],
 
   gestor_contrato: [
@@ -44,6 +56,8 @@ const ACESSO_POR_PAPEL = {
     '/analise-tecnica',
     '/licitacao',
     '/contratos',
+    '/calendario',
+    '/rastreabilidade',
   ],
 
   fiscal_contrato: [
@@ -52,6 +66,7 @@ const ACESSO_POR_PAPEL = {
     '/ajuda',
     '/demanda',
     '/contratos',
+    '/calendario',
   ],
 
   ordenador: [
@@ -62,6 +77,8 @@ const ACESSO_POR_PAPEL = {
     '/orcamento',
     '/contratos',
     '/licitacao',
+    '/calendario',
+    '/rastreabilidade',
   ],
 
   responsavel_tecnico: [
@@ -88,7 +105,7 @@ const ACESSO_POR_PAPEL = {
 
 // Extensões por tipo de unidade (ampliam o papel base)
 const ACESSO_EXTRA_POR_UNIDADE = {
-  licitante:    ['/licitacao', '/etp', '/analise-tecnica', '/pesquisa', '/contratos', '/plano-compras'],
+  licitante:    ['/licitacao', '/etp', '/analise-tecnica', '/pesquisa', '/contratos', '/plano-compras', '/config/parametros'],
   planejamento: ['/orcamento', '/planejamento', '/plano-compras'],
   contratante:  ['/contratos', '/licitacao'],
   demandante:   ['/demanda', '/pesquisa'],

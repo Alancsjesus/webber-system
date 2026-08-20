@@ -602,7 +602,7 @@ export default function DFDDetail() {
           )}
         </DetailField>
 
-        <DetailField label="Modalidade de aquisição">
+        <DetailField label={<>Classificação preliminar (triagem) <HelpTip text="Define se este DFD é elegível para dispensa do ETP e quais seções de checklist se aplicam. Não é a modalidade de licitação — ela só é decidida depois, no Procedimento, com base na Pesquisa de Preços." /></>}>
           {editing ? (
             <select value={form.modalidade_aquisicao || 'licitacao'}
               onChange={(e) => setField('modalidade_aquisicao', e.target.value)}

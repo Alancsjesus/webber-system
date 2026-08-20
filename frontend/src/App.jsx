@@ -34,6 +34,8 @@ import AcaoAdmin from './pages/config/AcaoAdmin'
 import ElementoAdmin from './pages/config/ElementoAdmin'
 import NaturezaAdmin from './pages/config/NaturezaAdmin'
 import FonteAdmin from './pages/config/FonteAdmin'
+import TipoAcaoAdmin from './pages/config/TipoAcaoAdmin'
+import TipoFonteAdmin from './pages/config/TipoFonteAdmin'
 import ParametroAdmin from './pages/config/ParametroAdmin'
 import PerfilAdmin from './pages/config/PerfilAdmin'
 import AreaAdmin from './pages/config/AreaAdmin'
@@ -151,6 +153,8 @@ export default function App() {
           <Route path="config/elementos" element={<Guard><ElementoAdmin /></Guard>} />
           <Route path="config/naturezas" element={<Guard><NaturezaAdmin /></Guard>} />
           <Route path="config/fontes"    element={<Guard><FonteAdmin /></Guard>} />
+          <Route path="config/tipo-acao" element={<Guard><TipoAcaoAdmin /></Guard>} />
+          <Route path="config/tipo-fonte" element={<Guard><TipoFonteAdmin /></Guard>} />
           <Route path="config/artefatos" element={<Guard><ArtefatoAdmin /></Guard>} />
           <Route path="config/catalogo"          element={<Guard><CatalogoAdmin /></Guard>} />
           <Route path="config/catalogo/importar" element={<Guard><ImportarCatalogoAdmin /></Guard>} />

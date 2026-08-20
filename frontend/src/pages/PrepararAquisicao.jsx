@@ -597,7 +597,8 @@ export default function PrepararAquisicao() {
                 className={inp(errors.prazo_necessidade)} />
             </Field>
           </div>
-          <Field label="Modalidade de aquisição">
+          <Field label="Classificação preliminar (triagem)"
+            hint="Define elegibilidade de dispensa do ETP e as seções de checklist aplicáveis. Não é a modalidade de licitação — ela é decidida depois, no Procedimento, com base na Pesquisa de Preços.">
             <select value={form.modalidade_aquisicao}
               onChange={e => setF('modalidade_aquisicao', e.target.value)}
               className={inp(false)}>

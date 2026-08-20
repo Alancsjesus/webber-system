@@ -71,7 +71,12 @@ class DFD(BaseModel):
     )
     modalidade_aquisicao = models.CharField(
         max_length=25, choices=MODALIDADE_CHOICES,
-        default='licitacao', verbose_name='Modalidade de aquisição',
+        default='licitacao', verbose_name='Classificação preliminar da contratação (triagem)',
+        help_text=(
+            'Define elegibilidade de dispensa do ETP e as seções de checklist/documento '
+            'aplicáveis a este DFD. Não é a modalidade de licitação — ela é decidida depois, '
+            'no Procedimento, com base na Pesquisa de Preços.'
+        ),
     )
     observacoes                    = models.TextField(blank=True, null=True)
     local_entrega                  = models.TextField(blank=True, default='', verbose_name='Local de entrega')

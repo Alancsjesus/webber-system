@@ -403,7 +403,7 @@ def _renderizar_secao_dfd(secao, dfd, estilos):
 
     if codigo == 'identificacao':
         e += _campo('Status', dfd.status, estilos)
-        e += _campo('Modalidade', dfd.get_modalidade_aquisicao_display() if hasattr(dfd, 'get_modalidade_aquisicao_display') else dfd.modalidade_aquisicao, estilos)
+        e += _campo('Classificação preliminar (triagem)', dfd.get_modalidade_aquisicao_display() if hasattr(dfd, 'get_modalidade_aquisicao_display') else dfd.modalidade_aquisicao, estilos)
         if dfd.valor_estimado:
             e += _campo('Valor Estimado', _fmt_valor(dfd.valor_estimado), estilos)
 

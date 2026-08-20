@@ -138,6 +138,8 @@ Eight roles: `admin`, `analista`, `gestor_planejamento`, `gestor_contrato`, `fis
 
 Permission groups are defined in `backend/core/permissions.py`. The frontend enforces the same matrix in `RequireRole` (`frontend/src/components/RequireRole.jsx`) and `Layout.jsx` — **keep these two in sync when changing access rules**.
 
+**Mandatory rule:** whenever a route prefix is added to `moduleCards.jsx` (`MODULE_CARDS_DEF[].to`) or to a nav item in `Layout.jsx`, the same prefix must be added to `ACESSO_POR_PAPEL`/`ACESSO_EXTRA_POR_UNIDADE` in `RequireRole.jsx` for every role/unit that is supposed to see it, **in the same change**. `moduleCards.jsx` and `Layout.jsx` only control what is *shown*; `RequireRole.jsx` is what actually *grants* access — a card or nav link with no matching entry in `RequireRole.jsx` silently redirects the user to `/sem-acesso`. This exact gap happened with `/config` and `/calendario` (fixed 20/08/2026) — both were fully built and advertised in the UI but reachable only by `admin` because `RequireRole.jsx` was never updated.
+
 ### Backend Module Structure
 
 Each `modulo_*` app follows the same layout:

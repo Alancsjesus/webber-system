@@ -131,6 +131,8 @@ const CONFIG_GROUPS_ADMIN = [
       { to: '/config/naturezas', label: 'Naturezas de Despesa' },
       { to: '/config/elementos', label: 'Elementos de Despesa' },
       { to: '/config/fontes',    label: 'Fontes de Recurso' },
+      { to: '/config/tipo-acao',  label: 'Tipos de Ação' },
+      { to: '/config/tipo-fonte', label: 'Tipos de Fonte' },
     ],
   },
   {
@@ -164,6 +166,8 @@ const CONFIG_GROUPS_PLANEJAMENTO = [
       { to: '/config/naturezas', label: 'Naturezas de Despesa' },
       { to: '/config/elementos', label: 'Elementos de Despesa' },
       { to: '/config/fontes',    label: 'Fontes de Recurso' },
+      { to: '/config/tipo-acao',  label: 'Tipos de Ação' },
+      { to: '/config/tipo-fonte', label: 'Tipos de Fonte' },
     ],
   },
 ]

@@ -6,6 +6,7 @@ import useAuthStore from '../stores/authStore'
 import api from '../services/api'
 import FormErrors from '../components/FormErrors'
 import CampoSei from '../components/CampoSei'
+import HelpTip from '../components/HelpTip'
 
 const MODALIDADES = [
   { value: 'licitacao',           label: 'Licitação' },
@@ -339,7 +340,7 @@ export default function DFDCreate() {
             </div>
           )}
 
-          <Field label="Modalidade de aquisição">
+          <Field label={<>Classificação preliminar (triagem) <HelpTip text="Define se este DFD é elegível para dispensa do ETP e quais seções de checklist se aplicam. Não é a modalidade de licitação — ela só é decidida depois, no Procedimento, com base na Pesquisa de Preços." /></>}>
             <select value={form.modalidade_aquisicao}
               onChange={e => set('modalidade_aquisicao', e.target.value)}
               className={inputCls()}>
