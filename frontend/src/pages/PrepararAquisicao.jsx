@@ -187,6 +187,7 @@ export default function PrepararAquisicao() {
       catalogo_simpas: cat.codigo_simpas || '', unidade_medida: cat.unidade_medida || 'un',
       quantidade: 1, valor_unitario_estimado: 0,
     }])
+    setErrors(p => ({ ...p, itens: undefined }))
     setShowCatalogo(false); setCatalogoQuery(''); setCatalogoRes([])
   }
   const addItemLivre = () => {
@@ -194,6 +195,7 @@ export default function PrepararAquisicao() {
       _key: nextKey(), item_catalogo_id: null, objeto: '', catalogo_codigo: '',
       catalogo_simpas: '', unidade_medida: 'un', quantidade: 1, valor_unitario_estimado: 0,
     }])
+    setErrors(p => ({ ...p, itens: undefined }))
     setShowCatalogo(false)
   }
   const updateItem = (key, field, value) =>
@@ -471,6 +473,7 @@ export default function PrepararAquisicao() {
               <div className="flex gap-2 mb-3">
                 <input autoFocus type="text" value={catalogoQuery}
                   onChange={e => setCatalogoQuery(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') e.preventDefault() }}
                   placeholder="Buscar no catálogo SIMPAS (mín. 2 caracteres)..."
                   className="flex-1 border border-blue-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
                 <button type="button"
