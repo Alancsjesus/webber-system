@@ -291,7 +291,6 @@ class NecessidadeViewSet(viewsets.ModelViewSet):
             modalidade_aquisicao=request.data.get('modalidade_aquisicao', 'licitacao'),
             observacoes=request.data.get('observacoes', ''),
             valor_estimado=valor_estimado_total,
-            necessidade_origem=nec,
             org_id=nec.org_id,
             unidade_demandante=nec.unidade_demandante,
             created_by=request.user,
