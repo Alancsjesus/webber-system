@@ -165,7 +165,7 @@ export default function ETPDetail() {
   const podeAnalisar   = current.status === 'Submetido'   && isLicitante
   const podeAprovar    = current.status === 'Em Análise'  && isLicitante
   const podeDevolver   = current.status === 'Em Análise'  && isLicitante
-  const podeCriarTR    = current.status === 'Aprovado' && !current.tr_id && isLicitante
+  const podeCriarTR    = ['Aprovado', 'Dispensado'].includes(current.status) && !current.tr_id && isLicitante
   const podeReabrir    = ['Aprovado', 'Cancelado'].includes(current.status) && papel === 'admin'
   const temTR          = !!current.tr_id
 

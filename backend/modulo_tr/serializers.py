@@ -206,9 +206,9 @@ class TRSerializer(serializers.ModelSerializer):
         return data
 
     def validate_etp(self, etp):
-        if etp.status != 'Aprovado':
+        if etp.status not in ('Aprovado', 'Dispensado'):
             raise serializers.ValidationError(
-                'TR só pode ser criado para ETPs com status "Aprovado".'
+                'TR só pode ser criado para ETPs com status "Aprovado" ou "Dispensado".'
             )
         if hasattr(etp, 'tr'):
             raise serializers.ValidationError('Este ETP já possui um TR associado.')
