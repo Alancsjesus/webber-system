@@ -112,6 +112,10 @@ class DotacaoOrcamentariaSerializer(serializers.ModelSerializer):
     acao_nome = serializers.CharField(source='acao.nome', read_only=True)
     acao_tipo = serializers.CharField(source='acao.tipo', read_only=True)
 
+    # Opcional na entrada — quando natureza_despesa é informada, validate() a deriva dela.
+    elemento_despesa = serializers.PrimaryKeyRelatedField(
+        queryset=ElementoDespesa.objects.all(), required=False,
+    )
     elemento_codigo = serializers.IntegerField(source='elemento_despesa.codigo', read_only=True)
     elemento_descricao = serializers.CharField(source='elemento_despesa.descricao', read_only=True)
 
@@ -184,6 +188,10 @@ class DotacaoOrcamentariaSerializer(serializers.ModelSerializer):
                 })
             # Auto-preenche elemento a partir da natureza
             attrs['elemento_despesa'] = elemento_da_natureza
+        elif not elemento and not self.partial:
+            raise serializers.ValidationError(
+                {'natureza_despesa': 'Selecione uma natureza de despesa ou um elemento de despesa.'}
+            )
 
         necessidades = attrs.get('necessidades', [])
         for nec in necessidades:
