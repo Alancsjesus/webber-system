@@ -4,6 +4,7 @@ import useLicitacaoStore from '../stores/licitacaoStore'
 import useAuthStore from '../stores/authStore'
 import api from '../services/api'
 import CampoSei from '../components/CampoSei'
+import CampoMoeda from '../components/CampoMoeda'
 
 const ANO = new Date().getFullYear()
 
@@ -233,9 +234,8 @@ export default function ProcedimentoCreate() {
         {/* Valor e SEI */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Field label="Valor estimado (R$)" error={errors.valor_estimado}>
-            <input type="number" min="0" step="0.01" value={form.valor_estimado}
-              onChange={e => set('valor_estimado', e.target.value)} className={inp(errors.valor_estimado)}
-              placeholder="0,00" />
+            <CampoMoeda value={form.valor_estimado}
+              onChange={v => set('valor_estimado', v)} className={inp(errors.valor_estimado)} />
           </Field>
           <Field label="Número do processo SEI" error={errors.numero_sei}>
             <CampoSei value={form.numero_sei}

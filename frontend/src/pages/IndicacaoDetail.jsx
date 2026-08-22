@@ -5,6 +5,7 @@ import useOrcamentoStore from '../stores/orcamentoStore'
 import useAuthStore from '../stores/authStore'
 import api from '../services/api'
 import LoadingSpinner from '../components/LoadingSpinner'
+import CampoMoeda from '../components/CampoMoeda'
 
 const STATUS_CLS = {
   Rascunho:  'bg-gray-100 text-gray-600',
@@ -273,8 +274,8 @@ export default function IndicacaoDetail() {
                 </div>
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Valor indicado (R$) *</label>
-                  <input type="number" min="0" step="0.01" value={vincForm.valor_indicado}
-                    onChange={(e) => { setVincForm((p) => ({ ...p, valor_indicado: e.target.value })); setVincErrors((p) => ({ ...p, valor_indicado: undefined })) }}
+                  <CampoMoeda value={vincForm.valor_indicado}
+                    onChange={(v) => { setVincForm((p) => ({ ...p, valor_indicado: v })); setVincErrors((p) => ({ ...p, valor_indicado: undefined })) }}
                     className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${vincErrors.valor_indicado ? 'border-red-400' : 'border-gray-300'}`} />
                   {vincErrors.valor_indicado && <p className="text-xs text-red-600 mt-1">{vincErrors.valor_indicado}</p>}
                 </div>
@@ -509,8 +510,8 @@ export default function IndicacaoDetail() {
                       </div>
                       <div>
                         <label className="block text-[10px] text-gray-500 mb-0.5">Valor (R$)</label>
-                        <input type="number" min="0" step="0.01" value={f.valor || ''}
-                          onChange={e => setNpoForms(prev => prev.map((p, i) => i === idx ? { ...p, valor: e.target.value } : p))}
+                        <CampoMoeda value={f.valor || ''}
+                          onChange={v => setNpoForms(prev => prev.map((p, i) => i === idx ? { ...p, valor: v } : p))}
                           className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs" />
                       </div>
                     </div>

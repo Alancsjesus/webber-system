@@ -6,6 +6,7 @@ import useAuthStore from '../stores/authStore'
 import api from '../services/api'
 import FormErrors from '../components/FormErrors'
 import CampoSei from '../components/CampoSei'
+import CampoMoeda from '../components/CampoMoeda'
 import HelpTip from '../components/HelpTip'
 
 const MODALIDADES = [
@@ -484,8 +485,8 @@ export default function DFDCreate() {
                     </div>
                     <div>
                       <label className="block text-xs text-gray-500 mb-0.5">Valor unitário (R$)</label>
-                      <input type="number" min="0" step="0.01" value={item.valor_unitario_estimado}
-                        onChange={e => setItem(idx, 'valor_unitario_estimado', e.target.value)}
+                      <CampoMoeda value={item.valor_unitario_estimado}
+                        onChange={v => setItem(idx, 'valor_unitario_estimado', v)}
                         className={inputCls()} />
                     </div>
                     <div className="flex items-end">

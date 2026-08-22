@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import usePlanejamentoStore from '../stores/planejamentoStore'
 import useAuthStore from '../stores/authStore'
 import api, { downloadFile } from '../services/api'
+import CampoMoeda from '../components/CampoMoeda'
 
 const PRIO_OPTIONS = ['Alta', 'Média', 'Baixa']
 const AREAS = ['TI', 'Formação', 'Ops', 'Rede', 'Frota', 'Derivados']
@@ -376,7 +377,7 @@ export default function NecessidadeDetail() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <DF label="Valor estimado">
             {editing
-              ? <input type="number" step="0.01" value={form.valor_estimado} onChange={(e) => set('valor_estimado', e.target.value)} className={inp()} />
+              ? <CampoMoeda value={form.valor_estimado} onChange={(v) => set('valor_estimado', v)} className={inp()} />
               : <p className="text-sm text-gray-700">{Number(current.valor_estimado).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>}
           </DF>
           <DF label="Prioridade">

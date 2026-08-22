@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import usePlanoStore from '../stores/planoStore'
 import LoadingSpinner from '../components/LoadingSpinner'
+import { formatarMoeda } from '../utils/currencyMask'
 
 const STATUS_BADGE = {
   rascunho:  'bg-yellow-100 text-yellow-700',
@@ -116,8 +117,8 @@ export default function PlanoList() {
                 {plano.descricao && <p className="text-sm text-gray-500 mt-0.5">{plano.descricao}</p>}
                 <p className="text-xs text-gray-400 mt-1">
                   {plano.itens?.length || 0} itens
-                  {plano.dotacao_total ? ` · Dotação: R$ ${Number(plano.dotacao_total).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : ''}
-                  {plano.dotacao_utilizada ? ` · Utilizado: R$ ${Number(plano.dotacao_utilizada).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : ''}
+                  {plano.dotacao_total ? ` · Dotação: ${formatarMoeda(plano.dotacao_total)}` : ''}
+                  {plano.dotacao_utilizada ? ` · Utilizado: ${formatarMoeda(plano.dotacao_utilizada)}` : ''}
                 </p>
               </div>
               <span className="text-gray-400 text-lg">→</span>

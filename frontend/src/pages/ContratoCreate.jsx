@@ -5,6 +5,7 @@ import useAuthStore from '../stores/authStore'
 import api from '../services/api'
 import FormErrors from '../components/FormErrors'
 import FornecedorPicker from '../components/FornecedorPicker'
+import CampoMoeda from '../components/CampoMoeda'
 
 const TIPOS_ORIGEM = [
   { value: 'licitacao',       label: 'Licitação' },
@@ -149,8 +150,8 @@ export default function ContratoCreate() {
         </Field>
 
         <Field label="Valor do contrato (R$) *" error={errors.valor_contrato}>
-          <input type="number" min="0" step="0.01" value={form.valor_contrato}
-            onChange={e => set('valor_contrato', e.target.value)} className={inp(errors.valor_contrato)} />
+          <CampoMoeda value={form.valor_contrato}
+            onChange={v => set('valor_contrato', v)} className={inp(errors.valor_contrato)} />
         </Field>
 
         <div className="grid grid-cols-3 gap-4">

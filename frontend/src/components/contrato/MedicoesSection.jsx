@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import useContratoStore from '../../stores/contratoStore'
 import HelpTip from '../HelpTip'
+import CampoMoeda from '../CampoMoeda'
 
 const STATUS_CLS = {
   pendente:  'bg-yellow-100 text-yellow-700',
@@ -112,7 +113,7 @@ export default function MedicoesSection({ contratoId, medicoes, podeEditar }) {
             </div>
             <div className="col-span-2">
               <label className="block text-xs text-gray-500 mb-0.5">Valor medido (R$) *</label>
-              <input type="number" step="0.01" value={form.valor_medido} onChange={e => setForm(p => ({ ...p, valor_medido: e.target.value }))} className={inp()} />
+              <CampoMoeda value={form.valor_medido} onChange={v => setForm(p => ({ ...p, valor_medido: v }))} className={inp()} />
             </div>
           </div>
           <div className="flex gap-2 mt-2">

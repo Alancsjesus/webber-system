@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import api from '../services/api'
+import CampoMoeda from '../components/CampoMoeda'
 
 // ── Constantes ────────────────────────────────────────────────────────────────
 
@@ -547,8 +548,8 @@ export default function PrepararAquisicao() {
                           className="w-full text-sm text-right border-0 bg-transparent focus:outline-none focus:ring-1 focus:ring-blue-400 rounded px-1" />
                       </td>
                       <td className="px-3 py-2">
-                        <input type="number" min="0" step="0.01" value={it.valor_unitario_estimado}
-                          onChange={e => updateItem(it._key, 'valor_unitario_estimado', e.target.value)}
+                        <CampoMoeda value={it.valor_unitario_estimado}
+                          onChange={v => updateItem(it._key, 'valor_unitario_estimado', v)}
                           className="w-full text-sm text-right border-0 bg-transparent focus:outline-none focus:ring-1 focus:ring-blue-400 rounded px-1" />
                       </td>
                       <td className="px-3 py-2 text-right font-medium text-gray-700 whitespace-nowrap">

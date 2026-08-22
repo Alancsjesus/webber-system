@@ -4,6 +4,7 @@ import api from '../../services/api'
 import EmptyState from '../../components/EmptyState'
 import LoadingSpinner from '../../components/LoadingSpinner'
 import CategoriaCascade from '../../components/CategoriaCascade'
+import CampoMoeda from '../../components/CampoMoeda'
 
 const BLANK = {
   codigo_simpas: '', nome: '', descricao: '', unidade_medida: '', ativo: true, categoria: '',
@@ -97,9 +98,9 @@ function ItemForm({ form, setForm, errors, categorias, compact = false }) {
             </Field>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <Field label="Valor referência (R$)">
-                <input type="number" min="0" step="0.01" value={form.valor_referencia}
-                  onChange={e => set('valor_referencia', e.target.value)}
-                  placeholder="0,00" className={cls.input} />
+                <CampoMoeda value={form.valor_referencia}
+                  onChange={v => set('valor_referencia', v)}
+                  className={cls.input} />
               </Field>
               <Field label="Data da referência">
                 <input type="date" value={form.data_referencia}

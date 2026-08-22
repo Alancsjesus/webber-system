@@ -10,6 +10,7 @@
  */
 import { useState } from 'react'
 import api from '../services/api'
+import { formatarMoeda } from '../utils/currencyMask'
 
 const TIPO_FONTE_OPTS = [
   { value: 'II',  label: 'Parâmetro II — Contratações similares' },
@@ -111,9 +112,7 @@ export default function PNCPImport({ mapaId, itensDoMapa = [], onImportado }) {
     }
   }
 
-  const fmtValor = (v) => v
-    ? `R$ ${Number(v).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
-    : '—'
+  const fmtValor = (v) => v ? formatarMoeda(v) : '—'
 
   return (
     <div className="mt-4">

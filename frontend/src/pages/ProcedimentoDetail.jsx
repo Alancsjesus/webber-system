@@ -8,6 +8,7 @@ import DownloadButton from '../components/DownloadButton'
 import HelpTip from '../components/HelpTip'
 import CampoSei, { NumeroSeiTexto } from '../components/CampoSei'
 import FornecedorPicker from '../components/FornecedorPicker'
+import CampoMoeda from '../components/CampoMoeda'
 
 const fmt = v => Number(v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const fmtPct = v => v != null ? `${Number(v).toFixed(1)}%` : '—'
@@ -756,14 +757,14 @@ export default function ProcedimentoDetail() {
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">Valor estimado (R$)</label>
-                      <input type="number" min="0" step="0.01" value={resForm.valor_estimado}
-                        onChange={e => setResForm(p => ({ ...p, valor_estimado: e.target.value }))}
+                      <CampoMoeda value={resForm.valor_estimado}
+                        onChange={v => setResForm(p => ({ ...p, valor_estimado: v }))}
                         className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs" />
                     </div>
                     <div>
                       <label className="block text-xs font-medium text-gray-600 mb-1">Valor final adjudicado (R$)</label>
-                      <input type="number" min="0" step="0.01" value={resForm.valor_final}
-                        onChange={e => setResForm(p => ({ ...p, valor_final: e.target.value }))}
+                      <CampoMoeda value={resForm.valor_final}
+                        onChange={v => setResForm(p => ({ ...p, valor_final: v }))}
                         className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs" />
                     </div>
                   </>

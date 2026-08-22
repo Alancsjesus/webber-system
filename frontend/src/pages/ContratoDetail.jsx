@@ -4,6 +4,7 @@ import useContratoStore from '../stores/contratoStore'
 import useAuthStore from '../stores/authStore'
 import LoadingSpinner from '../components/LoadingSpinner'
 import HelpTip from '../components/HelpTip'
+import CampoMoeda from '../components/CampoMoeda'
 import { downloadFile } from '../services/api'
 import CronogramaSection from '../components/contrato/CronogramaSection'
 import MedicoesSection from '../components/contrato/MedicoesSection'
@@ -196,7 +197,7 @@ export default function ContratoDetail() {
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
           <Section label="Valor do contrato">
             {editing
-              ? <input type="number" step="0.01" value={form.valor_contrato} onChange={e => set('valor_contrato', e.target.value)} className={inp()} />
+              ? <CampoMoeda value={form.valor_contrato} onChange={v => set('valor_contrato', v)} className={inp()} />
               : <p className="text-base font-bold text-gray-800">{fmt(current.valor_contrato)}</p>}
           </Section>
           <Section label="Status">
@@ -438,7 +439,7 @@ export default function ContratoDetail() {
                 {aditivoForm.tipo === 'valor' && (
                   <div>
                     <label className="block text-xs text-gray-500 mb-0.5">Valor (R$) — negativo para redução</label>
-                    <input type="number" step="0.01" value={aditivoForm.valor_acrescimo} onChange={e => setAditivoForm(p => ({ ...p, valor_acrescimo: e.target.value }))} className={inp()} />
+                    <CampoMoeda permiteNegativo value={aditivoForm.valor_acrescimo} onChange={v => setAditivoForm(p => ({ ...p, valor_acrescimo: v }))} className={inp()} />
                   </div>
                 )}
                 {aditivoForm.tipo === 'prazo' && (

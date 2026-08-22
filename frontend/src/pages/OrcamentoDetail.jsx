@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import useOrcamentoStore from '../stores/orcamentoStore'
+import CampoMoeda from '../components/CampoMoeda'
 
 const STATUS_OPTIONS = ['Proposta', 'Em Análise', 'Aprovada', 'Em Execução', 'Concluída', 'Cancelada']
 
@@ -330,8 +331,8 @@ export default function OrcamentoDetail() {
               <div key={key}>
                 <p className="text-xs text-gray-500 mb-1">{label}</p>
                 {editing ? (
-                  <input type="number" min="0" step="0.01" value={form[key]}
-                    onChange={(e) => set(key, e.target.value)}
+                  <CampoMoeda value={form[key]}
+                    onChange={(v) => set(key, v)}
                     className={inputCls(formErrors[key])} />
                 ) : (
                   <p className={`text-sm font-semibold ${color}`}>

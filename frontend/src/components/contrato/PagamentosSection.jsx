@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import useContratoStore from '../../stores/contratoStore'
 import HelpTip from '../HelpTip'
+import CampoMoeda from '../CampoMoeda'
 
 const STATUS_CLS = {
   pendente:  'bg-yellow-100 text-yellow-700',
@@ -99,7 +100,7 @@ export default function PagamentosSection({ contratoId, pagamentos, medicoes, po
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-0.5">Valor (R$) *</label>
-              <input type="number" step="0.01" value={form.valor_pago} onChange={e => setForm(p => ({ ...p, valor_pago: e.target.value }))} className={inp()} />
+              <CampoMoeda value={form.valor_pago} onChange={v => setForm(p => ({ ...p, valor_pago: v }))} className={inp()} />
             </div>
             <div>
               <label className="block text-xs text-gray-500 mb-0.5">Data de vencimento</label>

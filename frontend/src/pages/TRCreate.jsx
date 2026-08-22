@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import useTrStore from '../stores/trStore'
 import FormErrors from '../components/FormErrors'
+import CampoMoeda from '../components/CampoMoeda'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -530,8 +531,8 @@ export default function TRCreate() {
           )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <F label="Estimativa de valor (R$)">
-              <input type="number" min="0" step="0.01" value={form.estimativa_valor}
-                onChange={e => set('estimativa_valor', e.target.value)} className={inp()} />
+              <CampoMoeda value={form.estimativa_valor}
+                onChange={v => set('estimativa_valor', v)} className={inp()} />
             </F>
             <F label={isServico ? 'Local de execução' : 'Local de entrega'}>
               <input value={form.local_entrega} onChange={e => set('local_entrega', e.target.value)} className={inp()} />

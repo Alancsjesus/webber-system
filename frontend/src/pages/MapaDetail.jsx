@@ -7,6 +7,7 @@ import useAuthStore from '../stores/authStore'
 import LoadingSpinner from '../components/LoadingSpinner'
 import PNCPImport from '../components/PNCPImport'
 import FornecedorPicker from '../components/FornecedorPicker'
+import CampoMoeda from '../components/CampoMoeda'
 
 const fmt = (v) => Number(v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
@@ -991,8 +992,8 @@ function PrecoForm({ itemId, fontes, onSave }) {
         </div>
         <div>
           <label className="block text-xs text-gray-500 mb-1">Valor unitário (R$) *</label>
-          <input type="number" min="0" step="0.01" value={form.valor_unitario}
-            onChange={(e) => setForm(p => ({ ...p, valor_unitario: e.target.value }))}
+          <CampoMoeda value={form.valor_unitario}
+            onChange={(v) => setForm(p => ({ ...p, valor_unitario: v }))}
             className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500" />
         </div>
         <div className="col-span-3">

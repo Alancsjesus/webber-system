@@ -4,6 +4,7 @@ import usePlanejamentoStore from '../stores/planejamentoStore'
 import useAuthStore from '../stores/authStore'
 import api from '../services/api'
 import FormErrors from '../components/FormErrors'
+import CampoMoeda from '../components/CampoMoeda'
 
 const TODAY = new Date().toISOString().split('T')[0]
 
@@ -148,8 +149,8 @@ export default function NecessidadeCreate() {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <Field label="Valor estimado (R$)" error={errors.valor_estimado}>
-            <input type="number" min="0" step="0.01" value={form.valor_estimado}
-              onChange={(e) => set('valor_estimado', e.target.value)}
+            <CampoMoeda value={form.valor_estimado}
+              onChange={(v) => set('valor_estimado', v)}
               className={inp(errors.valor_estimado)} />
           </Field>
 

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useOrcamentoStore from '../stores/orcamentoStore'
 import FormErrors from '../components/FormErrors'
+import CampoMoeda from '../components/CampoMoeda'
 
 const ANO_ATUAL = new Date().getFullYear()
 
@@ -192,8 +193,8 @@ export default function OrcamentoCreate() {
         </Field>
 
         <Field label="Valor dotado (R$)" error={errors.valor_dotado}>
-          <input type="number" min="0" step="0.01" value={form.valor_dotado}
-            onChange={(e) => set('valor_dotado', e.target.value)}
+          <CampoMoeda value={form.valor_dotado}
+            onChange={(v) => set('valor_dotado', v)}
             className={inp(errors.valor_dotado)} />
         </Field>
 

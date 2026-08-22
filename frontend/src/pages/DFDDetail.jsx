@@ -8,6 +8,7 @@ import DownloadButton from '../components/DownloadButton'
 import ChecklistBadge from '../components/ChecklistBadge'
 import ModalPreviewTexto from '../components/ModalPreviewTexto'
 import HelpTip from '../components/HelpTip'
+import CampoMoeda from '../components/CampoMoeda'
 
 const STATUS_CLS = {
   Rascunho:    'bg-gray-100 text-gray-600',
@@ -921,8 +922,8 @@ export default function DFDDetail() {
                 </div>
                 <div className="col-span-2">
                   <label className="block text-xs text-gray-500 mb-0.5">Valor unitário (R$)</label>
-                  <input type="number" min="0" step="0.01" value={newItem.valor_unitario_estimado}
-                    onChange={(e) => setNewItem((p) => ({ ...p, valor_unitario_estimado: e.target.value }))}
+                  <CampoMoeda value={newItem.valor_unitario_estimado}
+                    onChange={(v) => setNewItem((p) => ({ ...p, valor_unitario_estimado: v }))}
                     className={inputCls()} />
                 </div>
               </div>

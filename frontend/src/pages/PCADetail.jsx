@@ -2,6 +2,7 @@ import { useEffect, useState, useCallback } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import api, { downloadFile } from '../services/api'
 import LoadingSpinner from '../components/LoadingSpinner'
+import { formatarMoeda } from '../utils/currencyMask'
 
 const CATEGORIA_OPTS = [
   { value: '',             label: '—' },
@@ -219,7 +220,7 @@ export default function PCADetail() {
             <span className="text-xs text-gray-500">{plano.itens?.length || 0} itens vinculados</span>
             {plano.dotacao_total && (
               <span className="text-xs text-gray-500">
-                Dotação: R$ {Number(plano.dotacao_total).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                Dotação: {formatarMoeda(plano.dotacao_total)}
               </span>
             )}
           </div>
@@ -286,7 +287,7 @@ export default function PCADetail() {
                       {n.departamento_solicitante} ·{' '}
                       {(n.area_aplicacao || []).join(', ')} ·{' '}
                       <span className="font-medium text-gray-700">
-                        R$ {Number(n.valor_estimado).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        {formatarMoeda(n.valor_estimado)}
                       </span>
                     </p>
                   </div>
@@ -357,7 +358,7 @@ export default function PCADetail() {
                         {(item.necessidade_areas || []).join(', ') || '—'}
                       </td>
                       <td className="px-3 py-2 text-right text-xs font-medium text-gray-800 whitespace-nowrap">
-                        R$ {Number(item.valor_estimado).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                        {formatarMoeda(item.valor_estimado)}
                       </td>
 
                       {emEdicao ? (
@@ -431,8 +432,7 @@ export default function PCADetail() {
                 <tr className="bg-green-50 border-t-2 border-green-200">
                   <td colSpan={3} className="px-3 py-2 text-xs font-bold text-gray-700 text-right">TOTAL GERAL</td>
                   <td className="px-3 py-2 text-right text-xs font-bold text-gray-800 whitespace-nowrap">
-                    R$ {plano.itens.reduce((acc, it) => acc + Number(it.valor_estimado || 0), 0)
-                        .toLocaleString('pt-BR', { minimumFractionDigits: 2 })}
+                    {formatarMoeda(plano.itens.reduce((acc, it) => acc + Number(it.valor_estimado || 0), 0))}
                   </td>
                   <td colSpan={5} />
                 </tr>

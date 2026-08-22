@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import useEtpStore from '../stores/etpStore'
 import useAuthStore from '../stores/authStore'
 import CampoSei from '../components/CampoSei'
+import CampoMoeda from '../components/CampoMoeda'
 
 export default function ETPCreate() {
   const navigate  = useNavigate()
@@ -132,8 +133,8 @@ export default function ETPCreate() {
         </Field>
 
         <Field label="Estimativa de valor (R$)">
-          <input type="number" min="0" step="0.01" value={form.estimativa_valor}
-            onChange={(e) => set('estimativa_valor', e.target.value)}
+          <CampoMoeda value={form.estimativa_valor}
+            onChange={(v) => set('estimativa_valor', v)}
             className={inp()} />
         </Field>
 
