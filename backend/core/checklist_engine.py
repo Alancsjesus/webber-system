@@ -361,6 +361,73 @@ REGRAS_TR: list[RegraChecklist] = [
 ]
 
 
+def _avaliador_atestacao(campo_bool):
+    """Fábrica: OK se o campo booleano nullable foi respondido (True ou False).
+
+    Deliberadamente não exige que a resposta seja "True" — o sistema pede que
+    a declaração exista, não arbitra o mérito jurídico da resposta. Quem
+    submete ao Conselho Gestor assume a responsabilidade pelo conteúdo.
+    """
+    def _f(obj, _):
+        if getattr(obj, campo_bool) is None:
+            return False, 'Declaração obrigatória não respondida.'
+        return True, ''
+    return _f
+
+
+def _avaliador_composicao_conselho_fesp(obj, _):
+    """Plano de Aplicação FESP: exige um presidente ativo cadastrado no Conselho Gestor."""
+    from modulo_fesp.models import ComposicaoConselhoGestor
+    tem_presidente = ComposicaoConselhoGestor.objects.filter(
+        org_id=obj.org_id_id, cargo='presidente', ativo=True,
+    ).exists()
+    if not tem_presidente:
+        return False, 'Conselho Gestor sem presidente ativo cadastrado.'
+    return True, ''
+
+
+REGRAS_PLANO_APLICACAO_FESP: list[RegraChecklist] = [
+    RegraChecklist(
+        campo='declaracao_nao_pessoal',
+        descricao='Vedação: não destinação a folha de pessoal/encargos',
+        base_legal='Lei Estadual 14.169/2019, art. 4º, §1º, I',
+        obrigatorio=True,
+        avaliador=_avaliador_atestacao('declaracao_nao_pessoal'),
+    ),
+    RegraChecklist(
+        campo='declaracao_nao_unidade_administrativa',
+        descricao='Vedação: não destinação a unidade puramente administrativa',
+        base_legal='Lei Estadual 14.169/2019, art. 4º, §1º, II',
+        obrigatorio=True,
+        avaliador=_avaliador_atestacao('declaracao_nao_unidade_administrativa'),
+    ),
+    RegraChecklist(
+        campo='declaracao_sem_contingenciamento',
+        descricao='Vedação: recursos não sujeitos a contingenciamento',
+        base_legal='Lei Estadual 14.169/2019, art. 5º',
+        obrigatorio=True,
+        avaliador=_avaliador_atestacao('declaracao_sem_contingenciamento'),
+    ),
+    RegraChecklist(
+        campo='composicao_conselho',
+        descricao='Conselho Gestor constituído (presidente ativo)',
+        base_legal='Lei Estadual 14.169/2019, arts. 7º-12',
+        obrigatorio=True,
+        avaliador=_avaliador_composicao_conselho_fesp,
+    ),
+    RegraChecklist(
+        campo='metas_especificas',
+        descricao='Plano possui ao menos uma Meta Específica',
+        base_legal='',
+        obrigatorio=True,
+        avaliador=lambda obj, c: (
+            obj.metas_especificas.exists(),
+            '' if obj.metas_especificas.exists() else 'Nenhuma Meta Específica cadastrada.',
+        ),
+    ),
+]
+
+
 # ─── Engine ───────────────────────────────────────────────────────────────────
 
 class ChecklistEngine:
@@ -424,3 +491,7 @@ class ChecklistEngine:
     @classmethod
     def avaliar_tr(cls, tr) -> ResultadoChecklist:
         return cls._avaliar(tr, REGRAS_TR)
+
+    @classmethod
+    def avaliar_plano_aplicacao(cls, plano) -> ResultadoChecklist:
+        return cls._avaliar(plano, REGRAS_PLANO_APLICACAO_FESP)

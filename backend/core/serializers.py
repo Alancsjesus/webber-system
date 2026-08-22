@@ -9,6 +9,7 @@ from .hcaptcha import verify_hcaptcha
 FLAGS_MODULOS = [
     'modulo_planejamento_ativo',
     'modulo_orcamento_ativo',
+    'modulo_fesp_ativo',
     'modulo_etp_ativo',
     'modulo_mapa_ativo',
     'dfd_exige_planejamento',
