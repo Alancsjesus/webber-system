@@ -1,4 +1,4 @@
-from datetime import date
+from decimal import Decimal
 
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
@@ -204,6 +204,35 @@ class GrupoConsolidacaoItemViewSet(viewsets.ModelViewSet):
         _check_planejamento(self.request)
         instance.delete()
 
+    @action(detail=True, methods=['post'], url_path='gerar_necessidades')
+    def gerar_necessidades(self, request, pk=None):
+        _check_planejamento(request)
+        grupo = self.get_object()
+        if grupo.status == 'processado':
+            return Response(
+                {'detail': 'Este grupo já gerou necessidades.'}, status=status.HTTP_400_BAD_REQUEST,
+            )
+        from .services import gerar_necessidades_de_grupo
+        necessidades = gerar_necessidades_de_grupo(grupo, request)
+        return Response({
+            'detail': f'{len(necessidades)} necessidade(s) gerada(s).',
+            'necessidades_ids': [n.id for n in necessidades],
+            'grupo': self.get_serializer(grupo).data,
+        })
+
+    @action(detail=True, methods=['post'])
+    def desfazer(self, request, pk=None):
+        _check_planejamento(request)
+        grupo = self.get_object()
+        if grupo.status == 'processado':
+            return Response(
+                {'detail': 'Grupo já processado — necessidades já foram geradas, não é possível desfazer.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        grupo.itens.update(grupo_consolidacao=None, status='pendente')
+        grupo.delete()
+        return Response({'detail': 'Consolidação desfeita.'})
+
 
 class ItemPlanoAplicacaoViewSet(viewsets.ModelViewSet):
     """Itens de uma Meta Específica — editáveis só enquanto o plano está em elaboração."""
@@ -247,6 +276,23 @@ class ItemPlanoAplicacaoViewSet(viewsets.ModelViewSet):
         _check_planejamento(self.request)
         self._check_plano_editavel(instance.meta_especifica)
         instance.delete()
+
+    @action(detail=True, methods=['post'], url_path='gerar_necessidade_individual')
+    def gerar_necessidade_individual(self, request, pk=None):
+        _check_planejamento(request)
+        item = self.get_object()
+        if item.status != 'pendente':
+            return Response(
+                {'detail': 'Este item já está consolidado ou já gerou necessidade.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        from .services import gerar_necessidade_individual
+        nec = gerar_necessidade_individual(item, request)
+        return Response({
+            'detail': 'Necessidade gerada.' if nec else 'Nenhuma necessidade gerada.',
+            'necessidade_id': nec.id if nec else None,
+            'item': self.get_serializer(item).data,
+        })
 
 
 class PlanoAplicacaoViewSet(viewsets.ModelViewSet):
@@ -349,6 +395,14 @@ class PlanoAplicacaoViewSet(viewsets.ModelViewSet):
         return Response(self.get_serializer(plano).data)
 
     @action(detail=True, methods=['post'])
+    def reabrir(self, request, pk=None):
+        """Reabre um plano devolvido pelo Conselho para nova edição/ajustes."""
+        _check_planejamento(request)
+        plano = self.get_object()
+        self._transicao(plano, 'elaboracao', request.user)
+        return Response(self.get_serializer(plano).data)
+
+    @action(detail=True, methods=['post'])
     def homologar(self, request, pk=None):
         papel = getattr(request, 'papel', None)
         if papel not in ('admin', 'ordenador'):
@@ -394,3 +448,161 @@ class PlanoAplicacaoViewSet(viewsets.ModelViewSet):
             return Response({'detail': 'Motivo do cancelamento é obrigatório.'}, status=status.HTTP_400_BAD_REQUEST)
         self._transicao(plano, 'cancelado', request.user, motivo)
         return Response(self.get_serializer(plano).data)
+
+    # ── Consolidação de itens (Fase 3) ──────────────────────────────────────
+
+    @action(detail=True, methods=['get'], url_path='sugestoes_consolidacao')
+    def sugestoes_consolidacao(self, request, pk=None):
+        """
+        Agrupa os itens pendentes do plano (de todas as Metas Específicas) por
+        chave de agrupamento (família SIMPAS ou prefixo do Cód. SENASP),
+        destacando quando a mesma chave aparece em mais de um órgão
+        beneficiário — candidato a consolidação.
+        """
+        from .services import chave_agrupamento
+        plano = self.get_object()
+        qs = (
+            ItemPlanoAplicacao.objects
+            .filter(meta_especifica__plano=plano, status='pendente')
+            .select_related('org_beneficiaria', 'item_catalogo')
+        )
+        grupos = {}
+        for item in qs:
+            chave = chave_agrupamento(item)
+            if not chave:
+                continue
+            g = grupos.setdefault(chave, {'chave': chave, 'itens': [], 'orgaos': {}})
+            g['itens'].append(item)
+            org = item.org_beneficiaria
+            info = g['orgaos'].setdefault(org.id, {'org_id': org.id, 'sigla': org.sigla, 'nome': org.nome, 'qtd_itens': 0, 'valor': Decimal('0')})
+            info['qtd_itens'] += 1
+            info['valor'] += item.valor_total_estimado
+
+        resultado = []
+        for chave, g in grupos.items():
+            n_orgaos = len(g['orgaos'])
+            resultado.append({
+                'chave_agrupamento': chave,
+                'total_itens': len(g['itens']),
+                'total_orgaos': n_orgaos,
+                'multi_orgao': n_orgaos > 1,
+                'valor_total': sum((i.valor_total_estimado for i in g['itens']), Decimal('0')),
+                'orgaos': list(g['orgaos'].values()),
+                'itens': ItemPlanoAplicacaoSerializer(g['itens'], many=True).data,
+            })
+        resultado.sort(key=lambda g: (not g['multi_orgao'], -g['total_itens']))
+        return Response({'grupos_sugeridos': resultado})
+
+    @action(detail=True, methods=['post'], url_path='confirmar_consolidacao')
+    def confirmar_consolidacao(self, request, pk=None):
+        _check_planejamento(request)
+        plano = self.get_object()
+        item_ids = request.data.get('item_ids') or []
+        titulo = (request.data.get('titulo') or '').strip()
+        if not item_ids or not titulo:
+            return Response(
+                {'detail': 'Informe "titulo" e ao menos um item em "item_ids".'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        itens = ItemPlanoAplicacao.objects.filter(
+            id__in=item_ids, meta_especifica__plano=plano, status='pendente',
+        )
+        if not itens.exists():
+            return Response(
+                {'detail': 'Nenhum dos itens informados está disponível para consolidação.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        from .services import chave_agrupamento
+        primeiro = itens.first()
+        grupo = GrupoConsolidacaoItem.objects.create(
+            org_id_id=request.org_id, created_by=request.user, updated_by=request.user,
+            plano=plano, chave_agrupamento=request.data.get('chave_agrupamento') or chave_agrupamento(primeiro),
+            titulo=titulo, descricao=request.data.get('descricao', ''),
+        )
+        itens.update(grupo_consolidacao=grupo, status='consolidado')
+        return Response({
+            'detail': f'{itens.count()} item(ns) consolidado(s) em "{titulo}".',
+            'grupo': GrupoConsolidacaoItemSerializer(grupo).data,
+        }, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'], url_path='gerar_necessidades')
+    def gerar_necessidades(self, request, pk=None):
+        """Gera necessidades em lote para vários grupos de consolidação do plano. Body: {grupo_ids: [...]}."""
+        _check_planejamento(request)
+        plano = self.get_object()
+        grupo_ids = request.data.get('grupo_ids') or []
+        if not grupo_ids:
+            return Response({'detail': 'Informe ao menos um grupo em "grupo_ids".'}, status=status.HTTP_400_BAD_REQUEST)
+
+        from .services import gerar_necessidades_de_grupo
+        total_necessidades = []
+        for grupo in GrupoConsolidacaoItem.objects.filter(id__in=grupo_ids, plano=plano).exclude(status='processado'):
+            total_necessidades.extend(gerar_necessidades_de_grupo(grupo, request))
+
+        return Response({
+            'detail': f'{len(total_necessidades)} necessidade(s) gerada(s) a partir de {len(grupo_ids)} grupo(s).',
+            'necessidades_ids': [n.id for n in total_necessidades],
+        })
+
+    # ── Rastreabilidade financeira / prestação de contas (Fase 4) ───────────
+
+    @action(detail=True, methods=['get'])
+    def execucao(self, request, pk=None):
+        """
+        Dashboard de prestação de contas: para cada Necessidade originada
+        deste plano, a etapa atual da cadeia (Necessidade→DFD→ETP→TR→
+        Procedimento→Contrato) e um resumo de valores planejados x já
+        levados a DFD x já contratados. Reaproveita _cadeia/_etapa_atual de
+        core.views_rastreabilidade em vez de duplicar essa lógica.
+        """
+        from core.views_rastreabilidade import _cadeia, _etapa_atual, _qs_base
+        plano = self.get_object()
+
+        necessidades = _qs_base().filter(origem_plano_aplicacao_fesp=plano).select_related('org_id')
+
+        linhas = []
+        valor_planejado = Decimal('0')
+        valor_em_dfd = Decimal('0')
+        valor_contratado = Decimal('0')
+
+        for nec in necessidades:
+            cadeia = _cadeia(nec)
+            etapa_nome, etapa_idx = _etapa_atual(cadeia)
+            valor_planejado += nec.valor_estimado or Decimal('0')
+
+            dfd = nec.dfd
+            if dfd:
+                valor_em_dfd += dfd.valor_estimado or Decimal('0')
+                for contrato in dfd.contratos.all():
+                    valor_contratado += contrato.valor_contrato or Decimal('0')
+
+            linhas.append({
+                'necessidade_id': nec.id,
+                'titulo': nec.titulo,
+                'org_id': nec.org_id_id,
+                'org_sigla': nec.org_id.sigla if nec.org_id else None,
+                'valor_estimado': str(nec.valor_estimado),
+                'etapa_atual': etapa_nome,
+                'etapa_idx': etapa_idx,
+                'total_etapas': len(cadeia),
+            })
+
+        return Response({
+            'plano_id': plano.id,
+            'plano_numero': plano.numero,
+            'resumo': {
+                'total_necessidades': len(linhas),
+                'valor_planejado': str(valor_planejado),
+                'valor_em_dfd': str(valor_em_dfd),
+                'valor_contratado': str(valor_contratado),
+                'valor_sem_uso': str(valor_planejado - valor_em_dfd),
+            },
+            'necessidades': linhas,
+        })
+
+    @action(detail=True, methods=['get'], url_path='export/pdf')
+    def export_pdf(self, request, pk=None):
+        plano = self.get_object()
+        from exportacao.pdf_utils import gerar_pdf_plano_aplicacao, resposta_pdf
+        pdf = gerar_pdf_plano_aplicacao(plano)
+        return resposta_pdf(pdf, f'PlanoAplicacao-{plano.numero}.pdf')

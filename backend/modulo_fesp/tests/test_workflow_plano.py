@@ -212,6 +212,31 @@ class TestAprovarConselho:
 # ---------------------------------------------------------------------------
 
 @pytest.mark.django_db
+class TestDevolverEReabrir:
+    def test_devolvido_pode_ser_reaberto_para_elaboracao(self, api_client, planejamento_user, conselho_user, plano):
+        plano.declaracao_nao_pessoal = True
+        plano.declaracao_nao_unidade_administrativa = True
+        plano.declaracao_sem_contingenciamento = True
+        plano.save()
+        MetaEspecifica.objects.create(
+            org_id=plano.org_id, created_by=planejamento_user, updated_by=planejamento_user,
+            plano=plano, titulo='ME 1',
+        )
+        _login(api_client, 'plan_test')
+        api_client.post(f'/api/fesp/plano-aplicacao/{plano.id}/submeter_conselho/')
+
+        _login(api_client, 'conselho_test')
+        resp = api_client.post(f'/api/fesp/plano-aplicacao/{plano.id}/devolver/', {'motivo': 'Faltam dados'})
+        assert resp.status_code == 200, resp.data
+        assert resp.data['status'] == 'devolvido'
+
+        _login(api_client, 'plan_test')
+        resp = api_client.post(f'/api/fesp/plano-aplicacao/{plano.id}/reabrir/')
+        assert resp.status_code == 200, resp.data
+        assert resp.data['status'] == 'elaboracao'
+
+
+@pytest.mark.django_db
 class TestIsolamentoMultiTenant:
     def test_outro_orgao_nao_ve_plano(self, api_client, outro_org_user, plano):
         _login(api_client, 'outro_org_test')

@@ -103,6 +103,16 @@ class NecessidadePlanejamento(BaseModel):
         verbose_name='DFD gerado',
     )
 
+    # Origem: quando a necessidade nasce da consolidação de itens de um
+    # Plano de Aplicação FESP/Emendas/Financiamentos (ver modulo_fesp).
+    origem_plano_aplicacao_fesp = models.ForeignKey(
+        'modulo_fesp.PlanoAplicacao',
+        null=True, blank=True,
+        on_delete=models.SET_NULL,
+        related_name='necessidades_geradas',
+        verbose_name='Origem: Plano de Aplicação (FESP/Emendas/Financiamentos)',
+    )
+
     class Meta:
         ordering = ['-created_at']
         verbose_name = 'Necessidade de Planejamento'

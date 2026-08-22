@@ -166,6 +166,48 @@ def _etapa_atual(cadeia):
     return 'Necessidade', 0
 
 
+def _origem_recurso(nec):
+    """
+    Bloco de origem de recurso quando a necessidade nasceu da consolidação de
+    itens de um Plano de Aplicação FESP/Emendas/Financiamentos (modulo_fesp).
+    Retorna None para necessidades de origem comum — não altera o payload
+    para o caso já existente, só acrescenta quando aplicável.
+    """
+    if not nec.origem_plano_aplicacao_fesp_id:
+        return None
+    plano = nec.origem_plano_aplicacao_fesp
+    instrumentos = {}
+    for item in nec.itens_plano_aplicacao_fesp.all():
+        instrumentos[item.instrumento_id] = item.instrumento
+    return {
+        'plano_id': plano.id,
+        'plano_numero': plano.numero,
+        'plano_ementa': plano.ementa,
+        'instrumentos': [
+            {'id': i.id, 'tipo': i.get_tipo_instrumento_display(), 'numero': i.numero_instrumento}
+            for i in instrumentos.values()
+        ],
+    }
+
+
+def _qs_visivel(org_id):
+    """
+    Necessidades visíveis para um órgão: as próprias, mais as que esse órgão
+    gerencia como pai/executor (mesmo critério de NecessidadeViewSet.get_queryset
+    em modulo_planejamento/views.py) — inclui necessidades externas geradas para
+    órgãos filhos a partir de um Plano de Aplicação FESP gerido por este órgão.
+    """
+    from django.db.models import Q
+    from core.models import Orgao
+    child_ids = Orgao.objects.filter(parent_id=org_id).values_list('id', flat=True)
+    return _qs_base().filter(
+        Q(org_id=org_id) |
+        Q(orgao_executor=org_id) |
+        Q(org_gestor=org_id) |
+        Q(org_id__in=child_ids, tipo_execucao='externa')
+    ).distinct()
+
+
 def _qs_base():
     from modulo_planejamento.models import NecessidadePlanejamento
     return (
@@ -175,12 +217,14 @@ def _qs_base():
             'dfd', 'dfd__created_by',
             'dfd__etp', 'dfd__etp__created_by',
             'dfd__etp__tr', 'dfd__etp__tr__created_by',
+            'origem_plano_aplicacao_fesp',
         )
         .prefetch_related(
             'dfd__procedimentos',
             'dfd__procedimentos__created_by',
             'dfd__contratos',
             'dfd__contratos__created_by',
+            'itens_plano_aplicacao_fesp__instrumento',
         )
     )
 
@@ -234,7 +278,7 @@ class RastreabilidadeListView(APIView):
 
         p = request.query_params
         qs = _filtrar_qs(
-            _qs_base().filter(org_id=request.org_id).order_by('-created_at'),
+            _qs_visivel(request.org_id).order_by('-created_at'),
             p,
         )
 
@@ -271,6 +315,7 @@ class RastreabilidadeListView(APIView):
                 'data_criacao':     _dt(nec.created_at),
                 'dias_em_aberto':   _dias(nec.created_at),
                 'responsavel':      _nome(nec.created_by),
+                'origem_recurso':   _origem_recurso(nec),
             })
 
         # Paginação em memória (após filtro de etapa em Python)
@@ -303,7 +348,7 @@ class RastreabilidadeDetailView(APIView):
             raise PermissionDenied('Acesso restrito a gestores e analistas.')
 
         nec = get_object_or_404(
-            _qs_base().filter(org_id=request.org_id),
+            _qs_visivel(request.org_id),
             pk=pk,
         )
 
@@ -322,5 +367,6 @@ class RastreabilidadeDetailView(APIView):
             'data_criacao':     _dt(nec.created_at),
             'dias_em_aberto':   _dias(nec.created_at),
             'responsavel':      _nome(nec.created_by),
+            'origem_recurso':   _origem_recurso(nec),
             'cadeia':           cadeia,
         })

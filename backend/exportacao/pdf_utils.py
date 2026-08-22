@@ -1533,6 +1533,168 @@ def gerar_pdf_indicacao(indicacao) -> bytes:
     return buf.getvalue()
 
 
+# ── Plano de Aplicação FESP ──────────────────────────────────────────────────
+
+def _sim_nao(valor):
+    if valor is True:
+        return 'Sim'
+    if valor is False:
+        return 'Não'
+    return 'Não respondido'
+
+
+def gerar_pdf_plano_aplicacao(plano) -> bytes:
+    """Gera o PDF do Plano de Aplicação (FESP / Emendas / Financiamentos)."""
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4,
+                             leftMargin=2*cm, rightMargin=2*cm,
+                             topMargin=2*cm, bottomMargin=2.5*cm)
+    estilos = _estilos()
+    e = []
+
+    def fmt(v):
+        return f'R$ {(v or 0):,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
+
+    org_nome = plano.org_id.nome if plano.org_id else ''
+    hash_doc = _hash_documento({
+        'tipo': 'PLANO_APLICACAO_FESP', 'id': str(plano.pk), 'numero': plano.numero,
+        'exercicio': str(plano.exercicio_fiscal),
+        **_dados_hash_usuario(plano),
+    })
+
+    e += _cabecalho('PLANO DE APLICAÇÃO — FESP / EMENDAS / FINANCIAMENTOS', plano.numero, org_nome, estilos,
+                    org_sigla=plano.org_id.sigla if plano.org_id else None)
+
+    e.append(_secao('Identificação', estilos))
+    e += _campo('Número', plano.numero, estilos)
+    e += _campo('Ementa', plano.ementa, estilos)
+    e += _campo('Exercício Fiscal', str(plano.exercicio_fiscal), estilos)
+    e += _campo('Status', plano.get_status_display(), estilos)
+    if plano.numero_ato:
+        e += _campo('Ato de Homologação', plano.numero_ato, estilos)
+    if plano.data_ato:
+        e += _campo('Data do Ato', plano.data_ato.strftime('%d/%m/%Y'), estilos)
+
+    if plano.responsavel_gestao_nome:
+        e.append(_secao('Responsável pela Gestão do Fundo', estilos))
+        e += _campo('Nome', plano.responsavel_gestao_nome, estilos)
+        e += _campo('Cargo', plano.responsavel_gestao_cargo, estilos)
+        e += _campo('E-mail', plano.responsavel_gestao_email, estilos)
+
+    if plano.responsavel_elaboracao_nome:
+        e.append(_secao('Responsável pela Elaboração', estilos))
+        e += _campo('Nome', plano.responsavel_elaboracao_nome, estilos)
+        e += _campo('Cargo', plano.responsavel_elaboracao_cargo, estilos)
+
+    e.append(_secao('Vedações Legais (Lei 14.169/2019, art. 4º, §1º)', estilos))
+    e += _campo('Não destinação a folha de pessoal/encargos', _sim_nao(plano.declaracao_nao_pessoal), estilos)
+    e += _campo('Não destinação a unidade puramente administrativa', _sim_nao(plano.declaracao_nao_unidade_administrativa), estilos)
+    e += _campo('Ciência de que os recursos não são contingenciáveis', _sim_nao(plano.declaracao_sem_contingenciamento), estilos)
+
+    if plano.diagnostico:
+        e.append(_secao('Diagnóstico', estilos))
+        e.append(Paragraph(plano.diagnostico, estilos['valor']))
+    if plano.meta_geral:
+        e.append(_secao('Meta Geral', estilos))
+        e.append(Paragraph(plano.meta_geral, estilos['valor']))
+    if plano.justificativa:
+        e.append(_secao('Justificativa', estilos))
+        e.append(Paragraph(plano.justificativa, estilos['valor']))
+
+    # Decomposição financeira
+    e.append(_secao('Decomposição Financeira (R$)', estilos))
+    cabecalho_tab = [['Origem', 'Investimento', 'Custeio', 'Total']]
+    dados_tab = list(cabecalho_tab)
+    for nome, inv, cus in [
+        ('Originário',  plano.valor_originario_investimento,  plano.valor_originario_custeio),
+        ('Suplementar', plano.valor_suplementar_investimento, plano.valor_suplementar_custeio),
+        ('Rendimento',  plano.valor_rendimento_investimento,  plano.valor_rendimento_custeio),
+        ('Planejado (alocado a itens)', plano.valor_planejado_investimento, plano.valor_planejado_custeio),
+    ]:
+        dados_tab.append([nome, fmt(inv), fmt(cus), fmt((inv or 0) + (cus or 0))])
+    t = Table(dados_tab, colWidths=[6*cm, 3.5*cm, 3.5*cm, 3.5*cm])
+    t.setStyle(TableStyle([
+        ('BACKGROUND',    (0, 0), (-1, 0),  AZUL_GOV),
+        ('TEXTCOLOR',     (0, 0), (-1, 0),  BRANCO),
+        ('FONTNAME',      (0, 0), (-1, 0),  'Helvetica-Bold'),
+        ('FONTSIZE',      (0, 0), (-1, -1), 8),
+        ('ROWBACKGROUNDS',(0, 1), (-1, -1), [BRANCO, AZUL_CLARO]),
+        ('GRID',          (0, 0), (-1, -1), 0.5, CINZA_BD),
+        ('ALIGN',         (1, 0), (-1, -1), 'RIGHT'),
+        ('VALIGN',        (0, 0), (-1, -1), 'MIDDLE'),
+        ('TOPPADDING',    (0, 0), (-1, -1), 4),
+        ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+    ]))
+    e.append(t)
+
+    # Metas Específicas
+    metas = list(plano.metas_especificas.all())
+    if metas:
+        e.append(_secao('Metas Específicas', estilos))
+        cabecalho_tab = [['ME', 'Título', 'Status', 'Valor Total']]
+        dados_tab = list(cabecalho_tab)
+        for meta in metas:
+            dados_tab.append([
+                str(meta.numero), meta.titulo[:60], meta.get_status_display(), fmt(meta.valor_total),
+            ])
+        t = Table(dados_tab, colWidths=[1.5*cm, 8.5*cm, 3*cm, 3.5*cm])
+        t.setStyle(TableStyle([
+            ('BACKGROUND',    (0, 0), (-1, 0),  AZUL_GOV),
+            ('TEXTCOLOR',     (0, 0), (-1, 0),  BRANCO),
+            ('FONTNAME',      (0, 0), (-1, 0),  'Helvetica-Bold'),
+            ('FONTSIZE',      (0, 0), (-1, -1), 8),
+            ('ROWBACKGROUNDS',(0, 1), (-1, -1), [BRANCO, AZUL_CLARO]),
+            ('GRID',          (0, 0), (-1, -1), 0.5, CINZA_BD),
+            ('ALIGN',         (3, 0), (3, -1),  'RIGHT'),
+            ('VALIGN',        (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING',    (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        e.append(t)
+
+    # Instrumentos financeiros vinculados
+    from modulo_fesp.models import InstrumentoFinanceiro
+    instrumentos = InstrumentoFinanceiro.objects.filter(itens_plano__meta_especifica__plano=plano).distinct()
+    if instrumentos.exists():
+        e.append(_secao('Instrumentos Financeiros', estilos))
+        cabecalho_tab = [['Tipo', 'Número', 'Valor Pactuado']]
+        dados_tab = list(cabecalho_tab)
+        for inst in instrumentos:
+            dados_tab.append([inst.get_tipo_instrumento_display(), inst.numero_instrumento, fmt(inst.valor_total_pactuado)])
+        t = Table(dados_tab, colWidths=[6*cm, 6*cm, 4.5*cm])
+        t.setStyle(TableStyle([
+            ('BACKGROUND',    (0, 0), (-1, 0),  AZUL_GOV),
+            ('TEXTCOLOR',     (0, 0), (-1, 0),  BRANCO),
+            ('FONTNAME',      (0, 0), (-1, 0),  'Helvetica-Bold'),
+            ('FONTSIZE',      (0, 0), (-1, -1), 8),
+            ('ROWBACKGROUNDS',(0, 1), (-1, -1), [BRANCO, AZUL_CLARO]),
+            ('GRID',          (0, 0), (-1, -1), 0.5, CINZA_BD),
+            ('ALIGN',         (2, 0), (2, -1),  'RIGHT'),
+            ('VALIGN',        (0, 0), (-1, -1), 'MIDDLE'),
+            ('TOPPADDING',    (0, 0), (-1, -1), 4),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
+        ]))
+        e.append(t)
+
+    # Aprovador: usa o histórico de homologação (status_novo='homologado'),
+    # já que os status do Plano não seguem o padrão 'Aprovada'/'Aprovado'
+    # assumido pelo lookup automático de _bloco_assinaturas.
+    aprovador = None
+    data_aprov_str = None
+    hist_homolog = plano.historico.filter(status_novo='homologado').order_by('-criado_em').first()
+    if hist_homolog:
+        aprovador = hist_homolog.usuario
+        data_aprov_str = hist_homolog.criado_em.strftime('%d/%m/%Y %H:%M')
+
+    e += _bloco_assinaturas(
+        plano, estilos, hash_doc,
+        aprovador_override=aprovador, data_aprovacao_override=data_aprov_str,
+    )
+
+    doc.build(e, onFirstPage=_rodape, onLaterPages=_rodape)
+    return buf.getvalue()
+
+
 # ── PCA ────────────────────────────────────────────────────────────────────────
 
 def gerar_pdf_pca(plano) -> bytes:
