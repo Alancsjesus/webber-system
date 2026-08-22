@@ -19,6 +19,7 @@ function getFieldFromToken(field) {
 const DEFAULT_FLAGS = {
   modulo_planejamento_ativo: true,
   modulo_orcamento_ativo:    true,
+  modulo_fesp_ativo:         true,
   modulo_etp_ativo:          true,
   modulo_mapa_ativo:         true,
   dfd_exige_planejamento:    false,

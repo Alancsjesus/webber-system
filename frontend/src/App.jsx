@@ -63,6 +63,15 @@ import PNCPList from './pages/PNCPList'
 import AuditoriaList from './pages/AuditoriaList'
 import RastreabilidadeList from './pages/RastreabilidadeList'
 import RastreabilidadeDetail from './pages/RastreabilidadeDetail'
+import FespInstrumentoList from './pages/FespInstrumentoList'
+import FespInstrumentoCreate from './pages/FespInstrumentoCreate'
+import FespInstrumentoDetail from './pages/FespInstrumentoDetail'
+import FespPlanoList from './pages/FespPlanoList'
+import FespPlanoCreate from './pages/FespPlanoCreate'
+import FespPlanoDetail from './pages/FespPlanoDetail'
+import FespConselhoPainel from './pages/FespConselhoPainel'
+import FespConsolidacao from './pages/FespConsolidacao'
+import ComposicaoConselhoAdmin from './pages/config/ComposicaoConselhoAdmin'
 
 // Wrapper que combina autenticação + autorização por papel
 function Guard({ children }) {
@@ -119,6 +128,17 @@ export default function App() {
           <Route path="orcamento/indicacoes"       element={<Guard><IndicacaoList /></Guard>} />
           <Route path="orcamento/indicacoes/nova"  element={<Guard><IndicacaoCreate /></Guard>} />
           <Route path="orcamento/indicacoes/:id"   element={<Guard><IndicacaoDetail /></Guard>} />
+
+          {/* FESP / Emendas / Financiamentos */}
+          <Route path="fesp/instrumentos"      element={<Guard><FespInstrumentoList /></Guard>} />
+          <Route path="fesp/instrumentos/novo" element={<Guard><FespInstrumentoCreate /></Guard>} />
+          <Route path="fesp/instrumentos/:id"  element={<Guard><FespInstrumentoDetail /></Guard>} />
+          <Route path="fesp/planos"            element={<Guard><FespPlanoList /></Guard>} />
+          <Route path="fesp/planos/novo"       element={<Guard><FespPlanoCreate /></Guard>} />
+          <Route path="fesp/planos/:id"        element={<Guard><FespPlanoDetail /></Guard>} />
+          <Route path="fesp/planos/:id/consolidacao" element={<Guard><FespConsolidacao /></Guard>} />
+          <Route path="fesp/conselho"          element={<Guard><FespConselhoPainel /></Guard>} />
+          <Route path="config/conselho-fesp"   element={<Guard><ComposicaoConselhoAdmin /></Guard>} />
 
           {/* Demanda */}
           <Route path="demanda/dfd"      element={<Guard><DFDList /></Guard>} />

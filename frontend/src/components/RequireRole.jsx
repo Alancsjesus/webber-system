@@ -26,6 +26,7 @@ const ACESSO_POR_PAPEL = {
     '/fornecedores',
     '/calendario',
     '/rastreabilidade',
+    '/fesp',
   ],
 
   gestor_planejamento: [
@@ -46,7 +47,9 @@ const ACESSO_POR_PAPEL = {
     '/config/fontes',
     '/config/tipo-acao',
     '/config/tipo-fonte',
+    '/config/conselho-fesp',
     '/rastreabilidade',
+    '/fesp',
   ],
 
   gestor_contrato: [
@@ -82,6 +85,7 @@ const ACESSO_POR_PAPEL = {
     '/licitacao',
     '/calendario',
     '/rastreabilidade',
+    '/fesp',
   ],
 
   responsavel_tecnico: [
@@ -109,7 +113,7 @@ const ACESSO_POR_PAPEL = {
 // Extensões por tipo de unidade (ampliam o papel base)
 const ACESSO_EXTRA_POR_UNIDADE = {
   licitante:    ['/licitacao', '/etp', '/analise-tecnica', '/pesquisa', '/contratos', '/fornecedores', '/plano-compras', '/config/parametros'],
-  planejamento: ['/orcamento', '/planejamento', '/plano-compras'],
+  planejamento: ['/orcamento', '/planejamento', '/plano-compras', '/fesp'],
   contratante:  ['/contratos', '/fornecedores', '/licitacao'],
   demandante:   ['/demanda', '/pesquisa'],
 }

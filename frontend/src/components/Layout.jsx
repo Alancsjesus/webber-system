@@ -11,6 +11,7 @@ const SECTION_ACCENT = {
   'Planejamento':       { dot: 'bg-emerald-400',  ring: 'bg-emerald-500/15', text: 'text-emerald-300'},
   'Aceite':             { dot: 'bg-amber-400',    ring: 'bg-amber-500/15',   text: 'text-amber-300'  },
   'Orçamento':          { dot: 'bg-yellow-400',   ring: 'bg-yellow-500/15',  text: 'text-yellow-300' },
+  'FESP':               { dot: 'bg-amber-400',    ring: 'bg-amber-500/15',   text: 'text-amber-300'  },
   'Demanda':            { dot: 'bg-blue-400',     ring: 'bg-blue-500/15',    text: 'text-blue-300'   },
   'Pesquisa de Preços': { dot: 'bg-violet-400',   ring: 'bg-violet-500/15',  text: 'text-violet-300' },
   'Análise Técnica':    { dot: 'bg-indigo-400',   ring: 'bg-indigo-500/15',  text: 'text-indigo-300' },
@@ -26,6 +27,7 @@ const ACTIVE_CLS = {
   'Planejamento':       'bg-gray-800/70 text-white',
   'Aceite':             'bg-gray-800/70 text-white',
   'Orçamento':          'bg-gray-800/70 text-white',
+  'FESP':               'bg-gray-800/70 text-white',
   'Demanda':            'bg-gray-800/70 text-white',
   'Pesquisa de Preços': 'bg-gray-800/70 text-white',
   'Análise Técnica':    'bg-gray-800/70 text-white',
@@ -41,6 +43,7 @@ const ACTIVE_BORDER = {
   'Planejamento':       'border-l-2 border-emerald-500',
   'Aceite':             'border-l-2 border-amber-500',
   'Orçamento':          'border-l-2 border-yellow-500',
+  'FESP':               'border-l-2 border-amber-500',
   'Demanda':            'border-l-2 border-blue-500',
   'Pesquisa de Preços': 'border-l-2 border-violet-500',
   'Análise Técnica':    'border-l-2 border-indigo-500',
@@ -74,6 +77,14 @@ const NAV_BASE = [
     items: [
       { to: '/orcamento/dotacoes',   label: 'Dotações' },
       { to: '/orcamento/indicacoes', label: 'Indicações / DOD' },
+    ],
+  },
+  {
+    section: 'FESP',
+    items: [
+      { to: '/fesp/planos',       label: 'Planos de Aplicação' },
+      { to: '/fesp/instrumentos', label: 'Instrumentos Financeiros' },
+      { to: '/fesp/conselho',     label: 'Conselho Gestor' },
     ],
   },
   {
@@ -156,6 +167,12 @@ const CONFIG_GROUPS_ADMIN = [
       { to: '/config/artefatos', label: 'Estrutura de Artefatos' },
     ],
   },
+  {
+    label: 'FESP',
+    items: [
+      { to: '/config/conselho-fesp', label: 'Conselho Gestor FESP' },
+    ],
+  },
 ]
 
 const CONFIG_GROUPS_PLANEJAMENTO = [
@@ -175,6 +192,12 @@ const CONFIG_GROUPS_PLANEJAMENTO = [
       { to: '/config/fontes',    label: 'Fontes de Recurso' },
       { to: '/config/tipo-acao',  label: 'Tipos de Ação' },
       { to: '/config/tipo-fonte', label: 'Tipos de Fonte' },
+    ],
+  },
+  {
+    label: 'FESP',
+    items: [
+      { to: '/config/conselho-fesp', label: 'Conselho Gestor FESP' },
     ],
   },
 ]
@@ -199,17 +222,17 @@ const TIPO_UNIDADE_BADGE = {
 
 const ACESSO_PAPEL = {
   admin:               ['*'],
-  analista:            ['/', '/painel', '/ajuda', '/plano-compras', '/calendario', '/planejamento', '/demanda', '/pesquisa', '/etp', '/analise-tecnica', '/orcamento', '/licitacao', '/contratos', '/fornecedores'],
-  gestor_planejamento: ['/', '/painel', '/ajuda', '/plano-compras', '/calendario', '/planejamento', '/demanda', '/pesquisa', '/orcamento', '/planejamento/pca'],
+  analista:            ['/', '/painel', '/ajuda', '/plano-compras', '/calendario', '/planejamento', '/demanda', '/pesquisa', '/etp', '/analise-tecnica', '/orcamento', '/licitacao', '/contratos', '/fornecedores', '/fesp'],
+  gestor_planejamento: ['/', '/painel', '/ajuda', '/plano-compras', '/calendario', '/planejamento', '/demanda', '/pesquisa', '/orcamento', '/planejamento/pca', '/fesp', '/config/conselho-fesp'],
   gestor_contrato:     ['/', '/painel', '/ajuda', '/calendario', '/demanda', '/analise-tecnica', '/licitacao', '/contratos', '/fornecedores'],
   fiscal_contrato:     ['/', '/painel', '/ajuda', '/calendario', '/demanda', '/contratos'],
-  ordenador:           ['/', '/painel', '/ajuda', '/plano-compras', '/calendario', '/orcamento', '/contratos', '/licitacao', '/fornecedores'],
+  ordenador:           ['/', '/painel', '/ajuda', '/plano-compras', '/calendario', '/orcamento', '/contratos', '/licitacao', '/fornecedores', '/fesp'],
   responsavel_tecnico: ['/', '/painel', '/ajuda', '/demanda', '/pesquisa', '/etp', '/analise-tecnica'],
   solicitante:         ['/', '/painel', '/ajuda', '/demanda', '/planejamento', '/pesquisa', '/etp', '/analise-tecnica'],
 }
 const ACESSO_UNIDADE = {
   licitante:    ['/licitacao', '/etp', '/analise-tecnica', '/pesquisa', '/contratos', '/plano-compras', '/fornecedores'],
-  planejamento: ['/orcamento', '/planejamento', '/plano-compras'],
+  planejamento: ['/orcamento', '/planejamento', '/plano-compras', '/fesp'],
   contratante:  ['/contratos', '/licitacao', '/fornecedores'],
   demandante:   ['/demanda', '/pesquisa'],
 }
@@ -242,6 +265,7 @@ function buildSections(papel, tipoUnidade, flags) {
 
   if (!f.modulo_planejamento_ativo) sections = sections.filter(s => s.section !== 'Planejamento')
   if (!f.modulo_orcamento_ativo)    sections = sections.filter(s => s.section !== 'Orçamento')
+  if (!f.modulo_fesp_ativo)         sections = sections.filter(s => s.section !== 'FESP')
   if (!f.modulo_mapa_ativo)         sections = sections.filter(s => s.section !== 'Pesquisa de Preços')
   if (!f.modulo_etp_ativo) {
     sections = sections
