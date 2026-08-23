@@ -356,19 +356,51 @@ export default function Layout() {
   const toggle = (section) => setOpen(p => ({ ...p, [section]: !p[section] }))
 
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [mobileOpen, setMobileOpen] = useState(false)
+  // No drawer mobile o menu é sempre exibido por extenso, mesmo que o usuário
+  // tenha recolhido a sidebar no modo desktop (evita herdar o modo ícone-only).
+  const expandido = sidebarOpen || mobileOpen
+
+  // Fecha o menu mobile automaticamente ao navegar para outra rota.
+  useEffect(() => { setMobileOpen(false) }, [location.pathname])
 
   const isHome = location.pathname === '/'
 
   return (
-    <div className="flex h-screen bg-gray-100">
-      {/* Sidebar */}
-      <aside className={`${sidebarOpen ? 'w-60' : 'w-14'} relative bg-gray-950 flex flex-col shrink-0 shadow-xl transition-[width] duration-200 ease-in-out`}>
+    <div className="flex h-screen bg-gray-100 overflow-hidden">
+      {/* Backdrop do menu mobile — clique fora fecha o drawer */}
+      {mobileOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-30 lg:hidden"
+          onClick={() => setMobileOpen(false)}
+        />
+      )}
 
-        {/* Botão flutuante de recolhimento — posicionado na borda direita */}
+      {/* Sidebar — vira drawer off-canvas abaixo do breakpoint lg */}
+      <aside className={`
+        fixed inset-y-0 left-0 z-40 w-64 transform transition-transform duration-200 ease-in-out
+        ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}
+        lg:relative lg:inset-auto lg:z-auto lg:translate-x-0 lg:transition-[width]
+        ${sidebarOpen ? 'lg:w-60' : 'lg:w-14'}
+        bg-gray-950 flex flex-col shrink-0 shadow-xl
+      `}>
+
+        {/* Botão de fechar — só no drawer mobile */}
+        <button
+          onClick={() => setMobileOpen(false)}
+          title="Fechar menu"
+          className="lg:hidden absolute right-2 top-2 z-20 w-8 h-8 rounded-full bg-gray-800 border border-gray-700 flex items-center justify-center hover:bg-gray-700 transition-colors"
+        >
+          <svg className="w-4 h-4 text-gray-300" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+          </svg>
+        </button>
+
+        {/* Botão flutuante de recolhimento (desktop) — posicionado na borda direita */}
         <button
           onClick={() => setSidebarOpen(p => !p)}
           title={sidebarOpen ? 'Recolher menu' : 'Expandir menu'}
-          className="absolute -right-3 top-1/2 -translate-y-1/2 z-20 w-6 h-6 rounded-full bg-gray-700 border border-gray-600 flex items-center justify-center shadow-lg hover:bg-gray-600 transition-colors"
+          className="hidden lg:flex absolute -right-3 top-1/2 -translate-y-1/2 z-20 w-6 h-6 rounded-full bg-gray-700 border border-gray-600 items-center justify-center shadow-lg hover:bg-gray-600 transition-colors"
         >
           <svg className={`w-3 h-3 text-gray-300 transition-transform duration-200 ${sidebarOpen ? '' : 'rotate-180'}`} fill="currentColor" viewBox="0 0 20 20">
             <path d="M12.707 4.293a1 1 0 010 1.414L8.414 10l4.293 4.293a1 1 0 01-1.414 1.414l-5-5a1 1 0 010-1.414l5-5a1 1 0 011.414 0z"/>
@@ -376,7 +408,7 @@ export default function Layout() {
         </button>
 
         {/* Bloco 1 — identidade do sistema */}
-        <div className={`${sidebarOpen ? 'px-4' : 'px-2'} pt-4 pb-3 border-b border-gray-800/60 flex items-center ${sidebarOpen ? 'gap-2.5' : 'justify-center'}`}>
+        <div className={`${expandido ? 'px-4' : 'px-2'} pt-4 pb-3 border-b border-gray-800/60 flex items-center ${expandido ? 'gap-2.5' : 'justify-center'}`}>
           {orgaoSigla === 'SSP' ? (
             <img src="/logos/sspba_brasao.png" alt="SSP-BA"
               className="w-10 h-10 object-contain shrink-0 drop-shadow" />
@@ -385,7 +417,7 @@ export default function Layout() {
               <span className="text-white text-sm font-black">W</span>
             </div>
           )}
-          {sidebarOpen && (
+          {expandido && (
             <div className="overflow-hidden">
               <span className="text-base font-black text-white tracking-tight whitespace-nowrap">Webber</span>
               <p className="text-[10px] text-gray-500 leading-none mt-0.5">Lei 14.133/2021</p>
@@ -395,8 +427,8 @@ export default function Layout() {
 
         {/* Bloco 2 — contexto do usuário */}
         {orgaoSigla && (
-          <div className={`${sidebarOpen ? 'px-3' : 'px-2'} py-3 border-b border-gray-800/60`}>
-            {sidebarOpen ? (
+          <div className={`${expandido ? 'px-3' : 'px-2'} py-3 border-b border-gray-800/60`}>
+            {expandido ? (
               <div className="rounded-xl bg-gray-900 ring-1 ring-gray-800 px-3 py-2.5 space-y-1">
                 <div className="flex items-center justify-between gap-1">
                   <span className="text-sm font-black text-white">{orgaoSigla}</span>
@@ -429,7 +461,7 @@ export default function Layout() {
         )}
 
         {/* Nav */}
-        <nav className={`flex-1 ${sidebarOpen ? 'px-2' : 'px-1.5'} py-3 space-y-0.5 overflow-y-auto scrollbar-thin`}>
+        <nav className={`flex-1 ${expandido ? 'px-2' : 'px-1.5'} py-3 space-y-0.5 overflow-y-auto scrollbar-thin`}>
           {allSections.map((sec) => {
             const accent = SECTION_ACCENT[sec.section] || SECTION_ACCENT['Geral']
             const activeCls = ACTIVE_CLS[sec.section] || ACTIVE_CLS['Geral']
@@ -438,7 +470,7 @@ export default function Layout() {
             const activeBorder = ACTIVE_BORDER[sec.section] || 'border-l-2 border-gray-500'
 
             /* Modo recolhido: apenas dot colorido da seção, clicável p/ expandir */
-            if (!sidebarOpen) {
+            if (!expandido) {
               return (
                 <button
                   key={sec.section}
@@ -527,7 +559,7 @@ export default function Layout() {
 
         {/* Rodapé */}
         <div className="px-2 py-2 border-t border-gray-800 space-y-0.5">
-          {sidebarOpen ? (
+          {expandido ? (
             <>
               {/* Avatar + papel */}
               {papel && (
@@ -645,28 +677,100 @@ export default function Layout() {
         </div>
       </aside>
 
-      {/* Conteúdo principal */}
-      <main className="flex-1 overflow-y-auto bg-gray-50 relative">
-        <Outlet />
-
-        <PageHelpPanel />
-
-        <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
-
-        {/* Botão Home flutuante — visível quando não está na página inicial */}
-        {!isHome && (
+      {/* Coluna do conteúdo — min-w-0 é essencial: sem isso, um flex item não
+          encolhe abaixo da largura intrínseca do conteúdo (ex: uma tabela
+          larga), e a página inteira rola na horizontal em vez do wrapper
+          overflow-x-auto interno de cada tabela funcionar como esperado. */}
+      <div className="flex-1 flex flex-col min-w-0">
+        {/* Barra superior — visível apenas abaixo do breakpoint lg */}
+        <header className="lg:hidden shrink-0 flex items-center justify-between gap-2 px-3 py-2.5 bg-gray-950 text-white shadow-md z-10">
           <button
-            onClick={() => navigate('/')}
-            title="Página inicial"
-            className="fixed bottom-20 right-6 z-50 flex items-center gap-2 px-4 py-2 bg-gray-900 hover:bg-gray-800 text-gray-300 hover:text-white text-sm font-medium rounded-full shadow-lg border border-gray-700 transition-all hover:shadow-xl hover:-translate-y-0.5"
+            onClick={() => setMobileOpen(true)}
+            aria-label="Abrir menu"
+            className="p-1.5 -ml-1.5 rounded-lg hover:bg-gray-800 transition-colors"
           >
-            <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+            <svg className="w-6 h-6" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5M3.75 17.25h16.5" />
             </svg>
-            Início
           </button>
+          <span className="font-black text-sm tracking-tight truncate">
+            {orgaoSigla ? `Webber — ${orgaoSigla}` : 'Webber'}
+          </span>
+          <button
+            onClick={() => { setShowNotif((v) => !v); if (!showNotif) fetchNotificacoes() }}
+            aria-label="Notificações"
+            className="relative p-1.5 rounded-lg hover:bg-gray-800 transition-colors"
+          >
+            <span className="text-lg leading-none">🔔</span>
+            {naoLidas > 0 && (
+              <span className="absolute -top-0.5 -right-0.5 bg-red-500 text-white text-[9px] font-bold rounded-full px-1 min-w-[16px] text-center">
+                {naoLidas > 99 ? '99+' : naoLidas}
+              </span>
+            )}
+          </button>
+        </header>
+
+        {/* Painel de notificações (mobile) — reaproveita o mesmo estado da sidebar */}
+        {showNotif && (
+          <div className="lg:hidden bg-gray-900 border-b border-gray-700 max-h-72 flex flex-col overflow-y-auto">
+            <div className="flex items-center justify-between px-3 py-2 border-b border-gray-800 shrink-0">
+              <span className="text-[11px] font-semibold text-gray-400 uppercase">Notificações</span>
+              {naoLidas > 0 && (
+                <button onClick={marcarTodasLidas} className="text-[10px] text-blue-400 hover:underline">
+                  Marcar todas
+                </button>
+              )}
+            </div>
+            {notificacoes.length === 0 ? (
+              <p className="text-[11px] text-gray-600 text-center py-4">Nenhuma notificação</p>
+            ) : notificacoes.map((n) => (
+              <button key={n.id}
+                onClick={() => {
+                  marcarLida(n.id)
+                  if (n.url_destino) { navigate(n.url_destino); setShowNotif(false) }
+                }}
+                className={`w-full text-left px-3 py-2 border-b border-gray-800/60 hover:bg-gray-800 transition-colors ${n.lida ? 'opacity-50' : ''}`}
+              >
+                <div className="flex items-start gap-2">
+                  <span className="text-xs mt-0.5">
+                    {n.tipo === 'aprovacao' ? '✅' : n.tipo === 'devolucao' ? '↩️' : n.tipo === 'pendente_aprovacao' ? '⏳' : '⚠️'}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="text-[11px] font-medium text-gray-300 leading-tight truncate">{n.titulo}</p>
+                    {n.mensagem && (
+                      <p className="text-[10px] text-gray-500 mt-0.5 line-clamp-2 leading-tight">{n.mensagem}</p>
+                    )}
+                  </div>
+                  {!n.lida && <span className="w-2 h-2 rounded-full bg-blue-500 shrink-0 mt-1" />}
+                </div>
+              </button>
+            ))}
+          </div>
         )}
-      </main>
+
+        {/* Conteúdo principal */}
+        <main className="flex-1 overflow-y-auto overflow-x-hidden bg-gray-50 relative">
+          <Outlet />
+
+          <PageHelpPanel />
+
+          <CommandPalette open={paletteOpen} onClose={() => setPaletteOpen(false)} />
+
+          {/* Botão Home flutuante — visível quando não está na página inicial */}
+          {!isHome && (
+            <button
+              onClick={() => navigate('/')}
+              title="Página inicial"
+              className="fixed bottom-20 right-4 sm:right-6 z-50 flex items-center gap-2 px-4 py-2 bg-gray-900 hover:bg-gray-800 text-gray-300 hover:text-white text-sm font-medium rounded-full shadow-lg border border-gray-700 transition-all hover:shadow-xl hover:-translate-y-0.5"
+            >
+              <svg className="w-4 h-4 shrink-0" fill="none" viewBox="0 0 24 24" strokeWidth={2} stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" d="m2.25 12 8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+              </svg>
+              <span className="hidden sm:inline">Início</span>
+            </button>
+          )}
+        </main>
+      </div>
     </div>
   )
 }

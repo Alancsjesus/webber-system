@@ -10,6 +10,21 @@ import { formatarMoeda } from '../utils/currencyMask'
 
 const TABS = ['Dados Gerais', 'Metas Específicas', 'Conselho Gestor', 'Execução Financeira']
 
+// Extrai uma mensagem legível de um erro de API do DRF — seja {"detail": "..."}
+// ou {"campo": ["msg1", "msg2"]}. Usado para nunca deixar um botão "morrer" em
+// silêncio quando o backend rejeita a operação.
+function extrairErro(err, padrao = 'Erro ao executar operação.') {
+  const data = err?.response?.data
+  if (!data) return padrao
+  if (typeof data === 'string') return data
+  if (data.detail) return data.detail
+  const partes = Object.entries(data).map(([campo, msgs]) => {
+    const texto = Array.isArray(msgs) ? msgs.join(' ') : String(msgs)
+    return `${campo}: ${texto}`
+  })
+  return partes.length ? partes.join(' | ') : padrao
+}
+
 export default function FespPlanoDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -63,6 +78,7 @@ export default function FespPlanoDetail() {
 
   const handleSave = async () => {
     setSaving(true)
+    setActionMsg(null)
     try {
       await updatePlano(id, {
         ...form,
@@ -74,6 +90,8 @@ export default function FespPlanoDetail() {
         valor_rendimento_custeio: Number(form.valor_rendimento_custeio || 0),
       })
       setEditing(false)
+    } catch (err) {
+      setActionMsg({ type: 'error', text: extrairErro(err, 'Erro ao salvar o plano.') })
     } finally {
       setSaving(false)
     }
@@ -81,8 +99,15 @@ export default function FespPlanoDetail() {
 
   const handleDelete = async () => {
     if (!confirm('Excluir este plano de aplicação? Esta ação não pode ser desfeita.')) return
-    await deletePlano(id)
-    navigate('/fesp/planos')
+    setSaving(true)
+    setActionMsg(null)
+    try {
+      await deletePlano(id)
+      navigate('/fesp/planos')
+    } catch (err) {
+      setActionMsg({ type: 'error', text: extrairErro(err, 'Erro ao excluir o plano.') })
+      setSaving(false)
+    }
   }
 
   const act = async (fn, ...args) => {
@@ -392,24 +417,45 @@ function DeclaracaoField({ label, field, form, set, editing, valor }) {
 
 // ─── Aba: Metas Específicas + Itens ─────────────────────────────────────────
 function MetasTab({ plano }) {
-  const { createMeta, updateMeta, deleteMeta } = usePlanoAplicacaoStore()
+  const { createMeta, deleteMeta } = usePlanoAplicacaoStore()
   const [showNovaMeta, setShowNovaMeta] = useState(false)
   const [novaMeta, setNovaMeta] = useState({ titulo: '', descricao_meta: '' })
+  const [erro, setErro] = useState(null)
+  const [salvando, setSalvando] = useState(false)
   const editavel = plano.status === 'elaboracao'
 
   const handleCriarMeta = async () => {
-    if (!novaMeta.titulo.trim()) return
-    await createMeta({ plano: plano.id, titulo: novaMeta.titulo, descricao_meta: novaMeta.descricao_meta })
-    setNovaMeta({ titulo: '', descricao_meta: '' })
-    setShowNovaMeta(false)
+    if (!novaMeta.titulo.trim()) {
+      setErro('Informe o título da meta.')
+      return
+    }
+    setSalvando(true)
+    setErro(null)
+    try {
+      await createMeta({ plano: plano.id, titulo: novaMeta.titulo, descricao_meta: novaMeta.descricao_meta })
+      setNovaMeta({ titulo: '', descricao_meta: '' })
+      setShowNovaMeta(false)
+    } catch (err) {
+      setErro(extrairErro(err, 'Erro ao criar a Meta Específica.'))
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  const handleExcluirMeta = async (meta) => {
+    if (!confirm(`Excluir a meta "${meta.titulo}" e seus itens?`)) return
+    try {
+      await deleteMeta(meta.id, plano.id)
+    } catch (err) {
+      alert(extrairErro(err, 'Erro ao excluir a Meta Específica.'))
+    }
   }
 
   return (
     <div className="space-y-5">
       {(plano.metas_especificas || []).map((meta) => (
-        <MetaCard key={meta.id} meta={meta} plano={plano} editavel={editavel} onDelete={() => {
-          if (confirm(`Excluir a meta "${meta.titulo}" e seus itens?`)) deleteMeta(meta.id, plano.id)
-        }} />
+        <MetaCard key={meta.id} meta={meta} plano={plano} editavel={editavel}
+          onDelete={() => handleExcluirMeta(meta)} />
       ))}
 
       {(plano.metas_especificas || []).length === 0 && (
@@ -419,15 +465,19 @@ function MetasTab({ plano }) {
       {editavel && (
         showNovaMeta ? (
           <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-2">
-            <input type="text" placeholder="Título da meta" value={novaMeta.titulo}
+            {erro && <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2">{erro}</p>}
+            <input type="text" placeholder="Título da meta *" value={novaMeta.titulo}
               onChange={(e) => setNovaMeta((p) => ({ ...p, titulo: e.target.value }))}
-              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
+              className={`w-full border rounded-lg px-3 py-2 text-sm ${erro && !novaMeta.titulo.trim() ? 'border-red-400' : 'border-gray-300'}`} />
             <textarea rows={2} placeholder="Descrição (opcional)" value={novaMeta.descricao_meta}
               onChange={(e) => setNovaMeta((p) => ({ ...p, descricao_meta: e.target.value }))}
               className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" />
             <div className="flex gap-2">
-              <button onClick={handleCriarMeta} className="bg-yellow-600 hover:bg-yellow-700 text-white text-sm px-4 py-1.5 rounded-lg">Adicionar Meta</button>
-              <button onClick={() => setShowNovaMeta(false)} className="border border-gray-300 text-gray-600 text-sm px-4 py-1.5 rounded-lg">Cancelar</button>
+              <button onClick={handleCriarMeta} disabled={salvando}
+                className="bg-yellow-600 hover:bg-yellow-700 disabled:opacity-50 text-white text-sm px-4 py-1.5 rounded-lg">
+                {salvando ? 'Salvando...' : 'Adicionar Meta'}
+              </button>
+              <button onClick={() => { setShowNovaMeta(false); setErro(null) }} className="border border-gray-300 text-gray-600 text-sm px-4 py-1.5 rounded-lg">Cancelar</button>
             </div>
           </div>
         ) : (
@@ -474,42 +524,113 @@ const NATUREZA_OPTIONS = [
 ]
 
 function ItensDaMeta({ meta, plano, editavel }) {
-  const { createItem, deleteItem, gerarNecessidadeIndividual } = usePlanoAplicacaoStore()
+  const { createItem, deleteItem, gerarNecessidadeIndividual, fetchPlano } = usePlanoAplicacaoStore()
   const [showNovo, setShowNovo] = useState(false)
-  const vazio = { org_beneficiaria: '', bem_servico: '', codigo_senasp: '', natureza: 'investimento', unidade_medida: '', quantidade: '', valor_unitario_estimado: '', destinacao: '' }
+  const vazio = { org_beneficiaria: '', instrumento: '', bem_servico: '', codigo_senasp: '', natureza: 'investimento', unidade_medida: '', quantidade: '', valor_unitario_estimado: '', destinacao: '' }
   const [novo, setNovo] = useState(vazio)
   const [orgaos, setOrgaos] = useState([])
   const [instrumentos, setInstrumentos] = useState([])
+  const [carregandoOpcoes, setCarregandoOpcoes] = useState(false)
+  const [camposInvalidos, setCamposInvalidos] = useState({})
+  const [erro, setErro] = useState(null)
+  const [salvando, setSalvando] = useState(false)
+  const [linhaOcupada, setLinhaOcupada] = useState(null) // id do item com ação em andamento
 
   useEffect(() => {
     if (showNovo) {
-      api.get('/core/orgaos/', { params: { page_size: 50 } }).then(({ data }) => setOrgaos(data.results ?? data))
-      api.get('/fesp/instrumento/', { params: { status: 'vigente', page_size: 50 } }).then(({ data }) => setInstrumentos(data.results ?? data))
+      setCarregandoOpcoes(true)
+      Promise.all([
+        api.get('/core/orgaos/', { params: { page_size: 50 } }),
+        api.get('/fesp/instrumento/', { params: { status: 'vigente', page_size: 50 } }),
+      ]).then(([orgResp, instResp]) => {
+        setOrgaos(orgResp.data.results ?? orgResp.data)
+        setInstrumentos(instResp.data.results ?? instResp.data)
+      }).catch((err) => {
+        setErro(extrairErro(err, 'Erro ao carregar órgãos/instrumentos.'))
+      }).finally(() => setCarregandoOpcoes(false))
     }
   }, [showNovo])
 
   const itens = meta.itens || []
 
-  const handleCriar = async () => {
-    if (!novo.org_beneficiaria || !novo.bem_servico.trim() || !novo.instrumento) return
-    await createItem({
-      meta_especifica: meta.id,
-      instrumento: Number(novo.instrumento),
-      org_beneficiaria: Number(novo.org_beneficiaria),
-      bem_servico: novo.bem_servico,
-      codigo_senasp: novo.codigo_senasp,
-      destinacao: novo.destinacao,
-      natureza: novo.natureza,
-      unidade_medida: novo.unidade_medida,
-      quantidade: Number(novo.quantidade || 0),
-      valor_unitario_estimado: Number(novo.valor_unitario_estimado || 0),
-    }, plano.id)
-    setNovo(vazio)
-    setShowNovo(false)
+  const validar = () => {
+    const inv = {}
+    if (!novo.instrumento) inv.instrumento = true
+    if (!novo.org_beneficiaria) inv.org_beneficiaria = true
+    if (!novo.bem_servico.trim()) inv.bem_servico = true
+    if (!novo.unidade_medida.trim()) inv.unidade_medida = true
+    if (!novo.quantidade || Number(novo.quantidade) <= 0) inv.quantidade = true
+    if (!novo.valor_unitario_estimado || Number(novo.valor_unitario_estimado) <= 0) inv.valor_unitario_estimado = true
+    return inv
   }
+
+  const handleCriar = async () => {
+    const inv = validar()
+    setCamposInvalidos(inv)
+    if (Object.keys(inv).length > 0) {
+      setErro('Preencha os campos obrigatórios destacados abaixo.')
+      return
+    }
+    setSalvando(true)
+    setErro(null)
+    try {
+      await createItem({
+        meta_especifica: meta.id,
+        instrumento: Number(novo.instrumento),
+        org_beneficiaria: Number(novo.org_beneficiaria),
+        bem_servico: novo.bem_servico,
+        codigo_senasp: novo.codigo_senasp,
+        destinacao: novo.destinacao,
+        natureza: novo.natureza,
+        unidade_medida: novo.unidade_medida,
+        quantidade: Number(novo.quantidade),
+        valor_unitario_estimado: Number(novo.valor_unitario_estimado),
+      }, plano.id)
+      setNovo(vazio)
+      setCamposInvalidos({})
+      setShowNovo(false)
+    } catch (err) {
+      setErro(extrairErro(err, 'Erro ao adicionar o item.'))
+    } finally {
+      setSalvando(false)
+    }
+  }
+
+  const handleGerarNecessidade = async (itemId) => {
+    setLinhaOcupada(itemId)
+    setErro(null)
+    try {
+      await gerarNecessidadeIndividual(itemId)
+      await fetchPlano(plano.id)
+    } catch (err) {
+      setErro(extrairErro(err, 'Erro ao gerar necessidade a partir deste item.'))
+    } finally {
+      setLinhaOcupada(null)
+    }
+  }
+
+  const handleExcluirItem = async (item) => {
+    if (!confirm(`Excluir o item "${item.bem_servico}"?`)) return
+    setLinhaOcupada(item.id)
+    setErro(null)
+    try {
+      await deleteItem(item.id, plano.id)
+    } catch (err) {
+      setErro(extrairErro(err, 'Erro ao excluir o item.'))
+    } finally {
+      setLinhaOcupada(null)
+    }
+  }
+
+  const campoCls = (campo) =>
+    `border rounded-lg px-2 py-1.5 text-xs ${camposInvalidos[campo] ? 'border-red-400 bg-red-50' : 'border-gray-300'}`
 
   return (
     <div>
+      {erro && (
+        <p className="text-xs text-red-600 bg-red-50 border border-red-200 rounded-lg px-3 py-2 mb-2">{erro}</p>
+      )}
+
       {itens.length > 0 && (
         <div className="overflow-x-auto mb-3">
           <table className="w-full text-xs">
@@ -535,11 +656,16 @@ function ItensDaMeta({ meta, plano, editavel }) {
                   <td className="py-1.5 pr-2 text-gray-500">{item.status_display}</td>
                   <td className="py-1.5 text-right space-x-2 whitespace-nowrap">
                     {item.status === 'pendente' && (
-                      <button onClick={() => gerarNecessidadeIndividual(item.id).then(() => window.location.reload())}
-                        className="text-blue-600 hover:text-blue-800">Gerar Necessidade</button>
+                      <button onClick={() => handleGerarNecessidade(item.id)} disabled={linhaOcupada === item.id}
+                        className="text-blue-600 hover:text-blue-800 disabled:opacity-50">
+                        {linhaOcupada === item.id ? '...' : 'Gerar Necessidade'}
+                      </button>
                     )}
                     {editavel && (
-                      <button onClick={() => deleteItem(item.id, plano.id)} className="text-red-500 hover:text-red-700">Excluir</button>
+                      <button onClick={() => handleExcluirItem(item)} disabled={linhaOcupada === item.id}
+                        className="text-red-500 hover:text-red-700 disabled:opacity-50">
+                        {linhaOcupada === item.id ? '...' : 'Excluir'}
+                      </button>
                     )}
                   </td>
                 </tr>
@@ -552,44 +678,53 @@ function ItensDaMeta({ meta, plano, editavel }) {
       {editavel && (
         showNovo ? (
           <div className="bg-gray-50 border border-gray-200 rounded-lg p-3 space-y-2">
+            {carregandoOpcoes && <p className="text-xs text-gray-400">Carregando órgãos e instrumentos...</p>}
+            {!carregandoOpcoes && instrumentos.length === 0 && (
+              <p className="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-2 py-1.5">
+                Nenhum instrumento financeiro <strong>vigente</strong> encontrado. Ative um instrumento antes de adicionar itens.
+              </p>
+            )}
             <div className="grid grid-cols-2 gap-2">
-              <select value={novo.instrumento || ''} onChange={(e) => setNovo((p) => ({ ...p, instrumento: e.target.value }))} className="border border-gray-300 rounded-lg px-2 py-1.5 text-xs">
-                <option value="">Instrumento financeiro...</option>
+              <select value={novo.instrumento} onChange={(e) => setNovo((p) => ({ ...p, instrumento: e.target.value }))} className={campoCls('instrumento')}>
+                <option value="">Instrumento financeiro... *</option>
                 {instrumentos.map((i) => <option key={i.id} value={i.id}>{i.numero_instrumento}</option>)}
               </select>
-              <select value={novo.org_beneficiaria} onChange={(e) => setNovo((p) => ({ ...p, org_beneficiaria: e.target.value }))} className="border border-gray-300 rounded-lg px-2 py-1.5 text-xs">
-                <option value="">Instituição beneficiária...</option>
+              <select value={novo.org_beneficiaria} onChange={(e) => setNovo((p) => ({ ...p, org_beneficiaria: e.target.value }))} className={campoCls('org_beneficiaria')}>
+                <option value="">Instituição beneficiária... *</option>
                 {orgaos.map((o) => <option key={o.id} value={o.id}>{o.sigla} — {o.nome}</option>)}
               </select>
             </div>
-            <input type="text" placeholder="Bem/Serviço" value={novo.bem_servico}
+            <input type="text" placeholder="Bem/Serviço *" value={novo.bem_servico}
               onChange={(e) => setNovo((p) => ({ ...p, bem_servico: e.target.value }))}
-              className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs" />
+              className={`w-full ${campoCls('bem_servico')}`} />
             <div className="grid grid-cols-2 gap-2">
               <input type="text" placeholder="Cód. SENASP (opcional)" value={novo.codigo_senasp}
                 onChange={(e) => setNovo((p) => ({ ...p, codigo_senasp: e.target.value }))}
-                className="border border-gray-300 rounded-lg px-2 py-1.5 text-xs" />
-              <select value={novo.natureza} onChange={(e) => setNovo((p) => ({ ...p, natureza: e.target.value }))} className="border border-gray-300 rounded-lg px-2 py-1.5 text-xs">
+                className={campoCls('codigo_senasp')} />
+              <select value={novo.natureza} onChange={(e) => setNovo((p) => ({ ...p, natureza: e.target.value }))} className={campoCls('natureza')}>
                 {NATUREZA_OPTIONS.map((n) => <option key={n.value} value={n.value}>{n.label}</option>)}
               </select>
             </div>
             <input type="text" placeholder="Destinação — unidade(s) específica(s) (opcional)" value={novo.destinacao}
               onChange={(e) => setNovo((p) => ({ ...p, destinacao: e.target.value }))}
-              className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs" />
+              className={`w-full ${campoCls('destinacao')}`} />
             <div className="grid grid-cols-3 gap-2">
-              <input type="text" placeholder="Unidade de medida" value={novo.unidade_medida}
+              <input type="text" placeholder="Unidade de medida *" value={novo.unidade_medida}
                 onChange={(e) => setNovo((p) => ({ ...p, unidade_medida: e.target.value }))}
-                className="border border-gray-300 rounded-lg px-2 py-1.5 text-xs" />
-              <input type="number" min="0" step="0.01" placeholder="Quantidade" value={novo.quantidade}
+                className={campoCls('unidade_medida')} />
+              <input type="number" min="0.01" step="0.01" placeholder="Quantidade *" value={novo.quantidade}
                 onChange={(e) => setNovo((p) => ({ ...p, quantidade: e.target.value }))}
-                className="border border-gray-300 rounded-lg px-2 py-1.5 text-xs" />
+                className={campoCls('quantidade')} />
               <CampoMoeda value={novo.valor_unitario_estimado}
                 onChange={(v) => setNovo((p) => ({ ...p, valor_unitario_estimado: v }))}
-                className="border border-gray-300 rounded-lg px-2 py-1.5 text-xs" placeholder="Valor unitário" />
+                className={campoCls('valor_unitario_estimado')} placeholder="Valor unitário *" />
             </div>
             <div className="flex gap-2">
-              <button onClick={handleCriar} className="bg-yellow-600 hover:bg-yellow-700 text-white text-xs px-3 py-1.5 rounded-lg">Adicionar Item</button>
-              <button onClick={() => setShowNovo(false)} className="border border-gray-300 text-gray-600 text-xs px-3 py-1.5 rounded-lg">Cancelar</button>
+              <button onClick={handleCriar} disabled={salvando}
+                className="bg-yellow-600 hover:bg-yellow-700 disabled:opacity-50 text-white text-xs px-3 py-1.5 rounded-lg">
+                {salvando ? 'Salvando...' : 'Adicionar Item'}
+              </button>
+              <button onClick={() => { setShowNovo(false); setErro(null); setCamposInvalidos({}) }} className="border border-gray-300 text-gray-600 text-xs px-3 py-1.5 rounded-lg">Cancelar</button>
             </div>
           </div>
         ) : (

@@ -68,8 +68,12 @@ export default function ComposicaoConselhoAdmin() {
 
   const handleDelete = async (id) => {
     if (!confirm('Inativar este membro do Conselho Gestor?')) return
-    await api.delete(`/fesp/composicao-conselho/${id}/`)
-    load()
+    try {
+      await api.delete(`/fesp/composicao-conselho/${id}/`)
+      load()
+    } catch (err) {
+      alert(err.response?.data?.detail || 'Erro ao inativar o membro.')
+    }
   }
 
   return (

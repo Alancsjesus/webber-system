@@ -75,8 +75,15 @@ export default function FespInstrumentoDetail() {
 
   const handleDelete = async () => {
     if (!confirm('Excluir este instrumento financeiro? Esta ação não pode ser desfeita.')) return
-    await deleteInstrumento(id)
-    navigate('/fesp/instrumentos')
+    setSaving(true)
+    setActionMsg(null)
+    try {
+      await deleteInstrumento(id)
+      navigate('/fesp/instrumentos')
+    } catch (err) {
+      setActionMsg({ type: 'error', text: err.response?.data?.detail || 'Erro ao excluir o instrumento (pode estar em uso por itens de um plano).' })
+      setSaving(false)
+    }
   }
 
   const act = async (fn, ...args) => {

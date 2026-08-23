@@ -27,6 +27,8 @@ export default function FespConsolidacao() {
       const [sug, gru] = await Promise.all([fetchSugestoesConsolidacao(id), fetchGrupos(id)])
       setSugestoes(sug)
       setGrupos(gru)
+    } catch (err) {
+      setMsg({ type: 'error', text: err.response?.data?.detail || 'Erro ao carregar a consolidação.' })
     } finally {
       setLoading(false)
     }
@@ -84,9 +86,12 @@ export default function FespConsolidacao() {
   const handleDesfazer = async (grupoId) => {
     if (!confirm('Desfazer esta consolidação? Os itens voltam a ficar pendentes.')) return
     setBusy(true)
+    setMsg(null)
     try {
       await desfazerConsolidacao(grupoId)
       await carregar()
+    } catch (err) {
+      setMsg({ type: 'error', text: err.response?.data?.detail || 'Erro ao desfazer a consolidação.' })
     } finally {
       setBusy(false)
     }
