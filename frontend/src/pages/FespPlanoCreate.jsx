@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import usePlanoAplicacaoStore from '../stores/planoAplicacaoStore'
 import FormErrors from '../components/FormErrors'
+import { NATUREZA_PLANO_OPTIONS } from './FespPlanoList'
 
 const ANO_ATUAL = new Date().getFullYear()
 
@@ -10,6 +11,7 @@ export default function FespPlanoCreate() {
   const { createPlano } = usePlanoAplicacaoStore()
 
   const [form, setForm] = useState({
+    natureza: 'fesp',
     exercicio_fiscal: ANO_ATUAL,
     ementa: '',
     descricao: '',
@@ -37,6 +39,7 @@ export default function FespPlanoCreate() {
     setSaving(true)
     try {
       const plano = await createPlano({
+        natureza: form.natureza,
         exercicio_fiscal: Number(form.exercicio_fiscal),
         ementa: form.ementa,
         descricao: form.descricao,
@@ -60,6 +63,15 @@ export default function FespPlanoCreate() {
 
       <form onSubmit={handleSubmit} className="space-y-5">
         <FormErrors errors={errors} />
+
+        <Field label="Natureza do recurso" error={errors.natureza}>
+          <select value={form.natureza} onChange={(e) => set('natureza', e.target.value)} className={inp(errors.natureza)}>
+            {NATUREZA_PLANO_OPTIONS.map((n) => <option key={n.value} value={n.value}>{n.label}</option>)}
+          </select>
+          <p className="text-xs text-gray-400 mt-1">
+            Define o rito de aprovação: apenas o FESP passa por Conselho Gestor e homologação; as demais naturezas usam aprovação direta. Não é possível alterar depois de criado.
+          </p>
+        </Field>
 
         <Field label="Exercício fiscal" error={errors.exercicio_fiscal}>
           <input type="number" min="2020" max="2050" value={form.exercicio_fiscal}

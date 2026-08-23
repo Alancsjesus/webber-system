@@ -1562,7 +1562,11 @@ def gerar_pdf_plano_aplicacao(plano) -> bytes:
         **_dados_hash_usuario(plano),
     })
 
-    e += _cabecalho('PLANO DE APLICAÇÃO — FESP / EMENDAS / FINANCIAMENTOS', plano.numero, org_nome, estilos,
+    titulo_doc = (
+        'PLANO DE APLICAÇÃO — FESP / EMENDAS / FINANCIAMENTOS' if plano.usa_rito_conselho
+        else f'PLANO DE APLICAÇÃO — {plano.get_natureza_display().upper()}'
+    )
+    e += _cabecalho(titulo_doc, plano.numero, org_nome, estilos,
                     org_sigla=plano.org_id.sigla if plano.org_id else None)
 
     e.append(_secao('Identificação', estilos))
@@ -1586,10 +1590,11 @@ def gerar_pdf_plano_aplicacao(plano) -> bytes:
         e += _campo('Nome', plano.responsavel_elaboracao_nome, estilos)
         e += _campo('Cargo', plano.responsavel_elaboracao_cargo, estilos)
 
-    e.append(_secao('Vedações Legais (Lei 14.169/2019, art. 4º, §1º)', estilos))
-    e += _campo('Não destinação a folha de pessoal/encargos', _sim_nao(plano.declaracao_nao_pessoal), estilos)
-    e += _campo('Não destinação a unidade puramente administrativa', _sim_nao(plano.declaracao_nao_unidade_administrativa), estilos)
-    e += _campo('Ciência de que os recursos não são contingenciáveis', _sim_nao(plano.declaracao_sem_contingenciamento), estilos)
+    if plano.usa_rito_conselho:
+        e.append(_secao('Vedações Legais (Lei 14.169/2019, art. 4º, §1º)', estilos))
+        e += _campo('Não destinação a folha de pessoal/encargos', _sim_nao(plano.declaracao_nao_pessoal), estilos)
+        e += _campo('Não destinação a unidade puramente administrativa', _sim_nao(plano.declaracao_nao_unidade_administrativa), estilos)
+        e += _campo('Ciência de que os recursos não são contingenciáveis', _sim_nao(plano.declaracao_sem_contingenciamento), estilos)
 
     if plano.diagnostico:
         e.append(_secao('Diagnóstico', estilos))
@@ -1676,15 +1681,17 @@ def gerar_pdf_plano_aplicacao(plano) -> bytes:
         ]))
         e.append(t)
 
-    # Aprovador: usa o histórico de homologação (status_novo='homologado'),
-    # já que os status do Plano não seguem o padrão 'Aprovada'/'Aprovado'
-    # assumido pelo lookup automático de _bloco_assinaturas.
+    # Aprovador: usa o histórico do status que marca a aprovação nesse rito
+    # ('homologado' no rito FESP, 'aprovado' no rito simples), já que os
+    # status do Plano não seguem o padrão 'Aprovada'/'Aprovado' assumido
+    # pelo lookup automático de _bloco_assinaturas.
     aprovador = None
     data_aprov_str = None
-    hist_homolog = plano.historico.filter(status_novo='homologado').order_by('-criado_em').first()
-    if hist_homolog:
-        aprovador = hist_homolog.usuario
-        data_aprov_str = hist_homolog.criado_em.strftime('%d/%m/%Y %H:%M')
+    status_aprovacao = 'homologado' if plano.usa_rito_conselho else 'aprovado'
+    hist_aprov = plano.historico.filter(status_novo=status_aprovacao).order_by('-criado_em').first()
+    if hist_aprov:
+        aprovador = hist_aprov.usuario
+        data_aprov_str = hist_aprov.criado_em.strftime('%d/%m/%Y %H:%M')
 
     e += _bloco_assinaturas(
         plano, estilos, hash_doc,

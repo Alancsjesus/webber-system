@@ -427,6 +427,21 @@ REGRAS_PLANO_APLICACAO_FESP: list[RegraChecklist] = [
     ),
 ]
 
+# Rito simples (emenda parlamentar, convênio, contrato de repasse, transferência
+# fundo a fundo, financiamento) — sem Conselho Gestor nem declarações do FESP.
+REGRAS_PLANO_APLICACAO_SIMPLES: list[RegraChecklist] = [
+    RegraChecklist(
+        campo='metas_especificas',
+        descricao='Plano possui ao menos uma Meta Específica',
+        base_legal='',
+        obrigatorio=True,
+        avaliador=lambda obj, c: (
+            obj.metas_especificas.exists(),
+            '' if obj.metas_especificas.exists() else 'Nenhuma Meta Específica cadastrada.',
+        ),
+    ),
+]
+
 
 # ─── Engine ───────────────────────────────────────────────────────────────────
 
@@ -494,4 +509,5 @@ class ChecklistEngine:
 
     @classmethod
     def avaliar_plano_aplicacao(cls, plano) -> ResultadoChecklist:
-        return cls._avaliar(plano, REGRAS_PLANO_APLICACAO_FESP)
+        regras = REGRAS_PLANO_APLICACAO_FESP if plano.usa_rito_conselho else REGRAS_PLANO_APLICACAO_SIMPLES
+        return cls._avaliar(plano, regras)

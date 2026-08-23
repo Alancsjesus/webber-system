@@ -173,8 +173,8 @@ export const MODULE_CARDS_DEF = [
   },
   {
     id: 'fesp_planos',
-    label: 'Plano de Aplicação FESP',
-    descricao: 'FESP, emendas e financiamentos',
+    label: 'Planos de Aplicação',
+    descricao: 'FESP, emendas, convênios e financiamentos',
     cor: 'amber',
     to: '/fesp/planos',
     requiredPapeis: ['analista', 'gestor_planejamento', 'ordenador', 'admin'],

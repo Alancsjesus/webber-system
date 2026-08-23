@@ -23,8 +23,8 @@ class ComposicaoConselhoGestorAdmin(admin.ModelAdmin):
 
 @admin.register(PlanoAplicacao)
 class PlanoAplicacaoAdmin(admin.ModelAdmin):
-    list_display = ['numero', 'ementa', 'exercicio_fiscal', 'status', 'valor_planejado_investimento', 'valor_planejado_custeio', 'org_id']
-    list_filter = ['status', 'exercicio_fiscal', 'org_id']
+    list_display = ['numero', 'ementa', 'natureza', 'exercicio_fiscal', 'status', 'valor_planejado_investimento', 'valor_planejado_custeio', 'org_id']
+    list_filter = ['natureza', 'status', 'exercicio_fiscal', 'org_id']
     search_fields = ['numero', 'ementa']
     ordering = ['-exercicio_fiscal']
 

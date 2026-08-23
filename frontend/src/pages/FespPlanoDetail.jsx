@@ -5,10 +5,10 @@ import useAuthStore from '../stores/authStore'
 import api from '../services/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 import CampoMoeda from '../components/CampoMoeda'
-import { STATUS_PLANO_CLS } from './FespPlanoList'
+import { STATUS_PLANO_CLS, NATUREZA_PLANO_CLS } from './FespPlanoList'
 import { formatarMoeda } from '../utils/currencyMask'
 
-const TABS = ['Dados Gerais', 'Metas Específicas', 'Conselho Gestor', 'Execução Financeira']
+const TABS_BASE = ['Dados Gerais', 'Metas Específicas', 'Conselho Gestor', 'Execução Financeira']
 
 // Extrai uma mensagem legível de um erro de API do DRF — seja {"detail": "..."}
 // ou {"campo": ["msg1", "msg2"]}. Usado para nunca deixar um botão "morrer" em
@@ -33,7 +33,7 @@ export default function FespPlanoDetail() {
   const {
     current, loading, error,
     fetchPlano, updatePlano, deletePlano,
-    submeterConselho, aprovarConselho, devolver, reabrir, homologar, publicar, encerrar, cancelar,
+    submeterConselho, aprovarConselho, devolver, reabrir, homologar, aprovar, publicar, encerrar, cancelar,
   } = usePlanoAplicacaoStore()
 
   const [tab, setTab] = useState('Dados Gerais')
@@ -43,7 +43,7 @@ export default function FespPlanoDetail() {
   const [actionMsg, setActionMsg] = useState(null)
   const [modal, setModal] = useState(null) // 'aprovar' | 'devolver' | 'homologar' | 'cancelar' | 'encerrar'
 
-  useEffect(() => { fetchPlano(id) }, [id])
+  useEffect(() => { fetchPlano(id); setTab('Dados Gerais') }, [id])
 
   useEffect(() => {
     if (current) {
@@ -132,8 +132,10 @@ export default function FespPlanoDetail() {
   if (!current || !form) return null
 
   const s = current.status
-  const podeHomologar = s === 'aprovado_conselho' && ['admin', 'ordenador'].includes(papel)
+  const usaRitoConselho = current.natureza === 'fesp'
+  const podeHomologar = usaRitoConselho && s === 'aprovado_conselho' && ['admin', 'ordenador'].includes(papel)
   const checklist = current.checklist
+  const tabs = usaRitoConselho ? TABS_BASE : TABS_BASE.filter((t) => t !== 'Conselho Gestor')
 
   return (
     <div className="p-6 lg:p-8 max-w-4xl">
@@ -143,6 +145,9 @@ export default function FespPlanoDetail() {
         <div>
           <div className="flex items-center gap-3">
             <h1 className="text-xl font-bold text-gray-800 font-mono">{current.numero}</h1>
+            <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${NATUREZA_PLANO_CLS[current.natureza] || ''}`}>
+              {current.natureza_display}
+            </span>
             <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_PLANO_CLS[s] || ''}`}>
               {current.status_display}
             </span>
@@ -163,13 +168,19 @@ export default function FespPlanoDetail() {
               Editar
             </button>
           )}
-          {s === 'elaboracao' && (
+          {usaRitoConselho && s === 'elaboracao' && (
             <button onClick={() => act(submeterConselho, id)} disabled={saving}
               className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm px-4 py-1.5 rounded-lg">
               Submeter ao Conselho
             </button>
           )}
-          {s === 'submetido_conselho' && (
+          {!usaRitoConselho && s === 'elaboracao' && (
+            <button onClick={() => act(aprovar, id)} disabled={saving}
+              className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm px-4 py-1.5 rounded-lg">
+              Aprovar
+            </button>
+          )}
+          {usaRitoConselho && s === 'submetido_conselho' && (
             <>
               <button onClick={() => setModal('aprovar')} className="bg-green-600 hover:bg-green-700 text-white text-sm px-4 py-1.5 rounded-lg">
                 Aprovar (Conselho)
@@ -179,12 +190,12 @@ export default function FespPlanoDetail() {
               </button>
             </>
           )}
-          {s === 'aprovado_conselho' && (
+          {usaRitoConselho && s === 'aprovado_conselho' && (
             <button onClick={() => setModal('devolver')} className="border border-red-300 text-red-500 hover:bg-red-50 text-sm px-4 py-1.5 rounded-lg">
               Devolver
             </button>
           )}
-          {s === 'devolvido' && (
+          {usaRitoConselho && s === 'devolvido' && (
             <button onClick={() => act(reabrir, id)} disabled={saving}
               className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm px-4 py-1.5 rounded-lg">
               Reabrir para Ajustes
@@ -195,7 +206,7 @@ export default function FespPlanoDetail() {
               Registrar Homologação
             </button>
           )}
-          {s === 'homologado' && (
+          {(s === 'homologado' || s === 'aprovado') && (
             <button onClick={() => act(publicar, id)} disabled={saving}
               className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm px-4 py-1.5 rounded-lg">
               Publicar
@@ -247,7 +258,7 @@ export default function FespPlanoDetail() {
 
       {/* Tabs */}
       <div className="flex gap-1 border-b border-gray-200 mb-5">
-        {TABS.map((t) => (
+        {tabs.map((t) => (
           <button key={t} onClick={() => setTab(t)}
             className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
               tab === t ? 'border-yellow-600 text-yellow-700' : 'border-transparent text-gray-500 hover:text-gray-700'
@@ -282,11 +293,13 @@ function DadosGeraisTab({ current, form, set, editing, saving, onSave, onCancelE
         </Field>
       </Section>
 
-      <Section title="Vedações Legais (Lei 14.169/2019, art. 4º, §1º)" subtitle="Atestação de quem elabora o plano — o sistema exige que a pergunta tenha sido respondida, não arbitra o mérito da resposta.">
-        <DeclaracaoField label="Nenhum item se destina a folha de pessoal/encargos" field="declaracao_nao_pessoal" form={form} set={set} editing={editing} valor={current.declaracao_nao_pessoal} />
-        <DeclaracaoField label="Nenhum item beneficia unidade puramente administrativa" field="declaracao_nao_unidade_administrativa" form={form} set={set} editing={editing} valor={current.declaracao_nao_unidade_administrativa} />
-        <DeclaracaoField label="Ciência de que os recursos não estão sujeitos a contingenciamento" field="declaracao_sem_contingenciamento" form={form} set={set} editing={editing} valor={current.declaracao_sem_contingenciamento} />
-      </Section>
+      {current.natureza === 'fesp' && (
+        <Section title="Vedações Legais (Lei 14.169/2019, art. 4º, §1º)" subtitle="Atestação de quem elabora o plano — o sistema exige que a pergunta tenha sido respondida, não arbitra o mérito da resposta.">
+          <DeclaracaoField label="Nenhum item se destina a folha de pessoal/encargos" field="declaracao_nao_pessoal" form={form} set={set} editing={editing} valor={current.declaracao_nao_pessoal} />
+          <DeclaracaoField label="Nenhum item beneficia unidade puramente administrativa" field="declaracao_nao_unidade_administrativa" form={form} set={set} editing={editing} valor={current.declaracao_nao_unidade_administrativa} />
+          <DeclaracaoField label="Ciência de que os recursos não estão sujeitos a contingenciamento" field="declaracao_sem_contingenciamento" form={form} set={set} editing={editing} valor={current.declaracao_sem_contingenciamento} />
+        </Section>
+      )}
 
       <Section title="Decomposição Financeira (R$)">
         <div className="overflow-x-auto">

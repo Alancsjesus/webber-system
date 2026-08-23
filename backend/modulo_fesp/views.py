@@ -310,10 +310,13 @@ class PlanoAplicacaoViewSet(viewsets.ModelViewSet):
         )
         exercicio = self.request.query_params.get('exercicio_fiscal')
         stat = self.request.query_params.get('status')
+        natureza = self.request.query_params.get('natureza')
         if exercicio:
             qs = qs.filter(exercicio_fiscal=exercicio)
         if stat:
             qs = qs.filter(status=stat)
+        if natureza:
+            qs = qs.filter(natureza=natureza)
         return qs
 
     def perform_create(self, serializer):
@@ -325,7 +328,7 @@ class PlanoAplicacaoViewSet(viewsets.ModelViewSet):
         serializer.save()
 
     def _transicao(self, plano, novo_status, usuario, motivo=''):
-        permitidos = PlanoAplicacao.TRANSICOES_PERMITIDAS.get(plano.status, [])
+        permitidos = plano.transicoes_permitidas.get(plano.status, [])
         if novo_status not in permitidos:
             raise ValidationError(f'Transição "{plano.status}" → "{novo_status}" não permitida.')
         anterior = plano.status
@@ -341,6 +344,11 @@ class PlanoAplicacaoViewSet(viewsets.ModelViewSet):
     def submeter_conselho(self, request, pk=None):
         _check_planejamento(request)
         plano = self.get_object()
+        if not plano.usa_rito_conselho:
+            return Response(
+                {'detail': 'Este plano não segue o rito do Conselho Gestor — use a ação "aprovar".'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         from core.checklist_engine import ChecklistEngine
         resultado = ChecklistEngine.avaliar_plano_aplicacao(plano)
         if not resultado.pode_submeter:
@@ -357,6 +365,11 @@ class PlanoAplicacaoViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], url_path='aprovar_conselho', permission_classes=[IsAuthenticated, IsMultiTenant, IsMembroConselhoFesp])
     def aprovar_conselho(self, request, pk=None):
         plano = self.get_object()
+        if not plano.usa_rito_conselho:
+            return Response(
+                {'detail': 'Este plano não segue o rito do Conselho Gestor.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         numero_ata = (request.data.get('numero_ata') or '').strip()
         data_reuniao = request.data.get('data_reuniao')
         if not numero_ata or not data_reuniao:
@@ -386,6 +399,11 @@ class PlanoAplicacaoViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated, IsMultiTenant, IsMembroConselhoFesp])
     def devolver(self, request, pk=None):
         plano = self.get_object()
+        if not plano.usa_rito_conselho:
+            return Response(
+                {'detail': 'Este plano não segue o rito do Conselho Gestor.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         motivo = (request.data.get('motivo') or '').strip()
         if not motivo:
             return Response({'detail': 'Motivo da devolução é obrigatório.'}, status=status.HTTP_400_BAD_REQUEST)
@@ -403,14 +421,47 @@ class PlanoAplicacaoViewSet(viewsets.ModelViewSet):
         return Response(self.get_serializer(plano).data)
 
     @action(detail=True, methods=['post'])
+    def aprovar(self, request, pk=None):
+        """Aprovação direta (sem Conselho Gestor/homologação) para naturezas != FESP."""
+        plano = self.get_object()
+        if plano.usa_rito_conselho:
+            return Response(
+                {'detail': 'Planos FESP seguem o rito do Conselho Gestor — use "submeter_conselho"/"aprovar_conselho".'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        papel = getattr(request, 'papel', None)
+        if papel not in ('admin', 'gestor_planejamento', 'ordenador'):
+            return Response(
+                {'detail': 'Apenas Planejamento, Ordenador ou Admin podem aprovar este plano.'},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        from core.checklist_engine import ChecklistEngine
+        resultado = ChecklistEngine.avaliar_plano_aplicacao(plano)
+        if not resultado.pode_submeter:
+            return Response(
+                {
+                    'detail': 'Plano não pode ser aprovado — há pendências obrigatórias.',
+                    'bloqueadores': [b.detalhe for b in resultado.bloqueadores],
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        self._transicao(plano, 'aprovado', request.user, request.data.get('motivo', ''))
+        return Response(self.get_serializer(plano).data)
+
+    @action(detail=True, methods=['post'])
     def homologar(self, request, pk=None):
+        plano = self.get_object()
+        if not plano.usa_rito_conselho:
+            return Response(
+                {'detail': 'Este plano não exige homologação por ato do Chefe do Executivo.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         papel = getattr(request, 'papel', None)
         if papel not in ('admin', 'ordenador'):
             return Response(
                 {'detail': 'Apenas o Ordenador de Despesa pode registrar a homologação.'},
                 status=status.HTTP_403_FORBIDDEN,
             )
-        plano = self.get_object()
         numero_ato = (request.data.get('numero_ato') or '').strip()
         data_ato = request.data.get('data_ato')
         if not numero_ato or not data_ato:

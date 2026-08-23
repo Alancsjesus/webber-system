@@ -177,10 +177,17 @@ class ItemPlanoAplicacaoSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         request = self.context['request']
-        org_beneficiaria = attrs.get('org_beneficiaria')
-        instrumento = attrs.get('instrumento')
+        instrumento = attrs.get('instrumento') or getattr(self.instance, 'instrumento', None)
+        meta_especifica = attrs.get('meta_especifica') or getattr(self.instance, 'meta_especifica', None)
         if instrumento and str(instrumento.org_id_id) != str(request.org_id):
             raise serializers.ValidationError({'instrumento': 'Instrumento não pertence à organização.'})
+        if instrumento and meta_especifica and instrumento.tipo_instrumento != meta_especifica.plano.natureza:
+            raise serializers.ValidationError({
+                'instrumento': (
+                    f'O instrumento é do tipo "{instrumento.get_tipo_instrumento_display()}", mas o plano '
+                    f'tem natureza "{meta_especifica.plano.get_natureza_display()}".'
+                ),
+            })
         return attrs
 
     def create(self, validated_data):
@@ -225,6 +232,7 @@ class MetaEspecificaSerializer(serializers.ModelSerializer):
 class PlanoAplicacaoSerializer(serializers.ModelSerializer):
     org_nome = serializers.CharField(source='org_id.nome', read_only=True)
     status_display = serializers.CharField(source='get_status_display', read_only=True)
+    natureza_display = serializers.CharField(source='get_natureza_display', read_only=True)
     created_by_username = serializers.CharField(source='created_by.username', read_only=True)
     historico = HistoricoPlanoAplicacaoSerializer(many=True, read_only=True)
     reuniao_aprovacao_detail = ReuniaoConselhoGestorSerializer(source='reuniao_aprovacao', read_only=True)
@@ -235,7 +243,8 @@ class PlanoAplicacaoSerializer(serializers.ModelSerializer):
     class Meta:
         model = PlanoAplicacao
         fields = [
-            'id', 'numero', 'exercicio_fiscal', 'ementa', 'descricao', 'status', 'status_display',
+            'id', 'numero', 'natureza', 'natureza_display',
+            'exercicio_fiscal', 'ementa', 'descricao', 'status', 'status_display',
             'declaracao_nao_pessoal', 'declaracao_nao_unidade_administrativa',
             'declaracao_sem_contingenciamento',
             'reuniao_aprovacao', 'reuniao_aprovacao_detail', 'motivo_devolucao_conselho',
@@ -263,6 +272,11 @@ class PlanoAplicacaoSerializer(serializers.ModelSerializer):
             'valor_planejado_investimento', 'valor_planejado_custeio',
             'org_id', 'created_by', 'created_at', 'updated_at',
         ]
+
+    def validate_natureza(self, value):
+        if self.instance and value != self.instance.natureza:
+            raise serializers.ValidationError('A natureza do plano não pode ser alterada após a criação.')
+        return value
 
     def get_valor_planejado_total(self, obj):
         return obj.valor_planejado_investimento + obj.valor_planejado_custeio

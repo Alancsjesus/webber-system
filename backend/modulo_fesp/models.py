@@ -164,11 +164,17 @@ class PlanoAplicacao(BaseModel):
         ('devolvido',          'Devolvido para Ajustes'),
         ('aprovado_conselho',  'Aprovado pelo Conselho Gestor'),
         ('homologado',         'Homologado (Ato do Chefe do Executivo)'),
+        ('aprovado',           'Aprovado'),
         ('publicado',          'Publicado'),
         ('encerrado',          'Encerrado'),
         ('cancelado',          'Cancelado'),
     ]
-    TRANSICOES_PERMITIDAS = {
+    # Naturezas cujo rito legal exige Conselho Gestor + homologação por ato do
+    # Chefe do Executivo (Lei 14.169/2019, arts. 7º-12). As demais naturezas
+    # (emenda, convênio, repasse, fundo a fundo, financiamento) usam o rito
+    # simples — cada uma tem sua própria prestação de contas externa ao Webber.
+    NATUREZAS_RITO_CONSELHO = {'fesp'}
+    TRANSICOES_FESP = {
         'elaboracao':         ['submetido_conselho', 'cancelado'],
         'submetido_conselho': ['aprovado_conselho', 'devolvido'],
         'devolvido':          ['elaboracao'],
@@ -178,8 +184,30 @@ class PlanoAplicacao(BaseModel):
         'encerrado':          [],
         'cancelado':          [],
     }
+    TRANSICOES_SIMPLES = {
+        'elaboracao': ['aprovado', 'cancelado'],
+        'aprovado':   ['publicado'],
+        'publicado':  ['encerrado'],
+        'encerrado':  [],
+        'cancelado':  [],
+    }
+    PREFIXO_NUMERO = {
+        'fesp':                        'PLANFESP',
+        'emenda_parlamentar':          'PLANEMEN',
+        'convenio':                    'PLANCONV',
+        'contrato_repasse':            'PLANREPA',
+        'transferencia_fundo_a_fundo': 'PLANFAF',
+        'financiamento':               'PLANFIN',
+    }
 
-    numero = models.CharField(max_length=30, blank=True, editable=False, verbose_name='Número')
+    numero = models.CharField(max_length=40, blank=True, editable=False, verbose_name='Número')
+    natureza = models.CharField(
+        max_length=30, choices=InstrumentoFinanceiro.TIPO_CHOICES, default='fesp',
+        verbose_name='Natureza do recurso',
+        help_text='Define o rito de aprovação do plano (Conselho Gestor + homologação, exclusivo '
+                   'do FESP, ou aprovação direta para as demais naturezas) e quais Instrumentos '
+                   'Financeiros podem ser vinculados aos itens deste plano.',
+    )
     exercicio_fiscal = models.IntegerField(verbose_name='Exercício fiscal')
     ementa = models.CharField(max_length=255, verbose_name='Ementa')
     descricao = models.TextField(blank=True, default='', verbose_name='Descrição')
@@ -257,13 +285,21 @@ class PlanoAplicacao(BaseModel):
     )
 
     class Meta(BaseModel.Meta):
-        unique_together = [['org_id', 'exercicio_fiscal']]
+        unique_together = [['org_id', 'exercicio_fiscal', 'natureza']]
         ordering = ['-exercicio_fiscal']
         verbose_name = 'Plano de Aplicação'
         verbose_name_plural = 'Planos de Aplicação'
 
     def __str__(self):
         return f'{self.numero or "(sem número)"} — {self.ementa} ({self.exercicio_fiscal})'
+
+    @property
+    def usa_rito_conselho(self):
+        return self.natureza in self.NATUREZAS_RITO_CONSELHO
+
+    @property
+    def transicoes_permitidas(self):
+        return self.TRANSICOES_FESP if self.usa_rito_conselho else self.TRANSICOES_SIMPLES
 
 
 class HistoricoPlanoAplicacao(models.Model):
@@ -422,13 +458,13 @@ class ItemPlanoAplicacao(BaseModel):
     )
     codigo_senasp = models.CharField(
         max_length=30, blank=True, default='', verbose_name='Código SENASP',
-        help_text='Código do catálogo federal usado nos planos de aplicação do FESP (ex: MAT.14.006.0002).',
+        help_text='Código do catálogo federal (SENASP), quando aplicável (ex: MAT.14.006.0002).',
     )
     bem_servico = models.CharField(max_length=255, verbose_name='Bem/Serviço')
     descricao = models.TextField(blank=True, default='', verbose_name='Descrição')
     base_legal = models.CharField(
         max_length=255, blank=True, default='', verbose_name='Base legal',
-        help_text='Inciso/alínea da Lei 14.169/2019 que ampara o item (ex: "Art. 7º, I, b)").',
+        help_text='Dispositivo legal/normativo que ampara o item (ex: "Lei 14.169/2019, Art. 7º, I, b)").',
     )
     natureza = models.CharField(max_length=15, choices=NATUREZA_CHOICES, verbose_name='Natureza (ND)')
 
@@ -537,10 +573,11 @@ def gerar_numero_plano_aplicacao(sender, instance, **kwargs):
     if instance.numero:
         return
     sigla = instance.org_id.sigla if instance.org_id_id else 'ORG'
+    prefixo = PlanoAplicacao.PREFIXO_NUMERO.get(instance.natureza, 'PLAN')
     seq = (
         PlanoAplicacao.objects
-        .filter(org_id=instance.org_id, exercicio_fiscal=instance.exercicio_fiscal)
+        .filter(org_id=instance.org_id, exercicio_fiscal=instance.exercicio_fiscal, natureza=instance.natureza)
         .exclude(pk=instance.pk)
         .count() + 1
     )
-    instance.numero = f'PLANFESP-{sigla}-{seq:03d}/{instance.exercicio_fiscal}'
+    instance.numero = f'{prefixo}-{sigla}-{seq:03d}/{instance.exercicio_fiscal}'

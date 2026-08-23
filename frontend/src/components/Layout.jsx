@@ -11,7 +11,7 @@ const SECTION_ACCENT = {
   'Planejamento':       { dot: 'bg-emerald-400',  ring: 'bg-emerald-500/15', text: 'text-emerald-300'},
   'Aceite':             { dot: 'bg-amber-400',    ring: 'bg-amber-500/15',   text: 'text-amber-300'  },
   'Orçamento':          { dot: 'bg-yellow-400',   ring: 'bg-yellow-500/15',  text: 'text-yellow-300' },
-  'FESP':               { dot: 'bg-amber-400',    ring: 'bg-amber-500/15',   text: 'text-amber-300'  },
+  'Planos de Aplicação': { dot: 'bg-amber-400',    ring: 'bg-amber-500/15',   text: 'text-amber-300'  },
   'Demanda':            { dot: 'bg-blue-400',     ring: 'bg-blue-500/15',    text: 'text-blue-300'   },
   'Pesquisa de Preços': { dot: 'bg-violet-400',   ring: 'bg-violet-500/15',  text: 'text-violet-300' },
   'Análise Técnica':    { dot: 'bg-indigo-400',   ring: 'bg-indigo-500/15',  text: 'text-indigo-300' },
@@ -27,7 +27,7 @@ const ACTIVE_CLS = {
   'Planejamento':       'bg-gray-800/70 text-white',
   'Aceite':             'bg-gray-800/70 text-white',
   'Orçamento':          'bg-gray-800/70 text-white',
-  'FESP':               'bg-gray-800/70 text-white',
+  'Planos de Aplicação': 'bg-gray-800/70 text-white',
   'Demanda':            'bg-gray-800/70 text-white',
   'Pesquisa de Preços': 'bg-gray-800/70 text-white',
   'Análise Técnica':    'bg-gray-800/70 text-white',
@@ -43,7 +43,7 @@ const ACTIVE_BORDER = {
   'Planejamento':       'border-l-2 border-emerald-500',
   'Aceite':             'border-l-2 border-amber-500',
   'Orçamento':          'border-l-2 border-yellow-500',
-  'FESP':               'border-l-2 border-amber-500',
+  'Planos de Aplicação': 'border-l-2 border-amber-500',
   'Demanda':            'border-l-2 border-blue-500',
   'Pesquisa de Preços': 'border-l-2 border-violet-500',
   'Análise Técnica':    'border-l-2 border-indigo-500',
@@ -80,7 +80,7 @@ const NAV_BASE = [
     ],
   },
   {
-    section: 'FESP',
+    section: 'Planos de Aplicação',
     items: [
       { to: '/fesp/planos',       label: 'Planos de Aplicação' },
       { to: '/fesp/instrumentos', label: 'Instrumentos Financeiros' },
@@ -168,7 +168,7 @@ const CONFIG_GROUPS_ADMIN = [
     ],
   },
   {
-    label: 'FESP',
+    label: 'Planos de Aplicação',
     items: [
       { to: '/config/conselho-fesp', label: 'Conselho Gestor FESP' },
     ],
@@ -195,7 +195,7 @@ const CONFIG_GROUPS_PLANEJAMENTO = [
     ],
   },
   {
-    label: 'FESP',
+    label: 'Planos de Aplicação',
     items: [
       { to: '/config/conselho-fesp', label: 'Conselho Gestor FESP' },
     ],
@@ -265,7 +265,7 @@ function buildSections(papel, tipoUnidade, flags) {
 
   if (!f.modulo_planejamento_ativo) sections = sections.filter(s => s.section !== 'Planejamento')
   if (!f.modulo_orcamento_ativo)    sections = sections.filter(s => s.section !== 'Orçamento')
-  if (!f.modulo_fesp_ativo)         sections = sections.filter(s => s.section !== 'FESP')
+  if (!f.modulo_fesp_ativo)         sections = sections.filter(s => s.section !== 'Planos de Aplicação')
   if (!f.modulo_mapa_ativo)         sections = sections.filter(s => s.section !== 'Pesquisa de Preços')
   if (!f.modulo_etp_ativo) {
     sections = sections

@@ -76,6 +76,12 @@ const usePlanoAplicacaoStore = create((set, get) => ({
     return data
   },
 
+  aprovar: async (id, motivo) => {
+    const { data } = await api.post(`/fesp/plano-aplicacao/${id}/aprovar/`, { motivo })
+    set({ current: data })
+    return data
+  },
+
   publicar: async (id) => {
     const { data } = await api.post(`/fesp/plano-aplicacao/${id}/publicar/`)
     set({ current: data })
