@@ -85,6 +85,8 @@ const NAV_BASE = [
       { to: '/fesp/planos',       label: 'Planos de Aplicação' },
       { to: '/fesp/instrumentos', label: 'Instrumentos Financeiros' },
       { to: '/fesp/conselho',     label: 'Conselho Gestor' },
+      { to: '/fesp/execucao',        label: 'Painel de Execução' },
+      { to: '/fesp/relatorio-itens', label: 'Relatório de Itens' },
     ],
   },
   {

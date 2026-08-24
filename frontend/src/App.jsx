@@ -72,6 +72,8 @@ import FespPlanoCreate from './pages/FespPlanoCreate'
 import FespPlanoDetail from './pages/FespPlanoDetail'
 import FespConselhoPainel from './pages/FespConselhoPainel'
 import FespConsolidacao from './pages/FespConsolidacao'
+import FespPainelExecucao from './pages/FespPainelExecucao'
+import FespRelatorioItens from './pages/FespRelatorioItens'
 import ComposicaoConselhoAdmin from './pages/config/ComposicaoConselhoAdmin'
 
 // Wrapper que combina autenticação + autorização por papel
@@ -139,6 +141,8 @@ export default function App() {
           <Route path="fesp/planos/:id"        element={<Guard><FespPlanoDetail /></Guard>} />
           <Route path="fesp/planos/:id/consolidacao" element={<Guard><FespConsolidacao /></Guard>} />
           <Route path="fesp/conselho"          element={<Guard><FespConselhoPainel /></Guard>} />
+          <Route path="fesp/execucao"          element={<Guard><FespPainelExecucao /></Guard>} />
+          <Route path="fesp/relatorio-itens"   element={<Guard><FespRelatorioItens /></Guard>} />
           <Route path="config/conselho-fesp"   element={<Guard><ComposicaoConselhoAdmin /></Guard>} />
 
           {/* Demanda */}

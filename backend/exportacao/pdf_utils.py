@@ -5,6 +5,7 @@ Usa ReportLab para PDF e templates Django para HTML.
 import hashlib
 import io
 from datetime import datetime
+from decimal import Decimal
 from types import SimpleNamespace
 
 from django.http import HttpResponse
@@ -1027,6 +1028,80 @@ def gerar_pdf_plano_compras(dados: dict, org_nome: str, org_sigla: str = None) -
         ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
     ]))
     e.append(tl)
+
+    doc.build(e, onFirstPage=_rodape, onLaterPages=_rodape)
+    return buf.getvalue()
+
+
+def gerar_pdf_relatorio_itens_plano_aplicacao(itens: list, org_nome: str, org_sigla: str = None) -> bytes:
+    """
+    Gera PDF do Relatório de Itens do Plano de Aplicação FESP (pendentes vs.
+    executados), agrupado por exercício/eixo. `itens` é uma lista de
+    ItemPlanoAplicacao já anotados com `.executado` (ver modulo_fesp.indicadores).
+    """
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4,
+                             leftMargin=2*cm, rightMargin=2*cm,
+                             topMargin=2*cm, bottomMargin=2.5*cm)
+    estilos = _estilos()
+    e = []
+
+    estilo_cel = ParagraphStyle('rel_cel', fontSize=7.5, leading=10)
+
+    def cel(txt):
+        return Paragraph(str(txt) if txt not in (None, '') else '—', estilo_cel)
+
+    e += _cabecalho('RELATÓRIO DE ITENS DO PLANO DE APLICAÇÃO', 'Pendentes x Executados', org_nome, estilos, org_sigla=org_sigla)
+
+    total_pendente = sum((Decimal(it.valor_total_estimado or 0) for it in itens if not it.executado), Decimal('0'))
+    total_executado = sum((Decimal(it.valor_total_estimado or 0) for it in itens if it.executado), Decimal('0'))
+    qtd_pendente = sum(1 for it in itens if not it.executado)
+    qtd_executado = sum(1 for it in itens if it.executado)
+
+    e.append(_secao('Resumo Geral', estilos))
+    e += _campo('Total de Itens', str(len(itens)), estilos)
+    e += _campo('Pendentes', f'{qtd_pendente} — {_fmt_valor(total_pendente)}', estilos)
+    e += _campo('Executados', f'{qtd_executado} — {_fmt_valor(total_executado)}', estilos)
+
+    # Agrupa por (exercício, eixo) para leitura mais fácil
+    grupos = {}
+    ordem_grupos = []
+    for it in itens:
+        plano = it.meta_especifica.plano
+        chave = (plano.exercicio_fiscal, plano.ementa)
+        if chave not in grupos:
+            grupos[chave] = []
+            ordem_grupos.append(chave)
+        grupos[chave].append(it)
+
+    for (exercicio, eixo) in ordem_grupos:
+        e.append(_secao(f'{exercicio} — {eixo}', estilos))
+        cabecalho = [['Plano', 'Órgão Benef.', 'Meta', 'Bem/Serviço', 'Natureza', 'Status', 'Valor']]
+        dados_tab = list(cabecalho)
+        for it in grupos[(exercicio, eixo)]:
+            dados_tab.append([
+                cel(it.meta_especifica.plano.numero),
+                cel(it.org_beneficiaria.sigla),
+                cel(it.meta_especifica.titulo),
+                cel(it.bem_servico),
+                cel(it.get_natureza_display()),
+                cel('Executado' if it.executado else it.get_status_display()),
+                _fmt_valor(it.valor_total_estimado),
+            ])
+        t = Table(dados_tab, colWidths=[2.2*cm, 2*cm, 3.5*cm, 4*cm, 2*cm, 2.3*cm, 2.5*cm])
+        t.setStyle(TableStyle([
+            ('BACKGROUND',    (0, 0), (-1, 0),  AZUL_GOV),
+            ('TEXTCOLOR',     (0, 0), (-1, 0),  BRANCO),
+            ('FONTNAME',      (0, 0), (-1, 0),  'Helvetica-Bold'),
+            ('FONTSIZE',      (0, 0), (-1, -1), 7.5),
+            ('ROWBACKGROUNDS',(0, 1), (-1, -1), [BRANCO, AZUL_CLARO]),
+            ('GRID',          (0, 0), (-1, -1), 0.5, CINZA_BD),
+            ('ALIGN',         (6, 0), (6, -1),  'RIGHT'),
+            ('VALIGN',        (0, 0), (-1, -1), 'TOP'),
+            ('TOPPADDING',    (0, 0), (-1, -1), 3),
+            ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+        ]))
+        e.append(t)
 
     doc.build(e, onFirstPage=_rodape, onLaterPages=_rodape)
     return buf.getvalue()

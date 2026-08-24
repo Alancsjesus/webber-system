@@ -5,6 +5,7 @@ from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied, ValidationError
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 
 from core.permissions import IsMultiTenant
 
@@ -657,3 +658,159 @@ class PlanoAplicacaoViewSet(viewsets.ModelViewSet):
         from exportacao.pdf_utils import gerar_pdf_plano_aplicacao, resposta_pdf
         pdf = gerar_pdf_plano_aplicacao(plano)
         return resposta_pdf(pdf, f'PlanoAplicacao-{plano.numero}.pdf')
+
+
+class IndicadoresExecucaoFespView(APIView):
+    """
+    Painel de evolução de execução dos Planos de Aplicação FESP: itens
+    pendentes vs. executados (já contratados), agrupados por Órgão
+    Beneficiário × Exercício Fiscal × Eixo (campo `ementa` do plano).
+
+    GET /api/fesp/indicadores/execucao/
+    Parâmetros opcionais:
+      ?exercicio=2026        — filtra por exercício do plano
+      ?org_beneficiaria=<id> — filtra por órgão beneficiário do item
+      ?eixo=<texto>          — busca parcial (icontains) no eixo/ementa do plano
+    """
+    permission_classes = [IsAuthenticated, IsMultiTenant]
+
+    def get(self, request):
+        from .indicadores import itens_plano_aplicacao_queryset
+
+        qs = itens_plano_aplicacao_queryset(request.org_id).exclude(status='cancelado')
+
+        exercicio = request.query_params.get('exercicio')
+        org_beneficiaria = request.query_params.get('org_beneficiaria')
+        eixo = request.query_params.get('eixo')
+        if exercicio:
+            qs = qs.filter(meta_especifica__plano__exercicio_fiscal=exercicio)
+        if org_beneficiaria:
+            qs = qs.filter(org_beneficiaria_id=org_beneficiaria)
+        if eixo:
+            qs = qs.filter(meta_especifica__plano__ementa__icontains=eixo)
+
+        grupos: dict = {}
+        totais = {'pendentes': 0, 'executados': 0, 'valor_pendente': Decimal('0'), 'valor_executado': Decimal('0')}
+
+        for item in qs:
+            plano = item.meta_especifica.plano
+            chave = (item.org_beneficiaria_id, plano.exercicio_fiscal, plano.ementa)
+            if chave not in grupos:
+                grupos[chave] = {
+                    'org_beneficiaria_id': item.org_beneficiaria_id,
+                    'org_sigla': item.org_beneficiaria.sigla,
+                    'org_nome': item.org_beneficiaria.nome,
+                    'exercicio': plano.exercicio_fiscal,
+                    'eixo': plano.ementa,
+                    'pendentes': 0,
+                    'executados': 0,
+                    'valor_pendente': Decimal('0'),
+                    'valor_executado': Decimal('0'),
+                }
+            g = grupos[chave]
+            valor = item.valor_total_estimado or Decimal('0')
+            if item.executado:
+                g['executados'] += 1
+                g['valor_executado'] += valor
+                totais['executados'] += 1
+                totais['valor_executado'] += valor
+            else:
+                g['pendentes'] += 1
+                g['valor_pendente'] += valor
+                totais['pendentes'] += 1
+                totais['valor_pendente'] += valor
+
+        lista_grupos = sorted(grupos.values(), key=lambda g: (g['org_sigla'] or '', g['exercicio'] or 0, g['eixo'] or ''))
+        for g in lista_grupos:
+            g['valor_pendente'] = str(g['valor_pendente'])
+            g['valor_executado'] = str(g['valor_executado'])
+        totais['valor_pendente'] = str(totais['valor_pendente'])
+        totais['valor_executado'] = str(totais['valor_executado'])
+
+        return Response({'totais': totais, 'grupos': lista_grupos})
+
+
+class RelatorioItensPlanoAplicacaoView(APIView):
+    """
+    Relatório tabular de itens dos Planos de Aplicação FESP, com filtros e
+    exportação em PDF/XLSX.
+
+    GET /api/fesp/relatorio-itens/
+    Parâmetros opcionais:
+      ?exercicio=2026         — filtra por exercício do plano
+      ?org_beneficiaria=<id>  — filtra por órgão beneficiário do item
+      ?natureza=custeio|investimento
+      ?status=pendente|consolidado|necessidade_gerada|cancelado
+      ?executado=true|false   — usa a anotação de execução (Contrato vinculado)
+      ?eixo=<texto>           — busca parcial no eixo/ementa do plano
+      ?export=pdf|xlsx        — exporta em vez de retornar JSON (não usar "format":
+                                 é reservado pela negociação de conteúdo do DRF)
+    """
+    permission_classes = [IsAuthenticated, IsMultiTenant]
+
+    def get(self, request):
+        from .indicadores import itens_plano_aplicacao_queryset
+
+        qs = itens_plano_aplicacao_queryset(request.org_id)
+
+        exercicio = request.query_params.get('exercicio')
+        org_beneficiaria = request.query_params.get('org_beneficiaria')
+        natureza = request.query_params.get('natureza')
+        status_param = request.query_params.get('status')
+        executado_param = request.query_params.get('executado')
+        eixo = request.query_params.get('eixo')
+
+        if exercicio:
+            qs = qs.filter(meta_especifica__plano__exercicio_fiscal=exercicio)
+        if org_beneficiaria:
+            qs = qs.filter(org_beneficiaria_id=org_beneficiaria)
+        if natureza:
+            qs = qs.filter(natureza=natureza)
+        if status_param:
+            qs = qs.filter(status=status_param)
+        if executado_param in ('true', 'false'):
+            qs = qs.filter(executado=(executado_param == 'true'))
+        if eixo:
+            qs = qs.filter(meta_especifica__plano__ementa__icontains=eixo)
+
+        qs = qs.order_by('meta_especifica__plano__exercicio_fiscal', 'meta_especifica__plano__numero', 'meta_especifica__numero')
+
+        # Nome do param é "export", não "format" — "format" é reservado pelo DRF
+        # (URL_FORMAT_OVERRIDE / negociação de conteúdo) e um valor não reconhecido
+        # como renderer (ex: "pdf") faz o DRF responder 404 antes de chegar aqui.
+        fmt = request.query_params.get('export')
+        if fmt == 'pdf':
+            from core.models import Orgao
+            from exportacao.pdf_utils import gerar_pdf_relatorio_itens_plano_aplicacao, resposta_pdf
+            orgao = Orgao.objects.filter(pk=request.org_id).first()
+            org_nome = orgao.nome if orgao else 'WEBBER'
+            org_sigla = orgao.sigla if orgao else None
+            pdf = gerar_pdf_relatorio_itens_plano_aplicacao(list(qs), org_nome, org_sigla)
+            nome = f'RelatorioItensFESP{"-" + str(exercicio) if exercicio else ""}.pdf'
+            return resposta_pdf(pdf, nome)
+        if fmt == 'xlsx':
+            from exportacao.xlsx_utils import gerar_xlsx_relatorio_itens_plano_aplicacao
+            nome = f'RelatorioItensFESP{"-" + str(exercicio) if exercicio else ""}.xlsx'
+            return gerar_xlsx_relatorio_itens_plano_aplicacao(list(qs), nome)
+
+        linhas = []
+        for item in qs:
+            plano = item.meta_especifica.plano
+            linhas.append({
+                'item_id': item.id,
+                'plano_numero': plano.numero,
+                'exercicio': plano.exercicio_fiscal,
+                'eixo': plano.ementa,
+                'org_gestor_sigla': plano.org_id.sigla if plano.org_id else None,
+                'org_beneficiaria_sigla': item.org_beneficiaria.sigla,
+                'meta_titulo': item.meta_especifica.titulo,
+                'natureza': item.natureza,
+                'natureza_display': item.get_natureza_display(),
+                'bem_servico': item.bem_servico,
+                'status': item.status,
+                'status_display': item.get_status_display(),
+                'executado': item.executado,
+                'valor_total_estimado': str(item.valor_total_estimado or Decimal('0')),
+            })
+
+        return Response({'total': len(linhas), 'itens': linhas})

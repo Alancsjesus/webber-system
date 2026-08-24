@@ -1,3 +1,4 @@
+from django.urls import path
 from rest_framework.routers import DefaultRouter
 from .views import (
     InstrumentoFinanceiroViewSet,
@@ -7,6 +8,8 @@ from .views import (
     MetaEspecificaViewSet,
     GrupoConsolidacaoItemViewSet,
     ItemPlanoAplicacaoViewSet,
+    IndicadoresExecucaoFespView,
+    RelatorioItensPlanoAplicacaoView,
 )
 
 router = DefaultRouter()
@@ -18,4 +21,7 @@ router.register(r'meta-especifica', MetaEspecificaViewSet, basename='meta-especi
 router.register(r'grupo-consolidacao', GrupoConsolidacaoItemViewSet, basename='grupo-consolidacao-fesp')
 router.register(r'item-plano', ItemPlanoAplicacaoViewSet, basename='item-plano-aplicacao-fesp')
 
-urlpatterns = router.urls
+urlpatterns = router.urls + [
+    path('indicadores/execucao/', IndicadoresExecucaoFespView.as_view(), name='fesp-indicadores-execucao'),
+    path('relatorio-itens/', RelatorioItensPlanoAplicacaoView.as_view(), name='fesp-relatorio-itens'),
+]
