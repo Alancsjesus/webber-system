@@ -1,7 +1,8 @@
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import useIndicacaoStore from '../stores/indicacaoStore'
-import api from '../services/api'
+import DFDPicker from '../components/DFDPicker'
+import NecessidadePicker from '../components/NecessidadePicker'
 
 const ANO_ATUAL = new Date().getFullYear()
 
@@ -16,19 +17,10 @@ export default function IndicacaoCreate() {
     necessidade: '',
     observacoes: '',
   })
-  const [dfds, setDfds]   = useState([])
-  const [necs, setNecs]   = useState([])
+  const [dfdLabel, setDfdLabel] = useState('')
+  const [necLabel, setNecLabel] = useState('')
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState({})
-
-  useEffect(() => {
-    api.get('/demanda/dfd/', { params: { status: 'Aprovada', page_size: 100 } })
-      .then(({ data }) => setDfds(data.results ?? data))
-      .catch(() => {})
-    api.get('/planejamento/necessidade/', { params: { status: 'Aprovada', page_size: 100 } })
-      .then(({ data }) => setNecs(data.results ?? data))
-      .catch(() => {})
-  }, [])
 
   const set = (field, value) => {
     setForm((p) => ({ ...p, [field]: value }))
@@ -107,27 +99,27 @@ export default function IndicacaoCreate() {
 
         {form.tipo_vinculo === 'dfd' && (
           <Field label="DFD aprovado" error={errors.dfd}>
-            <select value={form.dfd} onChange={(e) => set('dfd', e.target.value)} className={inp(errors.dfd)}>
-              <option value="">Selecione um DFD...</option>
-              {dfds.map((d) => (
-                <option key={d.id} value={d.id}>
-                  {d.numero_sei} — {d.descricao?.slice(0, 50)}
-                </option>
-              ))}
-            </select>
+            <DFDPicker
+              value={form.dfd}
+              valueLabel={dfdLabel}
+              onChange={(id, dfd) => {
+                set('dfd', id || '')
+                setDfdLabel(dfd ? `${dfd.numero_sei} — ${dfd.descricao?.slice(0, 50) || ''}` : '')
+              }}
+            />
           </Field>
         )}
 
         {form.tipo_vinculo === 'necessidade' && (
           <Field label="Necessidade aprovada" error={errors.necessidade}>
-            <select value={form.necessidade} onChange={(e) => set('necessidade', e.target.value)} className={inp(errors.necessidade)}>
-              <option value="">Selecione uma necessidade...</option>
-              {necs.map((n) => (
-                <option key={n.id} value={n.id}>
-                  {n.titulo} ({n.exercicio_fiscal})
-                </option>
-              ))}
-            </select>
+            <NecessidadePicker
+              value={form.necessidade}
+              valueLabel={necLabel}
+              onChange={(id, nec) => {
+                set('necessidade', id || '')
+                setNecLabel(nec ? `${nec.titulo} (${nec.exercicio_fiscal})` : '')
+              }}
+            />
           </Field>
         )}
 
