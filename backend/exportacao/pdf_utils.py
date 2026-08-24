@@ -1657,6 +1657,58 @@ def gerar_pdf_plano_aplicacao(plano) -> bytes:
         ]))
         e.append(t)
 
+        # Itens de cada Meta Específica
+        estilo_item_lbl = ParagraphStyle('item_lbl', fontSize=7, textColor=CINZA_TXT, fontName='Helvetica-Bold')
+        estilo_item_val = ParagraphStyle('item_val', fontSize=7.5, leading=10)
+        for meta in metas:
+            itens = list(meta.itens.exclude(status='cancelado').select_related('org_beneficiaria').order_by('created_at'))
+            if not itens:
+                continue
+            e.append(Spacer(1, 0.25*cm))
+            e.append(_secao(f'Itens da Meta {meta.numero} — {meta.titulo}', estilos))
+            for item in itens:
+                titulo_item = Paragraph(f'<b>{item.bem_servico}</b>', ParagraphStyle('it_tit', fontSize=9, fontName='Helvetica-Bold'))
+                badge = _badge_status('Aprovado' if item.aprovado else ('Pendente' if item.aprovado is None else 'Cancelado'))
+                cabecalho_item = Table([[titulo_item, badge]], colWidths=[13.5*cm, 3*cm])
+                cabecalho_item.setStyle(TableStyle([
+                    ('VALIGN', (0, 0), (-1, -1), 'MIDDLE'),
+                    ('ALIGN',  (1, 0), (1, 0),   'RIGHT'),
+                    ('LEFTPADDING', (0, 0), (-1, -1), 0),
+                    ('RIGHTPADDING', (0, 0), (-1, -1), 0),
+                ]))
+                e.append(cabecalho_item)
+
+                campos = []
+                if item.base_legal:
+                    campos.append(('Base legal', item.base_legal))
+                if item.descricao:
+                    campos.append(('Descrição', item.descricao))
+                if item.destinacao:
+                    campos.append(('Destinação', item.destinacao))
+                campos += [
+                    ('Cód. SENASP', item.codigo_senasp or '—'),
+                    ('Unidade de medida / Qtd. planejada', f'{item.unidade_medida} — {item.quantidade:g}'),
+                    ('Natureza (ND)', item.get_natureza_display()),
+                    ('Instituição', item.org_beneficiaria.nome if item.org_beneficiaria_id else '—'),
+                    ('Total', fmt(item.valor_total_estimado)),
+                ]
+
+                dados_tab_item = [
+                    [Paragraph(label, estilo_item_lbl), Paragraph(str(valor), estilo_item_val)]
+                    for label, valor in campos
+                ]
+                t_item = Table(dados_tab_item, colWidths=[4*cm, 12.5*cm])
+                t_item.setStyle(TableStyle([
+                    ('GRID',          (0, 0), (-1, -1), 0.3, CINZA_BD),
+                    ('VALIGN',        (0, 0), (-1, -1), 'TOP'),
+                    ('TOPPADDING',    (0, 0), (-1, -1), 3),
+                    ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+                    ('LEFTPADDING',   (0, 0), (-1, -1), 5),
+                    ('ROWBACKGROUNDS',(0, 0), (-1, -1), [BRANCO, AZUL_CLARO]),
+                ]))
+                e.append(t_item)
+                e.append(Spacer(1, 0.25*cm))
+
     # Instrumentos financeiros vinculados
     from modulo_fesp.models import InstrumentoFinanceiro
     instrumentos = InstrumentoFinanceiro.objects.filter(itens_plano__meta_especifica__plano=plano).distinct()
