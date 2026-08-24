@@ -89,7 +89,7 @@ export default function FespPlanoList() {
       <div className="flex flex-wrap gap-3 mb-5">
         <input
           type="text"
-          placeholder="Buscar por número, ementa..."
+          placeholder="Buscar por número, ementa/eixo..."
           value={searchInput}
           onChange={(e) => setSearchInput(e.target.value)}
           className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-yellow-500"
@@ -141,7 +141,7 @@ export default function FespPlanoList() {
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
                       <th className="text-left px-5 py-3 font-medium text-gray-500">Número</th>
-                      <th className="text-left px-5 py-3 font-medium text-gray-500">Ementa</th>
+                      <th className="text-left px-5 py-3 font-medium text-gray-500">Ementa/Eixo</th>
                       <th className="text-left px-5 py-3 font-medium text-gray-500">Natureza</th>
                       <th className="text-left px-5 py-3 font-medium text-gray-500">Exercício</th>
                       <th className="text-left px-5 py-3 font-medium text-gray-500">Status</th>

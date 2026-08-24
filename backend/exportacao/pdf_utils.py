@@ -1579,7 +1579,7 @@ def gerar_pdf_plano_aplicacao(plano) -> bytes:
 
     e.append(_secao('Identificação', estilos))
     e += _campo('Número', plano.numero, estilos)
-    e += _campo('Ementa', plano.ementa, estilos)
+    e += _campo('Ementa/Eixo', plano.ementa, estilos)
     e += _campo('Exercício Fiscal', str(plano.exercicio_fiscal), estilos)
     e += _campo('Status', plano.get_status_display(), estilos)
     if plano.numero_ato:

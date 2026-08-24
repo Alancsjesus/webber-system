@@ -209,7 +209,7 @@ class PlanoAplicacao(BaseModel):
                    'Financeiros podem ser vinculados aos itens deste plano.',
     )
     exercicio_fiscal = models.IntegerField(verbose_name='Exercício fiscal')
-    ementa = models.CharField(max_length=255, verbose_name='Ementa')
+    ementa = models.CharField(max_length=255, verbose_name='Ementa/Eixo')
     descricao = models.TextField(blank=True, default='', verbose_name='Descrição')
     status = models.CharField(
         max_length=20, choices=STATUS_CHOICES, default='elaboracao', verbose_name='Status',

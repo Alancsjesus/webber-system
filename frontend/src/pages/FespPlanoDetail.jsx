@@ -284,7 +284,7 @@ function DadosGeraisTab({ current, form, set, editing, saving, onSave, onCancelE
   return (
     <div className="space-y-6">
       <Section title="Identificação">
-        <Field label="Ementa">
+        <Field label="Ementa/Eixo">
           {editing ? <input type="text" value={form.ementa} onChange={(e) => set('ementa', e.target.value)} className={inp()} />
             : <p className="text-sm text-gray-700">{current.ementa}</p>}
         </Field>

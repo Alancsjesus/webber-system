@@ -79,7 +79,7 @@ export default function FespPlanoCreate() {
             className={inp(errors.exercicio_fiscal)} />
         </Field>
 
-        <Field label="Ementa" error={errors.ementa}>
+        <Field label="Ementa/Eixo" error={errors.ementa}>
           <input type="text" value={form.ementa}
             onChange={(e) => set('ementa', e.target.value)}
             placeholder="Ex: Plano de Aplicação FESP — Enfrentamento à Violência contra a Mulher"
