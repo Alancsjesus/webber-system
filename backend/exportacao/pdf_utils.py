@@ -1555,6 +1555,13 @@ def gerar_pdf_plano_aplicacao(plano) -> bytes:
     def fmt(v):
         return f'R$ {(v or 0):,.2f}'.replace(',', 'X').replace('.', ',').replace('X', '.')
 
+    estilo_cel = ParagraphStyle('cel_tab', fontSize=8, leading=10)
+
+    def cel(txt):
+        """Envolve texto de célula de tabela em Paragraph — evita estouro quando o
+        conteúdo é mais longo que a coluna (string simples não quebra linha)."""
+        return Paragraph(str(txt) if txt not in (None, '') else '—', estilo_cel)
+
     org_nome = plano.org_id.nome if plano.org_id else ''
     hash_doc = _hash_documento({
         'tipo': 'PLANO_APLICACAO_FESP', 'id': str(plano.pk), 'numero': plano.numero,
@@ -1640,7 +1647,7 @@ def gerar_pdf_plano_aplicacao(plano) -> bytes:
         dados_tab = list(cabecalho_tab)
         for meta in metas:
             dados_tab.append([
-                str(meta.numero), meta.titulo[:60], meta.get_status_display(), fmt(meta.valor_total),
+                str(meta.numero), cel(meta.titulo), meta.get_status_display(), fmt(meta.valor_total),
             ])
         t = Table(dados_tab, colWidths=[1.5*cm, 8.5*cm, 3*cm, 3.5*cm])
         t.setStyle(TableStyle([
@@ -1717,7 +1724,7 @@ def gerar_pdf_plano_aplicacao(plano) -> bytes:
         cabecalho_tab = [['Tipo', 'Número', 'Valor Pactuado']]
         dados_tab = list(cabecalho_tab)
         for inst in instrumentos:
-            dados_tab.append([inst.get_tipo_instrumento_display(), inst.numero_instrumento, fmt(inst.valor_total_pactuado)])
+            dados_tab.append([cel(inst.get_tipo_instrumento_display()), cel(inst.numero_instrumento), fmt(inst.valor_total_pactuado)])
         t = Table(dados_tab, colWidths=[6*cm, 6*cm, 4.5*cm])
         t.setStyle(TableStyle([
             ('BACKGROUND',    (0, 0), (-1, 0),  AZUL_GOV),
