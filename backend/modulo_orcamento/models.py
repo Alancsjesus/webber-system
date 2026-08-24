@@ -359,11 +359,6 @@ class IndicacaoDotacao(models.Model):
     valor_indicado = models.DecimalField(
         max_digits=15, decimal_places=2, verbose_name='Valor indicado (R$)',
     )
-    item_dfd = models.ForeignKey(
-        'modulo_demanda.ItemDFD', null=True, blank=True, on_delete=models.SET_NULL,
-        related_name='indicacoes_dotacao', verbose_name='Item do DFD financiado por esta linha',
-        help_text='Só aplicável quando a indicação está vinculada a um DFD (não a uma Necessidade solta).',
-    )
     em_diligencia = models.BooleanField(
         default=False, verbose_name='Em diligência',
         help_text='Pendência administrativa antes de confirmar o valor indicado.',
@@ -376,6 +371,29 @@ class IndicacaoDotacao(models.Model):
 
     def __str__(self):
         return f'{self.indicacao.numero} ← {self.dotacao} = R$ {self.valor_indicado}'
+
+
+class ItemIndicacaoDotacao(models.Model):
+    """
+    Rateio: quanto de uma linha Indicação+Dotação é destinado a cada Item do
+    DFD. N:N real — uma dotação pode financiar vários itens, e um item pode
+    ser financiado por várias dotações/indicações diferentes.
+    """
+    indicacao_dotacao = models.ForeignKey(
+        IndicacaoDotacao, on_delete=models.CASCADE, related_name='itens_detalhados',
+    )
+    item_dfd = models.ForeignKey(
+        'modulo_demanda.ItemDFD', on_delete=models.CASCADE, related_name='rateios_indicacao',
+    )
+    valor = models.DecimalField(max_digits=15, decimal_places=2, verbose_name='Valor rateado (R$)')
+
+    class Meta:
+        unique_together = [['indicacao_dotacao', 'item_dfd']]
+        verbose_name = 'Item de Indicação (rateio)'
+        verbose_name_plural = 'Itens de Indicação (rateio)'
+
+    def __str__(self):
+        return f'{self.indicacao_dotacao} → {self.item_dfd.objeto} = R$ {self.valor}'
 
 
 class DescentralizacaoOrcamentaria(models.Model):

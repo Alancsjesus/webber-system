@@ -2,7 +2,7 @@ from rest_framework import serializers
 from modulo_planejamento.models import NecessidadePlanejamento
 from .models import (
     AcaoOrcamentaria, ElementoDespesa, NaturezaDespesa, FonteRecurso, SubFonteRecurso,
-    DotacaoOrcamentaria, IndicacaoOrcamentaria, IndicacaoDotacao, HistoricoIndicacao,
+    DotacaoOrcamentaria, IndicacaoOrcamentaria, IndicacaoDotacao, ItemIndicacaoDotacao, HistoricoIndicacao,
     DescentralizacaoOrcamentaria, ConcessaoOrcamentaria,
     EmpenhoOrcamentario, LiquidacaoOrcamentaria, PagamentoOrcamentario,
     TipoAcaoOrcamentaria, TipoFonteRecurso,
@@ -336,6 +336,14 @@ class PagamentoSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'cancelada', 'data_cancelamento', 'registrada_por_username', 'criado_em']
 
 
+class ItemIndicacaoDotacaoSerializer(serializers.ModelSerializer):
+    item_dfd_objeto = serializers.CharField(source='item_dfd.objeto', read_only=True)
+
+    class Meta:
+        model  = ItemIndicacaoDotacao
+        fields = ['id', 'item_dfd', 'item_dfd_objeto', 'valor']
+
+
 class IndicacaoDotacaoSerializer(serializers.ModelSerializer):
     acao_codigo        = serializers.CharField(source='dotacao.acao.codigo',       read_only=True)
     acao_nome          = serializers.CharField(source='dotacao.acao.nome',         read_only=True)
@@ -346,7 +354,7 @@ class IndicacaoDotacaoSerializer(serializers.ModelSerializer):
     fonte_codigo       = serializers.IntegerField(source='dotacao.fonte_recurso.codigo', read_only=True)
     fonte_nome         = serializers.CharField(source='dotacao.fonte_recurso.nome', read_only=True)
     dotacao_id         = serializers.IntegerField(source='dotacao.id',             read_only=True)
-    item_dfd_objeto    = serializers.CharField(source='item_dfd.objeto', read_only=True, default=None)
+    itens_detalhados   = ItemIndicacaoDotacaoSerializer(many=True, read_only=True)
     indicacao_id       = serializers.IntegerField(source='indicacao.id',           read_only=True)
     indicacao_numero   = serializers.CharField(source='indicacao.numero',          read_only=True)
     exercicio_fiscal   = serializers.IntegerField(source='indicacao.exercicio_fiscal', read_only=True)
@@ -369,7 +377,7 @@ class IndicacaoDotacaoSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'dotacao_id', 'valor_indicado',
             'indicacao_id', 'indicacao_numero', 'exercicio_fiscal', 'beneficiada',
-            'item_dfd', 'item_dfd_objeto', 'em_diligencia',
+            'itens_detalhados', 'em_diligencia',
             'valor_descentralizado', 'valor_concedido',
             'valor_empenhado', 'valor_liquidado', 'valor_pago', 'saldo', 'status_execucao',
             'acao_codigo', 'acao_nome',
@@ -515,5 +523,14 @@ class IndicacaoOrcamentariaSerializer(serializers.ModelSerializer):
 class VincularDotacaoSerializer(serializers.Serializer):
     dotacao_id     = serializers.IntegerField()
     valor_indicado = serializers.DecimalField(max_digits=15, decimal_places=2)
-    item_dfd_id    = serializers.IntegerField(required=False, allow_null=True)
     em_diligencia  = serializers.BooleanField(required=False, default=False)
+
+
+class DetalharItemSerializer(serializers.Serializer):
+    item_dfd_id = serializers.IntegerField()
+    valor       = serializers.DecimalField(max_digits=15, decimal_places=2)
+
+
+class DetalharItensSerializer(serializers.Serializer):
+    indicacao_dotacao_id = serializers.IntegerField()
+    itens                = DetalharItemSerializer(many=True)

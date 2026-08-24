@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { Fragment, useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import useIndicacaoStore from '../stores/indicacaoStore'
 import useAuthStore from '../stores/authStore'
@@ -39,7 +39,7 @@ export default function IndicacaoDetail() {
     current, loading, error,
     fetchIndicacao, updateIndicacao, deleteIndicacao,
     submeter, aprovar, cancelar,
-    vincularDotacao, desvincularDotacao,
+    vincularDotacao, desvincularDotacao, detalharItens,
     registrarNpos, cancelarNpo,
     registrarConcessoes, cancelarConcessao,
     registrarEmpenhos, cancelarEmpenho,
@@ -54,11 +54,14 @@ export default function IndicacaoDetail() {
   const [showCancelar, setShowCancelar] = useState(false)
   const [motivoCancelamento, setMotivoCancelamento] = useState('')
   const [showVincular, setShowVincular] = useState(false)
-  const [vincForm, setVincForm]     = useState({ dotacao_id: '', valor_indicado: '', item_dfd_id: '', em_diligencia: false })
+  const [vincForm, setVincForm]     = useState({ dotacao_id: '', valor_indicado: '', em_diligencia: false })
   const [vincDotacaoLabel, setVincDotacaoLabel] = useState('')
   const [vincSaving, setVincSaving] = useState(false)
   const [vincErrors, setVincErrors] = useState({})
   const [dfdItens, setDfdItens]     = useState([])
+  const [detalharId, setDetalharId] = useState(null)   // id da linha IndicacaoDotacao sendo detalhada
+  const [detalharForm, setDetalharForm] = useState([]) // [{item_dfd_id, valor}]
+  const [detalharSaving, setDetalharSaving] = useState(false)
   const [showNpoModal, setShowNpoModal] = useState(false)  // 'npo' | 'concessao' | null
   const [npoForms, setNpoForms]     = useState([])   // [{indicacao_dotacao_id, numero, data, valor, obs}]
   const [npoSaving, setNpoSaving]   = useState(false)
@@ -72,12 +75,12 @@ export default function IndicacaoDetail() {
     }
   }, [current])
   useEffect(() => {
-    if (showVincular && current?.dfd) {
+    if (current?.dfd) {
       api.get(`/demanda/dfd/${current.dfd}/`)
         .then(({ data }) => setDfdItens(data.itens || []))
         .catch(() => setDfdItens([]))
     }
-  }, [showVincular, current?.dfd])
+  }, [current?.dfd])
 
   const act = async (fn, ...args) => {
     setSaving(true)
@@ -104,10 +107,9 @@ export default function IndicacaoDetail() {
     try {
       await vincularDotacao(
         id, Number(vincForm.dotacao_id), Number(vincForm.valor_indicado),
-        vincForm.item_dfd_id ? Number(vincForm.item_dfd_id) : null,
         vincForm.em_diligencia,
       )
-      setVincForm({ dotacao_id: '', valor_indicado: '', item_dfd_id: '', em_diligencia: false })
+      setVincForm({ dotacao_id: '', valor_indicado: '', em_diligencia: false })
       setVincDotacaoLabel('')
       setVincErrors({})
       setActionMsg({ type: 'success', text: 'Dotação vinculada.' })
@@ -115,6 +117,31 @@ export default function IndicacaoDetail() {
       setActionMsg({ type: 'error', text: err.response?.data?.detail || 'Erro ao vincular.' })
     } finally {
       setVincSaving(false) }
+  }
+
+  const abrirDetalhar = (item) => {
+    if (detalharId === item.id) { setDetalharId(null); return }
+    setDetalharId(item.id)
+    const existentes = (item.itens_detalhados || []).map((d) => ({ item_dfd_id: String(d.item_dfd), valor: d.valor }))
+    setDetalharForm(existentes.length ? existentes : [{ item_dfd_id: '', valor: '' }])
+  }
+
+  const totalDetalhar = detalharForm.reduce((s, r) => s + (Number(r.valor) || 0), 0)
+
+  const handleSalvarDetalhar = async (item) => {
+    setDetalharSaving(true)
+    try {
+      const itens = detalharForm
+        .filter((r) => r.item_dfd_id && Number(r.valor) > 0)
+        .map((r) => ({ item_dfd_id: Number(r.item_dfd_id), valor: Number(r.valor) }))
+      await detalharItens(id, item.id, itens)
+      setDetalharId(null)
+      setActionMsg({ type: 'success', text: 'Rateio por item atualizado.' })
+    } catch (err) {
+      setActionMsg({ type: 'error', text: err.response?.data?.detail || 'Erro ao salvar rateio.' })
+    } finally {
+      setDetalharSaving(false)
+    }
   }
 
   const handleSaveEdit = async () => {
@@ -302,19 +329,6 @@ export default function IndicacaoDetail() {
                     className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${vincErrors.valor_indicado ? 'border-red-400' : 'border-gray-300'}`} />
                   {vincErrors.valor_indicado && <p className="text-xs text-red-600 mt-1">{vincErrors.valor_indicado}</p>}
                 </div>
-                {current.dfd && (
-                  <div>
-                    <label className="block text-xs font-medium text-gray-600 mb-1">Item do DFD (opcional)</label>
-                    <select value={vincForm.item_dfd_id}
-                      onChange={(e) => setVincForm((p) => ({ ...p, item_dfd_id: e.target.value }))}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-                      <option value="">Sem item específico</option>
-                      {dfdItens.map((it) => (
-                        <option key={it.id} value={it.id}>{it.objeto}</option>
-                      ))}
-                    </select>
-                  </div>
-                )}
                 <div className="flex items-center gap-2 sm:col-span-2">
                   <input type="checkbox" id="em_diligencia" checked={vincForm.em_diligencia}
                     onChange={(e) => setVincForm((p) => ({ ...p, em_diligencia: e.target.checked }))}
@@ -342,28 +356,88 @@ export default function IndicacaoDetail() {
                     <th className="text-left px-4 py-2 font-medium text-gray-500">Elemento</th>
                     <th className="text-left px-4 py-2 font-medium text-gray-500">Natureza</th>
                     <th className="text-left px-4 py-2 font-medium text-gray-500">Fonte</th>
+                    <th className="text-left px-4 py-2 font-medium text-gray-500">Itens</th>
                     <th className="text-right px-4 py-2 font-medium text-gray-500">Valor Indicado</th>
-                    {isRascunho && <th className="px-4 py-2"></th>}
+                    <th className="px-4 py-2"></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {current.itens.map((item) => (
-                    <tr key={item.id} className="hover:bg-gray-50">
-                      <td className="px-4 py-2 text-xs font-mono text-gray-700">{item.acao_codigo}</td>
-                      <td className="px-4 py-2 text-xs text-gray-600">{item.elemento_codigo} — {item.elemento_descricao}</td>
-                      <td className="px-4 py-2 text-xs font-mono text-blue-700">{item.natureza_formato || '—'}</td>
-                      <td className="px-4 py-2 text-xs text-gray-600">{item.fonte_codigo} — {item.fonte_nome}</td>
-                      <td className="px-4 py-2 text-right font-semibold text-gray-800">{fmt(item.valor_indicado)}</td>
-                      {isRascunho && (
-                        <td className="px-4 py-2 text-right">
-                          <button onClick={() => act(desvincularDotacao, id, item.dotacao_id)}
-                            className="text-xs text-red-500 hover:text-red-700">
-                            Remover
-                          </button>
+                  {current.itens.map((item) => {
+                    const detalhes = item.itens_detalhados || []
+                    const somaDetalhar = totalDetalhar
+                    return (
+                    <Fragment key={item.id}>
+                      <tr className="hover:bg-gray-50">
+                        <td className="px-4 py-2 text-xs font-mono text-gray-700">{item.acao_codigo}</td>
+                        <td className="px-4 py-2 text-xs text-gray-600">{item.elemento_codigo} — {item.elemento_descricao}</td>
+                        <td className="px-4 py-2 text-xs font-mono text-blue-700">{item.natureza_formato || '—'}</td>
+                        <td className="px-4 py-2 text-xs text-gray-600">{item.fonte_codigo} — {item.fonte_nome}</td>
+                        <td className="px-4 py-2 text-xs text-gray-600">
+                          {detalhes.length === 0 ? (
+                            <span className="text-gray-300">Sem rateio</span>
+                          ) : (
+                            <span>{detalhes.length} item{detalhes.length > 1 ? 's' : ''}</span>
+                          )}
                         </td>
+                        <td className="px-4 py-2 text-right font-semibold text-gray-800">{fmt(item.valor_indicado)}</td>
+                        <td className="px-4 py-2 text-right whitespace-nowrap">
+                          {isRascunho && current.dfd && (
+                            <button onClick={() => abrirDetalhar(item)}
+                              className="text-xs text-blue-600 hover:text-blue-800 font-medium mr-3">
+                              {detalharId === item.id ? 'Fechar' : 'Detalhar itens'}
+                            </button>
+                          )}
+                          {isRascunho && (
+                            <button onClick={() => act(desvincularDotacao, id, item.dotacao_id)}
+                              className="text-xs text-red-500 hover:text-red-700">
+                              Remover
+                            </button>
+                          )}
+                        </td>
+                      </tr>
+                      {detalharId === item.id && (
+                        <tr>
+                          <td colSpan={7} className="px-4 py-3 bg-gray-50">
+                            <p className="text-xs font-semibold text-gray-600 mb-2">
+                              Ratear R$ {fmt(item.valor_indicado)} entre itens do DFD
+                            </p>
+                            <div className="space-y-2">
+                              {detalharForm.map((row, idx) => (
+                                <div key={idx} className="flex gap-2 items-center">
+                                  <select value={row.item_dfd_id}
+                                    onChange={(e) => setDetalharForm((p) => p.map((r, i) => i === idx ? { ...r, item_dfd_id: e.target.value } : r))}
+                                    className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="">Selecione o item...</option>
+                                    {dfdItens.map((it) => (
+                                      <option key={it.id} value={it.id}>{it.objeto}</option>
+                                    ))}
+                                  </select>
+                                  <CampoMoeda value={row.valor}
+                                    onChange={(v) => setDetalharForm((p) => p.map((r, i) => i === idx ? { ...r, valor: v } : r))}
+                                    className="w-40 border border-gray-300 rounded-lg px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+                                  <button onClick={() => setDetalharForm((p) => p.filter((_, i) => i !== idx))}
+                                    className="text-xs text-red-500 hover:text-red-700 px-1">✕</button>
+                                </div>
+                              ))}
+                            </div>
+                            <div className="flex items-center justify-between mt-2">
+                              <button onClick={() => setDetalharForm((p) => [...p, { item_dfd_id: '', valor: '' }])}
+                                className="text-xs text-blue-600 hover:text-blue-800 font-medium">
+                                + item
+                              </button>
+                              <p className={`text-xs font-semibold ${somaDetalhar > Number(item.valor_indicado) ? 'text-red-600' : 'text-gray-500'}`}>
+                                Total rateado: {fmt(somaDetalhar)} / {fmt(item.valor_indicado)}
+                              </p>
+                            </div>
+                            <button onClick={() => handleSalvarDetalhar(item)} disabled={detalharSaving}
+                              className="mt-3 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-medium px-4 py-2 rounded-lg">
+                              {detalharSaving ? 'Salvando...' : 'Salvar rateio'}
+                            </button>
+                          </td>
+                        </tr>
                       )}
-                    </tr>
-                  ))}
+                    </Fragment>
+                  )})}
                 </tbody>
               </table>
             </div>
@@ -439,7 +513,11 @@ export default function IndicacaoDetail() {
                     const saldo = item.saldo ?? (ind - pago)
                     return (
                       <tr key={item.id} className="hover:bg-gray-50">
-                        <td className="px-3 py-2 text-gray-700">{item.item_dfd_objeto || <span className="text-gray-300">—</span>}</td>
+                        <td className="px-3 py-2 text-gray-700">
+                          {(item.itens_detalhados || []).length === 0
+                            ? <span className="text-gray-300">—</span>
+                            : (item.itens_detalhados || []).map((d) => d.item_dfd_objeto).join(', ')}
+                        </td>
                         <td className="px-3 py-2 text-gray-700">
                           <span className="font-mono text-blue-700 mr-1">{item.acao_codigo}</span>
                           {item.elemento_codigo} {item.natureza_formato && `· ${item.natureza_formato}`}

@@ -485,23 +485,14 @@ class IndicacaoOrcamentariaViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         dotacao_id     = serializer.validated_data['dotacao_id']
         valor_indicado = serializer.validated_data['valor_indicado']
-        item_dfd_id    = serializer.validated_data.get('item_dfd_id')
         em_diligencia  = serializer.validated_data.get('em_diligencia', False)
 
         dotacao = get_object_or_404(
             DotacaoOrcamentaria, id=dotacao_id, org_id=request.org_id
         )
-        item_dfd = None
-        if item_dfd_id:
-            if not indicacao.dfd_id:
-                return Response(
-                    {'detail': 'Só é possível vincular item de DFD quando a indicação está ligada a um DFD.'},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-            item_dfd = get_object_or_404(ItemDFD, id=item_dfd_id, dfd_id=indicacao.dfd_id)
         item, created = IndicacaoDotacao.objects.update_or_create(
             indicacao=indicacao, dotacao=dotacao,
-            defaults={'valor_indicado': valor_indicado, 'item_dfd': item_dfd, 'em_diligencia': em_diligencia},
+            defaults={'valor_indicado': valor_indicado, 'em_diligencia': em_diligencia},
         )
         # Recalcular valor total
         total = sum(i.valor_indicado for i in indicacao.itens.all())
@@ -510,6 +501,52 @@ class IndicacaoOrcamentariaViewSet(viewsets.ModelViewSet):
 
         serializer = self._indicacao_serializer(indicacao)
         return Response({'detail': f'Dotação vinculada com R$ {valor_indicado:,.2f}.', **serializer})
+
+    @action(detail=True, methods=['post'], url_path='detalhar-itens')
+    def detalhar_itens(self, request, pk=None):
+        """
+        Substitui o rateio por item de uma linha indicação+dotação. Payload:
+        { "indicacao_dotacao_id": 12, "itens": [{"item_dfd_id": 5, "valor": 3000}, ...] }
+        Itens com valor 0/em branco são ignorados. Não acumula: a lista enviada
+        substitui integralmente o rateio anterior daquela linha.
+        """
+        from django.db import transaction
+        from .models import ItemIndicacaoDotacao
+        from .serializers import DetalharItensSerializer
+
+        indicacao = self.get_object()
+        if indicacao.status not in ('Rascunho',):
+            return Response(
+                {'detail': 'Só é possível detalhar itens em Rascunho.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        serializer = DetalharItensSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        linha = get_object_or_404(
+            IndicacaoDotacao, id=serializer.validated_data['indicacao_dotacao_id'], indicacao=indicacao,
+        )
+        itens_validos = [i for i in serializer.validated_data['itens'] if i['valor']]
+
+        soma = sum(i['valor'] for i in itens_validos)
+        if soma > linha.valor_indicado:
+            return Response(
+                {'detail': f'Soma do rateio (R$ {soma:,.2f}) não pode superar o valor indicado da linha (R$ {linha.valor_indicado:,.2f}).'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        for i in itens_validos:
+            item_dfd = get_object_or_404(ItemDFD, id=i['item_dfd_id'], dfd_id=indicacao.dfd_id)
+            i['item_dfd'] = item_dfd
+
+        with transaction.atomic():
+            linha.itens_detalhados.all().delete()
+            ItemIndicacaoDotacao.objects.bulk_create([
+                ItemIndicacaoDotacao(indicacao_dotacao=linha, item_dfd=i['item_dfd'], valor=i['valor'])
+                for i in itens_validos
+            ])
+
+        serializer = self._indicacao_serializer(indicacao)
+        return Response({'detail': 'Rateio por item atualizado.', **serializer})
 
     @action(detail=True, methods=['post'], url_path='desvincular-dotacao')
     def desvincular_dotacao(self, request, pk=None):
@@ -927,7 +964,7 @@ class IndicacaoOrcamentariaViewSet(viewsets.ModelViewSet):
         ind = IndicacaoOrcamentaria.objects.prefetch_related(
             'itens__descentralizacoes', 'itens__concessoes',
             'itens__empenhos', 'itens__liquidacoes', 'itens__pagamentos',
-            'historico', 'itens__dotacao', 'itens__item_dfd',
+            'historico', 'itens__dotacao', 'itens__itens_detalhados__item_dfd',
         ).get(pk=indicacao.pk)
         return IndicacaoOrcamentariaSerializer(ind, context={'request': self.request}).data
 
@@ -946,9 +983,9 @@ def _itens_indicacao_queryset(org_id):
         'indicacao', 'indicacao__dfd', 'indicacao__dfd__necessidade_origem',
         'indicacao__necessidade',
         'dotacao__acao', 'dotacao__elemento_despesa', 'dotacao__natureza_despesa', 'dotacao__fonte_recurso',
-        'item_dfd',
     ).prefetch_related(
         'descentralizacoes', 'concessoes', 'empenhos', 'liquidacoes', 'pagamentos',
+        'itens_detalhados__item_dfd',
     ).order_by('-indicacao__exercicio_fiscal', 'dotacao__fonte_recurso__codigo', 'indicacao__numero')
 
 
@@ -980,13 +1017,48 @@ class RelatorioIndicacoesView(APIView):
         if exercicio:
             qs = qs.filter(indicacao__exercicio_fiscal=exercicio)
 
-        itens = IndicacaoDotacaoSerializer(qs, many=True).data
+        itens = _flatten_por_item(IndicacaoDotacaoSerializer(qs, many=True).data)
 
         status_execucao = request.query_params.get('status_execucao')
         if status_execucao:
             itens = [i for i in itens if i['status_execucao'] == status_execucao]
 
         return Response({'total': len(itens), 'itens': itens})
+
+
+def _flatten_por_item(itens):
+    """
+    Achata as linhas indicação+dotação para nível de item quando há rateio
+    (`itens_detalhados`) registrado. Uma linha sem rateio continua aparecendo
+    como 1 linha (item "—") — cobre indicações vinculadas a Necessidade solta,
+    sem DFD, onde não existe item para ratear.
+
+    Empenhado/Liquidado/Pago/Saldo em linhas rateadas são PRORATEADOS
+    proporcionalmente à fatia do item na linha — a execução orçamentária real
+    (empenho/liquidação/pagamento) é sempre registrada por dotação, nunca por
+    item, então esses valores por item são uma estimativa (`rateio: True`),
+    não um lançamento auditado individualmente.
+    """
+    linhas = []
+    for linha in itens:
+        detalhes = linha.get('itens_detalhados') or []
+        if not detalhes:
+            linhas.append({**linha, 'item_dfd_objeto': None, 'valor_indicado_item': linha['valor_indicado'], 'rateio': False})
+            continue
+        base = float(linha['valor_indicado']) or 1
+        for d in detalhes:
+            fatia = float(d['valor']) / base
+            linhas.append({
+                **linha,
+                'item_dfd_objeto': d['item_dfd_objeto'],
+                'valor_indicado_item': d['valor'],
+                'valor_empenhado': round(float(linha['valor_empenhado']) * fatia, 2),
+                'valor_liquidado': round(float(linha['valor_liquidado']) * fatia, 2),
+                'valor_pago':      round(float(linha['valor_pago']) * fatia, 2),
+                'saldo':           round(float(d['valor']) - float(linha['valor_pago']) * fatia, 2),
+                'rateio': True,
+            })
+    return linhas
 
 
 class PainelOrcamentoView(APIView):

@@ -62,11 +62,10 @@ const useIndicacaoStore = create((set, get) => ({
     set({ current: data })
   },
 
-  vincularDotacao: async (id, dotacaoId, valorIndicado, itemDfdId = null, emDiligencia = false) => {
+  vincularDotacao: async (id, dotacaoId, valorIndicado, emDiligencia = false) => {
     const { data } = await api.post(`/orcamento/indicacao/${id}/vincular-dotacao/`, {
       dotacao_id:     dotacaoId,
       valor_indicado: valorIndicado,
-      item_dfd_id:    itemDfdId,
       em_diligencia:  emDiligencia,
     })
     // Backend now returns the full updated indicação — update current directly
@@ -77,6 +76,15 @@ const useIndicacaoStore = create((set, get) => ({
   desvincularDotacao: async (id, dotacaoId) => {
     const { data } = await api.post(`/orcamento/indicacao/${id}/desvincular-dotacao/`, { dotacao_id: dotacaoId })
     set({ current: data })
+  },
+
+  detalharItens: async (id, indicacaoDotacaoId, itens) => {
+    const { data } = await api.post(`/orcamento/indicacao/${id}/detalhar-itens/`, {
+      indicacao_dotacao_id: indicacaoDotacaoId,
+      itens,
+    })
+    set({ current: data })
+    return data
   },
 
   registrarNpos: async (id, npos) => {

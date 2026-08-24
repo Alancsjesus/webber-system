@@ -32,7 +32,7 @@ export const pageHelp = {
     { label: 'Filtro Exercício',        texto: 'Filtra pelo ano fiscal da indicação de origem.' },
     { label: 'Filtro Status',           texto: 'Filtra pelo estágio de execução atual de cada linha (Pago, Liquidado, Empenhado, Em Diligência, Indicado ou Sem Execução).' },
   ],
-  dica: 'A coluna "Beneficiada" mostra Sim quando a demanda de origem (DFD ou Necessidade) é execução externa (para outro órgão); fica em branco quando não há como determinar.',
+  dica: 'A coluna "Beneficiada" mostra Sim quando a demanda de origem (DFD ou Necessidade) é execução externa (para outro órgão); fica em branco quando não há como determinar. Quando uma dotação foi detalhada por item (em "Detalhar itens" na Indicação), aparece uma linha por item; valores marcados com "≈" são rateados proporcionalmente, já que empenho/liquidação/pagamento são sempre registrados por dotação, não por item.',
   baseLegal: 'Lei 14.133/2021 — Art. 7º (indicação orçamentária) e Lei 4.320/1964, arts. 58-64 (estágios da despesa: empenho, liquidação, pagamento).',
 }
 // ──────────────────────────────────────────────────────────────────────────────
@@ -125,8 +125,13 @@ export default function RelatorioIndicacoes() {
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {dados.itens.map((it) => (
-                    <tr key={it.id} className="hover:bg-gray-50">
+                  {dados.itens.map((it, i) => {
+                    const rateioTitle = it.rateio
+                      ? 'Valor rateado proporcionalmente à fatia do item na dotação — a execução (empenho/liquidação/pagamento) é sempre registrada por dotação, não por item.'
+                      : undefined
+                    const prefixo = it.rateio ? '≈ ' : ''
+                    return (
+                    <tr key={`${it.id}-${i}`} className="hover:bg-gray-50">
                       <td className="px-3 py-2 text-gray-700">{it.fonte_codigo} — {it.fonte_nome}</td>
                       <td className="px-3 py-2 text-gray-600">{it.beneficiada || '—'}</td>
                       <td className="px-3 py-2 text-gray-700">{it.item_dfd_objeto || <span className="text-gray-300">—</span>}</td>
@@ -137,17 +142,17 @@ export default function RelatorioIndicacoes() {
                         </span>
                       </td>
                       <td className="px-3 py-2 text-right text-amber-700 font-semibold">
-                        {it.em_diligencia ? fmt(it.valor_indicado) : '—'}
+                        {it.em_diligencia ? fmt(it.valor_indicado_item) : '—'}
                       </td>
                       <td className="px-3 py-2 text-right font-semibold text-gray-800">
-                        {it.em_diligencia ? '—' : fmt(it.valor_indicado)}
+                        {it.em_diligencia ? '—' : fmt(it.valor_indicado_item)}
                       </td>
-                      <td className="px-3 py-2 text-right font-semibold text-blue-700">{fmt(it.valor_empenhado)}</td>
-                      <td className="px-3 py-2 text-right font-semibold text-purple-700">{fmt(it.valor_liquidado)}</td>
-                      <td className="px-3 py-2 text-right font-semibold text-teal-700">{fmt(it.valor_pago)}</td>
-                      <td className="px-3 py-2 text-right font-semibold text-gray-500">{fmt(it.saldo)}</td>
+                      <td className="px-3 py-2 text-right font-semibold text-blue-700" title={rateioTitle}>{prefixo}{fmt(it.valor_empenhado)}</td>
+                      <td className="px-3 py-2 text-right font-semibold text-purple-700" title={rateioTitle}>{prefixo}{fmt(it.valor_liquidado)}</td>
+                      <td className="px-3 py-2 text-right font-semibold text-teal-700" title={rateioTitle}>{prefixo}{fmt(it.valor_pago)}</td>
+                      <td className="px-3 py-2 text-right font-semibold text-gray-500" title={rateioTitle}>{prefixo}{fmt(it.saldo)}</td>
                     </tr>
-                  ))}
+                  )})}
                 </tbody>
               </table>
             </div>
