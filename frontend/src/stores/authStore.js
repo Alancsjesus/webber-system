@@ -28,7 +28,7 @@ const DEFAULT_FLAGS = {
 function getFlagsFromToken() {
   const token = localStorage.getItem('access_token')
   if (!token) return DEFAULT_FLAGS
-  return parseJwt(token)['flags'] || DEFAULT_FLAGS
+  return { ...DEFAULT_FLAGS, ...(parseJwt(token)['flags'] || {}) }
 }
 
 const useAuthStore = create((set) => ({
@@ -66,7 +66,7 @@ const useAuthStore = create((set) => ({
         unidadeNome:  p.unidade_nome  || null,
         tipoUnidade:  p.tipo_unidade  || null,
         tipoOrg:      p.tipo_unidade  || 'demandante',
-        flags:        p.flags         || DEFAULT_FLAGS,
+        flags:        { ...DEFAULT_FLAGS, ...(p.flags || {}) },
         seiBaseUrl:   p.sei_base_url  || '',
         loading: false,
       })
