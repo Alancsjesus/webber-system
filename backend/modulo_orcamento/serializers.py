@@ -347,6 +347,10 @@ class IndicacaoDotacaoSerializer(serializers.ModelSerializer):
     fonte_nome         = serializers.CharField(source='dotacao.fonte_recurso.nome', read_only=True)
     dotacao_id         = serializers.IntegerField(source='dotacao.id',             read_only=True)
     item_dfd_objeto    = serializers.CharField(source='item_dfd.objeto', read_only=True, default=None)
+    indicacao_id       = serializers.IntegerField(source='indicacao.id',           read_only=True)
+    indicacao_numero   = serializers.CharField(source='indicacao.numero',          read_only=True)
+    exercicio_fiscal   = serializers.IntegerField(source='indicacao.exercicio_fiscal', read_only=True)
+    beneficiada        = serializers.SerializerMethodField()
     valor_descentralizado = serializers.SerializerMethodField()
     valor_concedido       = serializers.SerializerMethodField()
     valor_empenhado       = serializers.SerializerMethodField()
@@ -364,6 +368,7 @@ class IndicacaoDotacaoSerializer(serializers.ModelSerializer):
         model  = IndicacaoDotacao
         fields = [
             'id', 'dotacao_id', 'valor_indicado',
+            'indicacao_id', 'indicacao_numero', 'exercicio_fiscal', 'beneficiada',
             'item_dfd', 'item_dfd_objeto', 'em_diligencia',
             'valor_descentralizado', 'valor_concedido',
             'valor_empenhado', 'valor_liquidado', 'valor_pago', 'saldo', 'status_execucao',
@@ -373,6 +378,21 @@ class IndicacaoDotacaoSerializer(serializers.ModelSerializer):
             'fonte_codigo', 'fonte_nome',
             'descentralizacoes', 'concessoes', 'empenhos', 'liquidacoes', 'pagamentos',
         ]
+
+    def get_beneficiada(self, obj):
+        """
+        'Sim' quando a demanda de origem (via DFD ou Necessidade da indicação) é
+        execução externa (outro órgão beneficiado); 'Não' quando é interna;
+        None quando não há como determinar (indicação sem demanda vinculada).
+        """
+        nec = None
+        if obj.indicacao.dfd_id:
+            nec = getattr(obj.indicacao.dfd, 'necessidade_origem', None)
+        elif obj.indicacao.necessidade_id:
+            nec = obj.indicacao.necessidade
+        if not nec:
+            return None
+        return 'Sim' if nec.tipo_execucao == 'externa' else 'Não'
 
     def get_natureza_formato(self, obj):
         nd = obj.dotacao.natureza_despesa

@@ -1,3 +1,4 @@
+from django.urls import path
 from rest_framework.routers import DefaultRouter
 from .views import (
     AcaoOrcamentariaViewSet,
@@ -9,6 +10,7 @@ from .views import (
     IndicacaoOrcamentariaViewSet,
     TipoAcaoOrcamentariaViewSet,
     TipoFonteRecursoViewSet,
+    RelatorioIndicacoesView,
 )
 
 router = DefaultRouter()
@@ -22,4 +24,6 @@ router.register(r'indicacao', IndicacaoOrcamentariaViewSet, basename='indicacao-
 router.register(r'tipo-acao', TipoAcaoOrcamentariaViewSet, basename='tipo-acao-orcamentaria')
 router.register(r'tipo-fonte', TipoFonteRecursoViewSet, basename='tipo-fonte-recurso')
 
-urlpatterns = router.urls
+urlpatterns = router.urls + [
+    path('relatorio-indicacoes/', RelatorioIndicacoesView.as_view(), name='relatorio-indicacoes'),
+]

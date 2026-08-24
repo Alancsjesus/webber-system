@@ -6,6 +6,7 @@ from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from django_filters.rest_framework import DjangoFilterBackend
 
 from core.models import Orgao
@@ -929,3 +930,51 @@ class IndicacaoOrcamentariaViewSet(viewsets.ModelViewSet):
             'historico', 'itens__dotacao', 'itens__item_dfd',
         ).get(pk=indicacao.pk)
         return IndicacaoOrcamentariaSerializer(ind, context={'request': self.request}).data
+
+
+class RelatorioIndicacoesView(APIView):
+    """
+    Relatório de itens de indicação cruzando VÁRIAS Indicações Orçamentárias
+    do mesmo órgão — uma linha por dotação/item indicado, com toda a cadeia de
+    execução (Indicado/Empenhado/Liquidado/Pago/Saldo), independente de a qual
+    Indicação cada linha pertence. Útil para ver, por Fonte de Recurso, todos os
+    itens financiados por ela ao longo de várias indicações diferentes.
+
+    GET /api/orcamento/relatorio-indicacoes/
+    Parâmetros opcionais:
+      ?fonte_recurso=<id>   — filtra por fonte de recurso da dotação
+      ?exercicio_fiscal=... — filtra pelo exercício da indicação
+      ?status_execucao=...  — Pago|Liquidado|Empenhado|Em Diligência|Indicado|Sem Execução
+    """
+    permission_classes = [IsAuthenticated, IsMultiTenant]
+
+    def get(self, request):
+        from .serializers import IndicacaoDotacaoSerializer
+
+        qs = IndicacaoDotacao.objects.filter(
+            indicacao__org_id=request.org_id
+        ).exclude(
+            indicacao__status='Cancelada'
+        ).select_related(
+            'indicacao', 'indicacao__dfd', 'indicacao__dfd__necessidade_origem',
+            'indicacao__necessidade',
+            'dotacao__acao', 'dotacao__elemento_despesa', 'dotacao__natureza_despesa', 'dotacao__fonte_recurso',
+            'item_dfd',
+        ).prefetch_related(
+            'descentralizacoes', 'concessoes', 'empenhos', 'liquidacoes', 'pagamentos',
+        ).order_by('-indicacao__exercicio_fiscal', 'dotacao__fonte_recurso__codigo', 'indicacao__numero')
+
+        fonte_recurso = request.query_params.get('fonte_recurso')
+        exercicio = request.query_params.get('exercicio_fiscal')
+        if fonte_recurso:
+            qs = qs.filter(dotacao__fonte_recurso_id=fonte_recurso)
+        if exercicio:
+            qs = qs.filter(indicacao__exercicio_fiscal=exercicio)
+
+        itens = IndicacaoDotacaoSerializer(qs, many=True).data
+
+        status_execucao = request.query_params.get('status_execucao')
+        if status_execucao:
+            itens = [i for i in itens if i['status_execucao'] == status_execucao]
+
+        return Response({'total': len(itens), 'itens': itens})

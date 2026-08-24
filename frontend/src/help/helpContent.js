@@ -20,6 +20,7 @@ import { pageHelp as etpDetailHelp }          from '../pages/ETPDetail'
 import { pageHelp as trListHelp }             from '../pages/TRList'
 import { pageHelp as trDetailHelp }           from '../pages/TRDetail'
 import { pageHelp as orcamentoListHelp }      from '../pages/OrcamentoList'
+import { pageHelp as relatorioIndicacoesHelp } from '../pages/RelatorioIndicacoes'
 import { pageHelp as mapaListHelp }           from '../pages/MapaList'
 import { pageHelp as mapaDetailHelp }         from '../pages/MapaDetail'
 import { pageHelp as pncpListHelp }           from '../pages/PNCPList'
@@ -54,6 +55,7 @@ export const helpContent = {
   '/analise-tecnica/trs/:id':   trDetailHelp,
 
   '/orcamento/dotacoes':        orcamentoListHelp,
+  '/orcamento/relatorio-indicacoes': relatorioIndicacoesHelp,
 
   '/pesquisa/mapa':             mapaListHelp,
   '/pesquisa/mapa/:id':         mapaDetailHelp,
