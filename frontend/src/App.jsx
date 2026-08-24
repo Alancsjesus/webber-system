@@ -22,6 +22,7 @@ import IndicacaoList from './pages/IndicacaoList'
 import IndicacaoCreate from './pages/IndicacaoCreate'
 import IndicacaoDetail from './pages/IndicacaoDetail'
 import RelatorioIndicacoes from './pages/RelatorioIndicacoes'
+import PainelOrcamento from './pages/PainelOrcamento'
 import ETPList from './pages/ETPList'
 import ETPCreate from './pages/ETPCreate'
 import ETPDetail from './pages/ETPDetail'
@@ -133,6 +134,7 @@ export default function App() {
           <Route path="orcamento/indicacoes/nova"  element={<Guard><IndicacaoCreate /></Guard>} />
           <Route path="orcamento/indicacoes/:id"   element={<Guard><IndicacaoDetail /></Guard>} />
           <Route path="orcamento/relatorio-indicacoes" element={<Guard><RelatorioIndicacoes /></Guard>} />
+          <Route path="orcamento/painel"           element={<Guard><PainelOrcamento /></Guard>} />
 
           {/* FESP / Emendas / Financiamentos */}
           <Route path="fesp/instrumentos"      element={<Guard><FespInstrumentoList /></Guard>} />

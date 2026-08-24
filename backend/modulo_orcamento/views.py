@@ -932,6 +932,26 @@ class IndicacaoOrcamentariaViewSet(viewsets.ModelViewSet):
         return IndicacaoOrcamentariaSerializer(ind, context={'request': self.request}).data
 
 
+def _itens_indicacao_queryset(org_id):
+    """
+    Queryset base de IndicacaoDotacao cruzando TODAS as Indicações
+    Orçamentárias do órgão (não uma única) — reaproveitado pelo relatório
+    plano (RelatorioIndicacoesView) e pelo painel agregado (PainelOrcamentoView).
+    """
+    return IndicacaoDotacao.objects.filter(
+        indicacao__org_id=org_id
+    ).exclude(
+        indicacao__status='Cancelada'
+    ).select_related(
+        'indicacao', 'indicacao__dfd', 'indicacao__dfd__necessidade_origem',
+        'indicacao__necessidade',
+        'dotacao__acao', 'dotacao__elemento_despesa', 'dotacao__natureza_despesa', 'dotacao__fonte_recurso',
+        'item_dfd',
+    ).prefetch_related(
+        'descentralizacoes', 'concessoes', 'empenhos', 'liquidacoes', 'pagamentos',
+    ).order_by('-indicacao__exercicio_fiscal', 'dotacao__fonte_recurso__codigo', 'indicacao__numero')
+
+
 class RelatorioIndicacoesView(APIView):
     """
     Relatório de itens de indicação cruzando VÁRIAS Indicações Orçamentárias
@@ -951,18 +971,7 @@ class RelatorioIndicacoesView(APIView):
     def get(self, request):
         from .serializers import IndicacaoDotacaoSerializer
 
-        qs = IndicacaoDotacao.objects.filter(
-            indicacao__org_id=request.org_id
-        ).exclude(
-            indicacao__status='Cancelada'
-        ).select_related(
-            'indicacao', 'indicacao__dfd', 'indicacao__dfd__necessidade_origem',
-            'indicacao__necessidade',
-            'dotacao__acao', 'dotacao__elemento_despesa', 'dotacao__natureza_despesa', 'dotacao__fonte_recurso',
-            'item_dfd',
-        ).prefetch_related(
-            'descentralizacoes', 'concessoes', 'empenhos', 'liquidacoes', 'pagamentos',
-        ).order_by('-indicacao__exercicio_fiscal', 'dotacao__fonte_recurso__codigo', 'indicacao__numero')
+        qs = _itens_indicacao_queryset(request.org_id)
 
         fonte_recurso = request.query_params.get('fonte_recurso')
         exercicio = request.query_params.get('exercicio_fiscal')
@@ -978,3 +987,117 @@ class RelatorioIndicacoesView(APIView):
             itens = [i for i in itens if i['status_execucao'] == status_execucao]
 
         return Response({'total': len(itens), 'itens': itens})
+
+
+class PainelOrcamentoView(APIView):
+    """
+    Painel de gerenciamento orçamentário: duas visões complementares.
+      - "aplicacao": o que já foi indicado, agregado por Fonte de Recurso, com o
+        estágio de execução (Indicado/Empenhado/Liquidado/Pago/Saldo).
+      - "pendentes": Necessidades de Planejamento já aprovadas cujo valor
+        estimado ainda não está totalmente coberto por indicações ativas —
+        agrupadas por Área de Aplicação, com detalhe por necessidade/órgão executor.
+
+    GET /api/orcamento/painel/
+    """
+    permission_classes = [IsAuthenticated, IsMultiTenant]
+
+    def get(self, request):
+        return Response({
+            'aplicacao': self._aplicacao(request.org_id),
+            'pendentes': self._pendentes(request.org_id),
+        })
+
+    def _aplicacao(self, org_id):
+        from decimal import Decimal
+        from .serializers import IndicacaoDotacaoSerializer
+
+        itens = IndicacaoDotacaoSerializer(_itens_indicacao_queryset(org_id), many=True).data
+
+        totais = {'indicado': Decimal('0'), 'empenhado': Decimal('0'), 'liquidado': Decimal('0'), 'pago': Decimal('0'), 'saldo': Decimal('0')}
+        grupos = {}
+        for it in itens:
+            chave = (it['fonte_codigo'], it['fonte_nome'])
+            if chave not in grupos:
+                grupos[chave] = {
+                    'fonte_codigo': it['fonte_codigo'], 'fonte_nome': it['fonte_nome'],
+                    'qtd_itens': 0, 'indicado': Decimal('0'), 'empenhado': Decimal('0'),
+                    'liquidado': Decimal('0'), 'pago': Decimal('0'), 'saldo': Decimal('0'),
+                }
+            g = grupos[chave]
+            g['qtd_itens'] += 1
+            g['indicado'] += Decimal(str(it['valor_indicado']))
+            g['empenhado'] += Decimal(str(it['valor_empenhado']))
+            g['liquidado'] += Decimal(str(it['valor_liquidado']))
+            g['pago'] += Decimal(str(it['valor_pago']))
+            g['saldo'] += Decimal(str(it['saldo']))
+
+        # soma dos totais gerais a partir dos grupos já computados (evita duplicar a leitura de `itens`)
+        for g in grupos.values():
+            for k in ('indicado', 'empenhado', 'liquidado', 'pago', 'saldo'):
+                totais[k] += g[k]
+
+        por_fonte = sorted(grupos.values(), key=lambda g: (g['fonte_codigo'] or 0))
+        for g in por_fonte:
+            for k in ('indicado', 'empenhado', 'liquidado', 'pago', 'saldo'):
+                g[k] = str(g[k])
+        for k in totais:
+            totais[k] = str(totais[k])
+
+        return {'totais': totais, 'por_fonte': por_fonte}
+
+    def _pendentes(self, org_id):
+        from decimal import Decimal
+        from modulo_planejamento.models import NecessidadePlanejamento
+
+        AREA_LABELS = dict(NecessidadePlanejamento.AREA_CHOICES)
+
+        necessidades = NecessidadePlanejamento.objects.filter(
+            org_id=org_id, status__in=['Aprovada', 'DFD Criado'],
+        ).select_related('orgao_executor', 'dfd').prefetch_related('indicacoes', 'dfd__indicacoes')
+
+        totais = {'qtd': 0, 'valor_estimado': Decimal('0'), 'valor_indicado': Decimal('0'), 'valor_pendente': Decimal('0')}
+        grupos = {}
+
+        for nec in necessidades:
+            ativas = list(nec.indicacoes.exclude(status='Cancelada'))
+            if nec.dfd_id:
+                ativas += list(nec.dfd.indicacoes.exclude(status='Cancelada'))
+            valor_indicado = sum((i.valor_total for i in ativas), Decimal('0'))
+            pendente = nec.valor_estimado - valor_indicado
+            if pendente <= 0:
+                continue
+
+            area = (nec.area_aplicacao or ['Sem área'])[0] if nec.area_aplicacao else 'Sem área'
+            if area not in grupos:
+                grupos[area] = {
+                    'area': area, 'area_label': AREA_LABELS.get(area, area),
+                    'qtd': 0, 'valor_estimado': Decimal('0'), 'valor_indicado': Decimal('0'),
+                    'valor_pendente': Decimal('0'), 'necessidades': [],
+                }
+            g = grupos[area]
+            g['qtd'] += 1
+            g['valor_estimado'] += nec.valor_estimado
+            g['valor_indicado'] += valor_indicado
+            g['valor_pendente'] += pendente
+            g['necessidades'].append({
+                'id': nec.id, 'titulo': nec.titulo,
+                'orgao_executor_sigla': nec.orgao_executor.sigla if nec.orgao_executor_id else None,
+                'valor_estimado': str(nec.valor_estimado), 'valor_indicado': str(valor_indicado),
+                'valor_pendente': str(pendente),
+                'dfd_numero_sei': nec.dfd.numero_sei if nec.dfd_id else None,
+            })
+
+            totais['qtd'] += 1
+            totais['valor_estimado'] += nec.valor_estimado
+            totais['valor_indicado'] += valor_indicado
+            totais['valor_pendente'] += pendente
+
+        por_area = sorted(grupos.values(), key=lambda g: -g['valor_pendente'])
+        for g in por_area:
+            for k in ('valor_estimado', 'valor_indicado', 'valor_pendente'):
+                g[k] = str(g[k])
+        for k in ('valor_estimado', 'valor_indicado', 'valor_pendente'):
+            totais[k] = str(totais[k])
+
+        return {'totais': totais, 'por_area': por_area}

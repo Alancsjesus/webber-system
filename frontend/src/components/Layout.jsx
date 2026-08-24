@@ -75,6 +75,7 @@ const NAV_BASE = [
   {
     section: 'Orçamento',
     items: [
+      { to: '/orcamento/painel',     label: 'Painel' },
       { to: '/orcamento/dotacoes',   label: 'Dotações' },
       { to: '/orcamento/indicacoes', label: 'Indicações / DOD' },
       { to: '/orcamento/relatorio-indicacoes', label: 'Relatório por Fonte' },

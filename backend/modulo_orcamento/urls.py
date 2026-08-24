@@ -11,6 +11,7 @@ from .views import (
     TipoAcaoOrcamentariaViewSet,
     TipoFonteRecursoViewSet,
     RelatorioIndicacoesView,
+    PainelOrcamentoView,
 )
 
 router = DefaultRouter()
@@ -26,4 +27,5 @@ router.register(r'tipo-fonte', TipoFonteRecursoViewSet, basename='tipo-fonte-rec
 
 urlpatterns = router.urls + [
     path('relatorio-indicacoes/', RelatorioIndicacoesView.as_view(), name='relatorio-indicacoes'),
+    path('painel/', PainelOrcamentoView.as_view(), name='painel-orcamento'),
 ]

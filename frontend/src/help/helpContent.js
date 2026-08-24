@@ -21,6 +21,7 @@ import { pageHelp as trListHelp }             from '../pages/TRList'
 import { pageHelp as trDetailHelp }           from '../pages/TRDetail'
 import { pageHelp as orcamentoListHelp }      from '../pages/OrcamentoList'
 import { pageHelp as relatorioIndicacoesHelp } from '../pages/RelatorioIndicacoes'
+import { pageHelp as painelOrcamentoHelp }    from '../pages/PainelOrcamento'
 import { pageHelp as mapaListHelp }           from '../pages/MapaList'
 import { pageHelp as mapaDetailHelp }         from '../pages/MapaDetail'
 import { pageHelp as pncpListHelp }           from '../pages/PNCPList'
@@ -56,6 +57,7 @@ export const helpContent = {
 
   '/orcamento/dotacoes':        orcamentoListHelp,
   '/orcamento/relatorio-indicacoes': relatorioIndicacoesHelp,
+  '/orcamento/painel':          painelOrcamentoHelp,
 
   '/pesquisa/mapa':             mapaListHelp,
   '/pesquisa/mapa/:id':         mapaDetailHelp,
