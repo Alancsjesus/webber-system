@@ -226,6 +226,15 @@ class DotacaoOrcamentaria(BaseModel):
     valor_concedido = models.DecimalField(
         max_digits=15, decimal_places=2, default=0, verbose_name='Valor concedido (R$)',
     )
+    valor_empenhado = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0, verbose_name='Valor empenhado (R$)',
+    )
+    valor_liquidado = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0, verbose_name='Valor liquidado (R$)',
+    )
+    valor_pago = models.DecimalField(
+        max_digits=15, decimal_places=2, default=0, verbose_name='Valor pago (R$)',
+    )
     status = models.CharField(
         max_length=20,
         choices=STATUS_DOTACAO_CHOICES,
@@ -350,6 +359,15 @@ class IndicacaoDotacao(models.Model):
     valor_indicado = models.DecimalField(
         max_digits=15, decimal_places=2, verbose_name='Valor indicado (R$)',
     )
+    item_dfd = models.ForeignKey(
+        'modulo_demanda.ItemDFD', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='indicacoes_dotacao', verbose_name='Item do DFD financiado por esta linha',
+        help_text='Só aplicável quando a indicação está vinculada a um DFD (não a uma Necessidade solta).',
+    )
+    em_diligencia = models.BooleanField(
+        default=False, verbose_name='Em diligência',
+        help_text='Pendência administrativa antes de confirmar o valor indicado.',
+    )
 
     class Meta:
         unique_together = [['indicacao', 'dotacao']]
@@ -430,6 +448,106 @@ class ConcessaoOrcamentaria(models.Model):
     def __str__(self):
         status = '[CANCELADA] ' if self.cancelada else ''
         return f'{status}Concessão {self.numero_doc} — R$ {self.valor} ({self.data_emissao})'
+
+
+class EmpenhoOrcamentario(models.Model):
+    """
+    Empenho — 1º estágio da despesa pública (Lei 4.320/64, art. 58-61).
+    Independente da cadeia NPO/Concessão (mecanismo de descentralização
+    FIPLAN/BA); limitado pelo valor indicado da própria linha.
+    Ao salvar: dotacao.valor_empenhado += valor
+    Ao cancelar: dotacao.valor_empenhado -= valor
+    Restrição de cancelamento: empenhado - valor >= liquidado
+    """
+    indicacao_dotacao = models.ForeignKey(
+        IndicacaoDotacao, on_delete=models.PROTECT,
+        related_name='empenhos',
+        verbose_name='Item de indicação (dotação)',
+    )
+    numero_doc        = models.CharField(max_length=50, verbose_name='Número da Nota de Empenho')
+    data_emissao      = models.DateField(verbose_name='Data de emissão')
+    valor             = models.DecimalField(max_digits=15, decimal_places=2, verbose_name='Valor empenhado (R$)')
+    cancelada         = models.BooleanField(default=False, verbose_name='Cancelada')
+    data_cancelamento = models.DateField(null=True, blank=True, verbose_name='Data do cancelamento')
+    motivo_cancelamento = models.TextField(blank=True, default='', verbose_name='Motivo do cancelamento')
+    observacoes       = models.TextField(blank=True, default='', verbose_name='Observações')
+    registrada_por    = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='empenhos_registrados')
+    criado_em         = models.DateTimeField(auto_now_add=True)
+    atualizado_em     = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-data_emissao', '-criado_em']
+        verbose_name = 'Empenho Orçamentário'
+        verbose_name_plural = 'Empenhos Orçamentários'
+
+    def __str__(self):
+        status = '[CANCELADA] ' if self.cancelada else ''
+        return f'{status}Empenho {self.numero_doc} — R$ {self.valor} ({self.data_emissao})'
+
+
+class LiquidacaoOrcamentaria(models.Model):
+    """
+    Liquidação — 2º estágio da despesa pública (Lei 4.320/64, art. 62-63).
+    Ao salvar: dotacao.valor_liquidado += valor
+    Ao cancelar: dotacao.valor_liquidado -= valor
+    Restrição de cancelamento: liquidado - valor >= pago
+    """
+    indicacao_dotacao = models.ForeignKey(
+        IndicacaoDotacao, on_delete=models.PROTECT,
+        related_name='liquidacoes',
+        verbose_name='Item de indicação (dotação)',
+    )
+    numero_doc        = models.CharField(max_length=50, verbose_name='Número do documento de liquidação')
+    data_emissao      = models.DateField(verbose_name='Data de emissão')
+    valor             = models.DecimalField(max_digits=15, decimal_places=2, verbose_name='Valor liquidado (R$)')
+    cancelada         = models.BooleanField(default=False, verbose_name='Cancelada')
+    data_cancelamento = models.DateField(null=True, blank=True, verbose_name='Data do cancelamento')
+    motivo_cancelamento = models.TextField(blank=True, default='', verbose_name='Motivo do cancelamento')
+    observacoes       = models.TextField(blank=True, default='', verbose_name='Observações')
+    registrada_por    = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='liquidacoes_registradas')
+    criado_em         = models.DateTimeField(auto_now_add=True)
+    atualizado_em     = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-data_emissao', '-criado_em']
+        verbose_name = 'Liquidação Orçamentária'
+        verbose_name_plural = 'Liquidações Orçamentárias'
+
+    def __str__(self):
+        status = '[CANCELADA] ' if self.cancelada else ''
+        return f'{status}Liquidação {self.numero_doc} — R$ {self.valor} ({self.data_emissao})'
+
+
+class PagamentoOrcamentario(models.Model):
+    """
+    Pagamento — 3º estágio da despesa pública (Lei 4.320/64, art. 64).
+    Ao salvar: dotacao.valor_pago += valor
+    Ao cancelar: dotacao.valor_pago -= valor
+    """
+    indicacao_dotacao = models.ForeignKey(
+        IndicacaoDotacao, on_delete=models.PROTECT,
+        related_name='pagamentos',
+        verbose_name='Item de indicação (dotação)',
+    )
+    numero_doc        = models.CharField(max_length=50, verbose_name='Número do documento de pagamento')
+    data_emissao      = models.DateField(verbose_name='Data de emissão')
+    valor             = models.DecimalField(max_digits=15, decimal_places=2, verbose_name='Valor pago (R$)')
+    cancelada         = models.BooleanField(default=False, verbose_name='Cancelada')
+    data_cancelamento = models.DateField(null=True, blank=True, verbose_name='Data do cancelamento')
+    motivo_cancelamento = models.TextField(blank=True, default='', verbose_name='Motivo do cancelamento')
+    observacoes       = models.TextField(blank=True, default='', verbose_name='Observações')
+    registrada_por    = models.ForeignKey(User, on_delete=models.SET_NULL, null=True, related_name='pagamentos_registrados')
+    criado_em         = models.DateTimeField(auto_now_add=True)
+    atualizado_em     = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['-data_emissao', '-criado_em']
+        verbose_name = 'Pagamento Orçamentário'
+        verbose_name_plural = 'Pagamentos Orçamentários'
+
+    def __str__(self):
+        status = '[CANCELADA] ' if self.cancelada else ''
+        return f'{status}Pagamento {self.numero_doc} — R$ {self.valor} ({self.data_emissao})'
 
 
 class HistoricoIndicacao(models.Model):

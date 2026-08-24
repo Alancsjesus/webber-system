@@ -62,10 +62,12 @@ const useIndicacaoStore = create((set, get) => ({
     set({ current: data })
   },
 
-  vincularDotacao: async (id, dotacaoId, valorIndicado) => {
+  vincularDotacao: async (id, dotacaoId, valorIndicado, itemDfdId = null, emDiligencia = false) => {
     const { data } = await api.post(`/orcamento/indicacao/${id}/vincular-dotacao/`, {
       dotacao_id:     dotacaoId,
       valor_indicado: valorIndicado,
+      item_dfd_id:    itemDfdId,
+      em_diligencia:  emDiligencia,
     })
     // Backend now returns the full updated indicação — update current directly
     set({ current: data })
@@ -97,6 +99,42 @@ const useIndicacaoStore = create((set, get) => ({
 
   cancelarConcessao: async (id, concPk, motivo) => {
     const { data } = await api.post(`/orcamento/indicacao/${id}/cancelar-concessao/${concPk}/`, { motivo })
+    set({ current: data })
+    return data
+  },
+
+  registrarEmpenhos: async (id, empenhos) => {
+    const { data } = await api.post(`/orcamento/indicacao/${id}/registrar-empenhos/`, { empenhos })
+    set({ current: data })
+    return data
+  },
+
+  cancelarEmpenho: async (id, empPk, motivo) => {
+    const { data } = await api.post(`/orcamento/indicacao/${id}/cancelar-empenho/${empPk}/`, { motivo })
+    set({ current: data })
+    return data
+  },
+
+  registrarLiquidacoes: async (id, liquidacoes) => {
+    const { data } = await api.post(`/orcamento/indicacao/${id}/registrar-liquidacoes/`, { liquidacoes })
+    set({ current: data })
+    return data
+  },
+
+  cancelarLiquidacao: async (id, liqPk, motivo) => {
+    const { data } = await api.post(`/orcamento/indicacao/${id}/cancelar-liquidacao/${liqPk}/`, { motivo })
+    set({ current: data })
+    return data
+  },
+
+  registrarPagamentos: async (id, pagamentos) => {
+    const { data } = await api.post(`/orcamento/indicacao/${id}/registrar-pagamentos/`, { pagamentos })
+    set({ current: data })
+    return data
+  },
+
+  cancelarPagamento: async (id, pagPk, motivo) => {
+    const { data } = await api.post(`/orcamento/indicacao/${id}/cancelar-pagamento/${pagPk}/`, { motivo })
     set({ current: data })
     return data
   },

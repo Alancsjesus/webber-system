@@ -4,6 +4,7 @@ from .models import (
     AcaoOrcamentaria, ElementoDespesa, NaturezaDespesa, FonteRecurso, SubFonteRecurso,
     DotacaoOrcamentaria, IndicacaoOrcamentaria, IndicacaoDotacao, HistoricoIndicacao,
     DescentralizacaoOrcamentaria, ConcessaoOrcamentaria,
+    EmpenhoOrcamentario, LiquidacaoOrcamentaria, PagamentoOrcamentario,
     TipoAcaoOrcamentaria, TipoFonteRecurso,
 )
 
@@ -302,6 +303,39 @@ class ConcessaoSerializer(serializers.ModelSerializer):
         read_only_fields = ['id', 'cancelada', 'data_cancelamento', 'registrada_por_username', 'criado_em']
 
 
+class EmpenhoSerializer(serializers.ModelSerializer):
+    registrada_por_username = serializers.CharField(source='registrada_por.username', read_only=True)
+
+    class Meta:
+        model  = EmpenhoOrcamentario
+        fields = ['id', 'numero_doc', 'data_emissao', 'valor',
+                  'cancelada', 'data_cancelamento', 'motivo_cancelamento',
+                  'observacoes', 'registrada_por_username', 'criado_em']
+        read_only_fields = ['id', 'cancelada', 'data_cancelamento', 'registrada_por_username', 'criado_em']
+
+
+class LiquidacaoSerializer(serializers.ModelSerializer):
+    registrada_por_username = serializers.CharField(source='registrada_por.username', read_only=True)
+
+    class Meta:
+        model  = LiquidacaoOrcamentaria
+        fields = ['id', 'numero_doc', 'data_emissao', 'valor',
+                  'cancelada', 'data_cancelamento', 'motivo_cancelamento',
+                  'observacoes', 'registrada_por_username', 'criado_em']
+        read_only_fields = ['id', 'cancelada', 'data_cancelamento', 'registrada_por_username', 'criado_em']
+
+
+class PagamentoSerializer(serializers.ModelSerializer):
+    registrada_por_username = serializers.CharField(source='registrada_por.username', read_only=True)
+
+    class Meta:
+        model  = PagamentoOrcamentario
+        fields = ['id', 'numero_doc', 'data_emissao', 'valor',
+                  'cancelada', 'data_cancelamento', 'motivo_cancelamento',
+                  'observacoes', 'registrada_por_username', 'criado_em']
+        read_only_fields = ['id', 'cancelada', 'data_cancelamento', 'registrada_por_username', 'criado_em']
+
+
 class IndicacaoDotacaoSerializer(serializers.ModelSerializer):
     acao_codigo        = serializers.CharField(source='dotacao.acao.codigo',       read_only=True)
     acao_nome          = serializers.CharField(source='dotacao.acao.nome',         read_only=True)
@@ -312,21 +346,32 @@ class IndicacaoDotacaoSerializer(serializers.ModelSerializer):
     fonte_codigo       = serializers.IntegerField(source='dotacao.fonte_recurso.codigo', read_only=True)
     fonte_nome         = serializers.CharField(source='dotacao.fonte_recurso.nome', read_only=True)
     dotacao_id         = serializers.IntegerField(source='dotacao.id',             read_only=True)
+    item_dfd_objeto    = serializers.CharField(source='item_dfd.objeto', read_only=True, default=None)
     valor_descentralizado = serializers.SerializerMethodField()
     valor_concedido       = serializers.SerializerMethodField()
+    valor_empenhado       = serializers.SerializerMethodField()
+    valor_liquidado       = serializers.SerializerMethodField()
+    valor_pago             = serializers.SerializerMethodField()
+    saldo                   = serializers.SerializerMethodField()
+    status_execucao          = serializers.SerializerMethodField()
     descentralizacoes     = DescentralizacaoSerializer(many=True, read_only=True)
     concessoes            = ConcessaoSerializer(many=True, read_only=True)
+    empenhos              = EmpenhoSerializer(many=True, read_only=True)
+    liquidacoes           = LiquidacaoSerializer(many=True, read_only=True)
+    pagamentos            = PagamentoSerializer(many=True, read_only=True)
 
     class Meta:
         model  = IndicacaoDotacao
         fields = [
             'id', 'dotacao_id', 'valor_indicado',
+            'item_dfd', 'item_dfd_objeto', 'em_diligencia',
             'valor_descentralizado', 'valor_concedido',
+            'valor_empenhado', 'valor_liquidado', 'valor_pago', 'saldo', 'status_execucao',
             'acao_codigo', 'acao_nome',
             'elemento_codigo', 'elemento_descricao',
             'natureza_formato', 'natureza_descricao',
             'fonte_codigo', 'fonte_nome',
-            'descentralizacoes', 'concessoes',
+            'descentralizacoes', 'concessoes', 'empenhos', 'liquidacoes', 'pagamentos',
         ]
 
     def get_natureza_formato(self, obj):
@@ -338,18 +383,44 @@ class IndicacaoDotacaoSerializer(serializers.ModelSerializer):
         return nd.descricao if nd else None
 
     def get_valor_descentralizado(self, obj):
-        from decimal import Decimal
         total = sum(
             d.valor for d in obj.descentralizacoes.filter(cancelada=False)
         )
         return float(total)
 
     def get_valor_concedido(self, obj):
-        from decimal import Decimal
         total = sum(
             c.valor for c in obj.concessoes.filter(cancelada=False)
         )
         return float(total)
+
+    def get_valor_empenhado(self, obj):
+        total = sum(e.valor for e in obj.empenhos.filter(cancelada=False))
+        return float(total)
+
+    def get_valor_liquidado(self, obj):
+        total = sum(l.valor for l in obj.liquidacoes.filter(cancelada=False))
+        return float(total)
+
+    def get_valor_pago(self, obj):
+        total = sum(p.valor for p in obj.pagamentos.filter(cancelada=False))
+        return float(total)
+
+    def get_saldo(self, obj):
+        return float(obj.valor_indicado) - self.get_valor_pago(obj)
+
+    def get_status_execucao(self, obj):
+        if self.get_valor_pago(obj) > 0:
+            return 'Pago'
+        if self.get_valor_liquidado(obj) > 0:
+            return 'Liquidado'
+        if self.get_valor_empenhado(obj) > 0:
+            return 'Empenhado'
+        if obj.em_diligencia:
+            return 'Em Diligência'
+        if obj.valor_indicado > 0:
+            return 'Indicado'
+        return 'Sem Execução'
 
 
 class HistoricoIndicacaoSerializer(serializers.ModelSerializer):
@@ -424,3 +495,5 @@ class IndicacaoOrcamentariaSerializer(serializers.ModelSerializer):
 class VincularDotacaoSerializer(serializers.Serializer):
     dotacao_id     = serializers.IntegerField()
     valor_indicado = serializers.DecimalField(max_digits=15, decimal_places=2)
+    item_dfd_id    = serializers.IntegerField(required=False, allow_null=True)
+    em_diligencia  = serializers.BooleanField(required=False, default=False)

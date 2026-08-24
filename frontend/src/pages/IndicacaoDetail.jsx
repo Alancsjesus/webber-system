@@ -17,6 +17,19 @@ const STATUS_CLS = {
 const fmt = (v) =>
   Number(v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
+// Metadados de cada tipo de registro em bloco (modal genérico reaproveitado
+// por NPO/Concessão/Empenho/Liquidação/Pagamento) — só NPO usa "numero_npo",
+// os demais usam "numero_doc".
+const TIPO_REGISTRO = {
+  npo:        { titulo: 'Registrar NPOs — Descentralização', descricao: 'Informe o número e valor da NPO para cada dotação. Campos em branco serão ignorados.', campoNumero: 'numero_npo', labelNumero: 'Nº NPO', storeField: 'npos', teto: null },
+  concessao:  { titulo: 'Registrar Concessões', descricao: 'Informe o documento e valor para cada dotação. Valor não pode superar o descentralizado.', campoNumero: 'numero_doc', labelNumero: 'Nº Documento', storeField: 'concessoes', teto: 'concedido' },
+  empenho:    { titulo: 'Registrar Empenhos', descricao: 'Informe a Nota de Empenho e valor para cada dotação. Valor não pode superar o indicado.', campoNumero: 'numero_doc', labelNumero: 'Nº Empenho', storeField: 'empenhos', teto: 'empenho' },
+  liquidacao: { titulo: 'Registrar Liquidações', descricao: 'Informe o documento e valor para cada dotação. Valor não pode superar o empenhado.', campoNumero: 'numero_doc', labelNumero: 'Nº Documento', storeField: 'liquidacoes', teto: 'liquidacao' },
+  pagamento:  { titulo: 'Registrar Pagamentos', descricao: 'Informe o documento e valor para cada dotação. Valor não pode superar o liquidado.', campoNumero: 'numero_doc', labelNumero: 'Nº Documento', storeField: 'pagamentos', teto: 'pagamento' },
+}
+
+const CANCEL_LABEL = { npo: 'NPO', concessao: 'Concessão', empenho: 'Empenho', liquidacao: 'Liquidação', pagamento: 'Pagamento' }
+
 export default function IndicacaoDetail() {
   const { id }     = useParams()
   const navigate   = useNavigate()
@@ -29,6 +42,9 @@ export default function IndicacaoDetail() {
     vincularDotacao, desvincularDotacao,
     registrarNpos, cancelarNpo,
     registrarConcessoes, cancelarConcessao,
+    registrarEmpenhos, cancelarEmpenho,
+    registrarLiquidacoes, cancelarLiquidacao,
+    registrarPagamentos, cancelarPagamento,
   } = useIndicacaoStore()
 
   const [editing, setEditing]       = useState(false)
@@ -38,10 +54,11 @@ export default function IndicacaoDetail() {
   const [showCancelar, setShowCancelar] = useState(false)
   const [motivoCancelamento, setMotivoCancelamento] = useState('')
   const [showVincular, setShowVincular] = useState(false)
-  const [vincForm, setVincForm]     = useState({ dotacao_id: '', valor_indicado: '' })
+  const [vincForm, setVincForm]     = useState({ dotacao_id: '', valor_indicado: '', item_dfd_id: '', em_diligencia: false })
   const [vincDotacaoLabel, setVincDotacaoLabel] = useState('')
   const [vincSaving, setVincSaving] = useState(false)
   const [vincErrors, setVincErrors] = useState({})
+  const [dfdItens, setDfdItens]     = useState([])
   const [showNpoModal, setShowNpoModal] = useState(false)  // 'npo' | 'concessao' | null
   const [npoForms, setNpoForms]     = useState([])   // [{indicacao_dotacao_id, numero, data, valor, obs}]
   const [npoSaving, setNpoSaving]   = useState(false)
@@ -54,6 +71,13 @@ export default function IndicacaoDetail() {
       setForm({ observacoes: current.observacoes || '' })
     }
   }, [current])
+  useEffect(() => {
+    if (showVincular && current?.dfd) {
+      api.get(`/demanda/dfd/${current.dfd}/`)
+        .then(({ data }) => setDfdItens(data.itens || []))
+        .catch(() => setDfdItens([]))
+    }
+  }, [showVincular, current?.dfd])
 
   const act = async (fn, ...args) => {
     setSaving(true)
@@ -78,8 +102,12 @@ export default function IndicacaoDetail() {
     if (Object.keys(errs).length) { setVincErrors(errs); return }
     setVincSaving(true)
     try {
-      await vincularDotacao(id, Number(vincForm.dotacao_id), Number(vincForm.valor_indicado))
-      setVincForm({ dotacao_id: '', valor_indicado: '' })
+      await vincularDotacao(
+        id, Number(vincForm.dotacao_id), Number(vincForm.valor_indicado),
+        vincForm.item_dfd_id ? Number(vincForm.item_dfd_id) : null,
+        vincForm.em_diligencia,
+      )
+      setVincForm({ dotacao_id: '', valor_indicado: '', item_dfd_id: '', em_diligencia: false })
       setVincDotacaoLabel('')
       setVincErrors({})
       setActionMsg({ type: 'success', text: 'Dotação vinculada.' })
@@ -274,6 +302,25 @@ export default function IndicacaoDetail() {
                     className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${vincErrors.valor_indicado ? 'border-red-400' : 'border-gray-300'}`} />
                   {vincErrors.valor_indicado && <p className="text-xs text-red-600 mt-1">{vincErrors.valor_indicado}</p>}
                 </div>
+                {current.dfd && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Item do DFD (opcional)</label>
+                    <select value={vincForm.item_dfd_id}
+                      onChange={(e) => setVincForm((p) => ({ ...p, item_dfd_id: e.target.value }))}
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                      <option value="">Sem item específico</option>
+                      {dfdItens.map((it) => (
+                        <option key={it.id} value={it.id}>{it.objeto}</option>
+                      ))}
+                    </select>
+                  </div>
+                )}
+                <div className="flex items-center gap-2 sm:col-span-2">
+                  <input type="checkbox" id="em_diligencia" checked={vincForm.em_diligencia}
+                    onChange={(e) => setVincForm((p) => ({ ...p, em_diligencia: e.target.checked }))}
+                    className="rounded border-gray-300" />
+                  <label htmlFor="em_diligencia" className="text-xs text-gray-600">Em diligência (pendência administrativa)</label>
+                </div>
               </div>
               <button type="submit" disabled={vincSaving}
                 className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-medium px-4 py-2 rounded-lg">
@@ -328,7 +375,7 @@ export default function IndicacaoDetail() {
           <div className="pt-2 border-t border-gray-100">
             <div className="flex items-center justify-between mb-3">
               <p className="text-xs font-semibold text-gray-400 uppercase">Execução Orçamentária</p>
-              <div className="flex gap-2">
+              <div className="flex gap-2 flex-wrap">
                 <button onClick={() => {
                     setNpoForms((current.itens || []).map(i => ({ indicacao_dotacao_id: i.id, numero: '', data: new Date().toISOString().split('T')[0], valor: '', obs: '' })))
                     setShowNpoModal('npo')
@@ -343,86 +390,97 @@ export default function IndicacaoDetail() {
                   className="text-xs bg-green-50 border border-green-300 text-green-800 hover:bg-green-100 px-3 py-1 rounded-lg font-medium">
                   + Registrar Concessão(ões)
                 </button>
+                <button onClick={() => {
+                    setNpoForms((current.itens || []).map(i => ({ indicacao_dotacao_id: i.id, numero: '', data: new Date().toISOString().split('T')[0], valor: '', obs: '' })))
+                    setShowNpoModal('empenho')
+                  }}
+                  className="text-xs bg-blue-50 border border-blue-300 text-blue-800 hover:bg-blue-100 px-3 py-1 rounded-lg font-medium">
+                  + Registrar Empenho(s)
+                </button>
+                <button onClick={() => {
+                    setNpoForms((current.itens || []).map(i => ({ indicacao_dotacao_id: i.id, numero: '', data: new Date().toISOString().split('T')[0], valor: '', obs: '' })))
+                    setShowNpoModal('liquidacao')
+                  }}
+                  className="text-xs bg-purple-50 border border-purple-300 text-purple-800 hover:bg-purple-100 px-3 py-1 rounded-lg font-medium">
+                  + Registrar Liquidação(ões)
+                </button>
+                <button onClick={() => {
+                    setNpoForms((current.itens || []).map(i => ({ indicacao_dotacao_id: i.id, numero: '', data: new Date().toISOString().split('T')[0], valor: '', obs: '' })))
+                    setShowNpoModal('pagamento')
+                  }}
+                  className="text-xs bg-teal-50 border border-teal-300 text-teal-800 hover:bg-teal-100 px-3 py-1 rounded-lg font-medium">
+                  + Registrar Pagamento(s)
+                </button>
               </div>
             </div>
 
             <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-              <table className="w-full text-xs">
+              <div className="overflow-x-auto">
+              <table className="w-full text-xs min-w-[1100px]">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
+                    <th className="text-left px-3 py-2 font-medium text-gray-500">Item</th>
                     <th className="text-left px-3 py-2 font-medium text-gray-500">Dotação</th>
+                    <th className="text-left px-3 py-2 font-medium text-gray-500">Status</th>
+                    <th className="text-right px-3 py-2 font-medium text-gray-500">Diligência</th>
                     <th className="text-right px-3 py-2 font-medium text-gray-500">Indicado</th>
-                    <th className="text-right px-3 py-2 font-medium text-gray-500">Descentralizado</th>
-                    <th className="text-right px-3 py-2 font-medium text-gray-500">Concedido</th>
-                    <th className="text-right px-3 py-2 font-medium text-gray-500">Exec. %</th>
+                    <th className="text-right px-3 py-2 font-medium text-gray-500">Empenhado</th>
+                    <th className="text-right px-3 py-2 font-medium text-gray-500">Liquidado</th>
+                    <th className="text-right px-3 py-2 font-medium text-gray-500">Pago</th>
+                    <th className="text-right px-3 py-2 font-medium text-gray-500">Saldo</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
                   {current.itens.map(item => {
-                    const desc = item.valor_descentralizado || 0
-                    const conc = item.valor_concedido || 0
                     const ind  = parseFloat(item.valor_indicado) || 0
-                    const pctDesc = ind > 0 ? Math.round(desc / ind * 100) : 0
-                    const pctConc = desc > 0 ? Math.round(conc / desc * 100) : 0
+                    const emp  = item.valor_empenhado || 0
+                    const liq  = item.valor_liquidado || 0
+                    const pago = item.valor_pago || 0
+                    const saldo = item.saldo ?? (ind - pago)
                     return (
                       <tr key={item.id} className="hover:bg-gray-50">
+                        <td className="px-3 py-2 text-gray-700">{item.item_dfd_objeto || <span className="text-gray-300">—</span>}</td>
                         <td className="px-3 py-2 text-gray-700">
                           <span className="font-mono text-blue-700 mr-1">{item.acao_codigo}</span>
                           {item.elemento_codigo} {item.natureza_formato && `· ${item.natureza_formato}`}
+                          <span className="block text-gray-400">{item.fonte_codigo} — {item.fonte_nome}</span>
                         </td>
-                        <td className="px-3 py-2 text-right font-semibold text-gray-800">{fmt(item.valor_indicado)}</td>
-                        <td className="px-3 py-2 text-right">
-                          <span className="font-semibold text-yellow-700">{fmt(desc)}</span>
-                          <span className="ml-1 text-gray-400">({pctDesc}%)</span>
+                        <td className="px-3 py-2"><StatusExecucaoBadge status={item.status_execucao} /></td>
+                        <td className="px-3 py-2 text-right text-amber-700 font-semibold">
+                          {item.em_diligencia ? fmt(ind) : '—'}
                         </td>
-                        <td className="px-3 py-2 text-right">
-                          <span className="font-semibold text-green-700">{fmt(conc)}</span>
-                          <span className="ml-1 text-gray-400">({pctConc}% desc.)</span>
+                        <td className="px-3 py-2 text-right font-semibold text-gray-800">
+                          {item.em_diligencia ? '—' : fmt(ind)}
                         </td>
-                        <td className="px-3 py-2 text-right">
-                          <span className={`font-bold ${pctDesc >= 80 ? 'text-green-600' : pctDesc >= 40 ? 'text-yellow-600' : 'text-red-500'}`}>
-                            {pctDesc}%
-                          </span>
-                        </td>
+                        <td className="px-3 py-2 text-right font-semibold text-blue-700">{fmt(emp)}</td>
+                        <td className="px-3 py-2 text-right font-semibold text-purple-700">{fmt(liq)}</td>
+                        <td className="px-3 py-2 text-right font-semibold text-teal-700">{fmt(pago)}</td>
+                        <td className="px-3 py-2 text-right font-semibold text-gray-500">{fmt(saldo)}</td>
                       </tr>
                     )
                   })}
                 </tbody>
               </table>
+              </div>
 
-              {/* Detalhe NPOs e concessões por dotação */}
-              {current.itens.some(i => (i.descentralizacoes || []).length > 0 || (i.concessoes || []).length > 0) && (
+              {/* Detalhe NPOs, concessões, empenhos, liquidações e pagamentos por dotação */}
+              {current.itens.some(i =>
+                (i.descentralizacoes || []).length > 0 || (i.concessoes || []).length > 0 ||
+                (i.empenhos || []).length > 0 || (i.liquidacoes || []).length > 0 || (i.pagamentos || []).length > 0
+              ) && (
                 <div className="border-t border-gray-100 px-3 py-3 space-y-3">
                   {current.itens.map(item => (
                     <div key={item.id}>
-                      {(item.descentralizacoes || []).filter(d => !d.cancelada).length > 0 && (
-                        <div>
-                          <p className="text-[10px] font-semibold text-yellow-700 uppercase mb-1">NPOs — {item.acao_codigo}</p>
-                          {item.descentralizacoes.filter(d => !d.cancelada).map(d => (
-                            <div key={d.id} className="flex items-center justify-between text-xs py-0.5">
-                              <span className="font-mono text-gray-600">{d.numero_npo}</span>
-                              <span className="text-gray-400">{new Date(d.data_emissao).toLocaleDateString('pt-BR')}</span>
-                              <span className="font-semibold text-yellow-700">{fmt(d.valor)}</span>
-                              <button onClick={() => { setShowCancelNpo({ type: 'npo', id: d.id }); setMotivoCancelNpo('') }}
-                                className="text-red-400 hover:text-red-600 ml-2">✕</button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                      {(item.concessoes || []).filter(c => !c.cancelada).length > 0 && (
-                        <div>
-                          <p className="text-[10px] font-semibold text-green-700 uppercase mb-1">Concessões — {item.acao_codigo}</p>
-                          {item.concessoes.filter(c => !c.cancelada).map(c => (
-                            <div key={c.id} className="flex items-center justify-between text-xs py-0.5">
-                              <span className="font-mono text-gray-600">{c.numero_doc}</span>
-                              <span className="text-gray-400">{new Date(c.data_emissao).toLocaleDateString('pt-BR')}</span>
-                              <span className="font-semibold text-green-700">{fmt(c.valor)}</span>
-                              <button onClick={() => { setShowCancelNpo({ type: 'concessao', id: c.id }); setMotivoCancelNpo('') }}
-                                className="text-red-400 hover:text-red-600 ml-2">✕</button>
-                            </div>
-                          ))}
-                        </div>
-                      )}
+                      <RegistroList titulo="NPOs" cor="yellow" itens={item.descentralizacoes} campoNumero="numero_npo"
+                        acaoCodigo={item.acao_codigo} onCancelar={(regId) => { setShowCancelNpo({ type: 'npo', id: regId }); setMotivoCancelNpo('') }} />
+                      <RegistroList titulo="Concessões" cor="green" itens={item.concessoes} campoNumero="numero_doc"
+                        acaoCodigo={item.acao_codigo} onCancelar={(regId) => { setShowCancelNpo({ type: 'concessao', id: regId }); setMotivoCancelNpo('') }} />
+                      <RegistroList titulo="Empenhos" cor="blue" itens={item.empenhos} campoNumero="numero_doc"
+                        acaoCodigo={item.acao_codigo} onCancelar={(regId) => { setShowCancelNpo({ type: 'empenho', id: regId }); setMotivoCancelNpo('') }} />
+                      <RegistroList titulo="Liquidações" cor="purple" itens={item.liquidacoes} campoNumero="numero_doc"
+                        acaoCodigo={item.acao_codigo} onCancelar={(regId) => { setShowCancelNpo({ type: 'liquidacao', id: regId }); setMotivoCancelNpo('') }} />
+                      <RegistroList titulo="Pagamentos" cor="teal" itens={item.pagamentos} campoNumero="numero_doc"
+                        acaoCodigo={item.acao_codigo} onCancelar={(regId) => { setShowCancelNpo({ type: 'pagamento', id: regId }); setMotivoCancelNpo('') }} />
                     </div>
                   ))}
                 </div>
@@ -459,101 +517,99 @@ export default function IndicacaoDetail() {
         </div>
       </div>
 
-      {/* Modal registro em bloco (NPO ou Concessão) */}
-      {showNpoModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <div className="px-6 py-4 border-b border-gray-100">
-              <h3 className="text-base font-semibold text-gray-800">
-                {showNpoModal === 'npo' ? 'Registrar NPOs — Descentralização' : 'Registrar Concessões'}
-              </h3>
-              <p className="text-xs text-gray-400 mt-0.5">
-                {showNpoModal === 'npo'
-                  ? 'Informe o número e valor da NPO para cada dotação. Campos em branco serão ignorados.'
-                  : 'Informe o documento e valor para cada dotação. Valor não pode superar o descentralizado.'}
-              </p>
-            </div>
-            <div className="px-6 py-4 space-y-4">
-              {(current.itens || []).map((item, idx) => {
-                const f = npoForms[idx] || {}
-                const descMax = parseFloat(item.valor_descentralizado || 0)
-                const concAtual = parseFloat(item.valor_concedido || 0)
-                return (
-                  <div key={item.id} className="border border-gray-200 rounded-lg p-3">
-                    <p className="text-xs font-semibold text-gray-700 mb-2">
-                      <span className="font-mono text-blue-700 mr-1">{item.acao_codigo}</span>
-                      {item.elemento_codigo} — {item.natureza_formato || '—'}
-                      <span className="ml-2 text-gray-400">
-                        Indicado: {fmt(item.valor_indicado)}
-                        {showNpoModal === 'concessao' && ` · Descentralizado: ${fmt(descMax)} · Concedido: ${fmt(concAtual)}`}
-                      </span>
-                    </p>
-                    <div className="grid grid-cols-3 gap-2">
-                      <div>
-                        <label className="block text-[10px] text-gray-500 mb-0.5">
-                          {showNpoModal === 'npo' ? 'Nº NPO' : 'Nº Documento'}
-                        </label>
-                        <input type="text" value={f.numero || ''}
-                          onChange={e => setNpoForms(prev => prev.map((p, i) => i === idx ? { ...p, numero: e.target.value } : p))}
-                          className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs" />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] text-gray-500 mb-0.5">Data emissão</label>
-                        <input type="date" value={f.data || ''}
-                          onChange={e => setNpoForms(prev => prev.map((p, i) => i === idx ? { ...p, data: e.target.value } : p))}
-                          className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs" />
-                      </div>
-                      <div>
-                        <label className="block text-[10px] text-gray-500 mb-0.5">Valor (R$)</label>
-                        <CampoMoeda value={f.valor || ''}
-                          onChange={v => setNpoForms(prev => prev.map((p, i) => i === idx ? { ...p, valor: v } : p))}
-                          className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs" />
+      {/* Modal registro em bloco (NPO / Concessão / Empenho / Liquidação / Pagamento) */}
+      {showNpoModal && (() => {
+        const meta = TIPO_REGISTRO[showNpoModal]
+        return (
+          <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
+            <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+              <div className="px-6 py-4 border-b border-gray-100">
+                <h3 className="text-base font-semibold text-gray-800">{meta.titulo}</h3>
+                <p className="text-xs text-gray-400 mt-0.5">{meta.descricao}</p>
+              </div>
+              <div className="px-6 py-4 space-y-4">
+                {(current.itens || []).map((item, idx) => {
+                  const f = npoForms[idx] || {}
+                  let tetoTexto = `Indicado: ${fmt(item.valor_indicado)}`
+                  if (meta.teto === 'concedido') tetoTexto += ` · Descentralizado: ${fmt(item.valor_descentralizado || 0)} · Concedido: ${fmt(item.valor_concedido || 0)}`
+                  if (meta.teto === 'empenho') tetoTexto += ` · Empenhado: ${fmt(item.valor_empenhado || 0)}`
+                  if (meta.teto === 'liquidacao') tetoTexto += ` · Empenhado: ${fmt(item.valor_empenhado || 0)} · Liquidado: ${fmt(item.valor_liquidado || 0)}`
+                  if (meta.teto === 'pagamento') tetoTexto += ` · Liquidado: ${fmt(item.valor_liquidado || 0)} · Pago: ${fmt(item.valor_pago || 0)}`
+                  return (
+                    <div key={item.id} className="border border-gray-200 rounded-lg p-3">
+                      <p className="text-xs font-semibold text-gray-700 mb-2">
+                        <span className="font-mono text-blue-700 mr-1">{item.acao_codigo}</span>
+                        {item.elemento_codigo} — {item.natureza_formato || '—'}
+                        <span className="ml-2 text-gray-400">{tetoTexto}</span>
+                      </p>
+                      <div className="grid grid-cols-3 gap-2">
+                        <div>
+                          <label className="block text-[10px] text-gray-500 mb-0.5">{meta.labelNumero}</label>
+                          <input type="text" value={f.numero || ''}
+                            onChange={e => setNpoForms(prev => prev.map((p, i) => i === idx ? { ...p, numero: e.target.value } : p))}
+                            className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs" />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-gray-500 mb-0.5">Data emissão</label>
+                          <input type="date" value={f.data || ''}
+                            onChange={e => setNpoForms(prev => prev.map((p, i) => i === idx ? { ...p, data: e.target.value } : p))}
+                            className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs" />
+                        </div>
+                        <div>
+                          <label className="block text-[10px] text-gray-500 mb-0.5">Valor (R$)</label>
+                          <CampoMoeda value={f.valor || ''}
+                            onChange={v => setNpoForms(prev => prev.map((p, i) => i === idx ? { ...p, valor: v } : p))}
+                            className="w-full border border-gray-300 rounded px-2 py-1.5 text-xs" />
+                        </div>
                       </div>
                     </div>
-                  </div>
-                )
-              })}
-            </div>
-            <div className="px-6 py-4 border-t border-gray-100 flex gap-2">
-              <button
-                disabled={npoSaving}
-                onClick={async () => {
-                  setNpoSaving(true)
-                  try {
-                    const payload = npoForms
-                      .filter(f => f.numero && f.data && f.valor)
-                      .map(f => ({
-                        indicacao_dotacao_id: f.indicacao_dotacao_id,
-                        [showNpoModal === 'npo' ? 'numero_npo' : 'numero_doc']: f.numero,
-                        data_emissao: f.data,
-                        valor: parseFloat(f.valor),
-                      }))
-                    if (showNpoModal === 'npo') await registrarNpos(id, payload)
-                    else await registrarConcessoes(id, payload)
-                    setShowNpoModal(null)
-                    setActionMsg({ type: 'success', text: 'Registrado com sucesso.' })
-                  } catch (e) {
-                    setActionMsg({ type: 'error', text: e.response?.data?.detail || 'Erro ao registrar.' })
-                  } finally { setNpoSaving(false) }
-                }}
-                className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium px-5 py-2 rounded-lg">
-                {npoSaving ? 'Salvando...' : 'Confirmar'}
-              </button>
-              <button onClick={() => setShowNpoModal(null)}
-                className="border border-gray-300 text-gray-600 text-sm px-5 py-2 rounded-lg hover:bg-gray-50">
-                Cancelar
-              </button>
+                  )
+                })}
+              </div>
+              <div className="px-6 py-4 border-t border-gray-100 flex gap-2">
+                <button
+                  disabled={npoSaving}
+                  onClick={async () => {
+                    setNpoSaving(true)
+                    try {
+                      const payload = npoForms
+                        .filter(f => f.numero && f.data && f.valor)
+                        .map(f => ({
+                          indicacao_dotacao_id: f.indicacao_dotacao_id,
+                          [meta.campoNumero]: f.numero,
+                          data_emissao: f.data,
+                          valor: parseFloat(f.valor),
+                        }))
+                      const REGISTRAR = {
+                        npo: registrarNpos, concessao: registrarConcessoes, empenho: registrarEmpenhos,
+                        liquidacao: registrarLiquidacoes, pagamento: registrarPagamentos,
+                      }
+                      await REGISTRAR[showNpoModal](id, payload)
+                      setShowNpoModal(null)
+                      setActionMsg({ type: 'success', text: 'Registrado com sucesso.' })
+                    } catch (e) {
+                      setActionMsg({ type: 'error', text: e.response?.data?.detail || 'Erro ao registrar.' })
+                    } finally { setNpoSaving(false) }
+                  }}
+                  className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium px-5 py-2 rounded-lg">
+                  {npoSaving ? 'Salvando...' : 'Confirmar'}
+                </button>
+                <button onClick={() => setShowNpoModal(null)}
+                  className="border border-gray-300 text-gray-600 text-sm px-5 py-2 rounded-lg hover:bg-gray-50">
+                  Cancelar
+                </button>
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
-      {/* Modal cancelar NPO/Concessão */}
+      {/* Modal cancelar NPO/Concessão/Empenho/Liquidação/Pagamento */}
       {showCancelNpo && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl p-6 w-full max-w-md">
             <h3 className="text-base font-semibold text-gray-800 mb-1">
-              Cancelar {showCancelNpo.type === 'npo' ? 'NPO' : 'Concessão'}
+              Cancelar {CANCEL_LABEL[showCancelNpo.type]}
             </h3>
             <label className="block text-xs font-medium text-gray-600 mb-1 mt-3">Motivo *</label>
             <textarea rows={3} value={motivoCancelNpo} onChange={e => setMotivoCancelNpo(e.target.value)}
@@ -564,8 +620,11 @@ export default function IndicacaoDetail() {
                 onClick={async () => {
                   setNpoSaving(true)
                   try {
-                    if (showCancelNpo.type === 'npo') await cancelarNpo(id, showCancelNpo.id, motivoCancelNpo)
-                    else await cancelarConcessao(id, showCancelNpo.id, motivoCancelNpo)
+                    const CANCELAR = {
+                      npo: cancelarNpo, concessao: cancelarConcessao, empenho: cancelarEmpenho,
+                      liquidacao: cancelarLiquidacao, pagamento: cancelarPagamento,
+                    }
+                    await CANCELAR[showCancelNpo.type](id, showCancelNpo.id, motivoCancelNpo)
                     setShowCancelNpo(null)
                     setMotivoCancelNpo('')
                     setActionMsg({ type: 'success', text: 'Cancelado com sucesso.' })
@@ -624,5 +683,48 @@ function Section({ label, children }) {
       <p className="text-xs font-semibold text-gray-400 uppercase mb-1">{label}</p>
       {children}
     </div>
+  )
+}
+
+const REGISTRO_COR_CLS = {
+  yellow: 'text-yellow-700',
+  green:  'text-green-700',
+  blue:   'text-blue-700',
+  purple: 'text-purple-700',
+  teal:   'text-teal-700',
+}
+
+function RegistroList({ titulo, cor, itens, campoNumero, acaoCodigo, onCancelar }) {
+  const ativos = (itens || []).filter((r) => !r.cancelada)
+  if (ativos.length === 0) return null
+  return (
+    <div className="mt-1">
+      <p className={`text-[10px] font-semibold uppercase mb-1 ${REGISTRO_COR_CLS[cor]}`}>{titulo} — {acaoCodigo}</p>
+      {ativos.map((r) => (
+        <div key={r.id} className="flex items-center justify-between text-xs py-0.5">
+          <span className="font-mono text-gray-600">{r[campoNumero]}</span>
+          <span className="text-gray-400">{new Date(r.data_emissao).toLocaleDateString('pt-BR')}</span>
+          <span className={`font-semibold ${REGISTRO_COR_CLS[cor]}`}>{fmt(r.valor)}</span>
+          <button onClick={() => onCancelar(r.id)} className="text-red-400 hover:text-red-600 ml-2">✕</button>
+        </div>
+      ))}
+    </div>
+  )
+}
+
+const STATUS_EXECUCAO_CLS = {
+  'Pago':          'bg-teal-100 text-teal-700',
+  'Liquidado':     'bg-purple-100 text-purple-700',
+  'Empenhado':     'bg-blue-100 text-blue-700',
+  'Em Diligência': 'bg-amber-100 text-amber-700',
+  'Indicado':      'bg-gray-100 text-gray-600',
+  'Sem Execução':  'bg-gray-50 text-gray-400',
+}
+
+function StatusExecucaoBadge({ status }) {
+  return (
+    <span className={`px-2 py-0.5 rounded-full text-[10px] font-medium whitespace-nowrap ${STATUS_EXECUCAO_CLS[status] || 'bg-gray-100 text-gray-600'}`}>
+      {status || 'Sem Execução'}
+    </span>
   )
 }

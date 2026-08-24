@@ -12,6 +12,7 @@ from core.models import Orgao
 from core.permissions import IsMultiTenant
 from modulo_planejamento.models import NecessidadePlanejamento
 from modulo_planejamento.serializers import NecessidadeSerializer
+from modulo_demanda.models import ItemDFD
 
 logger = logging.getLogger(__name__)
 
@@ -483,13 +484,23 @@ class IndicacaoOrcamentariaViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         dotacao_id     = serializer.validated_data['dotacao_id']
         valor_indicado = serializer.validated_data['valor_indicado']
+        item_dfd_id    = serializer.validated_data.get('item_dfd_id')
+        em_diligencia  = serializer.validated_data.get('em_diligencia', False)
 
         dotacao = get_object_or_404(
             DotacaoOrcamentaria, id=dotacao_id, org_id=request.org_id
         )
+        item_dfd = None
+        if item_dfd_id:
+            if not indicacao.dfd_id:
+                return Response(
+                    {'detail': 'Só é possível vincular item de DFD quando a indicação está ligada a um DFD.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            item_dfd = get_object_or_404(ItemDFD, id=item_dfd_id, dfd_id=indicacao.dfd_id)
         item, created = IndicacaoDotacao.objects.update_or_create(
             indicacao=indicacao, dotacao=dotacao,
-            defaults={'valor_indicado': valor_indicado},
+            defaults={'valor_indicado': valor_indicado, 'item_dfd': item_dfd, 'em_diligencia': em_diligencia},
         )
         # Recalcular valor total
         total = sum(i.valor_indicado for i in indicacao.itens.all())
@@ -674,11 +685,247 @@ class IndicacaoOrcamentariaViewSet(viewsets.ModelViewSet):
         serializer = self._indicacao_serializer(indicacao)
         return Response({'detail': 'Concessão cancelada.', **serializer})
 
+    # ── Empenho ─────────────────────────────────────────────────────────────── #
+
+    @action(detail=True, methods=['post'], url_path='registrar-empenhos')
+    def registrar_empenhos(self, request, pk=None):
+        """
+        Registra empenhos em bloco. Payload: { "empenhos": [{"indicacao_dotacao_id": X,
+        "numero_doc": "...", "data_emissao": "...", "valor": ..., "observacoes": ""}, ...] }
+        Valida: valor_empenhado + novo_valor <= valor_indicado da própria linha.
+        """
+        from .models import EmpenhoOrcamentario, IndicacaoDotacao
+        from decimal import Decimal
+
+        indicacao = self.get_object()
+        if indicacao.status != 'Aprovada':
+            return Response({'detail': 'Empenhos só podem ser registrados em indicações aprovadas.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        dados = request.data.get('empenhos', [])
+        criados = []
+        erros = []
+        for item in dados:
+            ind_dot_id = item.get('indicacao_dotacao_id')
+            numero_doc = (item.get('numero_doc') or '').strip()
+            valor      = item.get('valor')
+            data_emis  = item.get('data_emissao')
+            obs        = item.get('observacoes', '')
+            if not (ind_dot_id and numero_doc and valor and data_emis):
+                continue
+            ind_dot = get_object_or_404(IndicacaoDotacao, pk=ind_dot_id, indicacao=indicacao)
+            dotacao = ind_dot.dotacao
+            novo_valor = Decimal(str(valor))
+            if dotacao.valor_empenhado + novo_valor > ind_dot.valor_indicado:
+                erros.append(f'Dotação {dotacao.id}: valor empenhado superaria o indicado.')
+                continue
+            EmpenhoOrcamentario.objects.create(
+                indicacao_dotacao=ind_dot,
+                numero_doc=numero_doc,
+                data_emissao=data_emis,
+                valor=novo_valor,
+                observacoes=obs,
+                registrada_por=request.user,
+            )
+            dotacao.valor_empenhado = dotacao.valor_empenhado + novo_valor
+            dotacao.save(update_fields=['valor_empenhado'])
+            criados.append(ind_dot_id)
+
+        serializer = self._indicacao_serializer(indicacao)
+        msg = f'{len(criados)} empenho(s) registrado(s).'
+        if erros:
+            msg += ' Erros: ' + ' | '.join(erros)
+        return Response({'detail': msg, **serializer}, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'], url_path=r'cancelar-empenho/(?P<emp_pk>[^/.]+)')
+    def cancelar_empenho(self, request, pk=None, emp_pk=None):
+        from .models import EmpenhoOrcamentario
+        from django.shortcuts import get_object_or_404 as goo
+        indicacao = self.get_object()
+        emp = goo(EmpenhoOrcamentario, pk=emp_pk,
+                  indicacao_dotacao__indicacao=indicacao, cancelada=False)
+        motivo = request.data.get('motivo', '').strip()
+        if not motivo:
+            return Response({'detail': 'O motivo do cancelamento é obrigatório.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        dotacao = emp.indicacao_dotacao.dotacao
+        liquidado = dotacao.valor_liquidado
+        novo_emp = dotacao.valor_empenhado - emp.valor
+        if novo_emp < liquidado:
+            return Response({
+                'detail': f'Não é possível cancelar: R$ {float(liquidado):,.2f} já foram liquidados contra este empenho.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        from datetime import date
+        emp.cancelada = True
+        emp.data_cancelamento = date.today()
+        emp.motivo_cancelamento = motivo
+        emp.save()
+        dotacao.valor_empenhado = novo_emp
+        dotacao.save(update_fields=['valor_empenhado'])
+        serializer = self._indicacao_serializer(indicacao)
+        return Response({'detail': 'Empenho cancelado.', **serializer})
+
+    # ── Liquidação ──────────────────────────────────────────────────────────── #
+
+    @action(detail=True, methods=['post'], url_path='registrar-liquidacoes')
+    def registrar_liquidacoes(self, request, pk=None):
+        """
+        Registra liquidações em bloco.
+        Valida: valor_liquidado + novo_valor <= valor_empenhado.
+        """
+        from .models import LiquidacaoOrcamentaria, IndicacaoDotacao
+        from decimal import Decimal
+
+        indicacao = self.get_object()
+        if indicacao.status != 'Aprovada':
+            return Response({'detail': 'Liquidações só podem ser registradas em indicações aprovadas.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        dados = request.data.get('liquidacoes', [])
+        criados = []
+        erros = []
+        for item in dados:
+            ind_dot_id = item.get('indicacao_dotacao_id')
+            numero_doc = (item.get('numero_doc') or '').strip()
+            valor      = item.get('valor')
+            data_emis  = item.get('data_emissao')
+            obs        = item.get('observacoes', '')
+            if not (ind_dot_id and numero_doc and valor and data_emis):
+                continue
+            ind_dot = get_object_or_404(IndicacaoDotacao, pk=ind_dot_id, indicacao=indicacao)
+            dotacao = ind_dot.dotacao
+            novo_valor = Decimal(str(valor))
+            if dotacao.valor_liquidado + novo_valor > dotacao.valor_empenhado:
+                erros.append(f'Dotação {dotacao.id}: valor liquidado superaria o empenhado.')
+                continue
+            LiquidacaoOrcamentaria.objects.create(
+                indicacao_dotacao=ind_dot,
+                numero_doc=numero_doc,
+                data_emissao=data_emis,
+                valor=novo_valor,
+                observacoes=obs,
+                registrada_por=request.user,
+            )
+            dotacao.valor_liquidado = dotacao.valor_liquidado + novo_valor
+            dotacao.save(update_fields=['valor_liquidado'])
+            criados.append(ind_dot_id)
+
+        serializer = self._indicacao_serializer(indicacao)
+        msg = f'{len(criados)} liquidação(ões) registrada(s).'
+        if erros:
+            msg += ' Erros: ' + ' | '.join(erros)
+        return Response({'detail': msg, **serializer}, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'], url_path=r'cancelar-liquidacao/(?P<liq_pk>[^/.]+)')
+    def cancelar_liquidacao(self, request, pk=None, liq_pk=None):
+        from .models import LiquidacaoOrcamentaria
+        from django.shortcuts import get_object_or_404 as goo
+        indicacao = self.get_object()
+        liq = goo(LiquidacaoOrcamentaria, pk=liq_pk,
+                  indicacao_dotacao__indicacao=indicacao, cancelada=False)
+        motivo = request.data.get('motivo', '').strip()
+        if not motivo:
+            return Response({'detail': 'O motivo do cancelamento é obrigatório.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        dotacao = liq.indicacao_dotacao.dotacao
+        pago = dotacao.valor_pago
+        novo_liq = dotacao.valor_liquidado - liq.valor
+        if novo_liq < pago:
+            return Response({
+                'detail': f'Não é possível cancelar: R$ {float(pago):,.2f} já foram pagos contra esta liquidação.'
+            }, status=status.HTTP_400_BAD_REQUEST)
+
+        from datetime import date
+        liq.cancelada = True
+        liq.data_cancelamento = date.today()
+        liq.motivo_cancelamento = motivo
+        liq.save()
+        dotacao.valor_liquidado = novo_liq
+        dotacao.save(update_fields=['valor_liquidado'])
+        serializer = self._indicacao_serializer(indicacao)
+        return Response({'detail': 'Liquidação cancelada.', **serializer})
+
+    # ── Pagamento ───────────────────────────────────────────────────────────── #
+
+    @action(detail=True, methods=['post'], url_path='registrar-pagamentos')
+    def registrar_pagamentos(self, request, pk=None):
+        """
+        Registra pagamentos em bloco.
+        Valida: valor_pago + novo_valor <= valor_liquidado.
+        """
+        from .models import PagamentoOrcamentario, IndicacaoDotacao
+        from decimal import Decimal
+
+        indicacao = self.get_object()
+        if indicacao.status != 'Aprovada':
+            return Response({'detail': 'Pagamentos só podem ser registrados em indicações aprovadas.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        dados = request.data.get('pagamentos', [])
+        criados = []
+        erros = []
+        for item in dados:
+            ind_dot_id = item.get('indicacao_dotacao_id')
+            numero_doc = (item.get('numero_doc') or '').strip()
+            valor      = item.get('valor')
+            data_emis  = item.get('data_emissao')
+            obs        = item.get('observacoes', '')
+            if not (ind_dot_id and numero_doc and valor and data_emis):
+                continue
+            ind_dot = get_object_or_404(IndicacaoDotacao, pk=ind_dot_id, indicacao=indicacao)
+            dotacao = ind_dot.dotacao
+            novo_valor = Decimal(str(valor))
+            if dotacao.valor_pago + novo_valor > dotacao.valor_liquidado:
+                erros.append(f'Dotação {dotacao.id}: valor pago superaria o liquidado.')
+                continue
+            PagamentoOrcamentario.objects.create(
+                indicacao_dotacao=ind_dot,
+                numero_doc=numero_doc,
+                data_emissao=data_emis,
+                valor=novo_valor,
+                observacoes=obs,
+                registrada_por=request.user,
+            )
+            dotacao.valor_pago = dotacao.valor_pago + novo_valor
+            dotacao.save(update_fields=['valor_pago'])
+            criados.append(ind_dot_id)
+
+        serializer = self._indicacao_serializer(indicacao)
+        msg = f'{len(criados)} pagamento(s) registrado(s).'
+        if erros:
+            msg += ' Erros: ' + ' | '.join(erros)
+        return Response({'detail': msg, **serializer}, status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['post'], url_path=r'cancelar-pagamento/(?P<pag_pk>[^/.]+)')
+    def cancelar_pagamento(self, request, pk=None, pag_pk=None):
+        from .models import PagamentoOrcamentario
+        from django.shortcuts import get_object_or_404 as goo
+        indicacao = self.get_object()
+        pag = goo(PagamentoOrcamentario, pk=pag_pk,
+                  indicacao_dotacao__indicacao=indicacao, cancelada=False)
+        motivo = request.data.get('motivo', '').strip()
+        if not motivo:
+            return Response({'detail': 'O motivo do cancelamento é obrigatório.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        from datetime import date
+        pag.cancelada = True
+        pag.data_cancelamento = date.today()
+        pag.motivo_cancelamento = motivo
+        pag.save()
+        dotacao = pag.indicacao_dotacao.dotacao
+        dotacao.valor_pago = dotacao.valor_pago - pag.valor
+        dotacao.save(update_fields=['valor_pago'])
+        serializer = self._indicacao_serializer(indicacao)
+        return Response({'detail': 'Pagamento cancelado.', **serializer})
+
     def _indicacao_serializer(self, indicacao):
         """Re-busca a indicação com prefetch completo e retorna os dados serializados."""
         from .serializers import IndicacaoOrcamentariaSerializer
         ind = IndicacaoOrcamentaria.objects.prefetch_related(
             'itens__descentralizacoes', 'itens__concessoes',
-            'historico', 'itens__dotacao',
+            'itens__empenhos', 'itens__liquidacoes', 'itens__pagamentos',
+            'historico', 'itens__dotacao', 'itens__item_dfd',
         ).get(pk=indicacao.pk)
         return IndicacaoOrcamentariaSerializer(ind, context={'request': self.request}).data
