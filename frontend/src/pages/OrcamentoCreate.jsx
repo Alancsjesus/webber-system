@@ -8,7 +8,7 @@ const ANO_ATUAL = new Date().getFullYear()
 
 export default function OrcamentoCreate() {
   const navigate = useNavigate()
-  const { createDotacao, fetchAcoes, fetchElementos, fetchNaturezas, fetchFontes, acoes, elementos, naturezas, fontes } =
+  const { createDotacao, fetchAcoes, fetchElementos, fetchNaturezas, fetchFontes, fetchSubfontes, acoes, elementos, naturezas, fontes, subfontes } =
     useOrcamentoStore()
 
   const [form, setForm] = useState({
@@ -17,6 +17,7 @@ export default function OrcamentoCreate() {
     natureza_despesa: '',   // campo primário — elemento é derivado da natureza
     elemento_despesa: '',   // preenchido automaticamente quando natureza é selecionada
     fonte_recurso: '',
+    subfonte_recurso: '',   // opcional — detalhamento da fonte selecionada
     valor_dotado: '',
     status: 'Proposta',
     eixo: '',
@@ -71,6 +72,7 @@ export default function OrcamentoCreate() {
       } else {
         payload.elemento_despesa = Number(form.elemento_despesa)
       }
+      if (form.subfonte_recurso) payload.subfonte_recurso = Number(form.subfonte_recurso)
       const dotacao = await createDotacao(payload)
       navigate(`/orcamento/dotacoes/${dotacao.id}`)
     } catch (err) {
@@ -181,7 +183,11 @@ export default function OrcamentoCreate() {
 
         <Field label="Fonte de recurso" error={errors.fonte_recurso}>
           <select value={form.fonte_recurso}
-            onChange={(e) => set('fonte_recurso', e.target.value)}
+            onChange={(e) => {
+              set('fonte_recurso', e.target.value)
+              set('subfonte_recurso', '') // limpa subfonte ao trocar de fonte
+              if (e.target.value) fetchSubfontes(e.target.value)
+            }}
             className={inp(errors.fonte_recurso)}>
             <option value="">Selecione uma fonte...</option>
             {fontes.map((f) => (
@@ -191,6 +197,21 @@ export default function OrcamentoCreate() {
             ))}
           </select>
         </Field>
+
+        {form.fonte_recurso && subfontes.length > 0 && (
+          <Field label="Subfonte de recurso (opcional)" error={errors.subfonte_recurso}>
+            <select value={form.subfonte_recurso}
+              onChange={(e) => set('subfonte_recurso', e.target.value)}
+              className={inp(errors.subfonte_recurso)}>
+              <option value="">Sem subfonte específica</option>
+              {subfontes.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.codigo} — {s.nome}
+                </option>
+              ))}
+            </select>
+          </Field>
+        )}
 
         <Field label="Valor dotado (R$)" error={errors.valor_dotado}>
           <CampoMoeda value={form.valor_dotado}

@@ -1,5 +1,5 @@
 import django_filters
-from .models import AcaoOrcamentaria, FonteRecurso, DotacaoOrcamentaria
+from .models import AcaoOrcamentaria, FonteRecurso, SubFonteRecurso, DotacaoOrcamentaria
 
 
 class AcaoOrcamentariaFilter(django_filters.FilterSet):
@@ -18,6 +18,15 @@ class FonteRecursoFilter(django_filters.FilterSet):
     class Meta:
         model = FonteRecurso
         fields = ['tipo', 'exercicio_anterior']
+
+
+class SubFonteRecursoFilter(django_filters.FilterSet):
+    fonte_recurso = django_filters.NumberFilter(field_name='fonte_recurso__id')
+    ativa = django_filters.BooleanFilter(field_name='ativa')
+
+    class Meta:
+        model = SubFonteRecurso
+        fields = ['fonte_recurso', 'ativa']
 
 
 class DotacaoOrcamentariaFilter(django_filters.FilterSet):

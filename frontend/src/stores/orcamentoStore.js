@@ -11,6 +11,7 @@ const useOrcamentoStore = create((set, get) => ({
   elementos: [],
   naturezas: [],
   fontes: [],
+  subfontes: [],
 
   fetchDotacoes: async (params = {}) => {
     set({ loading: true, error: null })
@@ -78,6 +79,15 @@ const useOrcamentoStore = create((set, get) => ({
     try {
       const { data } = await api.get('/orcamento/fonte-recurso/', { params: { page_size: 100 } })
       set({ fontes: data.results ?? data })
+    } catch { /* silent */ }
+  },
+
+  fetchSubfontes: async (fonteId) => {
+    try {
+      const params = { page_size: 200 }
+      if (fonteId) params.fonte_recurso = fonteId
+      const { data } = await api.get('/orcamento/subfonte-recurso/', { params })
+      set({ subfontes: data.results ?? data })
     } catch { /* silent */ }
   },
 

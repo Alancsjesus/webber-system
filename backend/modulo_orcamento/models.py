@@ -152,6 +152,29 @@ class FonteRecurso(BaseModel):
         return f'{self.codigo} — {self.nome}'
 
 
+class SubFonteRecurso(BaseModel):
+    """
+    Subfonte de uma Fonte de Recurso — mesmo padrão de hierarquia usado entre
+    NaturezaDespesa e ElementoDespesa (FK simples, org-scoped).
+    """
+    fonte_recurso = models.ForeignKey(
+        FonteRecurso, on_delete=models.PROTECT,
+        related_name='subfontes', verbose_name='Fonte de recurso',
+    )
+    codigo = models.CharField(max_length=20, verbose_name='Código')
+    nome = models.CharField(max_length=100, verbose_name='Nome')
+    ativa = models.BooleanField(default=True, verbose_name='Ativa')
+
+    class Meta(BaseModel.Meta):
+        unique_together = ['org_id', 'fonte_recurso', 'codigo']
+        ordering = ['fonte_recurso__codigo', 'codigo']
+        verbose_name = 'Subfonte de Recurso'
+        verbose_name_plural = 'Subfontes de Recurso'
+
+    def __str__(self):
+        return f'{self.fonte_recurso.codigo}.{self.codigo} — {self.nome}'
+
+
 class DotacaoOrcamentaria(BaseModel):
     """
     Budget allocation (dotação). Core model of the budget planning module.
@@ -183,6 +206,13 @@ class DotacaoOrcamentaria(BaseModel):
         on_delete=models.PROTECT,
         related_name='dotacoes',
         verbose_name='Fonte de recurso',
+    )
+    subfonte_recurso = models.ForeignKey(
+        SubFonteRecurso,
+        on_delete=models.PROTECT,
+        related_name='dotacoes',
+        null=True, blank=True,
+        verbose_name='Subfonte de recurso',
     )
     valor_dotado = models.DecimalField(
         max_digits=15, decimal_places=2, verbose_name='Valor dotado (R$)'

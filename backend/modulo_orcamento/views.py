@@ -15,9 +15,9 @@ from modulo_planejamento.serializers import NecessidadeSerializer
 
 logger = logging.getLogger(__name__)
 
-from .filters import AcaoOrcamentariaFilter, FonteRecursoFilter, DotacaoOrcamentariaFilter
+from .filters import AcaoOrcamentariaFilter, FonteRecursoFilter, SubFonteRecursoFilter, DotacaoOrcamentariaFilter
 from .models import (
-    AcaoOrcamentaria, ElementoDespesa, NaturezaDespesa, FonteRecurso,
+    AcaoOrcamentaria, ElementoDespesa, NaturezaDespesa, FonteRecurso, SubFonteRecurso,
     DotacaoOrcamentaria, IndicacaoOrcamentaria, IndicacaoDotacao, HistoricoIndicacao,
     TipoAcaoOrcamentaria, TipoFonteRecurso,
 )
@@ -26,6 +26,7 @@ from .serializers import (
     ElementoDespesaSerializer,
     NaturezaDespesaSerializer,
     FonteRecursoSerializer,
+    SubFonteRecursoSerializer,
     DotacaoOrcamentariaSerializer,
     VincularNecessidadeSerializer,
     IndicacaoOrcamentariaSerializer,
@@ -213,12 +214,46 @@ class FonteRecursoViewSet(viewsets.ModelViewSet):
         return FonteRecurso.objects.filter(org_id=self.request.org_id)
 
 
+class SubFonteRecursoViewSet(viewsets.ModelViewSet):
+    serializer_class = SubFonteRecursoSerializer
+    permission_classes = [IsAuthenticated, IsMultiTenant]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_class = SubFonteRecursoFilter
+    search_fields = ['nome', 'codigo']
+    ordering_fields = ['codigo', 'nome']
+    ordering = ['fonte_recurso__codigo', 'codigo']
+
+    def get_queryset(self):
+        qs = SubFonteRecurso.objects.filter(
+            org_id=self.request.org_id
+        ).select_related('fonte_recurso')
+        if self.request.query_params.get('inativas') != 'true':
+            qs = qs.filter(ativa=True)
+        return qs
+
+    def perform_create(self, serializer):
+        _check_permissao_planejamento(self.request)
+        serializer.save()
+
+    def perform_update(self, serializer):
+        _check_permissao_planejamento(self.request)
+        serializer.save()
+
+    def perform_destroy(self, instance):
+        _check_permissao_planejamento(self.request)
+        instance.ativa = False
+        instance.save()
+
+
 class DotacaoOrcamentariaViewSet(viewsets.ModelViewSet):
     serializer_class = DotacaoOrcamentariaSerializer
     permission_classes = [IsAuthenticated, IsMultiTenant]
     filter_backends = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
     filterset_class = DotacaoOrcamentariaFilter
-    search_fields = ['eixo', 'objetivo_estrategico', 'observacoes', 'acao__nome', 'acao__codigo']
+    search_fields = [
+        'eixo', 'objetivo_estrategico', 'observacoes', 'acao__nome', 'acao__codigo',
+        'elemento_despesa__descricao', 'fonte_recurso__nome', 'fonte_recurso__codigo',
+    ]
     ordering_fields = ['exercicio_fiscal', 'valor_dotado', 'status', 'created_at']
     ordering = ['-exercicio_fiscal', 'acao__codigo']
 

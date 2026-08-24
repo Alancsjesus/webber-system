@@ -45,6 +45,7 @@ const ACESSO_POR_PAPEL = {
     '/config/naturezas',
     '/config/elementos',
     '/config/fontes',
+    '/config/subfontes',
     '/config/tipo-acao',
     '/config/tipo-fonte',
     '/config/conselho-fesp',

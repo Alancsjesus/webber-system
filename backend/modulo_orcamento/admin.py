@@ -1,6 +1,6 @@
 from django.contrib import admin
 from .models import (
-    AcaoOrcamentaria, ElementoDespesa, FonteRecurso, DotacaoOrcamentaria,
+    AcaoOrcamentaria, ElementoDespesa, FonteRecurso, SubFonteRecurso, DotacaoOrcamentaria,
     TipoAcaoOrcamentaria, TipoFonteRecurso,
 )
 
@@ -43,6 +43,14 @@ class FonteRecursoAdmin(admin.ModelAdmin):
     list_filter = ['tipo', 'exercicio_anterior', 'org_id']
     search_fields = ['codigo', 'nome']
     ordering = ['org_id', 'codigo']
+
+
+@admin.register(SubFonteRecurso)
+class SubFonteRecursoAdmin(admin.ModelAdmin):
+    list_display = ['fonte_recurso', 'codigo', 'nome', 'ativa', 'org_id']
+    list_filter = ['fonte_recurso', 'ativa', 'org_id']
+    search_fields = ['codigo', 'nome']
+    ordering = ['org_id', 'fonte_recurso__codigo', 'codigo']
 
 
 @admin.register(DotacaoOrcamentaria)

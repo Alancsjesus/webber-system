@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from modulo_planejamento.models import NecessidadePlanejamento
 from .models import (
-    AcaoOrcamentaria, ElementoDespesa, NaturezaDespesa, FonteRecurso,
+    AcaoOrcamentaria, ElementoDespesa, NaturezaDespesa, FonteRecurso, SubFonteRecurso,
     DotacaoOrcamentaria, IndicacaoOrcamentaria, IndicacaoDotacao, HistoricoIndicacao,
     DescentralizacaoOrcamentaria, ConcessaoOrcamentaria,
     TipoAcaoOrcamentaria, TipoFonteRecurso,
@@ -96,6 +96,41 @@ class FonteRecursoSerializer(serializers.ModelSerializer):
         return super().update(instance, validated_data)
 
 
+class SubFonteRecursoSerializer(serializers.ModelSerializer):
+    org_nome = serializers.CharField(source='org_id.nome', read_only=True)
+    fonte_codigo = serializers.IntegerField(source='fonte_recurso.codigo', read_only=True)
+    fonte_nome = serializers.CharField(source='fonte_recurso.nome', read_only=True)
+    created_by_username = serializers.CharField(source='created_by.username', read_only=True)
+    updated_by_username = serializers.CharField(source='updated_by.username', read_only=True)
+
+    class Meta:
+        model = SubFonteRecurso
+        fields = [
+            'id', 'fonte_recurso', 'fonte_codigo', 'fonte_nome', 'codigo', 'nome', 'ativa',
+            'org_id', 'org_nome',
+            'created_by', 'created_by_username',
+            'updated_by', 'updated_by_username',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = ['id', 'org_id', 'created_by', 'updated_by', 'created_at', 'updated_at']
+
+    def validate_fonte_recurso(self, fonte):
+        request = self.context['request']
+        if str(fonte.org_id_id) != str(request.org_id):
+            raise serializers.ValidationError('Fonte de recurso não pertence à organização.')
+        return fonte
+
+    def create(self, validated_data):
+        validated_data['org_id_id'] = self.context['request'].org_id
+        validated_data['created_by'] = self.context['request'].user
+        validated_data['updated_by'] = self.context['request'].user
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        validated_data['updated_by'] = self.context['request'].user
+        return super().update(instance, validated_data)
+
+
 class NecessidadeResumoSerializer(serializers.ModelSerializer):
     class Meta:
         model = NecessidadePlanejamento
@@ -126,6 +161,12 @@ class DotacaoOrcamentariaSerializer(serializers.ModelSerializer):
     fonte_nome = serializers.CharField(source='fonte_recurso.nome', read_only=True)
     fonte_tipo = serializers.CharField(source='fonte_recurso.tipo', read_only=True)
 
+    subfonte_recurso = serializers.PrimaryKeyRelatedField(
+        queryset=SubFonteRecurso.objects.all(), required=False, allow_null=True,
+    )
+    subfonte_codigo = serializers.CharField(source='subfonte_recurso.codigo', read_only=True)
+    subfonte_nome = serializers.CharField(source='subfonte_recurso.nome', read_only=True)
+
     necessidades_ids = serializers.PrimaryKeyRelatedField(
         many=True,
         queryset=NecessidadePlanejamento.objects.all(),
@@ -145,6 +186,7 @@ class DotacaoOrcamentariaSerializer(serializers.ModelSerializer):
             'elemento_despesa', 'elemento_codigo', 'elemento_descricao',
             'natureza_despesa', 'natureza_formato', 'natureza_descricao',
             'fonte_recurso', 'fonte_codigo', 'fonte_nome', 'fonte_tipo',
+            'subfonte_recurso', 'subfonte_codigo', 'subfonte_nome',
             'valor_dotado', 'valor_indicado', 'valor_descentralizado', 'valor_concedido',
             'status',
             'eixo',
@@ -172,6 +214,18 @@ class DotacaoOrcamentariaSerializer(serializers.ModelSerializer):
         fonte = attrs.get('fonte_recurso')
         if fonte and str(fonte.org_id_id) != str(org_id):
             raise serializers.ValidationError({'fonte_recurso': 'Fonte de recurso não pertence à organização.'})
+
+        # Subfonte precisa pertencer à fonte selecionada (ou já vinculada, em edição parcial)
+        subfonte = attrs.get('subfonte_recurso')
+        if subfonte:
+            fonte_referencia = fonte or (self.instance.fonte_recurso if self.instance else None)
+            if fonte_referencia and subfonte.fonte_recurso_id != fonte_referencia.id:
+                raise serializers.ValidationError({
+                    'subfonte_recurso': (
+                        f'A subfonte {subfonte.codigo} pertence à fonte {subfonte.fonte_recurso.codigo}, '
+                        f'não à fonte {fonte_referencia.codigo}.'
+                    )
+                })
 
         # Natureza contém o Elemento — auto-preenche elemento a partir da natureza
         natureza = attrs.get('natureza_despesa')

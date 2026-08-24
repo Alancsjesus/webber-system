@@ -1,11 +1,11 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import useIndicacaoStore from '../stores/indicacaoStore'
-import useOrcamentoStore from '../stores/orcamentoStore'
 import useAuthStore from '../stores/authStore'
 import api, { downloadFile } from '../services/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 import CampoMoeda from '../components/CampoMoeda'
+import DotacaoPicker from '../components/DotacaoPicker'
 
 const STATUS_CLS = {
   Rascunho:  'bg-gray-100 text-gray-600',
@@ -31,8 +31,6 @@ export default function IndicacaoDetail() {
     registrarConcessoes, cancelarConcessao,
   } = useIndicacaoStore()
 
-  const { dotacoes, fetchDotacoes } = useOrcamentoStore()
-
   const [editing, setEditing]       = useState(false)
   const [form, setForm]             = useState(null)
   const [saving, setSaving]         = useState(false)
@@ -41,6 +39,7 @@ export default function IndicacaoDetail() {
   const [motivoCancelamento, setMotivoCancelamento] = useState('')
   const [showVincular, setShowVincular] = useState(false)
   const [vincForm, setVincForm]     = useState({ dotacao_id: '', valor_indicado: '' })
+  const [vincDotacaoLabel, setVincDotacaoLabel] = useState('')
   const [vincSaving, setVincSaving] = useState(false)
   const [vincErrors, setVincErrors] = useState({})
   const [showNpoModal, setShowNpoModal] = useState(false)  // 'npo' | 'concessao' | null
@@ -81,6 +80,7 @@ export default function IndicacaoDetail() {
     try {
       await vincularDotacao(id, Number(vincForm.dotacao_id), Number(vincForm.valor_indicado))
       setVincForm({ dotacao_id: '', valor_indicado: '' })
+      setVincDotacaoLabel('')
       setVincErrors({})
       setActionMsg({ type: 'success', text: 'Dotação vinculada.' })
     } catch (err) {
@@ -102,12 +102,6 @@ export default function IndicacaoDetail() {
     await deleteIndicacao(id)
     navigate('/orcamento/indicacoes')
   }
-
-  useEffect(() => {
-    if (showVincular) {
-      fetchDotacoes({ page_size: 100 })
-    }
-  }, [showVincular])
 
   if (loading) return <div className="p-8"><LoadingSpinner message="Carregando indicação..." /></div>
   if (error)   return <div className="p-8 text-sm text-red-600 bg-red-50 rounded-lg m-8">{error}</div>
@@ -261,16 +255,16 @@ export default function IndicacaoDetail() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-medium text-gray-600 mb-1">Dotação *</label>
-                  <select value={vincForm.dotacao_id}
-                    onChange={(e) => { setVincForm((p) => ({ ...p, dotacao_id: e.target.value })); setVincErrors((p) => ({ ...p, dotacao_id: undefined })) }}
-                    className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${vincErrors.dotacao_id ? 'border-red-400' : 'border-gray-300'}`}>
-                    <option value="">Selecione...</option>
-                    {dotacoes.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.acao_codigo} / {d.elemento_codigo} — {fmt(d.valor_dotado)}
-                      </option>
-                    ))}
-                  </select>
+                  <DotacaoPicker
+                    value={vincForm.dotacao_id}
+                    valueLabel={vincDotacaoLabel}
+                    exercicioFiltro={current.exercicio_fiscal}
+                    onChange={(id, d) => {
+                      setVincForm((p) => ({ ...p, dotacao_id: id || '' }))
+                      setVincDotacaoLabel(d ? `${d.acao_codigo} / ${d.elemento_codigo} — ${fmt(d.valor_dotado)}` : '')
+                      setVincErrors((p) => ({ ...p, dotacao_id: undefined }))
+                    }}
+                  />
                   {vincErrors.dotacao_id && <p className="text-xs text-red-600 mt-1">{vincErrors.dotacao_id}</p>}
                 </div>
                 <div>
