@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import useIndicacaoStore from '../stores/indicacaoStore'
 import useOrcamentoStore from '../stores/orcamentoStore'
 import useAuthStore from '../stores/authStore'
-import api from '../services/api'
+import api, { downloadFile } from '../services/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 import CampoMoeda from '../components/CampoMoeda'
 
@@ -156,10 +156,11 @@ export default function IndicacaoDetail() {
             </button>
           )}
           {isAprovada && (
-            <a href={`/api/orcamento/indicacao/${id}/export/pdf/`} target="_blank" rel="noreferrer"
+            <button
+              onClick={() => downloadFile(`/orcamento/indicacao/${id}/export/pdf/`, `DOD_${current?.numero || id}.pdf`)}
               className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-1.5 rounded-lg inline-block">
               Baixar DOD (PDF)
-            </a>
+            </button>
           )}
           {podeCancelar && (
             <button onClick={() => setShowCancelar(true)}

@@ -197,10 +197,11 @@ export default function MapaDetail() {
           )}
           {/* PDF — aprovado */}
           {isAprovado && (
-            <a href={`/api/pesquisa/mapa/${id}/export/pdf/`} target="_blank" rel="noreferrer"
+            <button
+              onClick={() => downloadFile(`/pesquisa/mapa/${id}/export/pdf/`, `Mapa_${id}.pdf`)}
               className="bg-indigo-600 hover:bg-indigo-700 text-white text-sm px-4 py-1.5 rounded-lg inline-block">
               Baixar PDF
-            </a>
+            </button>
           )}
           {/* Histórico de tramitação em PDF */}
           <button

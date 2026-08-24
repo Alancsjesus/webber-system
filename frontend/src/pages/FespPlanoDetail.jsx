@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react'
 import { useNavigate, useParams, Link } from 'react-router-dom'
 import usePlanoAplicacaoStore from '../stores/planoAplicacaoStore'
 import useAuthStore from '../stores/authStore'
-import api from '../services/api'
+import api, { downloadFile } from '../services/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 import CampoMoeda from '../components/CampoMoeda'
 import { STATUS_PLANO_CLS, NATUREZA_PLANO_CLS } from './FespPlanoList'
@@ -159,10 +159,11 @@ export default function FespPlanoDetail() {
             className="border border-yellow-300 text-yellow-700 hover:bg-yellow-50 text-sm px-4 py-1.5 rounded-lg">
             Consolidação de Itens
           </Link>
-          <a href={`/api/fesp/plano-aplicacao/${id}/export/pdf/`} target="_blank" rel="noreferrer"
+          <button
+            onClick={() => downloadFile(`/fesp/plano-aplicacao/${id}/export/pdf/`, `PlanoAplicacao_${current.numero}.pdf`)}
             className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg">
             Baixar PDF
-          </a>
+          </button>
           {s === 'elaboracao' && !editing && (
             <button onClick={() => setEditing(true)} className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg">
               Editar
