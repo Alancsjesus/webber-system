@@ -1289,10 +1289,11 @@ def gerar_pdf_historico(
 
     # Ficha de identificação
     e.append(_secao('Identificação do Documento', estilos))
+    _cel_id = ParagraphStyle('cel_id', fontSize=8, leading=10)
     id_dados = [
-        ['Tipo de artefato', titulo],
+        ['Tipo de artefato', Paragraph(titulo, _cel_id)],
         ['Referência / Nº SEI', numero_ref],
-        ['Órgão', org_nome or '—'],
+        ['Órgão', Paragraph(org_nome or '—', _cel_id)],
         ['Criado por', (criado_por.get_full_name() or criado_por.username) if criado_por else '—'],
         ['Criado em', created_at.strftime('%d/%m/%Y às %H:%M') if created_at else '—'],
         ['Emitido em', datetime.now().strftime('%d/%m/%Y às %H:%M')],
@@ -2001,10 +2002,12 @@ def gerar_pdf_contrato(contrato) -> bytes:
     def _fmt_val(v):
         return f'R$ {float(v):,.2f}' if v else '—'
 
+    _cel_ct = ParagraphStyle('cel_ct', fontSize=8, leading=11)
+
     dados_id = [
         ['Nº do Contrato',          contrato.numero or '—'],
         ['Exercício Fiscal',        str(contrato.exercicio)],
-        ['Objeto',                  contrato.objeto or '—'],
+        ['Objeto',                  Paragraph(contrato.objeto or '—', _cel_ct)],
         ['Tipo de Origem',          contrato.get_tipo_origem_display() if hasattr(contrato, 'get_tipo_origem_display') else contrato.tipo_origem],
         ['Nº Processo SEI',         contrato.numero_processo_sei or '—'],
         ['Valor do Contrato',       _fmt_val(contrato.valor_contrato)],
@@ -2040,7 +2043,7 @@ def gerar_pdf_contrato(contrato) -> bytes:
             ['Vigência da Garantia', f"{_fmt_data(contrato.garantia_vigencia_inicio)} a {_fmt_data(contrato.garantia_vigencia_fim)}"],
         ]
         if contrato.garantia_justificativa_acima_5:
-            dados_g.append(['Justificativa > 5%', contrato.garantia_justificativa_acima_5])
+            dados_g.append(['Justificativa > 5%', Paragraph(contrato.garantia_justificativa_acima_5, _cel_ct)])
         t_g = Table(dados_g, colWidths=[4.5*cm, 13*cm])
         t_g.setStyle(TableStyle([
             ('FONTNAME',  (0, 0), (0, -1), 'Helvetica-Bold'),
@@ -2061,7 +2064,7 @@ def gerar_pdf_contrato(contrato) -> bytes:
     if apostilas:
         e.append(_secao(f'Apostilas ({len(apostilas)})', estilos))
         cab = [['Nº', 'Data', 'Objeto']]
-        rows = [[a.numero, _fmt_data(a.data), a.objeto] for a in apostilas]
+        rows = [[a.numero, _fmt_data(a.data), Paragraph(a.objeto or '—', _cel_ct)] for a in apostilas]
         t_ap = Table(cab + rows, colWidths=[3*cm, 3*cm, 11.5*cm])
         t_ap.setStyle(TableStyle([
             ('BACKGROUND',  (0, 0), (-1, 0), AZUL_GOV),
@@ -2089,7 +2092,7 @@ def gerar_pdf_contrato(contrato) -> bytes:
             _fmt_data(a.data),
             _fmt_val(a.valor_acrescimo),
             _fmt_data(a.nova_vigencia),
-            a.objeto,
+            Paragraph(a.objeto or '—', _cel_ct),
         ] for a in aditivos]
         t_ad = Table(cab + rows, colWidths=[2.5*cm, 3*cm, 2.2*cm, 2.8*cm, 2.5*cm, 4.5*cm])
         t_ad.setStyle(TableStyle([
