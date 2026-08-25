@@ -72,6 +72,9 @@ import { pageHelp as auditoriaHelp }              from '../pages/AuditoriaList'
 import { pageHelp as rastreabilidadeListHelp }    from '../pages/RastreabilidadeList'
 import { pageHelp as rastreabilidadeDetailHelp }  from '../pages/RastreabilidadeDetail'
 import { pageHelp as fornecedorListHelp }         from '../pages/FornecedorList'
+import { pageHelp as ataListHelp }                from '../pages/AtaList'
+import { pageHelp as ataCreateHelp }              from '../pages/AtaCreate'
+import { pageHelp as ataDetailHelp }              from '../pages/AtaDetail'
 import { pageHelp as fespPlanoListHelp }          from '../pages/FespPlanoList'
 import { pageHelp as fespPlanoCreateHelp }        from '../pages/FespPlanoCreate'
 import { pageHelp as fespPlanoDetailHelp }        from '../pages/FespPlanoDetail'
@@ -146,6 +149,9 @@ export const helpContent = {
   '/rastreabilidade/:id':       rastreabilidadeDetailHelp,
 
   '/fornecedores':              fornecedorListHelp,
+  '/arp':                       ataListHelp,
+  '/arp/novo':                  ataCreateHelp,
+  '/arp/:id':                   ataDetailHelp,
   '/fesp/planos':               fespPlanoListHelp,
   '/fesp/planos/novo':          fespPlanoCreateHelp,
   '/fesp/planos/:id':           fespPlanoDetailHelp,

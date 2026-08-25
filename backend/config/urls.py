@@ -54,6 +54,7 @@ urlpatterns = [
     path('api/orcamento/', include('modulo_orcamento.urls')),
     path('api/fesp/', include('modulo_fesp.urls')),
     path('api/fornecedores/', include('modulo_fornecedor.urls')),
+    path('api/arp/', include('modulo_arp.urls')),
     path('api/etp/',       include('modulo_etp.urls')),
     path('api/tr/',        include('modulo_tr.urls')),
     path('api/pesquisa/',   include('modulo_mapa_precos.urls')),

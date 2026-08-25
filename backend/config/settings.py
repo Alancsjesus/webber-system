@@ -40,6 +40,7 @@ INSTALLED_APPS = [
     'modulo_orcamento',
     'modulo_fesp',
     'modulo_fornecedor',
+    'modulo_arp',
     'modulo_etp',
     'modulo_tr',
     'modulo_mapa_precos',

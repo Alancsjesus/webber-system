@@ -18,6 +18,7 @@ const SECTION_ACCENT = {
   'Licitação':          { dot: 'bg-orange-400',   ring: 'bg-orange-500/15',  text: 'text-orange-300' },
   'Contratos':          { dot: 'bg-teal-400',     ring: 'bg-teal-500/15',    text: 'text-teal-300'   },
   'Fornecedores':       { dot: 'bg-sky-400',      ring: 'bg-sky-500/15',     text: 'text-sky-300'    },
+  'Atas (ARP)':         { dot: 'bg-indigo-400',   ring: 'bg-indigo-500/15',  text: 'text-indigo-300' },
   'Auditoria':          { dot: 'bg-rose-400',     ring: 'bg-rose-500/15',    text: 'text-rose-300'   },
   'Configurações':      { dot: 'bg-gray-400',     ring: 'bg-gray-500/10',    text: 'text-gray-300'   },
 }
@@ -34,6 +35,7 @@ const ACTIVE_CLS = {
   'Licitação':          'bg-gray-800/70 text-white',
   'Contratos':          'bg-gray-800/70 text-white',
   'Fornecedores':       'bg-gray-800/70 text-white',
+  'Atas (ARP)':         'bg-gray-800/70 text-white',
   'Configurações':      'bg-gray-800/70 text-white',
 }
 
@@ -50,6 +52,7 @@ const ACTIVE_BORDER = {
   'Licitação':          'border-l-2 border-orange-500',
   'Contratos':          'border-l-2 border-teal-500',
   'Fornecedores':       'border-l-2 border-sky-500',
+  'Atas (ARP)':         'border-l-2 border-indigo-500',
   'Configurações':      'border-l-2 border-gray-500',
 }
 
@@ -120,6 +123,10 @@ const NAV_BASE = [
   {
     section: 'Fornecedores',
     items: [{ to: '/fornecedores', label: 'Fornecedores' }],
+  },
+  {
+    section: 'Atas (ARP)',
+    items: [{ to: '/arp', label: 'Atas de Registro de Preços' }],
   },
 ]
 
@@ -228,18 +235,18 @@ const TIPO_UNIDADE_BADGE = {
 
 const ACESSO_PAPEL = {
   admin:               ['*'],
-  analista:            ['/', '/painel', '/ajuda', '/plano-compras', '/calendario', '/planejamento', '/demanda', '/pesquisa', '/etp', '/analise-tecnica', '/orcamento', '/licitacao', '/contratos', '/fornecedores', '/rastreabilidade', '/fesp'],
+  analista:            ['/', '/painel', '/ajuda', '/plano-compras', '/calendario', '/planejamento', '/demanda', '/pesquisa', '/etp', '/analise-tecnica', '/orcamento', '/licitacao', '/contratos', '/fornecedores', '/arp', '/rastreabilidade', '/fesp'],
   gestor_planejamento: ['/', '/painel', '/ajuda', '/plano-compras', '/calendario', '/planejamento', '/demanda', '/pesquisa', '/orcamento', '/planejamento/pca', '/config/parametros', '/config/areas', '/config/acoes', '/config/naturezas', '/config/elementos', '/config/fontes', '/config/subfontes', '/config/tipo-acao', '/config/tipo-fonte', '/config/conselho-fesp', '/rastreabilidade', '/fesp'],
-  gestor_contrato:     ['/', '/painel', '/ajuda', '/calendario', '/demanda', '/analise-tecnica', '/licitacao', '/contratos', '/fornecedores', '/rastreabilidade'],
+  gestor_contrato:     ['/', '/painel', '/ajuda', '/calendario', '/demanda', '/analise-tecnica', '/licitacao', '/contratos', '/fornecedores', '/arp', '/rastreabilidade'],
   fiscal_contrato:     ['/', '/painel', '/ajuda', '/calendario', '/demanda', '/contratos'],
-  ordenador:           ['/', '/painel', '/ajuda', '/plano-compras', '/calendario', '/orcamento', '/contratos', '/licitacao', '/fornecedores', '/rastreabilidade', '/fesp'],
+  ordenador:           ['/', '/painel', '/ajuda', '/plano-compras', '/calendario', '/orcamento', '/contratos', '/licitacao', '/fornecedores', '/arp', '/rastreabilidade', '/fesp'],
   responsavel_tecnico: ['/', '/painel', '/ajuda', '/demanda', '/pesquisa', '/etp', '/analise-tecnica'],
   solicitante:         ['/', '/painel', '/ajuda', '/demanda', '/planejamento', '/pesquisa', '/etp', '/analise-tecnica'],
 }
 const ACESSO_UNIDADE = {
-  licitante:    ['/licitacao', '/etp', '/analise-tecnica', '/pesquisa', '/contratos', '/plano-compras', '/fornecedores', '/config/parametros', '/calendario'],
+  licitante:    ['/licitacao', '/etp', '/analise-tecnica', '/pesquisa', '/contratos', '/plano-compras', '/fornecedores', '/arp', '/config/parametros', '/calendario'],
   planejamento: ['/orcamento', '/planejamento', '/plano-compras', '/fesp', '/calendario'],
-  contratante:  ['/contratos', '/licitacao', '/fornecedores', '/calendario'],
+  contratante:  ['/contratos', '/licitacao', '/fornecedores', '/arp', '/calendario'],
   demandante:   ['/demanda', '/pesquisa'],
 }
 
