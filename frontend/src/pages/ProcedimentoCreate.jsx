@@ -48,6 +48,7 @@ export const pageHelp = {
     { label: 'DFD / TR de origem', texto: 'Vincula o procedimento ao DFD aprovado e, opcionalmente, ao TR correspondente — o TR só aparece se houver algum TR aprovado ligado ao DFD selecionado. Ao selecionar o TR, o Valor estimado é preenchido automaticamente com o valor final do TR (ainda editável). Exige que o DFD já tenha uma Indicação Orçamentária aprovada (DOD) — exceto quando o TR é de Sistema de Registro de Preços, já que a Ata em si não compromete orçamento.' },
     { label: 'Data de abertura',  texto: 'Prazo mínimo após a publicação varia por modalidade: 8 dias úteis para Pregão Eletrônico, 25 dias úteis para os demais tipos de licitação.' },
     { label: 'Fundamento da Dispensa/Inexigibilidade', texto: 'Só aparece para essas modalidades — exige selecionar o inciso legal (Art. 75 ou Art. 74) e justificativa obrigatória.' },
+    { label: 'Teto de dispensa por família', texto: 'Para dispensa por valor, o sistema soma todas as dispensas já aprovadas/homologadas/contratadas no mesmo exercício que compartilham alguma família SIMPAS com este procedimento. Se ultrapassar o teto legal (R$ 57.277,08 para bens/serviços, R$ 114.554,16 para obras — Art. 75), bloqueia a criação e exige confirmação explícita antes de prosseguir (evita fracionamento de despesa).' },
     { label: 'Criar procedimento', texto: 'Salva o procedimento com número sequencial definitivo já atribuído.' },
   ],
   baseLegal: 'Lei 14.133/2021 — Arts. 28 (modalidades), 74 (inexigibilidade) e 75 (dispensa).',
@@ -63,6 +64,7 @@ export default function ProcedimentoCreate() {
   const [unidades, setUnidades]   = useState([])
   const [saving, setSaving]       = useState(false)
   const [errors, setErrors]       = useState({})
+  const [alertaTeto, setAlertaTeto] = useState(null)
 
   const [form, setForm] = useState({
     exercicio:                  ANO,
@@ -123,17 +125,7 @@ export default function ProcedimentoCreate() {
   const ehInexig      = form.modalidade === 'inexigibilidade'
   const ehLicitacao   = ['pregao_eletronico', 'concorrencia'].includes(form.modalidade)
 
-  const handleSubmit = async (e) => {
-    e.preventDefault()
-    const errs = {}
-    if (!form.modalidade)         errs.modalidade = 'Selecione a modalidade'
-    if (!form.objeto.trim())      errs.objeto = 'Objeto é obrigatório'
-    if (!form.exercicio)          errs.exercicio = 'Informe o exercício'
-    if (!form.unidade_gestora)    errs.unidade_gestora = 'Informe a unidade gestora (compõe o número do procedimento)'
-    if (ehDispensa && !form.fundamento_dispensa) errs.fundamento_dispensa = 'Selecione o fundamento legal'
-    if (ehInexig && !form.fundamento_inexigibilidade) errs.fundamento_inexigibilidade = 'Selecione o fundamento legal'
-    if (Object.keys(errs).length) { setErrors(errs); return }
-
+  const submeter = async (confirmarTetoExcedido = false) => {
     setSaving(true)
     try {
       const payload = {
@@ -152,18 +144,37 @@ export default function ProcedimentoCreate() {
       if (ehDispensa)  payload.fundamento_dispensa       = form.fundamento_dispensa
       if (ehInexig)    payload.fundamento_inexigibilidade = form.fundamento_inexigibilidade
       if (form.justificativa) payload.justificativa = form.justificativa
+      if (confirmarTetoExcedido) payload.confirmar_teto_excedido = true
 
       const proc = await createProcedimento(payload)
       navigate(`/licitacao/${proc.id}`)
     } catch (err) {
       const d = err.response?.data || {}
-      const mapped = {}
-      for (const [k, v] of Object.entries(d))
-        mapped[k] = Array.isArray(v) ? v.join(' ') : String(v)
-      setErrors(mapped)
+      if (d.codigo === 'teto_dispensa_excedido') {
+        setAlertaTeto(d.valor_estimado)
+      } else {
+        const mapped = {}
+        for (const [k, v] of Object.entries(d))
+          mapped[k] = Array.isArray(v) ? v.join(' ') : String(v)
+        setErrors(mapped)
+      }
     } finally {
       setSaving(false)
     }
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    const errs = {}
+    if (!form.modalidade)         errs.modalidade = 'Selecione a modalidade'
+    if (!form.objeto.trim())      errs.objeto = 'Objeto é obrigatório'
+    if (!form.exercicio)          errs.exercicio = 'Informe o exercício'
+    if (!form.unidade_gestora)    errs.unidade_gestora = 'Informe a unidade gestora (compõe o número do procedimento)'
+    if (ehDispensa && !form.fundamento_dispensa) errs.fundamento_dispensa = 'Selecione o fundamento legal'
+    if (ehInexig && !form.fundamento_inexigibilidade) errs.fundamento_inexigibilidade = 'Selecione o fundamento legal'
+    if (Object.keys(errs).length) { setErrors(errs); return }
+    setAlertaTeto(null)
+    await submeter(false)
   }
 
   return (
@@ -334,6 +345,27 @@ export default function ProcedimentoCreate() {
             onChange={e => set('observacoes', e.target.value)}
             className={inp()} />
         </Field>
+
+        {alertaTeto && (
+          <div className="bg-red-50 border border-red-300 rounded-xl px-4 py-3 text-sm text-red-800">
+            <p className="font-semibold mb-1">⚠ Teto de dispensa excedido</p>
+            <p className="mb-3">{alertaTeto}</p>
+            <p className="mb-3 text-red-700">
+              Confirme apenas se este caso já foi analisado e o fracionamento de despesa não se aplica.
+            </p>
+            <div className="flex gap-2">
+              <button type="button" disabled={saving}
+                onClick={() => submeter(true)}
+                className="bg-red-600 hover:bg-red-700 disabled:opacity-50 text-white text-xs font-medium px-3 py-1.5 rounded-lg">
+                Confirmar e prosseguir mesmo assim
+              </button>
+              <button type="button" onClick={() => setAlertaTeto(null)}
+                className="border border-red-300 text-red-600 hover:bg-red-100 text-xs font-medium px-3 py-1.5 rounded-lg">
+                Cancelar
+              </button>
+            </div>
+          </div>
+        )}
 
         <div className="flex gap-3 pt-2">
           <button type="submit" disabled={saving}

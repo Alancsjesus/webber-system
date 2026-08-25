@@ -213,6 +213,31 @@ class ProcedimentoSerializer(serializers.ModelSerializer):
                                'Sistema de Registro de Preços não exigem DOD, pois a Ata ainda '
                                'não compromete orçamento — o recurso só é indicado no saque.',
                     })
+
+            # Controle de teto de dispensa por família SIMPAS (Lei 14.133, Art. 75) —
+            # bloqueia por padrão; só prossegue se o cliente confirmar explicitamente
+            # (evita fracionamento de despesa "sem querer", mas não impede um caso
+            # legítimo já analisado pelo usuário).
+            from .models import Procedimento
+            alerta, acumulado, teto, familias = Procedimento.calcular_teto_dispensa(
+                org_id=self.context['request'].org_id,
+                exercicio=attrs.get('exercicio'),
+                modalidade=attrs.get('modalidade'),
+                dfd=dfd, tr=tr, valor_estimado=attrs.get('valor_estimado'),
+            )
+            if alerta and 'EXCEDIDO' in alerta:
+                confirmado = str(self.context['request'].data.get('confirmar_teto_excedido', '')).lower() in ('1', 'true')
+                if not confirmado:
+                    raise serializers.ValidationError({
+                        'valor_estimado': alerta,
+                        'codigo': 'teto_dispensa_excedido',
+                    })
+                nota = (f'[Teto de dispensa excedido — confirmado explicitamente pelo usuário. '
+                        f'Acumulado no exercício para a(s) família(s) {", ".join(sorted(familias))}: '
+                        f'R$ {acumulado:,.2f} + este procedimento R$ {(attrs.get("valor_estimado") or 0):,.2f} '
+                        f'> teto R$ {teto:,.2f}.]')
+                attrs['observacoes'] = (attrs.get('observacoes') or '').rstrip()
+                attrs['observacoes'] = (attrs['observacoes'] + '\n' + nota).strip() if attrs['observacoes'] else nota
         return attrs
 
     def create(self, validated_data):

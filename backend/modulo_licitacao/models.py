@@ -225,62 +225,84 @@ class Procedimento(BaseModel):
         """Retorna o prazo mínimo legal em dias úteis."""
         return PRAZO_LEGAL_DIAS_UTEIS.get(self.modalidade, 0)
 
-    def verificar_teto_dispensa(self):
+    @staticmethod
+    def familias_simpas(dfd=None, tr=None):
         """
-        Calcula o acumulado de dispensas da mesma família SIMPAS
-        no mesmo exercício/órgão e retorna alerta se próximo ou acima do teto.
+        Famílias SIMPAS envolvidas num procedimento — via itens dos lotes do TR
+        quando houver, senão diretamente dos itens do DFD (caso mais comum em
+        dispensas por valor, que costumam dispensar TR/ETP).
         """
-        if not self.eh_dispensa or not self.tr:
-            return '', Decimal('0')
-
-        from modulo_tr.models import ItemLoteTR
-        from modulo_demanda.models import ItemDFD
-
-        # Coletar famílias SIMPAS dos itens do TR
         familias = set()
-        for lote in self.tr.lotes.prefetch_related('itens__item_dfd__item_catalogo'):
-            for item in lote.itens.all():
-                if item.item_dfd and item.item_dfd.item_catalogo:
-                    familia = item.item_dfd.item_catalogo.familia
-                    if familia:
-                        familias.add(familia)
+        if tr is not None:
+            for lote in tr.lotes.prefetch_related('itens__item_dfd__item_catalogo'):
+                for item in lote.itens.all():
+                    if item.item_dfd and item.item_dfd.item_catalogo:
+                        fam = item.item_dfd.item_catalogo.familia
+                        if fam:
+                            familias.add(fam)
+        if not familias and dfd is not None:
+            for item in dfd.itens.select_related('item_catalogo'):
+                if item.item_catalogo and item.item_catalogo.familia:
+                    familias.add(item.item_catalogo.familia)
+        return familias
 
+    @staticmethod
+    def calcular_teto_dispensa(org_id, exercicio, modalidade, dfd, tr, valor_estimado, excluir_pk=None):
+        """
+        Calcula o acumulado de dispensas que compartilham ao menos uma família
+        SIMPAS com este procedimento, no mesmo exercício/órgão, e retorna
+        (alerta, acumulado_sem_atual, teto, familias) — alerta vazio quando
+        dentro do limite.
+        """
+        if modalidade not in ('dispensa_eletronica', 'dispensa_tradicional'):
+            return '', Decimal('0'), Decimal('0'), set()
+
+        familias = Procedimento.familias_simpas(dfd=dfd, tr=tr)
         if not familias:
-            return '', Decimal('0')
+            return '', Decimal('0'), Decimal('0'), set()
 
-        # Tipo do objeto para determinar o teto correto
-        tipo = getattr(self.tr.etp, 'tipo_objeto', '') if self.tr.etp else ''
+        tipo = getattr(tr.etp, 'tipo_objeto', '') if tr is not None and tr.etp_id else ''
         teto = TETO_DISPENSA_OBRAS if tipo in ('obras', 'servicos_engenharia') else TETO_DISPENSA_BENS_SERVICOS
 
-        # Soma de dispensas já realizadas na mesma org/exercício para essas famílias
         outros = Procedimento.objects.filter(
-            org_id=self.org_id,
-            exercicio=self.exercicio,
+            org_id=org_id,
+            exercicio=exercicio,
             modalidade__in=['dispensa_eletronica', 'dispensa_tradicional'],
             status__in=['Aprovado', 'Contratado', 'Homologado'],
-        ).exclude(pk=self.pk if self.pk else 0)
+        ).exclude(pk=excluir_pk or 0).select_related('tr__etp', 'dfd')
 
         acumulado = Decimal('0')
         for p in outros:
-            if p.valor_estimado:
+            p_familias = Procedimento.familias_simpas(dfd=p.dfd, tr=p.tr)
+            if familias & p_familias and p.valor_estimado:
                 acumulado += p.valor_estimado
 
-        valor_atual = self.valor_estimado or Decimal('0')
+        valor_atual = valor_estimado or Decimal('0')
         total_com_atual = acumulado + valor_atual
 
         alerta = ''
         pct = (total_com_atual / teto * 100) if teto else 0
         if total_com_atual > teto:
             alerta = (
-                f'ATENÇÃO: Teto de dispensa EXCEDIDO. '
+                f'ATENÇÃO: Teto de dispensa EXCEDIDO para a(s) família(s) {", ".join(sorted(familias))}. '
                 f'Acumulado R$ {total_com_atual:,.2f} > Limite R$ {teto:,.2f} (Art. 75 Lei 14.133).'
             )
         elif pct >= 80:
             restante = teto - acumulado
             alerta = (
-                f'Alerta: {pct:.0f}% do teto de dispensa utilizado. '
+                f'Alerta: {pct:.0f}% do teto de dispensa utilizado para a(s) família(s) {", ".join(sorted(familias))}. '
                 f'Saldo restante: R$ {restante:,.2f}.'
             )
+        return alerta, acumulado, teto, familias
+
+    def verificar_teto_dispensa(self):
+        """Versão de instância (procedimento já persistido) de calcular_teto_dispensa."""
+        if not self.eh_dispensa:
+            return '', Decimal('0')
+        alerta, acumulado, teto, familias = Procedimento.calcular_teto_dispensa(
+            org_id=self.org_id_id, exercicio=self.exercicio, modalidade=self.modalidade,
+            dfd=self.dfd, tr=self.tr, valor_estimado=self.valor_estimado, excluir_pk=self.pk,
+        )
 
         return alerta, acumulado
 
