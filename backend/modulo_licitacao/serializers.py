@@ -199,6 +199,22 @@ class ProcedimentoSerializer(serializers.ModelSerializer):
                     })
         return pecas
 
+    def validate(self, attrs):
+        if self.instance is None:  # só valida na criação
+            tr = attrs.get('tr')
+            dfd = attrs.get('dfd')
+            eh_formacao_arp = bool(tr and tr.sistema_registro_precos)
+            if dfd is not None and not eh_formacao_arp:
+                if not dfd.indicacoes.filter(status='Aprovada').exists():
+                    raise serializers.ValidationError({
+                        'dfd': 'Este DFD não possui Indicação Orçamentária aprovada (DOD) — '
+                               'registre e aprove a indicação de recurso antes de abrir o '
+                               'procedimento. Exceção: procedimentos vinculados a um TR de '
+                               'Sistema de Registro de Preços não exigem DOD, pois a Ata ainda '
+                               'não compromete orçamento — o recurso só é indicado no saque.',
+                    })
+        return attrs
+
     def create(self, validated_data):
         request = self.context['request']
         validated_data['org_id_id'] = request.org_id

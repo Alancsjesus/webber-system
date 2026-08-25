@@ -23,6 +23,7 @@ const LABEL_MAP = {
   natureza_despesa:         'Natureza de despesa',
   fonte_recurso:            'Fonte de recurso',
   valor_dotado:             'Valor dotado',
+  dfd:                      'DFD de origem',
 }
 
 export default function FormErrors({ errors }) {

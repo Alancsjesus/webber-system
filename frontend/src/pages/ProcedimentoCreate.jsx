@@ -45,7 +45,7 @@ export const pageHelp = {
   descricao: 'Formaliza a modalidade de contratação (licitação, dispensa ou inexigibilidade) que efetivamente será usada — decisão distinta da classificação preliminar feita no DFD.',
   acoes: [
     { label: 'Unidade gestora',   texto: 'A sigla da unidade compõe o número automático do procedimento (ex: PE-CLIC-001/2026, INEX-DG-003/2026) — mostrado em pré-visualização assim que unidade e modalidade forem escolhidas.' },
-    { label: 'DFD / TR de origem', texto: 'Vincula o procedimento ao DFD aprovado e, opcionalmente, ao TR correspondente — o TR só aparece se houver algum TR aprovado ligado ao DFD selecionado. Ao selecionar o TR, o Valor estimado é preenchido automaticamente com o valor final do TR (ainda editável).' },
+    { label: 'DFD / TR de origem', texto: 'Vincula o procedimento ao DFD aprovado e, opcionalmente, ao TR correspondente — o TR só aparece se houver algum TR aprovado ligado ao DFD selecionado. Ao selecionar o TR, o Valor estimado é preenchido automaticamente com o valor final do TR (ainda editável). Exige que o DFD já tenha uma Indicação Orçamentária aprovada (DOD) — exceto quando o TR é de Sistema de Registro de Preços, já que a Ata em si não compromete orçamento.' },
     { label: 'Data de abertura',  texto: 'Prazo mínimo após a publicação varia por modalidade: 8 dias úteis para Pregão Eletrônico, 25 dias úteis para os demais tipos de licitação.' },
     { label: 'Fundamento da Dispensa/Inexigibilidade', texto: 'Só aparece para essas modalidades — exige selecionar o inciso legal (Art. 75 ou Art. 74) e justificativa obrigatória.' },
     { label: 'Criar procedimento', texto: 'Salva o procedimento com número sequencial definitivo já atribuído.' },
