@@ -4,8 +4,15 @@
  * Uso: node scripts/check-help.js
  *
  * Regras verificadas:
- *   1. Todas as rotas em helpContent.js têm uma página correspondente exportando pageHelp
- *   2. Todas as páginas listadas exportam `pageHelp` (bloco não-vazio)
+ *   1. Toda página em frontend/src/pages/**\/*.jsx (exceto as na denylist abaixo)
+ *      exporta `pageHelp`.
+ *   2. Toda página que exporta `pageHelp` está registrada em helpContent.js.
+ *   3. Toda rota registrada em helpContent.js aponta para um arquivo existente
+ *      que de fato exporta `pageHelp`.
+ *
+ * Antes só verificava as páginas já importadas em helpContent.js — uma página
+ * nunca registrada lá passava despercebida (0 pageHelp, 0 alerta). Agora varre
+ * o diretório inteiro, então o próprio "não registrado" também é reportado.
  */
 
 const fs = require('fs')
@@ -14,11 +21,29 @@ const path = require('path')
 const HELP_CONTENT = path.join(__dirname, '../frontend/src/help/helpContent.js')
 const PAGES_DIR    = path.join(__dirname, '../frontend/src/pages')
 
+// Páginas que legitimamente não precisam de ajuda contextual (pré-autenticação
+// ou telas de erro/estado, sem ações de domínio a explicar).
+const DENYLIST = new Set(['Login', 'SemAcesso'])
+
 function readFile(p) {
   try { return fs.readFileSync(p, 'utf8') } catch { return null }
 }
 
-// Extrai as rotas mapeadas em helpContent.js
+// Lista todos os .jsx sob PAGES_DIR, recursivo, como caminhos relativos sem extensão
+// (ex: 'DFDList', 'config/AcaoAdmin').
+function listPageFiles(dir, prefix = '') {
+  let out = []
+  for (const entry of fs.readdirSync(dir, { withFileTypes: true })) {
+    const rel = prefix ? `${prefix}/${entry.name}` : entry.name
+    if (entry.isDirectory()) {
+      out = out.concat(listPageFiles(path.join(dir, entry.name), rel))
+    } else if (entry.isFile() && entry.name.endsWith('.jsx')) {
+      out.push(rel.replace(/\.jsx$/, ''))
+    }
+  }
+  return out
+}
+
 function extractRoutes(content) {
   const routes = []
   const re = /['"](\/.+?)['"]\s*:/g
@@ -27,7 +52,6 @@ function extractRoutes(content) {
   return routes
 }
 
-// Extrai os arquivos de página importados em helpContent.js
 function extractImportedFiles(content) {
   const files = []
   const re = /from\s+['"]\.\.\/pages\/([^'"]+)['"]/g
@@ -36,7 +60,6 @@ function extractImportedFiles(content) {
   return files
 }
 
-// Verifica se um arquivo de página exporta pageHelp
 function hasPageHelp(filename) {
   const fullPath = path.join(PAGES_DIR, `${filename}.jsx`)
   const content = readFile(fullPath)
@@ -52,30 +75,60 @@ function main() {
     process.exit(1)
   }
 
-  const routes   = extractRoutes(helpContent)
-  const imported = extractImportedFiles(helpContent)
+  const routes       = extractRoutes(helpContent)
+  const imported      = extractImportedFiles(helpContent)
+  const importedSet   = new Set(imported)
+  const allPages       = listPageFiles(PAGES_DIR).filter(f => !DENYLIST.has(f))
 
   console.log(`\n📋 WEBBER — Verificação de Ajuda Contextual`)
-  console.log(`   Rotas mapeadas: ${routes.length}`)
-  console.log(`   Páginas importadas: ${imported.length}\n`)
+  console.log(`   Páginas em pages/ (exceto denylist): ${allPages.length}`)
+  console.log(`   Rotas mapeadas em helpContent.js: ${routes.length}`)
+  console.log(`   Páginas importadas em helpContent.js: ${imported.length}\n`)
 
   let erros = 0
+  const semPageHelp = []
+  const semRegistro  = []
 
-  // Verifica se cada página importada tem pageHelp
-  for (const file of imported) {
+  for (const file of allPages) {
     const result = hasPageHelp(file)
     if (!result.found) {
-      console.log(`❌  ${file}.jsx — ${result.reason}`)
+      semPageHelp.push(file)
+      erros++
+    } else if (!importedSet.has(file)) {
+      semRegistro.push(file)
       erros++
     }
   }
 
+  // Também valida os imports já existentes em helpContent.js (arquivo pode ter
+  // sido renomeado/removido sem atualizar o import).
+  for (const file of imported) {
+    if (allPages.includes(file)) continue // já coberto acima
+    const result = hasPageHelp(file)
+    if (!result.found) {
+      console.log(`❌  ${file}.jsx (importado em helpContent.js) — ${result.reason}`)
+      erros++
+    }
+  }
+
+  if (semPageHelp.length) {
+    console.log(`❌  ${semPageHelp.length} página(s) sem "export const pageHelp":`)
+    for (const f of semPageHelp) console.log(`     - ${f}.jsx`)
+    console.log('')
+  }
+
+  if (semRegistro.length) {
+    console.log(`⚠️  ${semRegistro.length} página(s) com pageHelp definido mas NÃO registrado em helpContent.js:`)
+    for (const f of semRegistro) console.log(`     - ${f}.jsx`)
+    console.log('')
+  }
+
   if (erros === 0) {
-    console.log(`✅  Todas as ${imported.length} páginas têm pageHelp definido.`)
-    console.log(`✅  ${routes.length} rotas mapeadas no helpContent.js.\n`)
+    console.log(`✅  Todas as ${allPages.length} páginas têm pageHelp definido e registrado.\n`)
   } else {
-    console.log(`\n⚠️  ${erros} página(s) sem cobertura de ajuda.`)
-    console.log('   Adicione o bloco "export const pageHelp = { ... }" no topo do arquivo.\n')
+    console.log(`⚠️  ${erros} problema(s) de cobertura de ajuda contextual.`)
+    console.log('   Página sem pageHelp: adicione "export const pageHelp = { ... }" no topo do arquivo.')
+    console.log('   Página sem registro: adicione o import + entrada de rota em helpContent.js.\n')
     process.exit(1)
   }
 }

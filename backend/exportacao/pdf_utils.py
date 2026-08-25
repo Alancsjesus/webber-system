@@ -1046,10 +1046,18 @@ def gerar_pdf_relatorio_itens_plano_aplicacao(itens: list, org_nome: str, org_si
     estilos = _estilos()
     e = []
 
-    estilo_cel = ParagraphStyle('rel_cel', fontSize=7.5, leading=10)
+    estilo_cel   = ParagraphStyle('rel_cel',   fontSize=7.5, leading=10)
+    estilo_cel_r = ParagraphStyle('rel_cel_r', fontSize=7.5, leading=10, alignment=TA_RIGHT)
+    estilo_hdr   = ParagraphStyle('rel_hdr',   fontSize=7.5, leading=10, fontName='Helvetica-Bold', textColor=BRANCO)
 
     def cel(txt):
         return Paragraph(str(txt) if txt not in (None, '') else '—', estilo_cel)
+
+    def cel_r(txt):
+        return Paragraph(str(txt) if txt not in (None, '') else '—', estilo_cel_r)
+
+    def cel_h(txt):
+        return Paragraph(txt, estilo_hdr)
 
     e += _cabecalho('RELATÓRIO DE ITENS DO PLANO DE APLICAÇÃO', 'Pendentes x Executados', org_nome, estilos, org_sigla=org_sigla)
 
@@ -1076,7 +1084,7 @@ def gerar_pdf_relatorio_itens_plano_aplicacao(itens: list, org_nome: str, org_si
 
     for (exercicio, eixo) in ordem_grupos:
         e.append(_secao(f'{exercicio} — {eixo}', estilos))
-        cabecalho = [['Plano', 'Órgão Benef.', 'Meta', 'Bem/Serviço', 'Natureza', 'Status', 'Valor']]
+        cabecalho = [[cel_h('Plano'), cel_h('Órgão Benef.'), cel_h('Meta'), cel_h('Bem/Serviço'), cel_h('Natureza'), cel_h('Status'), cel_h('Valor')]]
         dados_tab = list(cabecalho)
         for it in grupos[(exercicio, eixo)]:
             dados_tab.append([
@@ -1086,7 +1094,7 @@ def gerar_pdf_relatorio_itens_plano_aplicacao(itens: list, org_nome: str, org_si
                 cel(it.bem_servico),
                 cel(it.get_natureza_display()),
                 cel('Executado' if it.executado else it.get_status_display()),
-                _fmt_valor(it.valor_total_estimado),
+                cel_r(_fmt_valor(it.valor_total_estimado)),
             ])
         t = Table(dados_tab, colWidths=[2.2*cm, 2*cm, 3.5*cm, 4*cm, 2*cm, 2.3*cm, 2.5*cm])
         t.setStyle(TableStyle([

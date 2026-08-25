@@ -34,6 +34,10 @@ import { pageHelp as calendarioHelp }         from '../pages/Calendario'
 import { pageHelp as auditoriaHelp }              from '../pages/AuditoriaList'
 import { pageHelp as rastreabilidadeListHelp }    from '../pages/RastreabilidadeList'
 import { pageHelp as rastreabilidadeDetailHelp }  from '../pages/RastreabilidadeDetail'
+import { pageHelp as fornecedorListHelp }         from '../pages/FornecedorList'
+import { pageHelp as fespPlanoListHelp }          from '../pages/FespPlanoList'
+import { pageHelp as fespConselhoHelp }           from '../pages/FespConselhoPainel'
+import { pageHelp as fespInstrumentoListHelp }    from '../pages/FespInstrumentoList'
 
 /**
  * Mapeamento rota → objeto pageHelp.
@@ -75,4 +79,9 @@ export const helpContent = {
 
   '/rastreabilidade':           rastreabilidadeListHelp,
   '/rastreabilidade/:id':       rastreabilidadeDetailHelp,
+
+  '/fornecedores':              fornecedorListHelp,
+  '/fesp/planos':               fespPlanoListHelp,
+  '/fesp/conselho':             fespConselhoHelp,
+  '/fesp/instrumentos':         fespInstrumentoListHelp,
 }

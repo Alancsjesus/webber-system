@@ -228,16 +228,16 @@ const TIPO_UNIDADE_BADGE = {
 
 const ACESSO_PAPEL = {
   admin:               ['*'],
-  analista:            ['/', '/painel', '/ajuda', '/plano-compras', '/calendario', '/planejamento', '/demanda', '/pesquisa', '/etp', '/analise-tecnica', '/orcamento', '/licitacao', '/contratos', '/fornecedores', '/fesp'],
-  gestor_planejamento: ['/', '/painel', '/ajuda', '/plano-compras', '/calendario', '/planejamento', '/demanda', '/pesquisa', '/orcamento', '/planejamento/pca', '/fesp', '/config/conselho-fesp'],
-  gestor_contrato:     ['/', '/painel', '/ajuda', '/calendario', '/demanda', '/analise-tecnica', '/licitacao', '/contratos', '/fornecedores'],
+  analista:            ['/', '/painel', '/ajuda', '/plano-compras', '/calendario', '/planejamento', '/demanda', '/pesquisa', '/etp', '/analise-tecnica', '/orcamento', '/licitacao', '/contratos', '/fornecedores', '/rastreabilidade', '/fesp'],
+  gestor_planejamento: ['/', '/painel', '/ajuda', '/plano-compras', '/calendario', '/planejamento', '/demanda', '/pesquisa', '/orcamento', '/planejamento/pca', '/config/parametros', '/config/areas', '/config/acoes', '/config/naturezas', '/config/elementos', '/config/fontes', '/config/subfontes', '/config/tipo-acao', '/config/tipo-fonte', '/config/conselho-fesp', '/rastreabilidade', '/fesp'],
+  gestor_contrato:     ['/', '/painel', '/ajuda', '/calendario', '/demanda', '/analise-tecnica', '/licitacao', '/contratos', '/fornecedores', '/rastreabilidade'],
   fiscal_contrato:     ['/', '/painel', '/ajuda', '/calendario', '/demanda', '/contratos'],
-  ordenador:           ['/', '/painel', '/ajuda', '/plano-compras', '/calendario', '/orcamento', '/contratos', '/licitacao', '/fornecedores', '/fesp'],
+  ordenador:           ['/', '/painel', '/ajuda', '/plano-compras', '/calendario', '/orcamento', '/contratos', '/licitacao', '/fornecedores', '/rastreabilidade', '/fesp'],
   responsavel_tecnico: ['/', '/painel', '/ajuda', '/demanda', '/pesquisa', '/etp', '/analise-tecnica'],
   solicitante:         ['/', '/painel', '/ajuda', '/demanda', '/planejamento', '/pesquisa', '/etp', '/analise-tecnica'],
 }
 const ACESSO_UNIDADE = {
-  licitante:    ['/licitacao', '/etp', '/analise-tecnica', '/pesquisa', '/contratos', '/plano-compras', '/fornecedores', '/calendario'],
+  licitante:    ['/licitacao', '/etp', '/analise-tecnica', '/pesquisa', '/contratos', '/plano-compras', '/fornecedores', '/config/parametros', '/calendario'],
   planejamento: ['/orcamento', '/planejamento', '/plano-compras', '/fesp', '/calendario'],
   contratante:  ['/contratos', '/licitacao', '/fornecedores', '/calendario'],
   demandante:   ['/demanda', '/pesquisa'],
