@@ -6,6 +6,7 @@ import useMapaStore from '../stores/mapaStore'
 import useAuthStore from '../stores/authStore'
 import LoadingSpinner from '../components/LoadingSpinner'
 import PNCPImport from '../components/PNCPImport'
+import SugestoesItensDfd from '../components/SugestoesItensDfd'
 import FornecedorPicker from '../components/FornecedorPicker'
 import CampoMoeda from '../components/CampoMoeda'
 
@@ -40,6 +41,7 @@ export const pageHelp = {
   descricao: 'Instrumento para levantamento e sistematização de preços de mercado visando estimar o valor da contratação. Deve conter ao menos 3 fontes válidas para cada item.',
   acoes: [
     { label: '+ Item',            texto: 'Adiciona um item ao mapa com descrição, unidade e quantidade.' },
+    { label: 'Sugestões do DFD de origem', texto: 'Lista os itens já cadastrados no DFD vinculado que ainda não estão nesta pesquisa — adicione um por um ou todos de uma vez, sem redigitar. Só aparece quando o mapa está vinculado a um DFD.' },
     { label: '+ Preço',           texto: 'Registra um preço para o item com fonte, tipo (I a V ou HIST), data e valor unitário.' },
     { label: 'Excluir preço',     texto: 'Remove um preço por motivo de excessivo, inexequível, inconsistente, desatualizado ou manual. O motivo é registrado.' },
     { label: 'Método',            texto: 'Seleciona o método de apuração: Média (preços homogêneos), Mediana (com outliers) ou Menor Preço Válido.' },
@@ -325,6 +327,13 @@ export default function MapaDetail() {
       {/* Tab: Itens e Preços */}
       {activeTab === 'itens' && (
         <div className="space-y-6">
+          {isEditavel && (
+            <SugestoesItensDfd
+              dfdId={current.dfd}
+              itensDoMapa={current.itens || []}
+              onAdicionar={(payload) => addItem(id, payload)}
+            />
+          )}
           {isEditavel && (
             <PNCPImport
               mapaId={id}
