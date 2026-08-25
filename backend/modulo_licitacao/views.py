@@ -142,6 +142,20 @@ class ProcedimentoViewSet(viewsets.ModelViewSet):
         err = self._check_licitante(request)
         if err: return err
         proc = self.get_object()
+
+        if not proc.resultados.exists():
+            return Response(
+                {'detail': 'Registre o resultado de ao menos um lote (empresa vencedora e valor final) antes de homologar — a fase de disputa pode ter reduzido o valor estimado, e é esse valor final que serve de base para o contrato.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        pendentes = proc.resultados.filter(resultado='homologado', valor_final__isnull=True)
+        if pendentes.exists():
+            descricoes = ', '.join(r.descricao_lote or (r.lote.descricao if r.lote_id else f'lote #{r.id}') for r in pendentes)
+            return Response(
+                {'detail': f'Informe o valor final adjudicado antes de homologar — pendente em: {descricoes}.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         if not proc.data_homologacao:
             proc.data_homologacao = date.today()
             proc.save(update_fields=['data_homologacao'])
