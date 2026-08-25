@@ -56,7 +56,7 @@ def catalogo_item(db):
     )
 
 
-def _criar_ata(api_client, org_id, tipo_origem='propria', numero='ATA-001', **extra):
+def _criar_ata(api_client, org_id, tipo_origem='gerenciador', numero='ATA-001', **extra):
     payload = {
         'tipo_origem': tipo_origem,
         'numero_ata': numero,

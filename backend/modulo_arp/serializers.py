@@ -63,14 +63,12 @@ class AtaSerializer(serializers.ModelSerializer):
 
     def validate(self, attrs):
         tipo_origem = attrs.get('tipo_origem', getattr(self.instance, 'tipo_origem', None))
-        if tipo_origem == 'propria' and not attrs.get('procedimento', getattr(self.instance, 'procedimento', None)):
-            pass  # procedimento é recomendado mas não obrigatório (ata própria pode nascer antes do vínculo)
-        if tipo_origem == 'carona':
+        if tipo_origem in Ata.TIPOS_ORIGEM_EXTERNA:
             campos_obrigatorios = ['numero_pncp', 'orgao_gerenciador_nome']
             faltando = [c for c in campos_obrigatorios if not (attrs.get(c) or getattr(self.instance, c, ''))]
             if faltando:
                 raise serializers.ValidationError({
-                    c: 'Obrigatório para ata de carona.' for c in faltando
+                    c: 'Obrigatório para ata gerenciada por outro órgão (participante ou carona).' for c in faltando
                 })
         return attrs
 

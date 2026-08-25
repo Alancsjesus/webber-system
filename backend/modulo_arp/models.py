@@ -5,19 +5,31 @@ from core.models import BaseModel
 
 class Ata(BaseModel):
     """
-    Ata de Registro de Preços (Lei 14.133/2021, Art. 82-86) — própria (gerada
-    a partir de um Procedimento deste órgão) ou de carona (gerenciada por
-    outro órgão, aderida manualmente).
+    Ata de Registro de Preços (Lei 14.133/2021, Art. 82-86).
+
+    tipo_origem reflete os 3 papéis possíveis deste órgão em relação à ata
+    (Art. 82-86, especialmente Art. 86 §1º-4º sobre carona/adesão):
+      - gerenciador:  este órgão conduziu a licitação e gerencia a ata.
+      - participante: aderiu desde a formação — consta do edital/pesquisa
+        de preços original, com cota própria dentro do próprio instrumento.
+      - carona:       adere depois de a ata já estar vigente, sem ter
+        participado da formação — sujeita aos limites de adesão do Art. 86.
+    "Gerenciador" é sempre deste órgão; "participante" e "carona" são
+    sempre de uma ata gerenciada por outro órgão/ente.
 
     Escopo v1: cadastro + confronto de itens pendentes de contratação contra
     itens de atas vigentes. Não gera Contrato automaticamente — o Saque de
     ARP continua sendo registrado manualmente em Contrato.tipo_origem
-    ('saque_arp'/'adesao_arp'), sem vínculo de FK ainda.
+    ('saque_arp'/'adesao_arp'), sem vínculo de FK ainda. O ato formal de
+    adesão (solicitação + anuência do gerenciador) também não é rastreado
+    ainda — só o cadastro da própria ata, com seus itens e saldo.
     """
     TIPO_ORIGEM_CHOICES = [
-        ('propria', 'Ata Própria'),
-        ('carona',  'Carona'),
+        ('gerenciador',  'Gerenciador'),
+        ('participante', 'Participante'),
+        ('carona',       'Carona (não-participante)'),
     ]
+    TIPOS_ORIGEM_EXTERNA = ('participante', 'carona')
     STATUS_CHOICES = [
         ('rascunho',  'Rascunho'),
         ('vigente',   'Vigente'),
@@ -32,17 +44,18 @@ class Ata(BaseModel):
     }
 
     tipo_origem = models.CharField(
-        max_length=10, choices=TIPO_ORIGEM_CHOICES, verbose_name='Tipo de origem',
+        max_length=15, choices=TIPO_ORIGEM_CHOICES, verbose_name='Tipo de origem',
     )
     numero_ata = models.CharField(max_length=50, verbose_name='Número da ata')
     procedimento = models.ForeignKey(
         'modulo_licitacao.Procedimento', null=True, blank=True,
         on_delete=models.SET_NULL, related_name='atas',
         verbose_name='Procedimento de origem',
-        help_text='Preenchido apenas quando tipo_origem="propria".',
+        help_text='Preenchido apenas quando tipo_origem="gerenciador".',
     )
 
-    # Só fazem sentido quando tipo_origem='carona' — ata gerenciada por outro órgão.
+    # Só fazem sentido quando tipo_origem é 'participante' ou 'carona' —
+    # ata gerenciada por outro órgão/ente (mesmo estado ou outro ente federativo).
     numero_pncp = models.CharField(max_length=50, blank=True, default='', verbose_name='Número no PNCP')
     orgao_gerenciador_nome = models.CharField(max_length=255, blank=True, default='', verbose_name='Órgão gerenciador')
     orgao_gerenciador_cnpj = models.CharField(max_length=18, blank=True, default='', verbose_name='CNPJ do órgão gerenciador')

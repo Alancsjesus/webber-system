@@ -15,7 +15,7 @@ const STATUS_CLS = {
   cancelada: 'bg-red-100 text-red-600',
 }
 const STATUS_LABEL = { rascunho: 'Rascunho', vigente: 'Vigente', encerrada: 'Encerrada', cancelada: 'Cancelada' }
-const TIPO_LABEL = { propria: 'Própria', carona: 'Carona' }
+const TIPO_LABEL = { gerenciador: 'Gerenciador', participante: 'Participante', carona: 'Carona' }
 
 const fmt = (v) => Number(v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
@@ -136,7 +136,7 @@ export default function AtaList() {
         </select>
         <select value={tipoOrigem} onChange={(e) => setTipoOrigem(e.target.value)}
           className="border border-gray-300 rounded-lg px-3 py-2 text-sm">
-          <option value="">Própria e Carona</option>
+          <option value="">Todos os tipos de origem</option>
           {Object.entries(TIPO_LABEL).map(([v, l]) => <option key={v} value={v}>{l}</option>)}
         </select>
       </div>

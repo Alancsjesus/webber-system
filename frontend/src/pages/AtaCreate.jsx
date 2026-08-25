@@ -18,7 +18,7 @@ export const pageHelp = {
   titulo: 'Nova Ata de Registro de Preços',
   descricao: 'Cadastra a ata e seus itens registrados. Vincular o item ao catálogo SIMPAS é o que permite que ele apareça no Confronto de Necessidades — sem esse vínculo, o item fica só de registro, sem cruzamento automático.',
   acoes: [
-    { label: 'Tipo de origem',        texto: 'Própria: gerada por um Procedimento deste órgão — selecione o procedimento de origem. Carona: ata gerenciada por outro órgão, aderida manualmente — exige número no PNCP e dados do órgão gerenciador.' },
+    { label: 'Tipo de origem',        texto: 'Gerenciador: este órgão conduziu a licitação e gerencia a ata — selecione o procedimento de origem. Participante: aderiu desde a formação da ata gerenciada por outro órgão (constava do edital/pesquisa original). Carona: adere depois de a ata já vigente, sem ter participado da formação (Art. 86, sujeita a limites de adesão). Participante e Carona exigem número no PNCP e dados do órgão gerenciador — pode ser outro órgão do mesmo estado ou de outro ente federativo (município, União, outro estado).' },
     { label: 'Buscar no catálogo',    texto: 'Vincula o item ao catálogo SIMPAS (pré-preenche descrição e unidade) — necessário para o item entrar no confronto contra DFDs pendentes. Sem catálogo, o item fica só de registro manual.' },
     { label: '+ Adicionar item',      texto: 'Cada item registra quantidade e valor unitário pactuados na ata — o saldo disponível é calculado automaticamente (quantidade registrada menos consumida).' },
     { label: 'Criar ata',             texto: 'Salva a ata como Rascunho. É preciso Ativá-la depois (na tela de detalhe) para que ela entre no confronto de necessidades.' },
@@ -32,7 +32,7 @@ export default function AtaCreate() {
   const { createAta, criarItem } = useAtaStore()
 
   const [form, setForm] = useState({
-    tipo_origem: 'propria',
+    tipo_origem: 'gerenciador',
     numero_ata: '',
     procedimento: '',
     numero_pncp: '',
@@ -73,9 +73,9 @@ export default function AtaCreate() {
     const errs = {}
     if (!form.numero_ata.trim()) errs.numero_ata = 'Campo obrigatório'
     if (!form.objeto.trim()) errs.objeto = 'Campo obrigatório'
-    if (form.tipo_origem === 'carona') {
-      if (!form.numero_pncp.trim()) errs.numero_pncp = 'Obrigatório para ata de carona'
-      if (!form.orgao_gerenciador_nome.trim()) errs.orgao_gerenciador_nome = 'Obrigatório para ata de carona'
+    if (form.tipo_origem !== 'gerenciador') {
+      if (!form.numero_pncp.trim()) errs.numero_pncp = 'Obrigatório para ata gerenciada por outro órgão'
+      if (!form.orgao_gerenciador_nome.trim()) errs.orgao_gerenciador_nome = 'Obrigatório para ata gerenciada por outro órgão'
     }
     const itensValidos = itens.filter(
       i => i.objeto.trim() && i.unidade_medida.trim() &&
@@ -100,8 +100,8 @@ export default function AtaCreate() {
         data_vigencia_inicio: form.data_vigencia_inicio || null,
         data_vigencia_fim: form.data_vigencia_fim || null,
         observacoes: form.observacoes,
-        ...(form.tipo_origem === 'propria' && form.procedimento ? { procedimento: Number(form.procedimento) } : {}),
-        ...(form.tipo_origem === 'carona' ? {
+        ...(form.tipo_origem === 'gerenciador' && form.procedimento ? { procedimento: Number(form.procedimento) } : {}),
+        ...(form.tipo_origem !== 'gerenciador' ? {
           numero_pncp: form.numero_pncp,
           orgao_gerenciador_nome: form.orgao_gerenciador_nome,
           orgao_gerenciador_cnpj: form.orgao_gerenciador_cnpj,
@@ -144,13 +144,24 @@ export default function AtaCreate() {
 
         <Field label="Tipo de origem">
           <div className="flex gap-2">
-            {[['propria', 'Ata Própria'], ['carona', 'Carona']].map(([value, label]) => (
-              <button key={value} type="button" onClick={() => set('tipo_origem', value)}
+            {[
+              ['gerenciador', 'Gerenciador', 'Este órgão conduziu a licitação e gerencia a ata'],
+              ['participante', 'Participante', 'Aderiu desde a formação da ata, gerenciada por outro órgão'],
+              ['carona', 'Carona', 'Adere depois de a ata já vigente, sem ter participado da formação'],
+            ].map(([value, label, titulo]) => (
+              <button key={value} type="button" title={titulo} onClick={() => set('tipo_origem', value)}
                 className={`flex-1 border rounded-lg px-3 py-2 text-sm ${form.tipo_origem === value ? 'border-indigo-500 bg-indigo-50 text-indigo-700 font-medium' : 'border-gray-300 text-gray-600'}`}>
                 {label}
               </button>
             ))}
           </div>
+          <p className="text-xs text-gray-400 mt-1">
+            {form.tipo_origem === 'gerenciador'
+              ? 'Este órgão conduziu a licitação e gerencia a ata.'
+              : form.tipo_origem === 'participante'
+                ? 'Ata gerenciada por outro órgão/ente — este órgão participou desde a formação (constava do edital/pesquisa original).'
+                : 'Ata gerenciada por outro órgão/ente — este órgão adere depois de já vigente, sem ter participado da formação (Art. 86, sujeita a limites de adesão).'}
+          </p>
         </Field>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -159,7 +170,7 @@ export default function AtaCreate() {
               className={inp(errors.numero_ata)} />
           </Field>
 
-          {form.tipo_origem === 'propria' ? (
+          {form.tipo_origem === 'gerenciador' ? (
             <Field label="Procedimento de origem (opcional)">
               <select value={form.procedimento} onChange={e => set('procedimento', e.target.value)} className={inp()}>
                 <option value="">— Selecione —</option>
@@ -174,7 +185,7 @@ export default function AtaCreate() {
           )}
         </div>
 
-        {form.tipo_origem === 'carona' && (
+        {form.tipo_origem !== 'gerenciador' && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <Field label="Órgão gerenciador *" error={errors.orgao_gerenciador_nome}>
               <input type="text" value={form.orgao_gerenciador_nome} onChange={e => set('orgao_gerenciador_nome', e.target.value)}
