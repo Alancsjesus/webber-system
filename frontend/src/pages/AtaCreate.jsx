@@ -19,6 +19,7 @@ export const pageHelp = {
   descricao: 'Cadastra a ata e seus itens registrados. Vincular o item ao catálogo SIMPAS é o que permite que ele apareça no Confronto de Necessidades — sem esse vínculo, o item fica só de registro, sem cruzamento automático.',
   acoes: [
     { label: 'Tipo de origem',        texto: 'Gerenciador: este órgão conduziu a licitação e gerencia a ata — selecione o procedimento de origem. Participante: aderiu desde a formação da ata gerenciada por outro órgão (constava do edital/pesquisa original). Carona: adere depois de a ata já vigente, sem ter participado da formação (Art. 86, sujeita a limites de adesão). Participante e Carona exigem número no PNCP e dados do órgão gerenciador — pode ser outro órgão do mesmo estado ou de outro ente federativo (município, União, outro estado).' },
+    { label: 'Procedimento de origem', texto: 'Só lista procedimentos cujo TR está marcado como Sistema de Registro de Preços — TRs de contratação delegada não aparecem, já que nesse caso este órgão não é quem gerencia a licitação. Ao selecionar, os itens da ata são herdados automaticamente dos lotes do TR (objeto, unidade, quantidade), com o fornecedor vencedor e o valor final de cada lote já homologado — funciona para qualquer modalidade (Pregão, Dispensa, Inexigibilidade). Sem resultado homologado ainda, os valores vêm da estimativa de referência. Revise os itens herdados antes de salvar — continuam editáveis.' },
     { label: 'Buscar no catálogo',    texto: 'Vincula o item ao catálogo SIMPAS (pré-preenche descrição e unidade) — necessário para o item entrar no confronto contra DFDs pendentes. Sem catálogo, o item fica só de registro manual.' },
     { label: '+ Adicionar item',      texto: 'Cada item registra quantidade e valor unitário pactuados na ata — o saldo disponível é calculado automaticamente (quantidade registrada menos consumida).' },
     { label: 'Criar ata',             texto: 'Salva a ata como Rascunho. É preciso Ativá-la depois (na tela de detalhe) para que ela entre no confronto de necessidades.' },
@@ -49,15 +50,95 @@ export default function AtaCreate() {
   const [itens, setItens] = useState([novoItem()])
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState({})
+  const [herdando, setHerdando] = useState(false)
+  const [msgHeranca, setMsgHeranca] = useState(null)
+  const [itensGeracao, setItensGeracao] = useState(0)
 
   useEffect(() => {
-    api.get('/licitacao/procedimento/', { params: { page_size: 100 } })
+    api.get('/licitacao/procedimento/', { params: { page_size: 100, para_ata: 'true' } })
       .then(({ data }) => {
         const lista = data.results ?? data
         setProcedimentos(Array.isArray(lista) ? lista : [])
       })
       .catch(() => setProcedimentos([]))
   }, [])
+
+  // Herda os itens do procedimento selecionado: cruza os lotes do TR (item,
+  // quantidade, valor de referência) com o resultado homologado de cada lote
+  // (fornecedor vencedor, valor final) — funciona para qualquer modalidade
+  // (PE, dispensa, inexigibilidade etc.), já que a estrutura de lotes/
+  // resultados do TR é a mesma independente de como a licitação correu.
+  useEffect(() => {
+    if (form.tipo_origem !== 'gerenciador' || !form.procedimento) return
+    let cancelado = false
+    setHerdando(true)
+    setMsgHeranca(null)
+
+    ;(async () => {
+      try {
+        const { data: proc } = await api.get(`/licitacao/procedimento/${form.procedimento}/`)
+        if (!proc.tr) {
+          if (!cancelado) { setMsgHeranca({ type: 'error', text: 'Este procedimento não tem TR vinculado — não há itens para herdar.' }); setHerdando(false) }
+          return
+        }
+
+        const [{ data: tr }, dfdItensPorId] = await Promise.all([
+          api.get(`/tr/tr/${proc.tr}/`),
+          proc.dfd
+            ? api.get(`/demanda/dfd/${proc.dfd}/`).then(({ data }) => {
+                const m = new Map()
+                ;(data.itens || []).forEach(i => m.set(i.id, i))
+                return m
+              })
+            : Promise.resolve(new Map()),
+        ])
+
+        const resultadoPorLote = new Map((proc.resultados || []).map(r => [r.lote, r]))
+
+        const itensHerdados = []
+        for (const lote of tr.lotes || []) {
+          const resultado = resultadoPorLote.get(lote.id)
+          const fatorDesconto = resultado?.percentual_desconto ? (1 - resultado.percentual_desconto / 100) : 1
+          for (const itemLote of lote.itens || []) {
+            const dfdItem = dfdItensPorId.get(itemLote.item_dfd)
+            const valorRef = Number(itemLote.valor_unitario_ref || itemLote.item_valor_est || 0)
+            itensHerdados.push({
+              item_catalogo: dfdItem?.item_catalogo || null,
+              item_catalogo_label: dfdItem?.catalogo_nome || itemLote.item_objeto || '',
+              objeto: dfdItem?.objeto || itemLote.item_objeto || '',
+              unidade_medida: dfdItem?.unidade_medida || itemLote.item_unidade || '',
+              fornecedor: resultado?.fornecedor || null,
+              fornecedor_label: resultado?.fornecedor
+                ? `${resultado.cnpj_vencedor || ''} — ${resultado.empresa_vencedora || ''}`.trim()
+                : '',
+              quantidade_registrada: String(itemLote.quantidade || ''),
+              valor_unitario_registrado: (valorRef * fatorDesconto).toFixed(2),
+            })
+          }
+        }
+
+        if (cancelado) return
+        if (itensHerdados.length === 0) {
+          setMsgHeranca({ type: 'error', text: 'O TR deste procedimento não tem lotes com itens cadastrados.' })
+        } else {
+          setItens(itensHerdados)
+          setItensGeracao(g => g + 1)
+          const temResultado = (proc.resultados || []).some(r => r.valor_final != null)
+          setMsgHeranca({
+            type: 'success',
+            text: `${itensHerdados.length} item(ns) herdado(s) do procedimento — revise antes de salvar.` +
+              (temResultado ? '' : ' Este procedimento ainda não tem resultado homologado — os valores vieram da estimativa de referência.'),
+          })
+        }
+      } catch {
+        if (!cancelado) setMsgHeranca({ type: 'error', text: 'Erro ao herdar itens do procedimento.' })
+      } finally {
+        if (!cancelado) setHerdando(false)
+      }
+    })()
+
+    return () => { cancelado = true }
+  }, [form.procedimento, form.tipo_origem])
 
   const set = (k, v) => { setForm(p => ({ ...p, [k]: v })); setErrors(p => ({ ...p, [k]: undefined })) }
   const setItem = (idx, field, value) =>
@@ -171,7 +252,10 @@ export default function AtaCreate() {
           </Field>
 
           {form.tipo_origem === 'gerenciador' ? (
-            <Field label="Procedimento de origem (opcional)">
+            <Field label="Procedimento de origem (opcional)"
+              hint={procedimentos.length === 0
+                ? 'Nenhum procedimento elegível — só aparecem aqui os que têm TR de Sistema de Registro de Preços, exceto contratação delegada.'
+                : 'Só procedimentos com TR de Sistema de Registro de Preços (exceto contratação delegada).'}>
               <select value={form.procedimento} onChange={e => set('procedimento', e.target.value)} className={inp()}>
                 <option value="">— Selecione —</option>
                 {procedimentos.map(p => <option key={p.id} value={p.id}>{p.numero} — {p.objeto?.slice(0, 40)}</option>)}
@@ -221,15 +305,23 @@ export default function AtaCreate() {
         {/* Itens */}
         <div>
           <div className="flex items-center justify-between mb-2">
-            <p className="text-sm font-medium text-gray-700">Itens da ata</p>
+            <p className="text-sm font-medium text-gray-700">
+              Itens da ata
+              {herdando && <span className="ml-2 text-xs text-gray-400 font-normal">herdando do procedimento...</span>}
+            </p>
             <button type="button" onClick={() => setItens(p => [...p, novoItem()])}
               className="text-xs text-indigo-600 hover:text-indigo-800 font-medium">+ Adicionar item</button>
           </div>
+          {msgHeranca && (
+            <p className={`text-xs mb-2 ${msgHeranca.type === 'error' ? 'text-amber-600' : 'text-indigo-600'}`}>
+              {msgHeranca.text}
+            </p>
+          )}
           {errors.itens && <p className="text-xs text-red-600 mb-2">{errors.itens}</p>}
 
           <div className="space-y-3">
             {itens.map((item, idx) => (
-              <ItemRow key={idx} item={item} idx={idx} setItem={setItem} buscarCatalogo={buscarCatalogo}
+              <ItemRow key={`${itensGeracao}-${idx}`} item={item} idx={idx} setItem={setItem} buscarCatalogo={buscarCatalogo}
                 onRemove={() => setItens(p => p.filter((_, i) => i !== idx))} podeRemover={itens.length > 1} />
             ))}
           </div>
@@ -333,10 +425,11 @@ function ItemRow({ item, idx, setItem, buscarCatalogo, onRemove, podeRemover }) 
   )
 }
 
-function Field({ label, error, children }) {
+function Field({ label, error, hint, children }) {
   return (
     <div>
       <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+      {hint && <p className="text-xs text-gray-400 mb-1">{hint}</p>}
       {children}
       {error && <p className="text-xs text-red-600 mt-1">{error}</p>}
     </div>

@@ -22,6 +22,11 @@ from .serializers import (
 class ProcedimentoViewSet(viewsets.ModelViewSet):
     """
     CRUD de Procedimentos licitatórios e contratações diretas.
+
+    ?para_ata=true — restringe aos procedimentos elegíveis para gerar uma Ata
+    de Registro de Preços como gerenciador: TR com sistema_registro_precos=True
+    e contratacao_delegada=False (contratação delegada não é conduzida por
+    este órgão — não faz sentido este órgão figurar como gerenciador da ata).
     """
     permission_classes = [IsAuthenticated, IsMultiTenant]
     filter_backends    = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
@@ -44,6 +49,8 @@ class ProcedimentoViewSet(viewsets.ModelViewSet):
             qs = qs.filter(status=stat)
         if exercicio:
             qs = qs.filter(exercicio=exercicio)
+        if self.request.query_params.get('para_ata') == 'true':
+            qs = qs.filter(tr__sistema_registro_precos=True, tr__contratacao_delegada=False)
         return qs
 
     def get_serializer_class(self):
