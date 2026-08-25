@@ -34,6 +34,7 @@ export const pageHelp = {
     { label: 'Pré-visualizar texto', texto: 'Mostra o texto pronto (composto a partir dos campos já preenchidos, seguindo os modelos configurados em Configurações → Estrutura de Artefatos) para copiar e colar no SEI. É apenas uma pré-visualização — não altera nem preenche os campos do TR.' },
     { label: 'Download PDF',    texto: 'Exporta o TR em PDF para compor o processo SEI.' },
     { label: 'Checklist SSP-BA', texto: 'Badge colorido mostrando quantos campos do checklist SSP-BA estão preenchidos. Vermelho = bloqueadores pendentes. Amarelo = recomendados em falta. Verde = completo.' },
+    { label: 'Modalidade do lote', texto: 'O badge de modalidade (Ampla Concorrência/Exclusivo ME/EPP) é um seletor editável — "Criar um lote por item" sempre gera como Ampla, então mude aqui quando o valor do lote for menor que R$80.000,00 (alerta 🚫 indica exatamente isso, LC 123/2006, Art. 48, I). Lotes de Reserva de Cota não são editáveis por aqui.' },
   ],
   fluxo: [
     { status: 'Rascunho',   descricao: 'Em elaboração.' },
@@ -50,7 +51,7 @@ export default function TRDetail() {
   const { id }    = useParams()
   const navigate  = useNavigate()
   const { current, loading, error, fetchTr, updateTr, submeterTr, iniciarAnaliseTr, aprovarTr, devolverTr, reabrirTr,
-          criarLote, excluirLote, adicionarItemLote, removerItemLote, gerarCota, gerarPorItem } = useTrStore()
+          criarLote, atualizarLote, excluirLote, adicionarItemLote, removerItemLote, gerarCota, gerarPorItem } = useTrStore()
   const papel       = useAuthStore((s) => s.papel)
   const tipoUnidade = useAuthStore((s) => s.tipoUnidade)
 
@@ -698,6 +699,7 @@ export default function TRDetail() {
           tr={current}
           podeEditar={podeLotes}
           onCriarLote={(payload) => criarLote(id, payload)}
+          onAtualizarLote={(lotePk, payload) => atualizarLote(id, lotePk, payload)}
           onExcluirLote={(lotePk) => excluirLote(id, lotePk)}
           onAdicionarItem={(lotePk, payload) => adicionarItemLote(id, lotePk, payload)}
           onRemoverItem={(lotePk, itemPk) => removerItemLote(id, lotePk, itemPk)}
@@ -754,13 +756,20 @@ const MODALIDADE_LABELS = {
 const fmtQ = (v) => Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 4 })
 const fmtR = (v) => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
-function LotesSection({ tr, podeEditar, onCriarLote, onExcluirLote, onAdicionarItem, onRemoverItem, onGerarCota, onGerarPorItem }) {
+function LotesSection({ tr, podeEditar, onCriarLote, onAtualizarLote, onExcluirLote, onAdicionarItem, onRemoverItem, onGerarCota, onGerarPorItem }) {
   const [showNovoLote, setShowNovoLote]   = useState(false)
   const [novoLoteForm, setNovoLoteForm]   = useState({ descricao: '', modalidade: 'ampla', justificativa_agrupamento: '' })
   const [showAddItem, setShowAddItem]     = useState(null)
   const [addItemForm, setAddItemForm]     = useState({ item_dfd: '', quantidade: '' })
   const [itensDfd, setItensDfd]           = useState([])
   const [saving, setSaving]               = useState(false)
+  const [alterandoModalidade, setAlterandoModalidade] = useState(null)
+
+  const handleAlterarModalidade = async (lotePk, novaModalidade) => {
+    setAlterandoModalidade(lotePk)
+    try { await onAtualizarLote(lotePk, { modalidade: novaModalidade }) }
+    finally { setAlterandoModalidade(null) }
+  }
 
   // Busca os itens do DFD uma vez ao montar o componente
   useEffect(() => {
@@ -862,9 +871,18 @@ function LotesSection({ tr, podeEditar, onCriarLote, onExcluirLote, onAdicionarI
                   <div className="flex items-center gap-2">
                     <span className={`w-2 h-2 rounded-full ${cls.dot}`} />
                     <span className="font-mono text-sm font-semibold text-gray-800">{lote.numero}</span>
-                    <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${cls.badge}`}>
-                      {MODALIDADE_LABELS[lote.modalidade]}
-                    </span>
+                    {podeEditar && lote.modalidade !== 'cota_me_epp' ? (
+                      <select value={lote.modalidade} disabled={alterandoModalidade === lote.id}
+                        onChange={e => handleAlterarModalidade(lote.id, e.target.value)}
+                        className={`text-xs font-medium px-2 py-0.5 rounded-full border-0 cursor-pointer disabled:opacity-50 ${cls.badge}`}>
+                        <option value="ampla">Ampla Concorrência</option>
+                        <option value="exclusiva_me_epp">Exclusivo ME/EPP</option>
+                      </select>
+                    ) : (
+                      <span className={`text-xs font-medium px-2 py-0.5 rounded-full ${cls.badge}`}>
+                        {MODALIDADE_LABELS[lote.modalidade]}
+                      </span>
+                    )}
                     {lote.lote_origem_numero && (
                       <span className="text-xs text-gray-400">← {lote.lote_origem_numero}</span>
                     )}

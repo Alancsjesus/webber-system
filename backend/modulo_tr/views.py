@@ -297,13 +297,43 @@ class TRViewSet(viewsets.ModelViewSet):
         resp.status_code = status.HTTP_201_CREATED
         return resp
 
-    @action(detail=True, methods=['delete'], url_path=r'lotes/(?P<lote_pk>[^/.]+)')
-    def excluir_lote(self, request, pk=None, lote_pk=None):
+    @action(detail=True, methods=['patch', 'delete'], url_path=r'lotes/(?P<lote_pk>[^/.]+)')
+    def lote_detail(self, request, pk=None, lote_pk=None):
+        """
+        PATCH edita um lote já criado — descrição, modalidade (Ampla ↔
+        Exclusivo ME/EPP) e justificativa de agrupamento. Necessário para
+        corrigir a modalidade de lotes gerados em lote (gerar_por_item
+        sempre cria como "ampla") e para atender o alerta de reclassificação
+        por valor < R$80k. Lotes de Reserva de Cota (modalidade='cota_me_epp')
+        não podem trocar de modalidade por aqui — são derivados de um lote
+        de origem via gerar_cota, com percentual/lote_origem próprios.
+
+        DELETE exclui o lote.
+        """
         tr   = self.get_object()
         err  = self._check_licitante_editavel(request, tr)
         if err: return err
         lote = get_object_or_404(LoteTR, pk=lote_pk, tr=tr)
-        lote.delete()
+
+        if request.method == 'DELETE':
+            lote.delete()
+            return self._tr_atualizado(tr.pk, request)
+
+        nova_modalidade = request.data.get('modalidade')
+        if nova_modalidade is not None:
+            if lote.modalidade == 'cota_me_epp' or nova_modalidade == 'cota_me_epp':
+                return Response(
+                    {'detail': 'Lotes de Reserva de Cota ME/EPP não podem ter a modalidade alterada por aqui — exclua e gere novamente a partir do lote de origem.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            if nova_modalidade not in ('ampla', 'exclusiva_me_epp'):
+                return Response({'detail': 'Modalidade inválida.'}, status=status.HTTP_400_BAD_REQUEST)
+
+        serializer = LoteTRSerializer(
+            lote, data=request.data, partial=True, context={'request': request},
+        )
+        serializer.is_valid(raise_exception=True)
+        serializer.save(updated_by=request.user)
         return self._tr_atualizado(tr.pk, request)
 
     @action(detail=True, methods=['post'], url_path=r'lotes/(?P<lote_pk>[^/.]+)/itens')

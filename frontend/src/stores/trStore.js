@@ -83,6 +83,11 @@ const useTrStore = create((set) => ({
     set((s) => ({ current: data, trs: s.trs.map((t) => t.id === id ? data : t) }))
     return data
   },
+  atualizarLote: async (id, lotePk, payload) => {
+    const { data } = await api.patch(`/tr/tr/${id}/lotes/${lotePk}/`, payload)
+    set((s) => ({ current: data, trs: s.trs.map((t) => t.id === id ? data : t) }))
+    return data
+  },
   excluirLote: async (id, lotePk) => {
     const { data } = await api.delete(`/tr/tr/${id}/lotes/${lotePk}/`)
     set((s) => ({ current: data, trs: s.trs.map((t) => t.id === id ? data : t) }))
