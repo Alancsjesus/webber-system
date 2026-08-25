@@ -11,6 +11,18 @@ const PORTES = [
   { value: 'DEMAIS', label: 'Demais' },
 ]
 
+// ─── Ajuda Contextual ────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Novo Fornecedor',
+  descricao: 'Cadastro global — não pertence a um órgão específico, fica disponível para toda a plataforma ao vincular cotações, licitações e contratos.',
+  acoes: [
+    { label: 'Tipo de pessoa',   texto: 'Pessoa Jurídica (CNPJ) ou Física (CPF) — muda a máscara e a validação do documento, e habilita os campos de Nome Fantasia/Porte só para PJ.' },
+    { label: 'CNPJ/CPF',         texto: 'Validado por dígito verificador antes de salvar — não é só formatação.' },
+    { label: 'Cadastrar fornecedor', texto: 'Salva o fornecedor, que passa a poder ser buscado nos formulários de cotação, licitação e contrato.' },
+  ],
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function FornecedorCreate() {
   const navigate = useNavigate()
   const { createFornecedor } = useFornecedorStore()

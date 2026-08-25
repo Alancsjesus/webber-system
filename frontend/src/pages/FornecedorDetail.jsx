@@ -7,6 +7,18 @@ import { mascararDocumento, validarDocumento } from '../utils/documentoValidator
 const fmt = (v) => v == null ? '—' : Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const fmtData = (v) => v ? new Date(v).toLocaleDateString('pt-BR') : '—'
 
+// ─── Ajuda Contextual ────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Fornecedor — Detalhe',
+  descricao: 'Cadastro do fornecedor e seu histórico consolidado de relação com a administração (cotações, licitações e contratos), independente de qual órgão registrou cada um.',
+  acoes: [
+    { label: 'Aviso de relação anterior', texto: 'Aparece quando o fornecedor já teve pelo menos uma cotação, licitação ou contrato registrado — útil para verificar histórico antes de uma nova contratação.' },
+    { label: 'Abas Cotações/Licitações/Contratos', texto: 'Lista, por categoria, todos os registros já vinculados a este fornecedor em qualquer órgão da plataforma.' },
+    { label: 'Editar',                    texto: 'Altera os dados cadastrais — CNPJ/CPF continua validado por dígito verificador.' },
+  ],
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function FornecedorDetail() {
   const { id } = useParams()
   const navigate = useNavigate()

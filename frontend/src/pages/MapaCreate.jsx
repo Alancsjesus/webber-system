@@ -6,6 +6,18 @@ import FormErrors from '../components/FormErrors'
 
 const ANO = new Date().getFullYear()
 
+// ─── Ajuda Contextual ────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Novo Mapa Comparativo de Preços',
+  descricao: 'Inicia a pesquisa de preços estruturada exigida pelo Decreto 22.886/2024 — fontes e cotações são adicionadas depois, na tela de detalhe, e o sistema sugere o método de cálculo mais adequado a partir da variação encontrada.',
+  acoes: [
+    { label: 'DFD vinculado', texto: 'Opcional, mas recomendado — liga o mapa a um DFD aprovado, mantendo a rastreabilidade entre planejamento e pesquisa de preços.' },
+    { label: 'Criar mapa',    texto: 'Salva o mapa vazio, pronto para receber fontes e cotações de preço na tela seguinte.' },
+  ],
+  baseLegal: 'Decreto Estadual 22.886/2024 — Art. 3º e Art. 8º.',
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function MapaCreate() {
   const navigate  = useNavigate()
   const location  = useLocation()

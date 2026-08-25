@@ -63,6 +63,20 @@ const nextKey = () => _keySeq++
 
 // ── Componente principal ──────────────────────────────────────────────────────
 
+// ─── Ajuda Contextual ────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Preparar Aquisição',
+  descricao: 'Ponte entre o planejamento e o DFD — acessada a partir de uma Necessidade aprovada ou de uma família do Plano de Compras. Reúne os itens e gera o DFD com um clique.',
+  acoes: [
+    { label: 'Aviso de aquisições existentes', texto: 'Só aparece na origem "Plano de Compras": lista DFDs já existentes para a mesma família SIMPAS, para evitar duplicidade de pedido de compra.' },
+    { label: 'Novo DFD independente vs. Consolidar DFDs aprovados', texto: 'Consolidar soma os itens de vários DFDs aprovados (sem ETP ainda) da mesma família em um único DFD — reduz fragmentação de processos.' },
+    { label: '+ Adicionar item',    texto: 'Busca no catálogo SIMPAS (pré-preenche código e unidade) ou permite inserir um item livre quando não encontrado.' },
+    { label: 'Classificação preliminar (triagem)', texto: 'Define elegibilidade de dispensa do ETP e as seções de checklist aplicáveis — não é a modalidade de licitação, decidida depois no Procedimento.' },
+    { label: 'Confirmar e Gerar DFD →', texto: 'Cria o DFD com os itens revisados, já vinculado à necessidade ou aos DFDs consolidados de origem.' },
+  ],
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function PrepararAquisicao() {
   const navigate = useNavigate()
   const { state } = useLocation()

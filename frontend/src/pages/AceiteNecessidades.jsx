@@ -10,6 +10,18 @@ const PRIO_CLS = {
   Baixa: 'bg-gray-100 text-gray-500',
 }
 
+// ─── Ajuda Contextual ────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Aceite de Necessidades',
+  descricao: 'Fila de necessidades de execução externa enviadas por órgãos filhos, aguardando aceite do órgão pai antes de prosseguir no planejamento.',
+  acoes: [
+    { label: 'Selecionar todas', texto: 'Marca/desmarca todas as necessidades pendentes da lista de uma vez.' },
+    { label: 'Aceitar',          texto: 'Aceita em lote as necessidades selecionadas — o órgão pai assume a responsabilidade de execução.' },
+    { label: 'Recusar',          texto: 'Recusa em lote, exigindo motivo — devolve a responsabilidade ao órgão filho de origem.' },
+  ],
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function AceiteNecessidades() {
   const navigate = useNavigate()
   const [list, setList]       = useState([])

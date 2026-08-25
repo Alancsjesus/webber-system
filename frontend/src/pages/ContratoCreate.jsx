@@ -22,6 +22,20 @@ const GARANTIA_TIPOS = [
   { value: 'fianca_bancaria', label: 'Fiança Bancária' },
 ]
 
+// ─── Ajuda Contextual ────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Novo Contrato',
+  descricao: 'Registra um contrato firmado com um fornecedor, geralmente após conclusão de um Procedimento — mas pode ser criado independentemente (ex: Saque/Adesão a ATA de Registro de Preços).',
+  acoes: [
+    { label: 'Tipo de origem',       texto: 'Classifica como o contrato foi originado: licitação, dispensa, inexigibilidade, ou saque/adesão a Ata de Registro de Preços.' },
+    { label: 'Fornecedor contratado', texto: 'Busca por CNPJ/CPF ou razão social no cadastro de fornecedores — histórico de relações anteriores fica disponível na tela de detalhe do fornecedor.' },
+    { label: 'Exigir garantia contratual', texto: 'Percentual limitado a 5% do valor — acima disso exige justificativa obrigatória para contrato de grande vulto ou risco elevado (Art. 96, §3º).' },
+    { label: 'Criar contrato',       texto: 'Salva o contrato. A execução (medições, pagamentos, cronograma de entrega) é registrada depois, na aba "Execução Contratual" do detalhe.' },
+  ],
+  baseLegal: 'Lei 14.133/2021 — Art. 92 (cláusulas necessárias) e Art. 96 (garantia).',
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function ContratoCreate() {
   const navigate = useNavigate()
   const { createContrato } = useContratoStore()

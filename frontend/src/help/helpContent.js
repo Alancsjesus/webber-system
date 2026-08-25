@@ -35,11 +35,18 @@ import { pageHelp as pcaDetailHelp }          from '../pages/PCADetail'
 import { pageHelp as planoListHelp }          from '../pages/PlanoList'
 import { pageHelp as mapaListHelp }           from '../pages/MapaList'
 import { pageHelp as mapaDetailHelp }         from '../pages/MapaDetail'
+import { pageHelp as mapaCreateHelp }         from '../pages/MapaCreate'
 import { pageHelp as pncpListHelp }           from '../pages/PNCPList'
 import { pageHelp as procedimentoListHelp }   from '../pages/ProcedimentoList'
 import { pageHelp as procedimentoDetailHelp } from '../pages/ProcedimentoDetail'
+import { pageHelp as procedimentoCreateHelp } from '../pages/ProcedimentoCreate'
 import { pageHelp as contratoListHelp }       from '../pages/ContratoList'
 import { pageHelp as contratoDetailHelp }     from '../pages/ContratoDetail'
+import { pageHelp as contratoCreateHelp }     from '../pages/ContratoCreate'
+import { pageHelp as fornecedorCreateHelp }   from '../pages/FornecedorCreate'
+import { pageHelp as fornecedorDetailHelp }   from '../pages/FornecedorDetail'
+import { pageHelp as prepararAquisicaoHelp }  from '../pages/PrepararAquisicao'
+import { pageHelp as aceiteNecessidadesHelp } from '../pages/AceiteNecessidades'
 import { pageHelp as planoComprasHelp }       from '../pages/PlanoCompras'
 import { pageHelp as calendarioHelp }         from '../pages/Calendario'
 import { pageHelp as auditoriaHelp }              from '../pages/AuditoriaList'
@@ -94,14 +101,23 @@ export const helpContent = {
   '/planejamento/pca/:id':      pcaDetailHelp,
 
   '/pesquisa/mapa':             mapaListHelp,
+  '/pesquisa/mapa/novo':        mapaCreateHelp,
   '/pesquisa/mapa/:id':         mapaDetailHelp,
   '/pesquisa/pncp':             pncpListHelp,
 
   '/licitacao':                 procedimentoListHelp,
+  '/licitacao/novo':            procedimentoCreateHelp,
   '/licitacao/:id':             procedimentoDetailHelp,
 
   '/contratos':                 contratoListHelp,
+  '/contratos/novo':            contratoCreateHelp,
   '/contratos/:id':             contratoDetailHelp,
+
+  '/fornecedores/novo':         fornecedorCreateHelp,
+  '/fornecedores/:id':          fornecedorDetailHelp,
+
+  '/aquisicao/preparar':        prepararAquisicaoHelp,
+  '/planejamento/aceite':       aceiteNecessidadesHelp,
 
   '/plano-compras':             planoComprasHelp,
   '/calendario':                calendarioHelp,
