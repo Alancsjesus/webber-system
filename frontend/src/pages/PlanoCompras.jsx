@@ -21,6 +21,7 @@ export const pageHelp = {
   acoes: [
     { label: 'Iniciar Aquisição', texto: 'Transforma uma necessidade aprovada no PCA em um processo de contratação, criando DFD e demais peças automaticamente.' },
     { label: 'Exportar',          texto: 'Exporta o PCA em formato Excel ou PDF para encaminhamento ao órgão central.' },
+    { label: 'Mostrar itens já contratados', texto: 'Por padrão, itens cujo DFD já resultou em Contrato saem da lista — a demanda não fica pedindo aquisição para sempre. Marque esta opção para incluí-los de volta (visão histórica/auditoria).' },
   ],
   baseLegal: 'Lei 14.133/2021 — Art. 12, IV e Decreto 10.947/2022 (PCA).',
 }
@@ -36,6 +37,7 @@ export default function PlanoCompras() {
     status: '',
     familia: '',
   })
+  const [incluirExecutados, setIncluirExecutados] = useState(false)
   const [exportLoading, setExportLoading] = useState(false)
 
   const load = async () => {
@@ -45,6 +47,7 @@ export default function PlanoCompras() {
       if (filters.exercicio) params.exercicio = filters.exercicio
       if (filters.status)    params.status    = filters.status
       if (filters.familia)   params.familia   = filters.familia
+      if (incluirExecutados) params.incluir_executados = 'true'
       const { data } = await api.get('/indicadores/plano-compras/', { params })
       setDados(data)
       // Expandir todas por padrão
@@ -55,7 +58,7 @@ export default function PlanoCompras() {
     finally { setLoading(false) }
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load() }, [incluirExecutados])
 
   const handleExport = async () => {
     setExportLoading(true)
@@ -115,12 +118,25 @@ export default function PlanoCompras() {
           className="bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium px-4 py-1.5 rounded-lg">
           Atualizar
         </button>
+        <label className="flex items-center gap-1.5 text-sm text-gray-600 cursor-pointer pb-1.5">
+          <input type="checkbox" checked={incluirExecutados}
+            onChange={e => setIncluirExecutados(e.target.checked)}
+            className="accent-blue-600" />
+          Mostrar itens já contratados
+        </label>
       </div>
 
       {loading ? <LoadingSpinner /> : !dados ? (
         <p className="text-sm text-gray-400">Nenhum dado disponível. Verifique os filtros.</p>
       ) : (
         <>
+          {!incluirExecutados && dados.total_itens_executados > 0 && (
+            <p className="text-xs text-gray-400 mb-4">
+              {dados.total_itens_executados} item(ns) já contratado(s) fora desta lista —
+              {' '}marque "Mostrar itens já contratados" para incluí-los.
+            </p>
+          )}
+
           {/* Cards de resumo */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
             {[

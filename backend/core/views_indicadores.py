@@ -5,7 +5,7 @@ Endpoints de indicadores para o Dashboard WEBBER.
 - GET /api/indicadores/agrupamento/  — sugestão de agrupamento por família SIMPAS
 """
 from decimal import Decimal
-from django.db.models import Sum, Count, Q
+from django.db.models import Sum, Count, Q, Exists, OuterRef
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -327,6 +327,8 @@ class PlanoComprasView(APIView):
       ?exercicio=2026          — filtra por exercício do DFD (via dotação)
       ?status=Rascunho,Aprovada — filtra por status do DFD (default: todos exceto Cancelada/Rejeitada)
       ?familia=42.40            — filtra uma família específica
+      ?incluir_executados=true — inclui itens cujo DFD já tem Contrato (por padrão
+                                  saem da lista — já foram executados)
       ?export=pdf               — exporta em PDF em vez de retornar JSON (não usar
                                    "format": é reservado pela negociação de conteúdo do DRF)
     """
@@ -334,6 +336,7 @@ class PlanoComprasView(APIView):
 
     def get(self, request):
         from modulo_demanda.models import ItemDFD
+        from modulo_contrato.models import Contrato
         from core.models import ParametroSistema
 
         org_id = request.org_id
@@ -349,14 +352,24 @@ class PlanoComprasView(APIView):
         status_param   = request.query_params.get('status', '')
         status_list    = [s.strip() for s in status_param.split(',') if s.strip()] if status_param else None
         exercicio      = request.query_params.get('exercicio')
+        incluir_executados = request.query_params.get('incluir_executados') == 'true'
 
-        # Base query — itens com catálogo
+        # Base query — itens com catálogo. "Executado" = o DFD do item já tem
+        # ao menos um Contrato vinculado (mesma demanda percorreu a cadeia
+        # inteira) — por padrão sai da lista de pendências do Plano de Compras
+        # para a demanda não ficar eternamente pedindo aquisição já feita.
         qs = ItemDFD.objects.filter(
             dfd__org_id=org_id,
             item_catalogo__isnull=False,
         ).exclude(
             dfd__status__in=['Rejeitada', 'Cancelada']
+        ).annotate(
+            executado=Exists(Contrato.objects.filter(dfd_id=OuterRef('dfd_id')))
         ).select_related('item_catalogo__categoria__pai', 'dfd__org_id')
+
+        total_itens_executados = qs.filter(executado=True).count()
+        if not incluir_executados:
+            qs = qs.filter(executado=False)
 
         if status_list:
             qs = qs.filter(dfd__status__in=status_list)
@@ -402,6 +415,7 @@ class PlanoComprasView(APIView):
                 'quantidade':       float(item.quantidade),
                 'valor_unitario':   float(item.valor_unitario_estimado),
                 'valor_total':      float(valor_item),
+                'executado':        item.executado,
             })
 
         # Consolidar por item dentro da família
@@ -460,6 +474,8 @@ class PlanoComprasView(APIView):
             'total_familias':  len(resultado),
             'valor_total':     total_geral,
             'familias':        resultado,
+            'incluir_executados':     incluir_executados,
+            'total_itens_executados': total_itens_executados,
         }
 
         # Nome do param é "export", não "format" — "format" é reservado pelo DRF
