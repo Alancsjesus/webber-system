@@ -113,9 +113,9 @@ const ACESSO_POR_PAPEL = {
 
 // Extensões por tipo de unidade (ampliam o papel base)
 const ACESSO_EXTRA_POR_UNIDADE = {
-  licitante:    ['/licitacao', '/etp', '/analise-tecnica', '/pesquisa', '/contratos', '/fornecedores', '/plano-compras', '/config/parametros'],
-  planejamento: ['/orcamento', '/planejamento', '/plano-compras', '/fesp'],
-  contratante:  ['/contratos', '/fornecedores', '/licitacao'],
+  licitante:    ['/licitacao', '/etp', '/analise-tecnica', '/pesquisa', '/contratos', '/fornecedores', '/plano-compras', '/config/parametros', '/calendario'],
+  planejamento: ['/orcamento', '/planejamento', '/plano-compras', '/fesp', '/calendario'],
+  contratante:  ['/contratos', '/fornecedores', '/licitacao', '/calendario'],
   demandante:   ['/demanda', '/pesquisa'],
 }
 

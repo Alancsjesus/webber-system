@@ -270,6 +270,20 @@ def _contexto_tr(tr) -> dict:
     def _hab_fiscal_texto():
         return f'Esfera de habilitação fiscal: {tr.get_hab_fiscal_esfera_display()}' if tr.hab_fiscal_esfera else ''
 
+    def _lotes_texto():
+        partes = []
+        for lote in tr.lotes.all().order_by('ordem', 'numero'):
+            cabecalho = lote.numero
+            if lote.descricao:
+                cabecalho += f' — {lote.descricao}'
+            cabecalho += f' ({lote.get_modalidade_display()})'
+            partes.append(cabecalho)
+            for item_lote in lote.itens.all():
+                obj_item = item_lote.item_dfd.objeto if item_lote.item_dfd_id else '—'
+                valor = _fmt_valor(item_lote.valor_unitario_ref) if item_lote.valor_unitario_ref is not None else '—'
+                partes.append(f'  - {obj_item} — Qtd: {item_lote.quantidade} — Vl. unit.: {valor}')
+        return '\n'.join(partes)
+
     def _parcelamento_etp_texto():
         etp = getattr(tr, 'etp', None)
         if not etp:
@@ -334,6 +348,7 @@ def _contexto_tr(tr) -> dict:
         'hab_economica':           _qualificacao_economica_texto(),  # alias — checklist renomeou a seção
         'hab_tecnica_servicos':    tr.serv_qualificacao_tecnica or '',
         'parcelamento_etp':        _parcelamento_etp_texto(),
+        'lotes':                   _lotes_texto(),
     }
 
 

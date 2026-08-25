@@ -237,9 +237,9 @@ const ACESSO_PAPEL = {
   solicitante:         ['/', '/painel', '/ajuda', '/demanda', '/planejamento', '/pesquisa', '/etp', '/analise-tecnica'],
 }
 const ACESSO_UNIDADE = {
-  licitante:    ['/licitacao', '/etp', '/analise-tecnica', '/pesquisa', '/contratos', '/plano-compras', '/fornecedores'],
-  planejamento: ['/orcamento', '/planejamento', '/plano-compras', '/fesp'],
-  contratante:  ['/contratos', '/licitacao', '/fornecedores'],
+  licitante:    ['/licitacao', '/etp', '/analise-tecnica', '/pesquisa', '/contratos', '/plano-compras', '/fornecedores', '/calendario'],
+  planejamento: ['/orcamento', '/planejamento', '/plano-compras', '/fesp', '/calendario'],
+  contratante:  ['/contratos', '/licitacao', '/fornecedores', '/calendario'],
   demandante:   ['/demanda', '/pesquisa'],
 }
 
