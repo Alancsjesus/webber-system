@@ -51,9 +51,12 @@ export default function AtaCreate() {
   const [errors, setErrors] = useState({})
 
   useEffect(() => {
-    api.get('/licitacao/', { params: { page_size: 100 } })
-      .then(({ data }) => setProcedimentos(data.results ?? data))
-      .catch(() => {})
+    api.get('/licitacao/procedimento/', { params: { page_size: 100 } })
+      .then(({ data }) => {
+        const lista = data.results ?? data
+        setProcedimentos(Array.isArray(lista) ? lista : [])
+      })
+      .catch(() => setProcedimentos([]))
   }, [])
 
   const set = (k, v) => { setForm(p => ({ ...p, [k]: v })); setErrors(p => ({ ...p, [k]: undefined })) }
