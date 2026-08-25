@@ -10,6 +10,33 @@ import { formatarMoeda } from '../utils/currencyMask'
 
 const TABS_BASE = ['Dados Gerais', 'Metas Específicas', 'Conselho Gestor', 'Execução Financeira']
 
+// ─── Ajuda Contextual ────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Plano de Aplicação — Detalhe',
+  descricao: 'Gerencia o plano por abas: dados gerais, Metas Específicas (com seus itens), rito do Conselho Gestor (só para natureza FESP) e execução financeira.',
+  acoes: [
+    { label: '+ Nova Meta Específica',   texto: 'Cria um objetivo com indicador próprio dentro do plano (ex: "reduzir feminicídios no interior"), ao qual os itens financiáveis serão vinculados.' },
+    { label: '+ Adicionar item',         texto: 'Dentro de uma Meta, registra um item financiável (Bem/Serviço, base legal do Art. 7º da Lei 14.169/2019, Cód. SENASP, quantidade, natureza ND, instituição beneficiária).' },
+    { label: 'Gerar Necessidade',        texto: 'Transforma um item pendente em uma Necessidade de Planejamento, iniciando o fluxo normal de contratação (DFD → ETP → TR) para aquele item.' },
+    { label: 'Consolidação de Itens',    texto: 'Abre a tela que cruza itens pedidos por unidades diferentes (ex: PMBA e CBMBA pedindo o mesmo tipo de item) para consolidar em um único pedido.' },
+    { label: 'Submeter ao Conselho',     texto: 'Só aparece para planos de natureza FESP — envia o plano para deliberação do Conselho Gestor.' },
+    { label: 'Aprovar / Devolver',       texto: 'Decisão do Conselho Gestor (ou aprovação direta para naturezas não-FESP). Devolver exige justificativa e retorna o plano para elaboração.' },
+    { label: 'Homologar',                texto: 'Registra o ato de homologação do Chefe do Poder Executivo — etapa final antes da publicação, exclusiva do rito FESP.' },
+    { label: 'Publicar',                 texto: 'Torna o plano vigente — a partir daqui os itens podem gerar necessidades de contratação.' },
+    { label: 'Baixar PDF',               texto: 'Gera o plano completo em PDF, com o detalhamento de itens por Meta Específica.' },
+  ],
+  fluxo: [
+    { status: 'Em Elaboração', descricao: 'Plano sendo montado — Metas Específicas e itens editáveis.' },
+    { status: 'Submetido ao Conselho', descricao: 'Aguardando deliberação do Conselho Gestor (só FESP).' },
+    { status: 'Aprovado pelo Conselho', descricao: 'Aguardando homologação por ato do Chefe do Executivo.' },
+    { status: 'Homologado', descricao: 'Ato de homologação registrado — pronto para publicar.' },
+    { status: 'Publicado', descricao: 'Plano vigente — itens podem ser consolidados e gerar necessidades.' },
+    { status: 'Encerrado', descricao: 'Ciclo do plano finalizado.' },
+  ],
+  baseLegal: 'Lei Estadual 14.169/2019, arts. 7º a 12.',
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 // Extrai uma mensagem legível de um erro de API do DRF — seja {"detail": "..."}
 // ou {"campo": ["msg1", "msg2"]}. Usado para nunca deixar um botão "morrer" em
 // silêncio quando o backend rejeita a operação.

@@ -8,6 +8,18 @@ import LoadingSpinner from '../components/LoadingSpinner'
 import { TIPO_INSTRUMENTO_OPTIONS, STATUS_INSTRUMENTO_CLS } from './FespInstrumentoList'
 import { formatarMoeda } from '../utils/currencyMask'
 
+// ─── Ajuda Contextual ────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Instrumento Financeiro — Detalhe',
+  descricao: 'Detalhe do instrumento externo (convênio, emenda, repasse etc.) que financia itens de Planos de Aplicação.',
+  acoes: [
+    { label: 'Ativar',   texto: 'Torna o instrumento Vigente, habilitando-o a financiar itens de um Plano de Aplicação.' },
+    { label: 'Encerrar', texto: 'Marca o instrumento como Encerrado ao fim de sua vigência — exige motivo.' },
+    { label: 'Cancelar', texto: 'Cancela o instrumento definitivamente — exige motivo.' },
+  ],
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function FespInstrumentoDetail() {
   const { id } = useParams()
   const navigate = useNavigate()

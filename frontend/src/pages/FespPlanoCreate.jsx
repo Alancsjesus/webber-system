@@ -6,6 +6,18 @@ import { NATUREZA_PLANO_OPTIONS } from './FespPlanoList'
 
 const ANO_ATUAL = new Date().getFullYear()
 
+// ─── Ajuda Contextual ────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Novo Plano de Aplicação',
+  descricao: 'Cria o Plano de Aplicação — o número é gerado automaticamente. Metas Específicas e itens são adicionados depois, na tela de detalhe.',
+  acoes: [
+    { label: 'Natureza do recurso', texto: 'Define o rito de aprovação e não pode ser alterada depois de criado o plano. Apenas FESP passa por Conselho Gestor e homologação por ato do Chefe do Executivo; as demais naturezas (emenda, convênio, repasse, fundo a fundo, financiamento) usam aprovação direta.' },
+    { label: 'Criar plano', texto: 'Salva o plano em "Em Elaboração". A partir daí é possível adicionar Metas Específicas e seus itens.' },
+  ],
+  baseLegal: 'Lei Estadual 14.169/2019, arts. 7º a 12.',
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function FespPlanoCreate() {
   const navigate = useNavigate()
   const { createPlano } = usePlanoAplicacaoStore()

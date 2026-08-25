@@ -35,6 +35,17 @@ function BarraExecucao({ pendentes, executados }) {
   )
 }
 
+// ─── Ajuda Contextual ────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Painel de Execução — Plano de Aplicação',
+  descricao: 'Mostra a evolução da execução dos itens de Planos de Aplicação, agrupados por órgão beneficiário/exercício/eixo. "Executado" significa que o DFD gerado pela necessidade do item já tem pelo menos um Contrato (qualquer status).',
+  acoes: [
+    { label: 'Filtros (exercício, eixo)', texto: 'Restringe os grupos exibidos. Sem filtro, mostra todos os grupos com itens.' },
+    { label: 'Barra de execução',         texto: 'Proporção visual de itens pendentes (âmbar) vs. executados (verde) dentro de cada grupo.' },
+  ],
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function FespPainelExecucao() {
   const [dados, setDados] = useState(null)
   const [loading, setLoading] = useState(true)

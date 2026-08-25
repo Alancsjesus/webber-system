@@ -4,6 +4,19 @@ import usePlanoAplicacaoStore from '../stores/planoAplicacaoStore'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { formatarMoeda } from '../utils/currencyMask'
 
+// ─── Ajuda Contextual ────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Consolidação de Itens — Plano de Aplicação',
+  descricao: 'Cruza itens pendentes de diferentes Metas Específicas/unidades que pedem o mesmo tipo de item, sugerindo agrupamento antes de gerar necessidades — evita pedidos duplicados de compra.',
+  acoes: [
+    { label: 'Selecionar itens do grupo', texto: 'Marque quais itens sugeridos pelo sistema (mesmo tipo, unidades diferentes) devem entrar na consolidação.' },
+    { label: 'Consolidar',                texto: 'Confirma o agrupamento com um título e descrição próprios — cria um grupo consolidado a partir dos itens selecionados.' },
+    { label: 'Gerar Necessidades',        texto: 'A partir de um grupo já consolidado, gera as Necessidades de Planejamento correspondentes, iniciando o fluxo normal de contratação.' },
+    { label: 'Desfazer',                  texto: 'Desfaz a consolidação — os itens voltam ao estado pendente, disponíveis para nova sugestão de agrupamento.' },
+  ],
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function FespConsolidacao() {
   const { id } = useParams()
   const navigate = useNavigate()

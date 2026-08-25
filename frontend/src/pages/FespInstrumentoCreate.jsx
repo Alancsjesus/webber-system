@@ -7,6 +7,19 @@ import CampoMoeda from '../components/CampoMoeda'
 import CampoSei from '../components/CampoSei'
 import { TIPO_INSTRUMENTO_OPTIONS } from './FespInstrumentoList'
 
+// ─── Ajuda Contextual ────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Novo Instrumento Financeiro',
+  descricao: 'Registra o instrumento externo (FESP, emenda parlamentar, convênio, repasse, fundo a fundo ou financiamento) que dá origem ao recurso de um ou mais Planos de Aplicação.',
+  acoes: [
+    { label: 'Tipo de instrumento',      texto: 'Classifica a origem do recurso — usado em relatórios e para orientar qual prestação de contas externa se aplica.' },
+    { label: 'Número do instrumento',    texto: 'Número externo do instrumento (ex: número do convênio no SICONV), não gerado pelo sistema.' },
+    { label: 'Fonte de recurso — Orçamento', texto: 'Vínculo opcional com uma fonte de recurso já cadastrada em Orçamento, para rastreabilidade cruzada.' },
+    { label: 'Criar instrumento',        texto: 'Salva o instrumento, que pode então ser vinculado a itens de Planos de Aplicação.' },
+  ],
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function FespInstrumentoCreate() {
   const navigate = useNavigate()
   const { createInstrumento } = useInstrumentoFinanceiroStore()

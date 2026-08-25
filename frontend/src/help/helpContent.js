@@ -47,8 +47,15 @@ import { pageHelp as rastreabilidadeListHelp }    from '../pages/Rastreabilidade
 import { pageHelp as rastreabilidadeDetailHelp }  from '../pages/RastreabilidadeDetail'
 import { pageHelp as fornecedorListHelp }         from '../pages/FornecedorList'
 import { pageHelp as fespPlanoListHelp }          from '../pages/FespPlanoList'
+import { pageHelp as fespPlanoCreateHelp }        from '../pages/FespPlanoCreate'
+import { pageHelp as fespPlanoDetailHelp }        from '../pages/FespPlanoDetail'
 import { pageHelp as fespConselhoHelp }           from '../pages/FespConselhoPainel'
 import { pageHelp as fespInstrumentoListHelp }    from '../pages/FespInstrumentoList'
+import { pageHelp as fespInstrumentoCreateHelp }  from '../pages/FespInstrumentoCreate'
+import { pageHelp as fespInstrumentoDetailHelp }  from '../pages/FespInstrumentoDetail'
+import { pageHelp as fespConsolidacaoHelp }       from '../pages/FespConsolidacao'
+import { pageHelp as fespPainelExecucaoHelp }     from '../pages/FespPainelExecucao'
+import { pageHelp as fespRelatorioItensHelp }     from '../pages/FespRelatorioItens'
 
 /**
  * Mapeamento rota → objeto pageHelp.
@@ -105,6 +112,13 @@ export const helpContent = {
 
   '/fornecedores':              fornecedorListHelp,
   '/fesp/planos':               fespPlanoListHelp,
+  '/fesp/planos/novo':          fespPlanoCreateHelp,
+  '/fesp/planos/:id':           fespPlanoDetailHelp,
+  '/fesp/planos/:id/consolidacao': fespConsolidacaoHelp,
   '/fesp/conselho':             fespConselhoHelp,
   '/fesp/instrumentos':         fespInstrumentoListHelp,
+  '/fesp/instrumentos/novo':    fespInstrumentoCreateHelp,
+  '/fesp/instrumentos/:id':     fespInstrumentoDetailHelp,
+  '/fesp/execucao':             fespPainelExecucaoHelp,
+  '/fesp/relatorio-itens':      fespRelatorioItensHelp,
 }

@@ -12,6 +12,18 @@ const STATUS_OPTS = [
   { value: 'cancelado', label: 'Cancelado' },
 ]
 
+// ─── Ajuda Contextual ────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Relatório de Itens — Plano de Aplicação',
+  descricao: 'Lista item a item de todos os Planos de Aplicação, cruzando pendentes e executados, com filtros por exercício, órgão beneficiário, natureza, status e situação de execução.',
+  acoes: [
+    { label: 'Filtros',        texto: 'Combine exercício, órgão beneficiário, natureza (Custeio/Investimento), status do item e se já foi executado (tem Contrato gerado) para refinar a lista.' },
+    { label: 'Exportar PDF',   texto: 'Gera o relatório filtrado em PDF.' },
+    { label: 'Exportar XLSX',  texto: 'Gera o relatório filtrado em planilha Excel, útil para análises fora do sistema.' },
+  ],
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function FespRelatorioItens() {
   const [dados, setDados] = useState(null)
   const [loading, setLoading] = useState(false)
