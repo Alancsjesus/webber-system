@@ -3,6 +3,13 @@ import api from '../../services/api'
 import EmptyState from '../../components/EmptyState'
 import LoadingSpinner from '../../components/LoadingSpinner'
 
+// ─── Ajuda Contextual ────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Tipos de Fonte',
+  descricao: 'Catálogo global de classificação de Fontes de Recurso, usado no cadastro de Fontes em Configurações → Fontes de Recurso.',
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function TipoFonteAdmin() {
   const [list, setList]       = useState([])
   const [loading, setLoading] = useState(true)

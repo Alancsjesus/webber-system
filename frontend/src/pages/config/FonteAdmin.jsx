@@ -3,6 +3,17 @@ import api from '../../services/api'
 
 const empty = (tipos) => ({ codigo: '', nome: '', tipo: tipos[0]?.id ?? '', exercicio_anterior: false })
 
+// ─── Ajuda Contextual ────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Fontes de Recurso',
+  descricao: 'Catálogo de Fontes de Recurso usadas em dotações orçamentárias. Cada fonte pode ter Subfontes cadastradas separadamente para detalhamento adicional.',
+  acoes: [
+    { label: 'Tipo',                 texto: 'Classificação da fonte a partir do catálogo global de Tipos de Fonte.' },
+    { label: 'Exercício anterior',   texto: 'Marca fontes que representam saldo/recurso vindo de exercício fiscal anterior.' },
+  ],
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function FonteAdmin() {
   const [list, setList]       = useState([])
   const [tipos, setTipos]     = useState([])

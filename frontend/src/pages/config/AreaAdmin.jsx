@@ -3,6 +3,16 @@ import api from '../../services/api'
 import EmptyState from '../../components/EmptyState'
 import LoadingSpinner from '../../components/LoadingSpinner'
 
+// ─── Ajuda Contextual ────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Áreas de Atuação',
+  descricao: 'CRUD das categorias usadas para classificar Necessidades e DFDs (ex: TI, Formação, Frota).',
+  acoes: [
+    { label: 'Inativar', texto: 'Remove a área das opções de novas Necessidades/DFDs, sem afetar registros que já a usam.' },
+  ],
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function AreaAdmin() {
   const [list, setList]       = useState([])
   const [loading, setLoading] = useState(true)

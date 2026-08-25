@@ -3,6 +3,16 @@ import api from '../../services/api'
 import EmptyState from '../../components/EmptyState'
 import LoadingSpinner from '../../components/LoadingSpinner'
 
+// ─── Ajuda Contextual ────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Elementos de Despesa',
+  descricao: 'Catálogo de Elementos de Despesa (ex: 30 — Material de Consumo, 52 — Material Permanente), derivado automaticamente ao escolher uma Natureza de Despesa em uma dotação.',
+  acoes: [
+    { label: 'Código',   texto: 'Código numérico do elemento, conforme classificação orçamentária padrão.' },
+  ],
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function ElementoAdmin() {
   const [list, setList]       = useState([])
   const [loading, setLoading] = useState(true)

@@ -137,6 +137,18 @@ function ItemForm({ form, setForm, errors, categorias, compact = false }) {
 }
 
 // ── Componente principal ──────────────────────────────────────────────────────
+// ─── Ajuda Contextual ────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Catálogo de Itens',
+  descricao: 'CRUD do catálogo de itens (bens e serviços) usado em DFDs, Mapas de Preço e Lotes de TR. O código SIMPAS determina automaticamente a família do item, usada no agrupamento do Plano de Compras.',
+  acoes: [
+    { label: 'Código SIMPAS',          texto: 'Formato `XX.XX.XX.XXXXXXXX-D` — os dois primeiros segmentos são extraídos automaticamente como família (ex: 42.40), usada para agrupar sugestões de modalidade no Plano de Compras.' },
+    { label: 'Item sustentável / de luxo', texto: 'Flags usadas em critérios de sustentabilidade e na vedação a bens de luxo (Art. 20, Lei 14.133/2021).' },
+    { label: '↑ Importar CSV',         texto: 'Leva à tela de importação em lote de itens de catálogo via arquivo CSV.' },
+  ],
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function CatalogoAdmin() {
   const navigate    = useNavigate()
   const debounceRef = useRef(null)

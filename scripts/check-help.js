@@ -21,9 +21,11 @@ const path = require('path')
 const HELP_CONTENT = path.join(__dirname, '../frontend/src/help/helpContent.js')
 const PAGES_DIR    = path.join(__dirname, '../frontend/src/pages')
 
-// Páginas que legitimamente não precisam de ajuda contextual (pré-autenticação
-// ou telas de erro/estado, sem ações de domínio a explicar).
-const DENYLIST = new Set(['Login', 'SemAcesso'])
+// Páginas que legitimamente não precisam de ajuda contextual: pré-autenticação
+// ou telas de erro/estado sem ações de domínio (Login, SemAcesso), ou arquivos
+// em pages/ que não são rotas próprias — subcomponentes de outra página
+// (DashboardAnalytics é renderizado dentro de Dashboard.jsx, que já tem pageHelp).
+const DENYLIST = new Set(['Login', 'SemAcesso', 'DashboardAnalytics'])
 
 function readFile(p) {
   try { return fs.readFileSync(p, 'utf8') } catch { return null }

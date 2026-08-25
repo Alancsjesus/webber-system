@@ -3,6 +3,17 @@ import api from '../../services/api'
 
 const empty = (tipos) => ({ codigo: '', nome: '', tipo: tipos[0]?.id ?? '', descricao: '', ativa: true })
 
+// ─── Ajuda Contextual ────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Ações Orçamentárias',
+  descricao: 'CRUD do catálogo de Ações Orçamentárias, usadas na criação de dotações. Inativar em vez de excluir preserva o histórico de dotações já criadas com a ação.',
+  acoes: [
+    { label: '+ Nova ação', texto: 'Cadastra uma ação com código, nome, tipo (catálogo global de Tipos de Ação) e situação.' },
+    { label: 'Situação',    texto: 'Inativa remove a ação das opções de nova dotação, sem afetar dotações já existentes.' },
+  ],
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function AcaoAdmin() {
   const [list, setList]       = useState([])
   const [tipos, setTipos]     = useState([])

@@ -5,6 +5,16 @@ import EmptyState from '../../components/EmptyState'
 
 const BLANK = { nome: '', codigo: '', pai: '' }
 
+// ─── Ajuda Contextual ────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Categorias do Catálogo',
+  descricao: 'Árvore hierárquica de categorias usada para classificar itens do Catálogo — cada categoria pode ter uma categoria-pai, formando o caminho completo exibido nos itens.',
+  acoes: [
+    { label: 'Categoria-pai', texto: 'Opcional — define onde a categoria se encaixa na árvore. Deixe em branco para criar uma categoria raiz.' },
+  ],
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function CategoriaAdmin() {
   const [list, setList]       = useState([])
   const [loading, setLoading] = useState(true)

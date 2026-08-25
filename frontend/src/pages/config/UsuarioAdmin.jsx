@@ -17,6 +17,18 @@ const empty = () => ({
   password: '', papel: 'solicitante', org_id: '', unidade: '',
 })
 
+// ─── Ajuda Contextual ────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Usuários',
+  descricao: 'Cadastro de usuários, com papel, órgão e unidade — a combinação de papel e tipo de unidade determina o acesso a cada módulo (ver Perfis e Permissões).',
+  acoes: [
+    { label: 'Papel',   texto: 'Define a base de permissões do usuário. Alguns papéis (ex: gestor_contrato) têm o acesso ampliado conforme o tipo da unidade vinculada.' },
+    { label: 'Unidade', texto: 'A lista de unidades disponíveis é filtrada pelo órgão selecionado — escolha o órgão primeiro.' },
+    { label: 'Senha',   texto: 'Ao editar um usuário existente, deixar em branco mantém a senha atual — só é obrigatória na criação.' },
+  ],
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function UsuarioAdmin() {
   const [list, setList]       = useState([])
   const [orgaos, setOrgaos]   = useState([])

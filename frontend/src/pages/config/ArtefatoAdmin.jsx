@@ -147,6 +147,19 @@ function PreviewDocumento({ tipo, secoes }) {
 }
 
 // ── Componente principal ───────────────────────────────────────────────────────
+// ─── Ajuda Contextual ────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Estrutura de Artefatos',
+  descricao: 'Configura as seções que compõem DFD, ETP e TR: título, orientação de preenchimento, obrigatoriedade, aplicabilidade por modalidade/tipo de objeto e o modelo de texto (Jinja2) usado na pré-visualização.',
+  acoes: [
+    { label: 'Aplica a modalidades/tipo de objeto', texto: 'Restringe em quais combinações a seção aparece — vazio significa "aplica a todas".' },
+    { label: 'Modelo de texto (Jinja2)',   texto: 'Gera apenas a pré-visualização somente-leitura exibida em "Pré-visualizar texto" na tela de detalhe do documento (para copiar/colar no SEI) — não preenche nenhum campo do formulário. Vazio, usa o valor padrão do campo homônimo ao código da seção.' },
+    { label: 'Botões de variável',         texto: 'Inserem `{{ variavel }}` no ponto do cursor do modelo de texto — a lista muda conforme o tipo de artefato selecionado (DFD/ETP/TR).' },
+    { label: 'Pré-visualização do documento', texto: 'Simula a estrutura final do documento com as seções ativas, na ordem configurada.' },
+  ],
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function ArtefatoAdmin() {
   const [secoes, setSecoes]       = useState([])
   const [loading, setLoading]     = useState(true)

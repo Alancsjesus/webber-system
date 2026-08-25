@@ -10,6 +10,17 @@ const TIPOS = [
 
 const empty = () => ({ sigla: '', nome: '', orgao: '', tipo: 'demandante', ativa: true })
 
+// ─── Ajuda Contextual ────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Unidades',
+  descricao: 'Cadastro das unidades organizacionais dentro de cada órgão (ex: Coordenadoria de Licitações). O tipo da unidade amplia o acesso a módulos além do papel do usuário — ex: usuário em unidade "licitante" ganha acesso a Licitação mesmo sem esse papel individual.',
+  acoes: [
+    { label: 'Tipo',   texto: 'Demandante, Licitante, Contratante ou Planejamento — controla quais seções do menu ficam visíveis para usuários vinculados a essa unidade, independente do papel individual de cada um.' },
+    { label: 'Órgão',  texto: 'Toda unidade pertence a exatamente um órgão — filtros e listagens usam esse vínculo.' },
+  ],
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function UnidadeAdmin() {
   const [list, setList]       = useState([])
   const [orgaos, setOrgaos]   = useState([])

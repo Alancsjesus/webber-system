@@ -9,6 +9,18 @@ const ETAPA = { UPLOAD: 1, MAPEAR: 2, RESULTADO: 3 }
 // ── helpers ───────────────────────────────────────────────────────────────────
 const fmt = (n) => Number(n ?? 0).toLocaleString('pt-BR')
 
+// ─── Ajuda Contextual ────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Importar Catálogo (CSV)',
+  descricao: 'Wizard de 3 etapas para importação em lote de itens de catálogo a partir de um arquivo CSV.',
+  acoes: [
+    { label: '1. Upload',    texto: 'Envia o CSV para análise em modo dry-run (nada é salvo ainda) — o backend identifica as famílias de itens presentes no arquivo.' },
+    { label: '2. Mapear',    texto: 'Associa cada família de item detectada no CSV a uma categoria já existente no Webber, antes da importação definitiva.' },
+    { label: '3. Resultado', texto: 'Mostra quantos itens foram criados, atualizados ou ignorados por erro após a importação real.' },
+  ],
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function ImportarCatalogoAdmin() {
   const navigate  = useNavigate()
   const inputRef  = useRef(null)

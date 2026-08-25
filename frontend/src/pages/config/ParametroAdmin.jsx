@@ -4,6 +4,18 @@ import LoadingSpinner from '../../components/LoadingSpinner'
 
 const VAZIO = { chave: '', valor: '', descricao: '', norma_base: '', data_vigencia: '' }
 
+// ─── Ajuda Contextual ────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Parâmetros do Sistema',
+  descricao: 'Registros chave/valor de configuração global (ex: limite de dispensa de ETP, flags de módulo ativo/inativo). Alguns parâmetros são embutidos no JWT no login — mudanças só refletem em sessões novas.',
+  acoes: [
+    { label: '+ Novo parâmetro', texto: 'Cria uma chave nova. A chave não pode ser alterada depois de criada, só o valor.' },
+    { label: 'Editar',           texto: 'Altera valor, descrição, norma base e data de vigência de um parâmetro existente.' },
+  ],
+  dica: 'Se o parâmetro controla um flag de módulo (ex: modulo_fesp_ativo), usuários já logados só verão a mudança após logout/login — o token de acesso carrega os flags por até 24h (refresh por até 7 dias).',
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function ParametroAdmin() {
   const [list, setList]         = useState([])
   const [loading, setLoading]   = useState(true)

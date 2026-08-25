@@ -3,6 +3,17 @@ import api from '../../services/api'
 
 const empty = () => ({ sigla: '', nome: '', parent: '', ativa: true })
 
+// ─── Ajuda Contextual ────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Órgãos',
+  descricao: 'Gestão da hierarquia de órgãos pai/filho (ex: SSP como pai; PMBA, CBMBA como filhos), base do multi-tenant e do fluxo de aceite de necessidades entre órgãos.',
+  acoes: [
+    { label: 'Órgão pai', texto: 'Opcional — órgãos sem pai são raiz da hierarquia. Um órgão filho pode repassar necessidades de execução externa ao pai.' },
+    { label: 'Desativar',  texto: 'Marca o órgão como inativo — não impede o acesso de usuários já vinculados, mas indica que o órgão não deveria mais ser usado para novos registros.' },
+  ],
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function OrgaoAdmin() {
   const [list, setList]       = useState([])
   const [loading, setLoading] = useState(true)

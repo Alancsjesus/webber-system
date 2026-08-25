@@ -1,3 +1,10 @@
+// ─── Ajuda Contextual ────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Central de Ajuda',
+  descricao: 'Referência estática sobre a hierarquia de órgãos, perfis de usuário e o fluxo completo de contratação do sistema — complementa a ajuda contextual (botão "?") disponível em cada tela.',
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function Ajuda() {
   return (
     <div className="p-8 max-w-3xl">

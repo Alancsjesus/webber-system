@@ -3,6 +3,16 @@ import api from '../../services/api'
 import EmptyState from '../../components/EmptyState'
 import LoadingSpinner from '../../components/LoadingSpinner'
 
+// ─── Ajuda Contextual ────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Subfontes de Recurso',
+  descricao: 'Detalhamento hierárquico opcional de uma Fonte de Recurso (mesmo padrão de Natureza→Elemento). Uma dotação pode indicar a subfonte específica além da fonte.',
+  acoes: [
+    { label: 'Fonte de recurso', texto: 'Obrigatória — cada subfonte pertence a exatamente uma fonte, validado também na hora de vincular a uma dotação.' },
+  ],
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function SubFonteAdmin() {
   const [list, setList]         = useState([])
   const [fontes, setFontes]     = useState([])

@@ -18,6 +18,18 @@ const empty = () => ({
   portaria_nomeacao: '', data_inicio_mandato: TODAY, data_fim_mandato: '', ativo: true,
 })
 
+// ─── Ajuda Contextual ────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Composição do Conselho Gestor',
+  descricao: 'Cadastro dos membros do Conselho Gestor do FESP, que delibera sobre a aprovação dos Planos de Aplicação de natureza FESP (Lei 14.169/2019).',
+  acoes: [
+    { label: 'Usuário / Órgão externo', texto: 'Um membro pode ser um usuário interno do sistema ou representar um órgão externo sem cadastro de usuário (preenchido por nome livre).' },
+    { label: 'Mandato',                 texto: 'Data de início obrigatória; fim do mandato opcional — membro sem data de fim é considerado vigente indefinidamente enquanto "Ativo".' },
+  ],
+  baseLegal: 'Lei Estadual 14.169/2019, Art. 9º.',
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function ComposicaoConselhoAdmin() {
   const [list, setList] = useState([])
   const [usuarios, setUsuarios] = useState([])

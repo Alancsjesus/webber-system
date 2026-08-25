@@ -3,6 +3,17 @@ import api from '../../services/api'
 import EmptyState from '../../components/EmptyState'
 import LoadingSpinner from '../../components/LoadingSpinner'
 
+// ─── Ajuda Contextual ────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Naturezas de Despesa',
+  descricao: 'Catálogo de Naturezas de Despesa (código de 6 dígitos, ex: 339030), cada uma vinculada a um Elemento de Despesa. Ao criar uma dotação, selecionar a natureza deriva o elemento automaticamente.',
+  acoes: [
+    { label: 'Código',   texto: 'Exatamente 6 dígitos numéricos — formatado automaticamente como X.X.XX.XX (ex: 3.3.90.30) na exibição.' },
+    { label: 'Filtro por elemento', texto: 'Restringe a lista às naturezas de um Elemento de Despesa específico.' },
+  ],
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function NaturezaAdmin() {
   const [list, setList]         = useState([])
   const [elementos, setElementos] = useState([])

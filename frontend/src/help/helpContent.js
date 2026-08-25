@@ -47,6 +47,25 @@ import { pageHelp as fornecedorCreateHelp }   from '../pages/FornecedorCreate'
 import { pageHelp as fornecedorDetailHelp }   from '../pages/FornecedorDetail'
 import { pageHelp as prepararAquisicaoHelp }  from '../pages/PrepararAquisicao'
 import { pageHelp as aceiteNecessidadesHelp } from '../pages/AceiteNecessidades'
+import { pageHelp as ajudaHelp }              from '../pages/Ajuda'
+import { pageHelp as orgaoAdminHelp }         from '../pages/config/OrgaoAdmin'
+import { pageHelp as unidadeAdminHelp }       from '../pages/config/UnidadeAdmin'
+import { pageHelp as usuarioAdminHelp }       from '../pages/config/UsuarioAdmin'
+import { pageHelp as acaoAdminHelp }          from '../pages/config/AcaoAdmin'
+import { pageHelp as elementoAdminHelp }      from '../pages/config/ElementoAdmin'
+import { pageHelp as naturezaAdminHelp }      from '../pages/config/NaturezaAdmin'
+import { pageHelp as fonteAdminHelp }         from '../pages/config/FonteAdmin'
+import { pageHelp as subFonteAdminHelp }      from '../pages/config/SubFonteAdmin'
+import { pageHelp as tipoAcaoAdminHelp }      from '../pages/config/TipoAcaoAdmin'
+import { pageHelp as tipoFonteAdminHelp }     from '../pages/config/TipoFonteAdmin'
+import { pageHelp as parametroAdminHelp }     from '../pages/config/ParametroAdmin'
+import { pageHelp as perfilAdminHelp }        from '../pages/config/PerfilAdmin'
+import { pageHelp as areaAdminHelp }          from '../pages/config/AreaAdmin'
+import { pageHelp as artefatoAdminHelp }      from '../pages/config/ArtefatoAdmin'
+import { pageHelp as catalogoAdminHelp }      from '../pages/config/CatalogoAdmin'
+import { pageHelp as categoriaAdminHelp }     from '../pages/config/CategoriaAdmin'
+import { pageHelp as importarCatalogoAdminHelp } from '../pages/config/ImportarCatalogoAdmin'
+import { pageHelp as composicaoConselhoAdminHelp } from '../pages/config/ComposicaoConselhoAdmin'
 import { pageHelp as planoComprasHelp }       from '../pages/PlanoCompras'
 import { pageHelp as calendarioHelp }         from '../pages/Calendario'
 import { pageHelp as auditoriaHelp }              from '../pages/AuditoriaList'
@@ -137,4 +156,25 @@ export const helpContent = {
   '/fesp/instrumentos/:id':     fespInstrumentoDetailHelp,
   '/fesp/execucao':             fespPainelExecucaoHelp,
   '/fesp/relatorio-itens':      fespRelatorioItensHelp,
+
+  '/ajuda':                     ajudaHelp,
+
+  '/config/orgaos':             orgaoAdminHelp,
+  '/config/unidades':           unidadeAdminHelp,
+  '/config/usuarios':           usuarioAdminHelp,
+  '/config/perfis':             perfilAdminHelp,
+  '/config/parametros':         parametroAdminHelp,
+  '/config/areas':              areaAdminHelp,
+  '/config/acoes':              acaoAdminHelp,
+  '/config/elementos':          elementoAdminHelp,
+  '/config/naturezas':          naturezaAdminHelp,
+  '/config/fontes':             fonteAdminHelp,
+  '/config/subfontes':          subFonteAdminHelp,
+  '/config/tipo-acao':          tipoAcaoAdminHelp,
+  '/config/tipo-fonte':         tipoFonteAdminHelp,
+  '/config/artefatos':          artefatoAdminHelp,
+  '/config/catalogo':           catalogoAdminHelp,
+  '/config/catalogo/importar':  importarCatalogoAdminHelp,
+  '/config/categorias':         categoriaAdminHelp,
+  '/config/conselho-fesp':      composicaoConselhoAdminHelp,
 }

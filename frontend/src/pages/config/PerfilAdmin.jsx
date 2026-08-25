@@ -1,5 +1,12 @@
 import { useNavigate } from 'react-router-dom'
 
+// ─── Ajuda Contextual ────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Perfis e Permissões',
+  descricao: 'Referência estática (não editável nesta tela) do que cada papel de usuário pode fazer no sistema — a matriz real de acesso é definida em código, não pode ser alterada por aqui.',
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 const PERFIS = [
   {
     papel: 'admin',
