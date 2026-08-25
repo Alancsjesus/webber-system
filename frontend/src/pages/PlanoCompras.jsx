@@ -60,7 +60,7 @@ export default function PlanoCompras() {
   const handleExport = async () => {
     setExportLoading(true)
     try {
-      const params = new URLSearchParams({ format: 'pdf' })
+      const params = new URLSearchParams({ export: 'pdf' })
       if (filters.exercicio) params.append('exercicio', filters.exercicio)
       if (filters.status)    params.append('status',    filters.status)
       if (filters.familia)   params.append('familia',   filters.familia)

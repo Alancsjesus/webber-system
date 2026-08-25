@@ -1011,7 +1011,7 @@ def gerar_pdf_plano_compras(dados: dict, org_nome: str, org_sigla: str = None) -
     e.append(Spacer(1, 0.5*cm))
     legenda_dados = [
         ['Legenda de Modalidades Sugeridas', ''],
-        ['Pregão Eletrônico', f'Valor total da família > R$ {_fmt_valor(dados.get("limite_dispensa", 62000))}'],
+        ['Pregão Eletrônico', f'Valor total da família > {_fmt_valor(dados.get("limite_dispensa", 62000))}'],
         ['Dispensa Agrupada', 'Mesma família presente em múltiplos DFDs — agrupamento recomendado'],
         ['Dispensa por Valor', 'Valor dentro do limite de dispensa e DFD único'],
     ]

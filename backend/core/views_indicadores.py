@@ -327,6 +327,8 @@ class PlanoComprasView(APIView):
       ?exercicio=2026          — filtra por exercício do DFD (via dotação)
       ?status=Rascunho,Aprovada — filtra por status do DFD (default: todos exceto Cancelada/Rejeitada)
       ?familia=42.40            — filtra uma família específica
+      ?export=pdf               — exporta em PDF em vez de retornar JSON (não usar
+                                   "format": é reservado pela negociação de conteúdo do DRF)
     """
     permission_classes = [IsAuthenticated, IsMultiTenant]
 
@@ -460,7 +462,10 @@ class PlanoComprasView(APIView):
             'familias':        resultado,
         }
 
-        if request.query_params.get('format') == 'pdf':
+        # Nome do param é "export", não "format" — "format" é reservado pelo DRF
+        # (URL_FORMAT_OVERRIDE / negociação de conteúdo) e um valor não reconhecido
+        # como renderer (ex: "pdf") faz o DRF responder 404 antes de chegar aqui.
+        if request.query_params.get('export') == 'pdf':
             from exportacao.pdf_utils import gerar_pdf_plano_compras, resposta_pdf
             from core.models import Orgao
             orgao = Orgao.objects.filter(pk=org_id).first()
