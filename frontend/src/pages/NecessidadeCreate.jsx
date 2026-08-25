@@ -19,6 +19,20 @@ const AREAS = [
 
 const ANO_ATUAL = new Date().getFullYear()
 
+// ─── Ajuda Contextual ────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Nova Necessidade de Planejamento',
+  descricao: 'Registra o primeiro passo do planejamento de uma contratação — antes mesmo do DFD. Toda necessidade aprovada compõe o Plano de Contratações Anual (PCA) e pode ser transformada em DFD.',
+  acoes: [
+    { label: 'Responsável pela execução', texto: 'Execução Interna: o próprio órgão conduz a contratação. Execução Externa: repassa a necessidade ao órgão superior (pai), que precisa aceitá-la antes de prosseguir — usado quando o órgão filho não tem unidade de contratação própria para o objeto.' },
+    { label: 'Áreas de aplicação',        texto: 'Classificação múltipla usada para agrupar necessidades por finalidade (TI, Formação, Operações, Rede, Frota, Derivados) em relatórios e no Painel de Orçamento.' },
+    { label: 'Prazo desejado',            texto: 'Opcional. Data-limite desejada para a contratação estar concluída — aparece no Calendário como referência de urgência.' },
+    { label: 'Criar necessidade',         texto: 'Salva como Rascunho. Ainda pode ser editada livremente até ser submetida para análise.' },
+  ],
+  baseLegal: 'Lei 14.133/2021 — Art. 12, VII (PCA) e Art. 18 (fase preparatória).',
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function NecessidadeCreate() {
   const navigate = useNavigate()
   const { createNecessidade } = usePlanejamentoStore()

@@ -131,6 +131,23 @@ const inp = (err) =>
 const sel = () =>
   'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-teal-500'
 
+// ─── Ajuda Contextual ────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Nova Minuta — Termo de Referência',
+  descricao: 'Criado a partir de um ETP aprovado. Vários campos são pré-populados do ETP e podem ser editados. O tipo de objeto (Bens/Serviços/Híbrido) determina quais seções específicas aparecem no formulário.',
+  acoes: [
+    { label: 'Tipo de objeto',                texto: 'Bens e Serviços exibem seções específicas próprias (garantia técnica de bens vs. regime de execução/transição de serviços). Híbrido exibe as duas.' },
+    { label: 'Sistema de Registro de Preços (ARP)', texto: 'Marque quando a contratação vai gerar uma Ata de Registro de Preços em vez de contrato direto.' },
+    { label: 'Forma de execução do contrato', texto: 'Escopo (entrega única), Contínuo, Emergencial ou Art. 108 — cada uma gera automaticamente a redação legal do prazo de vigência (mostrada em destaque), com limites de meses diferentes por tipo.' },
+    { label: 'Reserva de Cota ME/EPP (Bens)', texto: 'Vem pré-selecionada conforme decisão já tomada no ETP; pode ser ajustada aqui.' },
+    { label: 'Exame de adequação / Vistoria / Subcontratação', texto: 'Cada um tem opções que, quando diferentes do padrão restritivo, abrem um campo de detalhamento obrigatório para a redação do edital.' },
+    { label: 'Garantia da contratação',       texto: 'Percentual limitado a 5% (até 10% em casos justificados, Art. 98) e modalidade preferencial — deixe em branco para permitir qualquer modalidade do Art. 96, §1º.' },
+    { label: 'Criar Minuta TR',               texto: 'Salva o TR vinculado ao ETP de origem. Os lotes de licitação são configurados depois, na tela de detalhe.' },
+  ],
+  baseLegal: 'Lei 14.133/2021 — Art. 6º, XXIII e Art. 40 (elementos do TR).',
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 // ── Formulário principal ──────────────────────────────────────────────────────
 
 export default function TRCreate() {

@@ -42,6 +42,21 @@ function calcularTotal(itens) {
   }, 0)
 }
 
+// ─── Ajuda Contextual ────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Novo DFD — Documento de Formalização de Demanda',
+  descricao: 'Formaliza a necessidade de contratação. Idealmente nasce de uma Necessidade de Planejamento já aprovada, mas também pode ser criado fora do planejamento (com justificativa obrigatória).',
+  acoes: [
+    { label: 'Necessidade de planejamento', texto: 'Selecione a necessidade aprovada que origina este DFD. Se nenhuma necessidade se aplicar, é possível prosseguir sem ela — mas a justificativa passa a ser obrigatória.' },
+    { label: 'Classificação preliminar (triagem)', texto: 'Define se este DFD é elegível para dispensa do ETP e quais seções de checklist se aplicam. Não decide a modalidade de licitação — essa é decidida depois, no Procedimento, com base na Pesquisa de Preços.' },
+    { label: 'Avisos de extrapolação', texto: 'Aparecem quando o valor total dos itens supera em mais de 10% o valor planejado na necessidade, ou quando uma área de aplicação selecionada não estava prevista nela. Exigem justificativa antes de salvar.' },
+    { label: '+ Adicionar item',       texto: 'Cada item precisa de objeto, unidade, quantidade e valor unitário — o total do DFD é calculado automaticamente pela soma dos itens.' },
+    { label: 'Unidades responsáveis',  texto: 'Unidade licitante e contratante são opcionais nesta etapa e podem ser definidas ou alteradas depois da criação.' },
+  ],
+  baseLegal: 'Lei 14.133/2021 — Art. 18, §1º, I (elementos da fase preparatória).',
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function DFDCreate() {
   const navigate   = useNavigate()
   const location   = useLocation()

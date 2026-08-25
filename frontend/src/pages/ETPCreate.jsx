@@ -5,6 +5,20 @@ import useAuthStore from '../stores/authStore'
 import CampoSei from '../components/CampoSei'
 import CampoMoeda from '../components/CampoMoeda'
 
+// ─── Ajuda Contextual ────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Novo ETP — Estudo Técnico Preliminar',
+  descricao: 'Elaborado a partir de um DFD aprovado. Analisa a necessidade em profundidade, avalia soluções de mercado e fundamenta a viabilidade técnica e econômica da contratação.',
+  acoes: [
+    { label: 'Tipo de parcelamento',    texto: 'Define se a contratação será por lote único (global), dividida em lotes ou por item — decisão que precisa de justificativa e impacta diretamente o TR e o Procedimento.' },
+    { label: 'Reserva de Cota ME/EPP',  texto: 'Obrigatória para objetos divisíveis (LC 123/2006, Art. 48, III). Se desmarcada, é preciso justificar por que a reserva não se aplica ao objeto.' },
+    { label: 'Licitação exclusiva ME/EPP', texto: 'Aplicável quando o valor total do item não ultrapassa R$80.000 (Art. 48, I).' },
+    { label: 'Criar ETP',               texto: 'Salva o ETP vinculado ao DFD de origem. Os demais campos podem ser complementados depois, na tela de detalhe.' },
+  ],
+  baseLegal: 'Lei 14.133/2021 — Art. 18, §1º, II e Art. 40, V (parcelamento).',
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function ETPCreate() {
   const navigate  = useNavigate()
   const location  = useLocation()

@@ -13,12 +13,16 @@ import { pageHelp as dashboardHelp }          from '../pages/Dashboard'
 import { pageHelp as painelHelp }             from '../pages/Painel'
 import { pageHelp as necessidadeListHelp }    from '../pages/NecessidadeList'
 import { pageHelp as necessidadeDetailHelp }  from '../pages/NecessidadeDetail'
+import { pageHelp as necessidadeCreateHelp }  from '../pages/NecessidadeCreate'
 import { pageHelp as dfdListHelp }            from '../pages/DFDList'
 import { pageHelp as dfdDetailHelp }          from '../pages/DFDDetail'
+import { pageHelp as dfdCreateHelp }          from '../pages/DFDCreate'
 import { pageHelp as etpListHelp }            from '../pages/ETPList'
 import { pageHelp as etpDetailHelp }          from '../pages/ETPDetail'
+import { pageHelp as etpCreateHelp }          from '../pages/ETPCreate'
 import { pageHelp as trListHelp }             from '../pages/TRList'
 import { pageHelp as trDetailHelp }           from '../pages/TRDetail'
+import { pageHelp as trCreateHelp }           from '../pages/TRCreate'
 import { pageHelp as orcamentoListHelp }      from '../pages/OrcamentoList'
 import { pageHelp as relatorioIndicacoesHelp } from '../pages/RelatorioIndicacoes'
 import { pageHelp as painelOrcamentoHelp }    from '../pages/PainelOrcamento'
@@ -48,15 +52,19 @@ export const helpContent = {
   '/painel':                    painelHelp,
 
   '/planejamento/necessidades':       necessidadeListHelp,
+  '/planejamento/necessidades/nova':  necessidadeCreateHelp,
   '/planejamento/necessidades/:id':   necessidadeDetailHelp,
 
   '/demanda/dfd':               dfdListHelp,
+  '/demanda/dfd/novo':          dfdCreateHelp,
   '/demanda/dfd/:id':           dfdDetailHelp,
 
   '/etp/etps':                  etpListHelp,
+  '/etp/etps/novo':             etpCreateHelp,
   '/etp/etps/:id':              etpDetailHelp,
 
   '/analise-tecnica/trs':       trListHelp,
+  '/analise-tecnica/trs/novo':  trCreateHelp,
   '/analise-tecnica/trs/:id':   trDetailHelp,
 
   '/orcamento/dotacoes':        orcamentoListHelp,
