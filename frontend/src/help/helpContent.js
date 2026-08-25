@@ -26,6 +26,13 @@ import { pageHelp as trCreateHelp }           from '../pages/TRCreate'
 import { pageHelp as orcamentoListHelp }      from '../pages/OrcamentoList'
 import { pageHelp as relatorioIndicacoesHelp } from '../pages/RelatorioIndicacoes'
 import { pageHelp as painelOrcamentoHelp }    from '../pages/PainelOrcamento'
+import { pageHelp as orcamentoCreateHelp }    from '../pages/OrcamentoCreate'
+import { pageHelp as orcamentoDetailHelp }    from '../pages/OrcamentoDetail'
+import { pageHelp as indicacaoListHelp }      from '../pages/IndicacaoList'
+import { pageHelp as indicacaoCreateHelp }    from '../pages/IndicacaoCreate'
+import { pageHelp as indicacaoDetailHelp }    from '../pages/IndicacaoDetail'
+import { pageHelp as pcaDetailHelp }          from '../pages/PCADetail'
+import { pageHelp as planoListHelp }          from '../pages/PlanoList'
 import { pageHelp as mapaListHelp }           from '../pages/MapaList'
 import { pageHelp as mapaDetailHelp }         from '../pages/MapaDetail'
 import { pageHelp as pncpListHelp }           from '../pages/PNCPList'
@@ -68,8 +75,16 @@ export const helpContent = {
   '/analise-tecnica/trs/:id':   trDetailHelp,
 
   '/orcamento/dotacoes':        orcamentoListHelp,
+  '/orcamento/dotacoes/nova':   orcamentoCreateHelp,
+  '/orcamento/dotacoes/:id':    orcamentoDetailHelp,
+  '/orcamento/indicacoes':      indicacaoListHelp,
+  '/orcamento/indicacoes/nova': indicacaoCreateHelp,
+  '/orcamento/indicacoes/:id':  indicacaoDetailHelp,
   '/orcamento/relatorio-indicacoes': relatorioIndicacoesHelp,
   '/orcamento/painel':          painelOrcamentoHelp,
+
+  '/planejamento/planos':       planoListHelp,
+  '/planejamento/pca/:id':      pcaDetailHelp,
 
   '/pesquisa/mapa':             mapaListHelp,
   '/pesquisa/mapa/:id':         mapaDetailHelp,

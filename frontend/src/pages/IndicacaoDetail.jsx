@@ -30,6 +30,26 @@ const TIPO_REGISTRO = {
 
 const CANCEL_LABEL = { npo: 'NPO', concessao: 'Concessão', empenho: 'Empenho', liquidacao: 'Liquidação', pagamento: 'Pagamento' }
 
+// ─── Ajuda Contextual ────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Indicação Orçamentária — Detalhe',
+  descricao: 'Vincula dotações à indicação, detalha o valor por item de DFD (quando aplicável) e, após aprovada, registra os dois pipelines de execução: descentralização (NPO/Concessão) e despesa pública (Empenho/Liquidação/Pagamento).',
+  acoes: [
+    { label: '+ Vincular dotação',   texto: 'Associa uma dotação orçamentária a esta indicação com um valor. Marcar "Em diligência" indica pendência administrativa — o valor aparece na coluna Diligência em vez de Indicado até ser resolvido.' },
+    { label: 'Detalhar itens',       texto: 'Só disponível quando a indicação está ligada a um DFD. Rateia o valor de uma linha de dotação entre os itens do DFD (uma dotação pode cobrir vários itens, e um item pode ser coberto por várias dotações). A soma do rateio não pode ultrapassar o valor indicado da linha.' },
+    { label: 'Submeter',             texto: 'Envia a indicação para aprovação do Ordenador. Só possível em Rascunho.' },
+    { label: 'Aprovar',              texto: 'Aprova a indicação, liberando o registro de execução orçamentária (NPO, Concessão, Empenho, Liquidação, Pagamento).' },
+    { label: '+ Registrar NPO(s)',   texto: 'Nota de Programação Orçamentária — mecanismo de descentralização de recurso (não confundir com Empenho). Valor não pode superar o indicado.' },
+    { label: '+ Registrar Concessão(ões)', texto: 'Segunda etapa da descentralização, após a NPO. Valor não pode superar o descentralizado.' },
+    { label: '+ Registrar Empenho(s)',     texto: '1º estágio da despesa pública (Lei 4.320/64, Art. 58). Valor não pode superar o indicado da própria linha — é uma cadeia paralela à descentralização, não sequencial a ela.' },
+    { label: '+ Registrar Liquidação(ões)', texto: '2º estágio da despesa — comprova que o bem/serviço foi entregue/prestado. Valor não pode superar o empenhado.' },
+    { label: '+ Registrar Pagamento(s)',    texto: '3º e último estágio — quitação da despesa. Valor não pode superar o liquidado.' },
+    { label: 'Cancelar (NPO/Concessão/Empenho/Liquidação/Pagamento)', texto: 'Reverte o registro e recalcula os valores — bloqueado se o estágio seguinte já consumiu o valor (ex: não é possível cancelar um Empenho já Liquidado).' },
+  ],
+  baseLegal: 'Lei 4.320/1964 — Art. 58 a 64 (Empenho, Liquidação, Pagamento).',
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function IndicacaoDetail() {
   const { id }     = useParams()
   const navigate   = useNavigate()

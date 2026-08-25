@@ -18,6 +18,16 @@ const STATUS_CLS = {
 const fmt = (v) =>
   Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
+// ─── Ajuda Contextual ────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Indicações Orçamentárias / DOD',
+  descricao: 'Lista as Declarações do Ordenador de Despesa (DOD) — o instrumento que formaliza a alocação de recurso orçamentário para uma demanda específica (DFD ou necessidade solta).',
+  acoes: [
+    { label: 'Nova indicação', texto: 'Cria uma nova indicação orçamentária, a ser detalhada (dotações, itens, execução) na tela seguinte.' },
+  ],
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function IndicacaoList() {
   const navigate = useNavigate()
   const { indicacoes, total, loading, error, fetchIndicacoes } = useIndicacaoStore()

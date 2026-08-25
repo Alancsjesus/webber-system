@@ -6,6 +6,19 @@ import CampoMoeda from '../components/CampoMoeda'
 
 const ANO_ATUAL = new Date().getFullYear()
 
+// ─── Ajuda Contextual ────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Nova Dotação Orçamentária',
+  descricao: 'Registra a disponibilidade de recurso orçamentário (ação + natureza/elemento + fonte) que depois será indicada para necessidades e itens de DFD específicos.',
+  acoes: [
+    { label: 'Natureza de despesa', texto: 'Caminho recomendado: selecione a natureza — o elemento de despesa é derivado automaticamente dela. O guia de classificação SIMPAS ajuda a escolher a natureza certa (Material de Consumo, Material Permanente, Serviço).' },
+    { label: 'Elemento de despesa',  texto: 'Alternativa avulsa, só aparece se nenhuma natureza for selecionada — use apenas quando a natureza específica ainda não estiver cadastrada.' },
+    { label: 'Fonte de recurso',     texto: 'Ao selecionar, carrega as subfontes específicas dessa fonte (se houver) para detalhamento opcional.' },
+    { label: 'Criar dotação',        texto: 'Salva como "Proposta" (ou o status escolhido). O valor dotado é o teto que poderá ser indicado para necessidades depois, em Orçamento → Indicações.' },
+  ],
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function OrcamentoCreate() {
   const navigate = useNavigate()
   const { createDotacao, fetchAcoes, fetchElementos, fetchNaturezas, fetchFontes, fetchSubfontes, acoes, elementos, naturezas, fontes, subfontes } =

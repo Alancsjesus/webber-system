@@ -6,6 +6,17 @@ import NecessidadePicker from '../components/NecessidadePicker'
 
 const ANO_ATUAL = new Date().getFullYear()
 
+// ─── Ajuda Contextual ────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Nova Indicação Orçamentária',
+  descricao: 'Cria o "envelope" da indicação — o vínculo com dotações e o detalhamento por item de DFD são feitos depois, na tela de detalhe.',
+  acoes: [
+    { label: 'Vincular a', texto: 'DFD: a indicação nasce ligada a um DFD específico, habilitando o detalhamento por item depois. Necessidade: liga a uma necessidade de planejamento solta (sem DFD ainda). Sem vínculo: indicação genérica, sem rastreabilidade a um DFD ou necessidade específica.' },
+    { label: 'Criar indicação', texto: 'Salva como Rascunho. Depois de criada, é preciso vincular dotações orçamentárias e, se ligada a um DFD, ratear os itens antes de submeter ao Ordenador.' },
+  ],
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function IndicacaoCreate() {
   const navigate = useNavigate()
   const { createIndicacao } = useIndicacaoStore()

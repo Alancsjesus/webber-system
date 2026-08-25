@@ -15,6 +15,20 @@ const STATUS_BADGE = {
   publicado: 'bg-green-100 text-green-700',
 }
 
+// ─── Ajuda Contextual ────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'PCA — Plano de Contratações Anual',
+  descricao: 'Consolida as necessidades aprovadas de um exercício em um documento formal e sequenciado, exigido pela Lei 14.133/2021. Enquanto em Rascunho, itens podem ser vinculados e editados livremente.',
+  acoes: [
+    { label: '+ Vincular necessidades', texto: 'Abre um painel com as necessidades aprovadas do exercício ainda não incluídas no PCA. Só necessidades com esse status ficam disponíveis.' },
+    { label: 'Editar (por item)',       texto: 'Preenche Categoria (Custeio/Investimento), Programa/Ação, Data estimada de início e Objetivo Estratégico — necessários antes de publicar.' },
+    { label: 'Publicar PCA',            texto: 'Gera os números sequenciais definitivos e torna o documento somente leitura. Ação irreversível — revise os itens antes.' },
+    { label: 'Exportar PDF',            texto: 'Gera o PCA em PDF no formato exigido pela IN SEGES/ME nº 65/2021, disponível tanto em rascunho quanto publicado.' },
+  ],
+  baseLegal: 'Lei 14.133/2021 — Art. 12, VII e IN SEGES/ME nº 65/2021.',
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function PCADetail() {
   const { id }   = useParams()
   const navigate = useNavigate()

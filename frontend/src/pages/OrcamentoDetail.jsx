@@ -22,6 +22,19 @@ const NECES_STATUS_CLS = {
   Cancelada:     'bg-red-100 text-red-700',
 }
 
+// ─── Ajuda Contextual ────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Dotação Orçamentária — Detalhe',
+  descricao: 'Detalhe de uma dotação orçamentária: ação, natureza/elemento de despesa, fonte e o pipeline de valores desde o dotado até o efetivamente concedido.',
+  acoes: [
+    { label: 'Pipeline Orçamentário', texto: 'Dotado → Indicado → Descentralizado → Concedido. Cada etapa representa um estágio do mecanismo de descentralização orçamentária (NPO/Concessão), independente da execução por Empenho/Liquidação/Pagamento (tratada na Indicação Orçamentária vinculada).' },
+    { label: '+ Vincular necessidade', texto: 'Associa diretamente uma Necessidade de Planejamento a esta dotação, sem passar pelo fluxo detalhado de Indicação por item. Útil para vínculo rápido de controle orçamentário.' },
+    { label: 'Desvincular',            texto: 'Remove o vínculo entre a necessidade e a dotação.' },
+    { label: 'Excluir',                texto: 'Remove a dotação permanentemente — só possível se não houver valores já indicados/executados.' },
+  ],
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function OrcamentoDetail() {
   const { id } = useParams()
   const navigate = useNavigate()

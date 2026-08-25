@@ -11,6 +11,17 @@ const STATUS_BADGE = {
 
 const ANOS = Array.from({ length: 5 }, (_, i) => new Date().getFullYear() - 1 + i)
 
+// ─── Ajuda Contextual ────────────────────────────────────────────────────────
+export const pageHelp = {
+  titulo: 'Plano de Compras / PCA',
+  descricao: 'Lista os Planos de Contratações Anuais (PCA) do órgão, um por exercício fiscal.',
+  acoes: [
+    { label: '+ Novo Plano', texto: 'Cria um novo PCA para o exercício selecionado e abre direto a tela de detalhe para começar a vincular necessidades.' },
+  ],
+  baseLegal: 'Lei 14.133/2021 — Art. 12, VII.',
+}
+// ──────────────────────────────────────────────────────────────────────────────
+
 export default function PlanoList() {
   const navigate = useNavigate()
   const { planos, loading, error, fetchPlanos, criarPlano } = usePlanoStore()
