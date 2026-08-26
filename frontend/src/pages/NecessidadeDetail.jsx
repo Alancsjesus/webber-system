@@ -55,6 +55,7 @@ export default function NecessidadeDetail() {
   const { current, loading, error, fetchNecessidade, updateNecessidade, deleteNecessidade } = usePlanejamentoStore()
   const papel      = useAuthStore((s) => s.papel)
   const tipoUnidade = useAuthStore((s) => s.tipoUnidade)
+  const orgId      = useAuthStore((s) => s.orgId)
 
   const isPlanejamento = tipoUnidade === 'planejamento' ||
     ['gestor_planejamento', 'admin'].includes(papel)
@@ -69,18 +70,21 @@ export default function NecessidadeDetail() {
   const [showRecusar, setShowRecusar]   = useState(false)
   const [motivo, setMotivo]             = useState('')
   const [actionLoading, setActionLoading] = useState(false)
-  const [orgaosPai, setOrgaosPai]    = useState([])
+  const [orgaoAtual, setOrgaoAtual]  = useState(null)
 
   useEffect(() => { fetchNecessidade(id) }, [id])
   useEffect(() => {
     if (current) setForm({ ...current })
   }, [current])
 
+  // O órgão pai já está cadastrado na relação do próprio órgão (Orgao.parent) —
+  // não é uma escolha do usuário, só carregamos para exibir/preencher.
   useEffect(() => {
-    api.get('/core/orgaos/', { params: { page_size: 50 } })
-      .then(({ data }) => setOrgaosPai(data.results ?? data))
+    if (!orgId) return
+    api.get(`/core/orgaos/${orgId}/`)
+      .then(({ data }) => setOrgaoAtual(data))
       .catch(() => {})
-  }, [])
+  }, [orgId])
 
   const set = (field, value) => {
     setForm((p) => ({ ...p, [field]: value }))
@@ -401,23 +405,30 @@ export default function NecessidadeDetail() {
                     className="accent-blue-600" />
                   <span className="text-sm">Interna</span>
                 </label>
-                <label className="flex items-center gap-2 cursor-pointer">
+                <label className={`flex items-center gap-2 ${orgaoAtual && !orgaoAtual.parent ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
                   <input type="radio" name="tipo_exec_edit" value="externa"
                     checked={form.tipo_execucao === 'externa'}
-                    onChange={() => set('tipo_execucao', 'externa')}
+                    disabled={!!orgaoAtual && !orgaoAtual.parent}
+                    onChange={() => {
+                      set('tipo_execucao', 'externa')
+                      set('orgao_executor', orgaoAtual?.parent ? String(orgaoAtual.parent) : null)
+                    }}
                     className="accent-blue-600" />
                   <span className="text-sm">Externa (órgão pai)</span>
                 </label>
               </div>
               {form.tipo_execucao === 'externa' && (
-                <select value={form.orgao_executor || ''}
-                  onChange={(e) => set('orgao_executor', e.target.value)}
-                  className={inp()}>
-                  <option value="">— Selecione —</option>
-                  {orgaosPai.map(o => (
-                    <option key={o.id} value={o.id}>{o.sigla} — {o.nome}</option>
-                  ))}
-                </select>
+                orgaoAtual?.parent ? (
+                  <div className="w-full border border-gray-200 bg-gray-100 text-gray-700 rounded-lg px-3 py-2 text-sm">
+                    {orgaoAtual.parent_sigla} — {orgaoAtual.parent_nome}
+                  </div>
+                ) : (
+                  <p className="text-xs text-red-600">
+                    {orgaoAtual
+                      ? 'Este órgão não tem um órgão superior cadastrado — contate o administrador.'
+                      : 'Carregando dados do órgão...'}
+                  </p>
+                )
               )}
             </div>
           ) : (

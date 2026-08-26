@@ -37,6 +37,7 @@ export default function NecessidadeCreate() {
   const navigate = useNavigate()
   const { createNecessidade } = usePlanejamentoStore()
   const orgaoSigla = useAuthStore((s) => s.orgaoSigla)
+  const orgId      = useAuthStore((s) => s.orgId)
 
   const [form, setForm] = useState({
     titulo: '',
@@ -51,19 +52,24 @@ export default function NecessidadeCreate() {
     tipo_execucao: 'interna',
     orgao_executor: '',
   })
-  const [orgaosPai, setOrgaosPai] = useState([])
+  const [orgaoAtual, setOrgaoAtual] = useState(null)
   const [saving, setSaving]   = useState(false)
   const [errors, setErrors]   = useState({})
 
-  // Carregar órgãos disponíveis para execução externa (órgão pai)
+  // O órgão pai já está cadastrado na relação do próprio órgão (Orgao.parent) —
+  // não é uma escolha do usuário, só carregamos para exibir/preencher.
   useEffect(() => {
-    api.get('/core/orgaos/', { params: { page_size: 50 } })
-      .then(({ data }) => {
-        const list = data.results ?? data
-        setOrgaosPai(list.filter(o => o.parent !== null || o.eh_pai))
-      })
+    if (!orgId) return
+    api.get(`/core/orgaos/${orgId}/`)
+      .then(({ data }) => setOrgaoAtual(data))
       .catch(() => {})
-  }, [])
+  }, [orgId])
+
+  useEffect(() => {
+    if (form.tipo_execucao === 'externa' && orgaoAtual?.parent) {
+      set('orgao_executor', String(orgaoAtual.parent))
+    }
+  }, [form.tipo_execucao, orgaoAtual])
 
   const set = (field, value) => {
     setForm((p) => ({ ...p, [field]: value }))
@@ -193,9 +199,10 @@ export default function NecessidadeCreate() {
                 <span className="block text-xs text-gray-500">Pelo próprio órgão ({orgaoSigla})</span>
               </span>
             </label>
-            <label className="flex items-center gap-2 cursor-pointer">
+            <label className={`flex items-center gap-2 ${orgaoAtual && !orgaoAtual.parent ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}>
               <input type="radio" name="tipo_execucao" value="externa"
                 checked={form.tipo_execucao === 'externa'}
+                disabled={!!orgaoAtual && !orgaoAtual.parent}
                 onChange={() => set('tipo_execucao', 'externa')}
                 className="accent-blue-600" />
               <span className="text-sm text-gray-700">
@@ -207,19 +214,24 @@ export default function NecessidadeCreate() {
 
           {form.tipo_execucao === 'externa' && (
             <div className="mt-3">
-              <Field label="Órgão executor (pai)" error={errors.orgao_executor}>
-                <select value={form.orgao_executor}
-                  onChange={(e) => set('orgao_executor', e.target.value)}
-                  className={inp(errors.orgao_executor)}>
-                  <option value="">— Selecione o órgão superior —</option>
-                  {orgaosPai.map(o => (
-                    <option key={o.id} value={o.id}>{o.sigla} — {o.nome}</option>
-                  ))}
-                </select>
-              </Field>
-              <p className="text-xs text-amber-600 mt-1.5">
-                Esta necessidade aguardará aceite do órgão superior antes de prosseguir.
-              </p>
+              {orgaoAtual?.parent ? (
+                <>
+                  <Field label="Órgão executor (pai)">
+                    <div className="w-full border border-gray-200 bg-gray-100 text-gray-700 rounded-lg px-3 py-2 text-sm">
+                      {orgaoAtual.parent_sigla} — {orgaoAtual.parent_nome}
+                    </div>
+                  </Field>
+                  <p className="text-xs text-amber-600 mt-1.5">
+                    Esta necessidade aguardará aceite do órgão superior antes de prosseguir.
+                  </p>
+                </>
+              ) : (
+                <p className="text-xs text-red-600">
+                  {orgaoAtual
+                    ? `O órgão ${orgaoSigla} não tem um órgão superior cadastrado — contate o administrador para configurar essa relação em Configurações › Órgãos.`
+                    : 'Carregando dados do órgão...'}
+                </p>
+              )}
             </div>
           )}
         </div>

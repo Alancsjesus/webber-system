@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../../services/api'
+import useAuthStore from '../../stores/authStore'
 import EmptyState from '../../components/EmptyState'
 import LoadingSpinner from '../../components/LoadingSpinner'
 import CategoriaCascade from '../../components/CategoriaCascade'
@@ -39,6 +40,7 @@ function Field({ label, error, children }) {
 
 // ── Formulário de criação/modal (reutilizado) ─────────────────────────────────
 function ItemForm({ form, setForm, errors, categorias, compact = false }) {
+  const orgaoSigla = useAuthStore((s) => s.orgaoSigla) || 'SSP'
   const set = (k, v) => setForm(p => ({ ...p, [k]: v }))
   return (
     <div className="space-y-4">
@@ -113,7 +115,7 @@ function ItemForm({ form, setForm, errors, categorias, compact = false }) {
             <Field label="Nº licitação de referência">
               <input type="text" value={form.num_licitacao_ref}
                 onChange={e => set('num_licitacao_ref', e.target.value)}
-                placeholder="Ex: PE-SSP-001/2025" className={cls.input} />
+                placeholder={`Ex: PE-${orgaoSigla}-001/2025`} className={cls.input} />
             </Field>
             <div className="flex items-end gap-6 pb-2">
               <label className="flex items-center gap-2 cursor-pointer text-sm text-gray-700 select-none">

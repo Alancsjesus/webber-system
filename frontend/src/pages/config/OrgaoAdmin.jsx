@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import api from '../../services/api'
+import useAuthStore from '../../stores/authStore'
 
 const empty = () => ({ sigla: '', nome: '', parent: '', ativa: true })
 
@@ -15,6 +16,7 @@ export const pageHelp = {
 // ──────────────────────────────────────────────────────────────────────────────
 
 export default function OrgaoAdmin() {
+  const orgaoSigla = useAuthStore((s) => s.orgaoSigla) || 'SSP'
   const [list, setList]       = useState([])
   const [loading, setLoading] = useState(true)
   const [form, setForm]       = useState(null)
@@ -75,7 +77,7 @@ export default function OrgaoAdmin() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             <F label="Sigla *" error={errors.sigla}>
               <input value={form.sigla} onChange={e => set('sigla', e.target.value.toUpperCase())}
-                className={inp(errors.sigla)} placeholder="Ex: SSP" />
+                className={inp(errors.sigla)} placeholder={`Ex: ${orgaoSigla}`} />
             </F>
             <F label="Nome *" error={errors.nome}>
               <input value={form.nome} onChange={e => set('nome', e.target.value)}

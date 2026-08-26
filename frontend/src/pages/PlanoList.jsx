@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import usePlanoStore from '../stores/planoStore'
+import useAuthStore from '../stores/authStore'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { formatarMoeda } from '../utils/currencyMask'
 
@@ -24,6 +25,7 @@ export const pageHelp = {
 
 export default function PlanoList() {
   const navigate = useNavigate()
+  const orgaoSigla = useAuthStore((s) => s.orgaoSigla) || 'SSP'
   const { planos, loading, error, fetchPlanos, criarPlano } = usePlanoStore()
   const [criando, setCriando] = useState(false)
   const [form,    setForm]    = useState({ exercicio_fiscal: new Date().getFullYear(), descricao: '' })
@@ -83,7 +85,7 @@ export default function PlanoList() {
               <input
                 value={form.descricao}
                 onChange={e => setForm(p => ({ ...p, descricao: e.target.value }))}
-                placeholder="Ex: PCA 2026 — SSP"
+                placeholder={`Ex: PCA ${form.exercicio_fiscal} — ${orgaoSigla}`}
                 className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm"
               />
             </div>
