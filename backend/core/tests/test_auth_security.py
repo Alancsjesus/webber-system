@@ -268,3 +268,48 @@ class TestAdminPasswordManagement:
         assert resp.status_code == 404, (
             f"Esperado 404 (perfil não visível para não-admin), obtido: {resp.status_code}"
         )
+
+    def test_admin_cannot_manage_user_from_another_org(self, api_client, orgao, admin_user):
+        """Admin de um órgão não pode ver, editar nem apagar usuário de outro órgão."""
+        outro_orgao = Orgao.objects.create(nome='Outro Órgão', sigla='OO', ativa=True)
+        alvo = User.objects.create_user(username='alvo_outro_org', password='Admin@1234')
+        alvo.profile.papel = 'solicitante'
+        alvo.profile.org_id = outro_orgao
+        alvo.profile.save()
+
+        token = self._get_jwt(api_client, 'admin_test', 'Admin@1234')
+        api_client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
+
+        list_resp = api_client.get('/api/core/usuarios/')
+        ids_visiveis = [u['id'] for u in list_resp.data.get('results', list_resp.data)]
+        assert alvo.profile.id not in ids_visiveis, "Admin de outro órgão não deveria listar este usuário"
+
+        patch_resp = api_client.patch(
+            f'/api/core/usuarios/{alvo.profile.id}/',
+            {'password': 'TentativaHack@1'},
+            format='json',
+        )
+        assert patch_resp.status_code == 404
+
+        delete_resp = api_client.delete(f'/api/core/usuarios/{alvo.profile.id}/')
+        assert delete_resp.status_code == 404
+
+        alvo.refresh_from_db()
+        assert alvo.check_password('Admin@1234'), "Senha não deveria ter sido alterada"
+        assert alvo.is_active, "Usuário de outro órgão não deveria ter sido desativado"
+
+    def test_admin_cannot_move_user_to_another_org(self, api_client, admin_user, other_user):
+        """Admin não-superusuário não pode transferir um usuário do próprio órgão para outro."""
+        outro_orgao = Orgao.objects.create(nome='Outro Órgão 2', sigla='OO2', ativa=True)
+        token = self._get_jwt(api_client, 'admin_test', 'Admin@1234')
+        api_client.credentials(HTTP_AUTHORIZATION=f'Bearer {token}')
+
+        resp = api_client.patch(
+            f'/api/core/usuarios/{other_user.profile.id}/',
+            {'org_id': outro_orgao.id},
+            format='json',
+        )
+        assert resp.status_code == 403
+
+        other_user.profile.refresh_from_db()
+        assert other_user.profile.org_id != outro_orgao

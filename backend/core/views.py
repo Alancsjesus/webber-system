@@ -158,13 +158,25 @@ class UserManagementViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         papel = getattr(self.request, 'papel', None)
         qs = UserProfile.objects.select_related('user', 'org_id', 'unidade')
-        if papel != 'admin':
-            # Non-admins only see their own profile
-            qs = qs.filter(user=self.request.user)
-        return qs
+        if self.request.user.is_superuser:
+            # Superusuário Django (não o papel "admin", que é por órgão) enxerga tudo.
+            return qs
+        if papel == 'admin':
+            # Admin só gerencia usuários do próprio órgão — "admin" é um papel por
+            # organização, não um superusuário global (ver core/models.py:58-76).
+            return qs.filter(org_id=self.request.org_id)
+        # Não-admins só veem o próprio perfil
+        return qs.filter(user=self.request.user)
 
     def perform_create(self, serializer):
         _require_admin(self.request)
+        if not self.request.user.is_superuser:
+            org_id = serializer.validated_data.get('org_id')
+            if org_id is not None and str(org_id.pk) != str(self.request.org_id):
+                raise PermissionDenied('Só é possível criar usuários no próprio órgão.')
+            # Força o próprio órgão do admin, mesmo quando o campo não veio no payload.
+            serializer.save(org_id=self.request.orgao)
+            return
         serializer.save()
 
     def perform_update(self, serializer):
@@ -181,6 +193,12 @@ class UserManagementViewSet(viewsets.ModelViewSet):
                     raise PermissionDenied(
                         f'O campo "{campo}" só pode ser alterado por um administrador.'
                     )
+
+        # Admin de órgão (não superusuário) não pode mover o usuário para outro órgão
+        if papel == 'admin' and not self.request.user.is_superuser:
+            org_id = serializer.validated_data.get('org_id')
+            if org_id is not None and str(org_id.pk) != str(self.request.org_id):
+                raise PermissionDenied('Só é possível gerenciar usuários do próprio órgão.')
 
         serializer.save()
 

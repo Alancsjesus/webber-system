@@ -58,13 +58,19 @@ services:
       # completo (".onrender.com") -- causava DisallowedHost/URL quebrada.
       - key: CORS_ALLOWED_ORIGIN_HOST
         value: webber-frontend.onrender.com
-      # Sem chave hCaptcha real configurada — ambiente de teste fica com o bypass
-      # já usado localmente (ver backend/.env). Trocar para uma chave real antes
-      # de expor a instância além de testes internos.
+      # hCaptcha — bypass mantido ligado propositalmente enquanto esta instância for
+      # ambiente de teste (decisão do usuário, 26/08/2026). Antes de expor a instância
+      # além de testes internos, trocar para "False" e configurar:
+      # 1. Criar um site em dashboard.hcaptcha.com/sites/new (plano gratuito, sem
+      #    custo) apontando para o domínio do frontend.
+      # 2. Colar a "Secret Key" aqui no painel do Render (Environment do serviço
+      #    webber-backend) — "sync: false" evita que o valor fique no git.
+      # 3. Colar a "Site Key" em HCAPTCHA_SITE_KEY no serviço webber-frontend abaixo
+      #    (rebuild necessário — é injetada em tempo de build pelo Vite).
       - key: HCAPTCHA_BYPASS
         value: "True"
       - key: HCAPTCHA_SECRET
-        value: "0x0000000000000000000000000000000000000000"
+        sync: false
 
   # ── Frontend React (build estático, sem servidor próprio) ──────────────────────
   - type: web
@@ -76,6 +82,11 @@ services:
       # Domínio fixo — ver comentário equivalente no CORS_ALLOWED_ORIGIN_HOST acima.
       - key: VITE_API_HOST
         value: webber-backend.onrender.com
+      # Site Key real do hCaptcha (ver comentário em webber-backend/HCAPTCHA_SECRET
+      # acima) — sem valor aqui, o frontend cai no site key de teste público do
+      # hCaptcha, que sempre aprova e não bloqueia nada.
+      - key: VITE_HCAPTCHA_SITE_KEY
+        sync: false
     routes:
       - type: rewrite
         source: /*
