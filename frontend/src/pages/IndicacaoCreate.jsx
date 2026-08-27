@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import useIndicacaoStore from '../stores/indicacaoStore'
 import DFDPicker from '../components/DFDPicker'
 import NecessidadePicker from '../components/NecessidadePicker'
+import CampoSei from '../components/CampoSei'
 
 const ANO_ATUAL = new Date().getFullYear()
 
@@ -12,6 +13,7 @@ export const pageHelp = {
   descricao: 'Cria o "envelope" da indicação — o vínculo com dotações e o detalhamento por item de DFD são feitos depois, na tela de detalhe.',
   acoes: [
     { label: 'Vincular a', texto: 'DFD: a indicação nasce ligada a um DFD específico, habilitando o detalhamento por item depois. Necessidade: liga a uma necessidade de planejamento solta (sem DFD ainda). Sem vínculo: indicação genérica, sem rastreabilidade a um DFD ou necessidade específica.' },
+    { label: 'Processo SEI', texto: 'Opcional — número do processo SEI da própria indicação/DOD, distinto do SEI do DFD vinculado. Pode ser preenchido depois na tela de detalhe.' },
     { label: 'Criar indicação', texto: 'Salva como Rascunho. Depois de criada, é preciso vincular dotações orçamentárias e, se ligada a um DFD, ratear os itens antes de submeter ao Ordenador.' },
   ],
 }
@@ -26,6 +28,7 @@ export default function IndicacaoCreate() {
     tipo_vinculo: 'dfd',   // 'dfd' | 'necessidade' | 'nenhum'
     dfd: '',
     necessidade: '',
+    numero_sei: '',
     observacoes: '',
   })
   const [dfdLabel, setDfdLabel] = useState('')
@@ -48,6 +51,7 @@ export default function IndicacaoCreate() {
     try {
       const payload = {
         exercicio_fiscal: Number(form.exercicio_fiscal),
+        numero_sei: form.numero_sei,
         observacoes: form.observacoes,
       }
       if (form.tipo_vinculo === 'dfd' && form.dfd)
@@ -133,6 +137,13 @@ export default function IndicacaoCreate() {
             />
           </Field>
         )}
+
+        <Field label="Processo SEI" error={errors.numero_sei}>
+          <CampoSei
+            value={form.numero_sei}
+            onChange={(v) => set('numero_sei', v)}
+          />
+        </Field>
 
         <Field label="Observações">
           <textarea

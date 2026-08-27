@@ -981,11 +981,16 @@ def _itens_indicacao_queryset(org_id):
         indicacao__status='Cancelada'
     ).select_related(
         'indicacao', 'indicacao__dfd', 'indicacao__dfd__necessidade_origem',
-        'indicacao__necessidade',
+        'indicacao__dfd__necessidade_origem__orgao_executor',
+        'indicacao__necessidade', 'indicacao__necessidade__orgao_executor',
         'dotacao__acao', 'dotacao__elemento_despesa', 'dotacao__natureza_despesa', 'dotacao__fonte_recurso',
+        'dotacao__subfonte_recurso',
     ).prefetch_related(
         'descentralizacoes', 'concessoes', 'empenhos', 'liquidacoes', 'pagamentos',
         'itens_detalhados__item_dfd',
+        'indicacao__dfd__itens__item_catalogo',
+        'indicacao__dfd__necessidade_origem__itens_plano_aplicacao_fesp__instrumento',
+        'indicacao__necessidade__itens_plano_aplicacao_fesp__instrumento',
     ).order_by('-indicacao__exercicio_fiscal', 'dotacao__fonte_recurso__codigo', 'indicacao__numero')
 
 
@@ -998,10 +1003,21 @@ class RelatorioIndicacoesView(APIView):
     itens financiados por ela ao longo de várias indicações diferentes.
 
     GET /api/orcamento/relatorio-indicacoes/
-    Parâmetros opcionais:
-      ?fonte_recurso=<id>   — filtra por fonte de recurso da dotação
-      ?exercicio_fiscal=... — filtra pelo exercício da indicação
-      ?status_execucao=...  — Pago|Liquidado|Empenhado|Em Diligência|Indicado|Sem Execução
+    Parâmetros opcionais (filtram diretamente no banco):
+      ?fonte_recurso=<id>     — fonte de recurso da dotação
+      ?subfonte_recurso=<id>  — subfonte de recurso da dotação
+      ?acao=<id>              — ação orçamentária da dotação
+      ?elemento_despesa=<id>  — elemento de despesa da dotação
+      ?natureza_despesa=<id>  — natureza de despesa da dotação
+      ?exercicio_fiscal=...   — exercício da indicação
+      ?numero_sei=...         — busca parcial no processo SEI da indicação
+    Parâmetros opcionais (filtram após resolver a Necessidade de origem, que
+    pode vir por dois caminhos de FK diferentes — DFD ou Necessidade solta):
+      ?status_execucao=...    — Pago|Liquidado|Empenhado|Em Diligência|Indicado|Sem Execução
+      ?area_aplicacao=...     — presente na lista de áreas da Necessidade de origem
+      ?orgao_executor=<id>    — órgão executor da Necessidade de origem
+      ?beneficiada=Sim|Não    — execução externa (Sim) ou interna (Não)
+      ?instrumento_financeiro=<id> — instrumento financeiro FESP vinculado à Necessidade
     """
     permission_classes = [IsAuthenticated, IsMultiTenant]
 
@@ -1009,19 +1025,38 @@ class RelatorioIndicacoesView(APIView):
         from .serializers import IndicacaoDotacaoSerializer
 
         qs = _itens_indicacao_queryset(request.org_id)
+        params = request.query_params
 
-        fonte_recurso = request.query_params.get('fonte_recurso')
-        exercicio = request.query_params.get('exercicio_fiscal')
-        if fonte_recurso:
-            qs = qs.filter(dotacao__fonte_recurso_id=fonte_recurso)
-        if exercicio:
-            qs = qs.filter(indicacao__exercicio_fiscal=exercicio)
+        filtros_diretos = {
+            'fonte_recurso':    'dotacao__fonte_recurso_id',
+            'subfonte_recurso': 'dotacao__subfonte_recurso_id',
+            'acao':             'dotacao__acao_id',
+            'elemento_despesa': 'dotacao__elemento_despesa_id',
+            'natureza_despesa': 'dotacao__natureza_despesa_id',
+            'exercicio_fiscal': 'indicacao__exercicio_fiscal',
+        }
+        for param, campo in filtros_diretos.items():
+            valor = params.get(param)
+            if valor:
+                qs = qs.filter(**{campo: valor})
+
+        numero_sei = params.get('numero_sei')
+        if numero_sei:
+            qs = qs.filter(indicacao__numero_sei__icontains=numero_sei)
 
         itens = _flatten_por_item(IndicacaoDotacaoSerializer(qs, many=True).data)
 
-        status_execucao = request.query_params.get('status_execucao')
-        if status_execucao:
-            itens = [i for i in itens if i['status_execucao'] == status_execucao]
+        filtros_pos_flatten = {
+            'status_execucao': lambda i, v: i['status_execucao'] == v,
+            'area_aplicacao':  lambda i, v: v in (i.get('area_aplicacao') or []),
+            'orgao_executor':  lambda i, v: str(i.get('orgao_executor_id')) == str(v),
+            'beneficiada':     lambda i, v: i.get('beneficiada') == v,
+            'instrumento_financeiro': lambda i, v: str(i.get('instrumento_financeiro_id')) == str(v),
+        }
+        for param, predicado in filtros_pos_flatten.items():
+            valor = params.get(param)
+            if valor:
+                itens = [i for i in itens if predicado(i, valor)]
 
         return Response({'total': len(itens), 'itens': itens})
 

@@ -6,6 +6,7 @@ import api, { downloadFile } from '../services/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 import CampoMoeda from '../components/CampoMoeda'
 import DotacaoPicker from '../components/DotacaoPicker'
+import CampoSei, { NumeroSeiTexto } from '../components/CampoSei'
 
 const STATUS_CLS = {
   Rascunho:  'bg-gray-100 text-gray-600',
@@ -35,6 +36,7 @@ export const pageHelp = {
   titulo: 'Indicação Orçamentária — Detalhe',
   descricao: 'Vincula dotações à indicação, detalha o valor por item de DFD (quando aplicável) e, após aprovada, registra os dois pipelines de execução: descentralização (NPO/Concessão) e despesa pública (Empenho/Liquidação/Pagamento).',
   acoes: [
+    { label: 'Processo SEI',         texto: 'Número do processo SEI da própria indicação/DOD (distinto do SEI do DFD vinculado). Editável apenas em Rascunho, junto com Observações.' },
     { label: '+ Vincular dotação',   texto: 'Associa uma dotação orçamentária a esta indicação com um valor. Marcar "Em diligência" indica pendência administrativa — o valor aparece na coluna Diligência em vez de Indicado até ser resolvido.' },
     { label: 'Detalhar itens',       texto: 'Só disponível quando a indicação está ligada a um DFD. Rateia o valor de uma linha de dotação entre os itens do DFD (uma dotação pode cobrir vários itens, e um item pode ser coberto por várias dotações). A soma do rateio não pode ultrapassar o valor indicado da linha.' },
     { label: 'Submeter',             texto: 'Envia a indicação para aprovação do Ordenador. Só possível em Rascunho.' },
@@ -54,6 +56,7 @@ export default function IndicacaoDetail() {
   const { id }     = useParams()
   const navigate   = useNavigate()
   const papel      = useAuthStore((s) => s.papel)
+  const seiBaseUrl = useAuthStore((s) => s.seiBaseUrl)
 
   const {
     current, loading, error,
@@ -91,7 +94,7 @@ export default function IndicacaoDetail() {
   useEffect(() => { fetchIndicacao(id) }, [id])
   useEffect(() => {
     if (current) {
-      setForm({ observacoes: current.observacoes || '' })
+      setForm({ observacoes: current.observacoes || '', numero_sei: current.numero_sei || '' })
     }
   }, [current])
   useEffect(() => {
@@ -167,7 +170,7 @@ export default function IndicacaoDetail() {
   const handleSaveEdit = async () => {
     setSaving(true)
     try {
-      await updateIndicacao(id, { observacoes: form.observacoes })
+      await updateIndicacao(id, { observacoes: form.observacoes, numero_sei: form.numero_sei })
       setEditing(false)
     } finally { setSaving(false) }
   }
@@ -265,6 +268,17 @@ export default function IndicacaoDetail() {
             : current.necessidade
             ? <p className="text-sm text-gray-700">Necessidade: <span className="font-semibold">{current.necessidade_titulo}</span></p>
             : <p className="text-sm text-gray-400">Sem vínculo</p>}
+        </Section>
+
+        {/* Processo SEI */}
+        <Section label="Processo SEI">
+          {editing ? (
+            <CampoSei value={form.numero_sei} onChange={(v) => setForm((p) => ({ ...p, numero_sei: v }))} seiBaseUrl={seiBaseUrl} />
+          ) : current.numero_sei ? (
+            <NumeroSeiTexto valor={current.numero_sei} seiBaseUrl={seiBaseUrl} />
+          ) : (
+            <p className="text-sm text-gray-400">—</p>
+          )}
         </Section>
 
         {/* Observações */}

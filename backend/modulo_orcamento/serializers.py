@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from modulo_planejamento.models import NecessidadePlanejamento
+from modulo_demanda.serializers import ItemDFDSerializer
 from .models import (
     AcaoOrcamentaria, ElementoDespesa, NaturezaDespesa, FonteRecurso, SubFonteRecurso,
     DotacaoOrcamentaria, IndicacaoOrcamentaria, IndicacaoDotacao, ItemIndicacaoDotacao, HistoricoIndicacao,
@@ -357,8 +358,18 @@ class IndicacaoDotacaoSerializer(serializers.ModelSerializer):
     itens_detalhados   = ItemIndicacaoDotacaoSerializer(many=True, read_only=True)
     indicacao_id       = serializers.IntegerField(source='indicacao.id',           read_only=True)
     indicacao_numero   = serializers.CharField(source='indicacao.numero',          read_only=True)
+    indicacao_numero_sei = serializers.CharField(source='indicacao.numero_sei',    read_only=True)
     exercicio_fiscal   = serializers.IntegerField(source='indicacao.exercicio_fiscal', read_only=True)
+    subfonte_codigo    = serializers.SerializerMethodField()
+    subfonte_nome      = serializers.SerializerMethodField()
     beneficiada        = serializers.SerializerMethodField()
+    objeto             = serializers.SerializerMethodField()
+    itens_dfd          = serializers.SerializerMethodField()
+    area_aplicacao     = serializers.SerializerMethodField()
+    orgao_executor_id    = serializers.SerializerMethodField()
+    orgao_executor_sigla = serializers.SerializerMethodField()
+    instrumento_financeiro_id    = serializers.SerializerMethodField()
+    instrumento_financeiro_nome  = serializers.SerializerMethodField()
     valor_descentralizado = serializers.SerializerMethodField()
     valor_concedido       = serializers.SerializerMethodField()
     valor_empenhado       = serializers.SerializerMethodField()
@@ -376,7 +387,10 @@ class IndicacaoDotacaoSerializer(serializers.ModelSerializer):
         model  = IndicacaoDotacao
         fields = [
             'id', 'dotacao_id', 'valor_indicado',
-            'indicacao_id', 'indicacao_numero', 'exercicio_fiscal', 'beneficiada',
+            'indicacao_id', 'indicacao_numero', 'indicacao_numero_sei', 'exercicio_fiscal', 'beneficiada',
+            'objeto', 'itens_dfd', 'area_aplicacao',
+            'orgao_executor_id', 'orgao_executor_sigla',
+            'instrumento_financeiro_id', 'instrumento_financeiro_nome',
             'itens_detalhados', 'em_diligencia',
             'valor_descentralizado', 'valor_concedido',
             'valor_empenhado', 'valor_liquidado', 'valor_pago', 'saldo', 'status_execucao',
@@ -384,8 +398,21 @@ class IndicacaoDotacaoSerializer(serializers.ModelSerializer):
             'elemento_codigo', 'elemento_descricao',
             'natureza_formato', 'natureza_descricao',
             'fonte_codigo', 'fonte_nome',
+            'subfonte_codigo', 'subfonte_nome',
             'descentralizacoes', 'concessoes', 'empenhos', 'liquidacoes', 'pagamentos',
         ]
+
+    def _necessidade_origem(self, obj):
+        """
+        Resolve a Necessidade de origem da indicação, via DFD vinculado
+        (`dfd.necessidade_origem`) ou via Necessidade solta vinculada
+        diretamente. None quando não há como determinar.
+        """
+        if obj.indicacao.dfd_id:
+            return getattr(obj.indicacao.dfd, 'necessidade_origem', None)
+        if obj.indicacao.necessidade_id:
+            return obj.indicacao.necessidade
+        return None
 
     def get_beneficiada(self, obj):
         """
@@ -393,14 +420,64 @@ class IndicacaoDotacaoSerializer(serializers.ModelSerializer):
         execução externa (outro órgão beneficiado); 'Não' quando é interna;
         None quando não há como determinar (indicação sem demanda vinculada).
         """
-        nec = None
-        if obj.indicacao.dfd_id:
-            nec = getattr(obj.indicacao.dfd, 'necessidade_origem', None)
-        elif obj.indicacao.necessidade_id:
-            nec = obj.indicacao.necessidade
+        nec = self._necessidade_origem(obj)
         if not nec:
             return None
         return 'Sim' if nec.tipo_execucao == 'externa' else 'Não'
+
+    def get_objeto(self, obj):
+        """
+        Objeto da demanda como um todo (não do item rateado da linha) — usado
+        para dar contexto de prestação de contas mesmo quando a dotação não foi
+        detalhada por item.
+        """
+        if obj.indicacao.dfd_id:
+            return obj.indicacao.dfd.descricao
+        nec = self._necessidade_origem(obj)
+        return nec.titulo if nec else None
+
+    def get_itens_dfd(self, obj):
+        """Todos os itens do DFD vinculado (não só o item eventualmente rateado nesta linha)."""
+        if not obj.indicacao.dfd_id:
+            return []
+        return ItemDFDSerializer(obj.indicacao.dfd.itens.all(), many=True).data
+
+    def get_area_aplicacao(self, obj):
+        nec = self._necessidade_origem(obj)
+        return nec.area_aplicacao if nec else []
+
+    def get_orgao_executor_id(self, obj):
+        nec = self._necessidade_origem(obj)
+        return nec.orgao_executor_id if nec else None
+
+    def get_orgao_executor_sigla(self, obj):
+        nec = self._necessidade_origem(obj)
+        return nec.orgao_executor.sigla if nec and nec.orgao_executor_id else None
+
+    def _item_plano_fesp(self, obj):
+        nec = self._necessidade_origem(obj)
+        if not nec:
+            return None
+        return nec.itens_plano_aplicacao_fesp.select_related('instrumento').first()
+
+    def get_instrumento_financeiro_id(self, obj):
+        item = self._item_plano_fesp(obj)
+        return item.instrumento_id if item else None
+
+    def get_instrumento_financeiro_nome(self, obj):
+        item = self._item_plano_fesp(obj)
+        if not item:
+            return None
+        instrumento = item.instrumento
+        return f'{instrumento.get_tipo_instrumento_display()} — {instrumento.numero_instrumento}'
+
+    def get_subfonte_codigo(self, obj):
+        sf = obj.dotacao.subfonte_recurso
+        return sf.codigo if sf else None
+
+    def get_subfonte_nome(self, obj):
+        sf = obj.dotacao.subfonte_recurso
+        return sf.nome if sf else None
 
     def get_natureza_formato(self, obj):
         nd = obj.dotacao.natureza_despesa
@@ -476,7 +553,7 @@ class IndicacaoOrcamentariaSerializer(serializers.ModelSerializer):
     class Meta:
         model  = IndicacaoOrcamentaria
         fields = [
-            'id', 'numero', 'exercicio_fiscal',
+            'id', 'numero', 'exercicio_fiscal', 'numero_sei',
             'dfd', 'dfd_numero_sei',
             'necessidade', 'necessidade_titulo',
             'valor_total', 'status', 'observacoes',

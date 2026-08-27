@@ -297,6 +297,11 @@ class IndicacaoOrcamentaria(BaseModel):
 
     numero           = models.CharField(max_length=20, verbose_name='Número')
     exercicio_fiscal = models.IntegerField(verbose_name='Exercício fiscal')
+    numero_sei = models.CharField(
+        max_length=50, blank=True, default='',
+        verbose_name='Processo SEI',
+        help_text='Processo SEI da própria indicação/DOD (distinto do SEI do DFD vinculado).',
+    )
     dfd              = models.ForeignKey(
         'modulo_demanda.DFD',
         null=True, blank=True,
