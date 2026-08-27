@@ -2,6 +2,7 @@ import { useState } from 'react'
 import useContratoStore from '../../stores/contratoStore'
 import HelpTip from '../HelpTip'
 import CampoMoeda from '../CampoMoeda'
+import CampoSei from '../CampoSei'
 
 const STATUS_CLS = {
   pendente:  'bg-yellow-100 text-yellow-700',
@@ -18,7 +19,7 @@ export default function MedicoesSection({ contratoId, medicoes, podeEditar }) {
   const [saving, setSaving]     = useState(false)
   const [form, setForm] = useState({
     competencia_inicio: '', competencia_fim: '', data_medicao: '',
-    percentual_executado: '', valor_medido: '',
+    percentual_executado: '', valor_medido: '', numero_processo_sei: '',
   })
 
   const handleAdd = async () => {
@@ -31,7 +32,7 @@ export default function MedicoesSection({ contratoId, medicoes, podeEditar }) {
         valor_medido: Number(form.valor_medido),
       })
       setShowForm(false)
-      setForm({ competencia_inicio: '', competencia_fim: '', data_medicao: '', percentual_executado: '', valor_medido: '' })
+      setForm({ competencia_inicio: '', competencia_fim: '', data_medicao: '', percentual_executado: '', valor_medido: '', numero_processo_sei: '' })
     } finally { setSaving(false) }
   }
 
@@ -66,6 +67,7 @@ export default function MedicoesSection({ contratoId, medicoes, podeEditar }) {
                       {m.percentual_executado != null && ` · ${Number(m.percentual_executado).toFixed(2)}% executado`}
                     </p>
                     <p className="text-sm font-semibold text-gray-800 mt-0.5">{fmt(m.valor_medido)}</p>
+                    {m.numero_processo_sei && <p className="text-xs text-gray-400 mt-0.5">SEI: <span className="font-mono">{m.numero_processo_sei}</span></p>}
                     {m.parecer_fiscal && <p className="text-xs text-gray-500 italic mt-0.5">{m.parecer_fiscal}</p>}
                   </div>
                   {podeEditar && (
@@ -114,6 +116,10 @@ export default function MedicoesSection({ contratoId, medicoes, podeEditar }) {
             <div className="col-span-2">
               <label className="block text-xs text-gray-500 mb-0.5">Valor medido (R$) *</label>
               <CampoMoeda value={form.valor_medido} onChange={v => setForm(p => ({ ...p, valor_medido: v }))} className={inp()} />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs text-gray-500 mb-0.5">Processo SEI</label>
+              <CampoSei value={form.numero_processo_sei} onChange={v => setForm(p => ({ ...p, numero_processo_sei: v }))} className={inp()} />
             </div>
           </div>
           <div className="flex gap-2 mt-2">

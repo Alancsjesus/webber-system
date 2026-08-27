@@ -95,7 +95,12 @@ export default function ContratoList() {
               {contratos.map(c => (
                 <tr key={c.id} className="hover:bg-gray-50 cursor-pointer"
                   onClick={() => navigate(`/contratos/${c.id}`)}>
-                  <td className="px-5 py-3 font-mono font-semibold text-gray-800">{c.numero}</td>
+                  <td className="px-5 py-3 font-mono font-semibold text-gray-800">
+                    {c.numero}
+                    {c.tipo_instrumento === 'afm' && (
+                      <span className="ml-2 px-1.5 py-0.5 rounded-full text-[10px] font-medium bg-purple-100 text-purple-700 align-middle">AFM</span>
+                    )}
+                  </td>
                   <td className="px-5 py-3 text-gray-700 max-w-xs truncate">{c.objeto}</td>
                   <td className="px-5 py-3 text-gray-500">{c.tipo_origem_display}</td>
                   <td className="px-5 py-3 text-right font-semibold text-gray-800">{fmt(c.valor_contrato)}</td>

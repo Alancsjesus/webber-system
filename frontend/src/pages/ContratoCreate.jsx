@@ -6,6 +6,7 @@ import api from '../services/api'
 import FormErrors from '../components/FormErrors'
 import FornecedorPicker from '../components/FornecedorPicker'
 import CampoMoeda from '../components/CampoMoeda'
+import CampoSei from '../components/CampoSei'
 
 const TIPOS_ORIGEM = [
   { value: 'licitacao',       label: 'Licitação' },
@@ -13,6 +14,11 @@ const TIPOS_ORIGEM = [
   { value: 'inexigibilidade', label: 'Inexigibilidade' },
   { value: 'saque_arp',       label: 'Saque de ATA de Registro de Preços' },
   { value: 'adesao_arp',      label: 'Adesão a ATA de Registro de Preços' },
+]
+
+const TIPOS_INSTRUMENTO = [
+  { value: 'contrato', label: 'Contrato' },
+  { value: 'afm',      label: 'AFM — Autorização de Fornecimento de Material' },
 ]
 
 const GARANTIA_TIPOS = [
@@ -28,6 +34,8 @@ export const pageHelp = {
   descricao: 'Registra um contrato firmado com um fornecedor, geralmente após conclusão de um Procedimento — mas pode ser criado independentemente (ex: Saque/Adesão a ATA de Registro de Preços).',
   acoes: [
     { label: 'Tipo de origem',       texto: 'Classifica como o contrato foi originado: licitação, dispensa, inexigibilidade, ou saque/adesão a Ata de Registro de Preços.' },
+    { label: 'Tipo de instrumento',  texto: 'Contrato: instrumento formal gerado pelo próprio Webber. AFM: Autorização de Fornecimento de Material recebida do SIMPAS — nesse caso, informe o número da AFM.' },
+    { label: 'Processo SEI',         texto: 'Processo SEI da contratação em si. Cada fase posterior (apostila, aditivo, cronograma, medição, pagamento, notificação) pode ter seu próprio processo SEI, registrado na aba correspondente.' },
     { label: 'Fornecedor contratado', texto: 'Busca por CNPJ/CPF ou razão social no cadastro de fornecedores — histórico de relações anteriores fica disponível na tela de detalhe do fornecedor.' },
     { label: 'Exigir garantia contratual', texto: 'Percentual limitado a 5% do valor — acima disso exige justificativa obrigatória para contrato de grande vulto ou risco elevado (Art. 96, §3º).' },
     { label: 'Criar contrato',       texto: 'Salva o contrato. A execução (medições, pagamentos, cronograma de entrega) é registrada depois, na aba "Execução Contratual" do detalhe.' },
@@ -47,6 +55,9 @@ export default function ContratoCreate() {
     fornecedor: '',
     objeto: '',
     tipo_origem: 'licitacao',
+    tipo_instrumento: 'contrato',
+    numero_afm: '',
+    numero_processo_sei: '',
     dfd: '',
     valor_contrato: '',
     data_assinatura: '',
@@ -82,6 +93,8 @@ export default function ContratoCreate() {
     if (!form.tipo_origem)    e.tipo_origem = 'Selecione a origem'
     if (!form.valor_contrato || isNaN(Number(form.valor_contrato))) e.valor_contrato = 'Valor inválido'
     if (!form.exercicio)      e.exercicio = 'Campo obrigatório'
+    if (form.tipo_instrumento === 'afm' && !form.numero_afm.trim())
+      e.numero_afm = 'Informe o número da AFM recebido do SIMPAS'
     return e
   }
 
@@ -132,6 +145,24 @@ export default function ContratoCreate() {
             </select>
           </Field>
         </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <Field label="Tipo de instrumento *" error={errors.tipo_instrumento}>
+            <select value={form.tipo_instrumento} onChange={e => set('tipo_instrumento', e.target.value)} className={inp(errors.tipo_instrumento)}>
+              {TIPOS_INSTRUMENTO.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+            </select>
+          </Field>
+          {form.tipo_instrumento === 'afm' && (
+            <Field label="Nº da AFM (SIMPAS) *" error={errors.numero_afm}>
+              <input type="text" value={form.numero_afm} onChange={e => set('numero_afm', e.target.value)}
+                placeholder="Ex: 20.003.00049/2026" className={inp(errors.numero_afm)} />
+            </Field>
+          )}
+        </div>
+
+        <Field label="Processo SEI (opcional)" error={errors.numero_processo_sei}>
+          <CampoSei value={form.numero_processo_sei} onChange={v => set('numero_processo_sei', v)} />
+        </Field>
 
         <Field label="Órgão executor *" error={errors.orgao_executor}>
           <select value={form.orgao_executor} onChange={e => set('orgao_executor', e.target.value)} className={inp(errors.orgao_executor)}>

@@ -2,6 +2,7 @@ import { useState } from 'react'
 import useContratoStore from '../../stores/contratoStore'
 import HelpTip from '../HelpTip'
 import CampoMoeda from '../CampoMoeda'
+import CampoSei from '../CampoSei'
 
 const STATUS_CLS = {
   pendente:  'bg-yellow-100 text-yellow-700',
@@ -18,7 +19,7 @@ export default function PagamentosSection({ contratoId, pagamentos, medicoes, po
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving]     = useState(false)
   const [form, setForm] = useState({
-    medicao: '', numero_empenho: '', numero_nota_fiscal: '', valor_pago: '', data_vencimento: '',
+    medicao: '', numero_empenho: '', numero_nota_fiscal: '', valor_pago: '', data_vencimento: '', numero_processo_sei: '',
   })
 
   const medicoesAprovadas = (medicoes || []).filter(m => m.status === 'aprovada')
@@ -34,7 +35,7 @@ export default function PagamentosSection({ contratoId, pagamentos, medicoes, po
         data_vencimento: form.data_vencimento || null,
       })
       setShowForm(false)
-      setForm({ medicao: '', numero_empenho: '', numero_nota_fiscal: '', valor_pago: '', data_vencimento: '' })
+      setForm({ medicao: '', numero_empenho: '', numero_nota_fiscal: '', valor_pago: '', data_vencimento: '', numero_processo_sei: '' })
     } finally { setSaving(false) }
   }
 
@@ -66,6 +67,7 @@ export default function PagamentosSection({ contratoId, pagamentos, medicoes, po
                     Vencimento: {fmtDate(p.data_vencimento)}
                     {p.data_pagamento && ` · Pago em: ${fmtDate(p.data_pagamento)}`}
                   </p>
+                  {p.numero_processo_sei && <p className="text-xs text-gray-400 mt-0.5">SEI: <span className="font-mono">{p.numero_processo_sei}</span></p>}
                 </div>
                 {podeEditar && (
                   <div className="flex items-center gap-2 ml-3 shrink-0">
@@ -105,6 +107,10 @@ export default function PagamentosSection({ contratoId, pagamentos, medicoes, po
             <div>
               <label className="block text-xs text-gray-500 mb-0.5">Data de vencimento</label>
               <input type="date" value={form.data_vencimento} onChange={e => setForm(p => ({ ...p, data_vencimento: e.target.value }))} className={inp()} />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-xs text-gray-500 mb-0.5">Processo SEI</label>
+              <CampoSei value={form.numero_processo_sei} onChange={v => setForm(p => ({ ...p, numero_processo_sei: v }))} className={inp()} />
             </div>
           </div>
           <div className="flex gap-2 mt-2">

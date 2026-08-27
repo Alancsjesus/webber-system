@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import useContratoStore from '../../stores/contratoStore'
 import HelpTip from '../HelpTip'
+import CampoSei from '../CampoSei'
 
 const STATUS_CLS = {
   pendente:  'bg-gray-100 text-gray-500',
@@ -15,7 +16,7 @@ export default function CronogramaSection({ contratoId, itens, podeEditar }) {
   const { addCronograma, updateCronograma, deleteCronograma } = useContratoStore()
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving]     = useState(false)
-  const [form, setForm] = useState({ descricao: '', quantidade: '', unidade_medida: '', data_prevista: '' })
+  const [form, setForm] = useState({ descricao: '', quantidade: '', unidade_medida: '', data_prevista: '', numero_processo_sei: '' })
 
   const handleAdd = async () => {
     if (!form.descricao.trim() || !form.data_prevista) return
@@ -26,7 +27,7 @@ export default function CronogramaSection({ contratoId, itens, podeEditar }) {
         quantidade: form.quantidade ? Number(form.quantidade) : null,
       })
       setShowForm(false)
-      setForm({ descricao: '', quantidade: '', unidade_medida: '', data_prevista: '' })
+      setForm({ descricao: '', quantidade: '', unidade_medida: '', data_prevista: '', numero_processo_sei: '' })
     } finally { setSaving(false) }
   }
 
@@ -60,6 +61,7 @@ export default function CronogramaSection({ contratoId, itens, podeEditar }) {
                     {item.data_realizada && ` · Realizado: ${fmtDate(item.data_realizada)}`}
                     {item.quantidade != null && ` · Qtd: ${item.quantidade}${item.unidade_medida ? ' ' + item.unidade_medida : ''}`}
                   </p>
+                  {item.numero_processo_sei && <p className="text-xs text-gray-400 mt-0.5">SEI: <span className="font-mono">{item.numero_processo_sei}</span></p>}
                 </div>
                 {podeEditar && (
                   <div className="flex items-center gap-2 ml-3 shrink-0">
@@ -92,6 +94,10 @@ export default function CronogramaSection({ contratoId, itens, podeEditar }) {
             <div>
               <label className="block text-xs text-gray-500 mb-0.5">Unidade de medida</label>
               <input type="text" value={form.unidade_medida} onChange={e => setForm(p => ({ ...p, unidade_medida: e.target.value }))} className={inp()} />
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-0.5">Processo SEI</label>
+              <CampoSei value={form.numero_processo_sei} onChange={v => setForm(p => ({ ...p, numero_processo_sei: v }))} className={inp()} />
             </div>
           </div>
           <div className="flex gap-2 mt-2">

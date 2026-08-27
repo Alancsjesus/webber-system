@@ -23,8 +23,8 @@ class ContratoViewSet(viewsets.ModelViewSet):
     serializer_class   = ContratoSerializer
     permission_classes = [IsAuthenticated, IsMultiTenant]
     filter_backends    = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields   = ['status', 'exercicio', 'tipo_origem']
-    search_fields      = ['numero', 'objeto']
+    filterset_fields   = ['status', 'exercicio', 'tipo_origem', 'tipo_instrumento']
+    search_fields      = ['numero', 'objeto', 'numero_afm']
     ordering_fields    = ['exercicio', 'numero', 'created_at']
     ordering           = ['-exercicio', 'numero']
 

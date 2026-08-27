@@ -7,7 +7,7 @@ from .models import Contrato, Apostila, Aditivo, CronogramaEntrega, Medicao, Pag
 class ApostilaSerializer(serializers.ModelSerializer):
     class Meta:
         model  = Apostila
-        fields = ['id', 'numero', 'objeto', 'data', 'created_at']
+        fields = ['id', 'numero', 'objeto', 'data', 'numero_processo_sei', 'created_at']
         read_only_fields = ['id', 'numero', 'created_at']
 
     def create(self, validated_data):
@@ -23,7 +23,7 @@ class AditivoSerializer(serializers.ModelSerializer):
 
     class Meta:
         model  = Aditivo
-        fields = ['id', 'numero', 'tipo', 'tipo_display', 'valor_acrescimo', 'nova_vigencia', 'objeto', 'data', 'created_at']
+        fields = ['id', 'numero', 'tipo', 'tipo_display', 'valor_acrescimo', 'nova_vigencia', 'objeto', 'data', 'numero_processo_sei', 'created_at']
         read_only_fields = ['id', 'numero', 'tipo_display', 'created_at']
 
     def create(self, validated_data):
@@ -43,7 +43,7 @@ class CronogramaEntregaSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'numero', 'descricao', 'quantidade', 'unidade_medida',
             'data_prevista', 'data_realizada', 'status', 'status_display',
-            'is_atrasado', 'observacoes', 'created_at',
+            'is_atrasado', 'observacoes', 'numero_processo_sei', 'created_at',
         ]
         read_only_fields = ['id', 'numero', 'status_display', 'is_atrasado', 'created_at']
 
@@ -69,7 +69,7 @@ class PagamentoSerializer(serializers.ModelSerializer):
             'id', 'numero', 'medicao', 'medicao_numero',
             'numero_empenho', 'numero_nota_fiscal', 'valor_pago',
             'data_vencimento', 'data_pagamento', 'status', 'status_display',
-            'observacoes', 'created_at',
+            'observacoes', 'numero_processo_sei', 'created_at',
         ]
         read_only_fields = ['id', 'numero', 'status_display', 'medicao_numero', 'created_at']
 
@@ -97,7 +97,7 @@ class MedicaoSerializer(serializers.ModelSerializer):
             'percentual_executado', 'valor_medido',
             'fiscal_responsavel', 'fiscal_responsavel_username',
             'status', 'status_display', 'parecer_fiscal', 'data_aprovacao',
-            'pagamentos', 'created_at',
+            'pagamentos', 'numero_processo_sei', 'created_at',
         ]
         read_only_fields = ['id', 'numero', 'status_display', 'fiscal_responsavel_username', 'pagamentos', 'created_at']
 
@@ -190,6 +190,7 @@ class ContratoSerializer(serializers.ModelSerializer):
     saldo_a_pagar       = serializers.SerializerMethodField()
 
     garantia_tipo_display = serializers.CharField(source='get_garantia_tipo_display', read_only=True, default='')
+    tipo_instrumento_display = serializers.CharField(source='get_tipo_instrumento_display', read_only=True)
 
     class Meta:
         model  = Contrato
@@ -197,6 +198,7 @@ class ContratoSerializer(serializers.ModelSerializer):
             'id', 'numero', 'exercicio',
             'orgao_executor', 'orgao_executor_sigla', 'orgao_executor_nome',
             'objeto', 'tipo_origem', 'tipo_origem_display',
+            'tipo_instrumento', 'tipo_instrumento_display', 'numero_afm',
             'fornecedor', 'fornecedor_nome',
             'dfd', 'dfd_numero_sei',
             'lotes', 'numero_processo_sei',
@@ -222,7 +224,7 @@ class ContratoSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at',
             'orgao_executor_sigla', 'orgao_executor_nome',
             'dfd_numero_sei', 'fiscal_username', 'gestor_username', 'ordenador_username',
-            'tipo_origem_display', 'garantia_tipo_display', 'apostilas', 'aditivos',
+            'tipo_origem_display', 'tipo_instrumento_display', 'garantia_tipo_display', 'apostilas', 'aditivos',
             'cronograma', 'medicoes', 'pagamentos', 'notificacoes',
             'valor_medido_total', 'valor_pago_total', 'saldo_a_pagar',
         ]

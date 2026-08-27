@@ -5,6 +5,7 @@ import useAuthStore from '../stores/authStore'
 import LoadingSpinner from '../components/LoadingSpinner'
 import HelpTip from '../components/HelpTip'
 import CampoMoeda from '../components/CampoMoeda'
+import CampoSei, { NumeroSeiTexto } from '../components/CampoSei'
 import { downloadFile } from '../services/api'
 import CronogramaSection from '../components/contrato/CronogramaSection'
 import MedicoesSection from '../components/contrato/MedicoesSection'
@@ -24,6 +25,10 @@ const GARANTIA_TIPOS = [
   { value: 'seguro_garantia', label: 'Seguro-Garantia' },
   { value: 'fianca_bancaria', label: 'Fiança Bancária' },
 ]
+const TIPOS_INSTRUMENTO = [
+  { value: 'contrato', label: 'Contrato' },
+  { value: 'afm',      label: 'AFM — Autorização de Fornecimento de Material' },
+]
 const TIPOS_ADITIVO = [
   { value: 'prazo',    label: 'Prorrogação de Prazo' },
   { value: 'valor',    label: 'Acréscimo/Redução de Valor' },
@@ -37,7 +42,8 @@ export const pageHelp = {
   titulo: 'Contrato — Detalhe',
   descricao: 'Gerencie o contrato administrativo: dados, garantia, apostilas, aditivos e execução contratual (cronograma, medições e pagamentos). Organizado em abas.',
   acoes: [
-    { label: 'Editar',           texto: 'Habilita a edição dos dados do contrato: objeto, valor, datas de assinatura e vigência.' },
+    { label: 'Editar',           texto: 'Habilita a edição dos dados do contrato: objeto, valor, datas de assinatura e vigência, tipo de instrumento (Contrato/AFM) e processo SEI da contratação.' },
+    { label: 'Processo SEI (Dados Gerais)', texto: 'Processo SEI da contratação em si — distinto do processo SEI de cada apostila/aditivo/cronograma/medição/pagamento/notificação, que tem campo próprio na respectiva aba.' },
     { label: 'Garantia',         texto: 'Preencha se o edital exigiu garantia contratual. Informe o tipo (caução, seguro-garantia, fiança), percentual (máx. 5%) e apólice. Se superior a 5%, justificativa é obrigatória (art. 96, Lei 14.133/2021).' },
     { label: '+ Apostila',       texto: 'Registra uma apostila: alteração unilateral de menor importância que não modifica o objeto nem o valor. Informe número, data e objeto da apostila.' },
     { label: '+ Aditivo',        texto: 'Registra um termo aditivo de prorrogação, acréscimo/redução de valor, alteração de objeto ou rescisão. Prorrogações e acréscimos têm limites legais de 25% (50% para obras).' },
@@ -62,6 +68,7 @@ export default function ContratoDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
   const papel = useAuthStore((s) => s.papel)
+  const seiBaseUrl = useAuthStore((s) => s.seiBaseUrl)
   const { current, loading, error, fetchContrato, updateContrato, deleteContrato, addApostila, deleteApostila, addAditivo, deleteAditivo } = useContratoStore()
 
   const [editing, setEditing]   = useState(false)
@@ -70,11 +77,11 @@ export default function ContratoDetail() {
   const [activeTab, setActiveTab] = useState('geral')
 
   const [showApostila, setShowApostila] = useState(false)
-  const [apostilaForm, setApostilaForm] = useState({ objeto: '', data: '' })
+  const [apostilaForm, setApostilaForm] = useState({ objeto: '', data: '', numero_processo_sei: '' })
   const [savingAp, setSavingAp]         = useState(false)
 
   const [showAditivo, setShowAditivo] = useState(false)
-  const [aditivoForm, setAditivoForm] = useState({ tipo: 'prazo', objeto: '', data: '', valor_acrescimo: '', nova_vigencia: '' })
+  const [aditivoForm, setAditivoForm] = useState({ tipo: 'prazo', objeto: '', data: '', valor_acrescimo: '', nova_vigencia: '', numero_processo_sei: '' })
   const [savingAd, setSavingAd]       = useState(false)
 
   useEffect(() => { fetchContrato(id) }, [id])
@@ -87,6 +94,9 @@ export default function ContratoDetail() {
     try {
       await updateContrato(id, {
         objeto: form.objeto,
+        tipo_instrumento: form.tipo_instrumento,
+        numero_afm: form.tipo_instrumento === 'afm' ? (form.numero_afm || '') : '',
+        numero_processo_sei: form.numero_processo_sei || '',
         valor_contrato: Number(form.valor_contrato),
         data_assinatura: form.data_assinatura || null,
         data_vigencia_inicio: form.data_vigencia_inicio || null,
@@ -118,7 +128,7 @@ export default function ContratoDetail() {
   const handleAddApostila = async () => {
     if (!apostilaForm.objeto.trim() || !apostilaForm.data) return
     setSavingAp(true)
-    try { await addApostila(id, apostilaForm); setShowApostila(false); setApostilaForm({ objeto: '', data: '' }) }
+    try { await addApostila(id, apostilaForm); setShowApostila(false); setApostilaForm({ objeto: '', data: '', numero_processo_sei: '' }) }
     finally { setSavingAp(false) }
   }
 
@@ -128,7 +138,7 @@ export default function ContratoDetail() {
     try {
       const payload = { ...aditivoForm, valor_acrescimo: aditivoForm.valor_acrescimo ? Number(aditivoForm.valor_acrescimo) : null, nova_vigencia: aditivoForm.nova_vigencia || null }
       await addAditivo(id, payload)
-      setShowAditivo(false); setAditivoForm({ tipo: 'prazo', objeto: '', data: '', valor_acrescimo: '', nova_vigencia: '' })
+      setShowAditivo(false); setAditivoForm({ tipo: 'prazo', objeto: '', data: '', valor_acrescimo: '', nova_vigencia: '', numero_processo_sei: '' })
     } finally { setSavingAd(false) }
   }
 
@@ -149,6 +159,11 @@ export default function ContratoDetail() {
           <span className={`mt-1 inline-block px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CLS[current.status]}`}>
             {current.status}
           </span>
+          {current.tipo_instrumento === 'afm' && (
+            <span className="mt-1 ml-1.5 inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
+              AFM {current.numero_afm && `— ${current.numero_afm}`}
+            </span>
+          )}
           <p className="text-xs text-gray-400 mt-1">{current.orgao_executor_sigla} · Ex. {current.exercicio} · {current.tipo_origem_display}</p>
         </div>
         <div className="flex gap-2">
@@ -194,6 +209,32 @@ export default function ContratoDetail() {
           {editing
             ? <textarea rows={3} value={form.objeto} onChange={e => set('objeto', e.target.value)} className={inp()} />
             : <p className="text-sm text-gray-700 text-justify">{current.objeto}</p>}
+        </Section>
+
+        {/* Instrumento (Contrato/AFM) e Processo SEI */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
+          <Section label="Tipo de instrumento">
+            {editing
+              ? <select value={form.tipo_instrumento} onChange={e => set('tipo_instrumento', e.target.value)} className={inp()}>
+                  {TIPOS_INSTRUMENTO.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+                </select>
+              : <p className="text-sm text-gray-700">{current.tipo_instrumento_display}</p>}
+          </Section>
+          {(editing ? form.tipo_instrumento : current.tipo_instrumento) === 'afm' && (
+            <Section label="Nº da AFM (SIMPAS)">
+              {editing
+                ? <input type="text" value={form.numero_afm || ''} onChange={e => set('numero_afm', e.target.value)}
+                    placeholder="Ex: 20.003.00049/2026" className={inp()} />
+                : <p className="text-sm font-mono text-gray-700">{current.numero_afm || '—'}</p>}
+            </Section>
+          )}
+        </div>
+
+        <Section label="Processo SEI da contratação">
+          {editing
+            ? <CampoSei value={form.numero_processo_sei || ''} onChange={v => set('numero_processo_sei', v)} />
+            : <NumeroSeiTexto valor={current.numero_processo_sei} seiBaseUrl={seiBaseUrl} className="text-sm font-mono text-blue-700" />}
+          {!editing && !current.numero_processo_sei && <p className="text-sm text-gray-400">—</p>}
         </Section>
 
         {/* Valor e status */}
@@ -371,6 +412,7 @@ export default function ContratoDetail() {
                       <span className="font-mono text-xs font-semibold text-gray-700">{a.numero}</span>
                       <span className="ml-2 text-xs text-gray-400">{new Date(a.data).toLocaleDateString('pt-BR')}</span>
                       <p className="text-xs text-gray-600 mt-0.5">{a.objeto}</p>
+                      {a.numero_processo_sei && <p className="text-xs text-gray-400 mt-0.5">SEI: <span className="font-mono">{a.numero_processo_sei}</span></p>}
                     </div>
                     {podeEditar && <button onClick={() => deleteApostila(id, a.id)} className="text-red-400 hover:text-red-600 text-xs ml-3">✕</button>}
                   </li>
@@ -387,6 +429,10 @@ export default function ContratoDetail() {
                 <div>
                   <label className="block text-xs text-gray-500 mb-0.5">Data *</label>
                   <input type="date" value={apostilaForm.data} onChange={e => setApostilaForm(p => ({ ...p, data: e.target.value }))} className={inp()} />
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-0.5">Processo SEI</label>
+                  <CampoSei value={apostilaForm.numero_processo_sei} onChange={v => setApostilaForm(p => ({ ...p, numero_processo_sei: v }))} className={inp()} />
                 </div>
               </div>
               <div className="flex gap-2 mt-2">
@@ -420,6 +466,7 @@ export default function ContratoDetail() {
                       <span className="ml-2 text-xs text-gray-400">{new Date(a.data).toLocaleDateString('pt-BR')}</span>
                       {a.valor_acrescimo && <span className="ml-2 text-xs font-semibold text-gray-700">{fmt(a.valor_acrescimo)}</span>}
                       <p className="text-xs text-gray-600 mt-0.5">{a.objeto}</p>
+                      {a.numero_processo_sei && <p className="text-xs text-gray-400 mt-0.5">SEI: <span className="font-mono">{a.numero_processo_sei}</span></p>}
                     </div>
                     {podeEditar && <button onClick={() => deleteAditivo(id, a.id)} className="text-red-400 hover:text-red-600 text-xs ml-3">✕</button>}
                   </li>
@@ -451,6 +498,10 @@ export default function ContratoDetail() {
                     <input type="date" value={aditivoForm.nova_vigencia} onChange={e => setAditivoForm(p => ({ ...p, nova_vigencia: e.target.value }))} className={inp()} />
                   </div>
                 )}
+                <div>
+                  <label className="block text-xs text-gray-500 mb-0.5">Processo SEI</label>
+                  <CampoSei value={aditivoForm.numero_processo_sei} onChange={v => setAditivoForm(p => ({ ...p, numero_processo_sei: v }))} className={inp()} />
+                </div>
                 <div className="col-span-2">
                   <label className="block text-xs text-gray-500 mb-0.5">Objeto *</label>
                   <textarea rows={2} value={aditivoForm.objeto} onChange={e => setAditivoForm(p => ({ ...p, objeto: e.target.value }))} className={inp()} />

@@ -14,6 +14,10 @@ class Contrato(BaseModel):
         ('saque_arp',       'Saque de ATA de Registro de Preços'),
         ('adesao_arp',      'Adesão a ATA de Registro de Preços'),
     ]
+    TIPO_INSTRUMENTO_CHOICES = [
+        ('contrato', 'Contrato'),
+        ('afm',      'AFM — Autorização de Fornecimento de Material'),
+    ]
     STATUS_CHOICES = [
         ('Vigente',    'Vigente'),
         ('Encerrado',  'Encerrado'),
@@ -32,6 +36,14 @@ class Contrato(BaseModel):
     orgao_executor       = models.ForeignKey('core.Orgao', on_delete=models.PROTECT, related_name='contratos', verbose_name='Órgão executor')
     objeto               = models.TextField(verbose_name='Objeto do contrato')
     tipo_origem          = models.CharField(max_length=20, choices=TIPO_ORIGEM_CHOICES, verbose_name='Origem do contrato')
+    tipo_instrumento      = models.CharField(
+        max_length=10, choices=TIPO_INSTRUMENTO_CHOICES, default='contrato', verbose_name='Tipo de instrumento',
+        help_text='Contrato formal gerado pelo Webber, ou AFM (Autorização de Fornecimento de Material) recebida do SIMPAS.',
+    )
+    numero_afm = models.CharField(
+        max_length=40, blank=True, default='', verbose_name='Nº da AFM (SIMPAS)',
+        help_text='Número da Autorização de Fornecimento de Material recebida do SIMPAS — preenchido quando tipo_instrumento="afm".',
+    )
     fornecedor           = models.ForeignKey('modulo_fornecedor.Fornecedor', null=True, blank=True, on_delete=models.PROTECT, related_name='contratos', verbose_name='Fornecedor contratado')
     dfd                  = models.ForeignKey('modulo_demanda.DFD', null=True, blank=True, on_delete=models.SET_NULL, related_name='contratos', verbose_name='DFD de origem')
     lotes                = models.ManyToManyField('modulo_tr.LoteTR', blank=True, related_name='contratos', verbose_name='Lotes de origem')
@@ -69,6 +81,7 @@ class Apostila(BaseModel):
     numero   = models.CharField(max_length=40, editable=False, verbose_name='Número da apostila')
     objeto   = models.TextField(verbose_name='Objeto da apostila')
     data     = models.DateField(verbose_name='Data da apostila')
+    numero_processo_sei = models.CharField(max_length=50, blank=True, default='', verbose_name='Processo SEI')
 
     class Meta(BaseModel.Meta):
         ordering = ['data']
@@ -93,6 +106,7 @@ class Aditivo(BaseModel):
     nova_vigencia   = models.DateField(null=True, blank=True, verbose_name='Nova data de vigência')
     objeto          = models.TextField(verbose_name='Objeto do aditivo')
     data            = models.DateField(verbose_name='Data do aditivo')
+    numero_processo_sei = models.CharField(max_length=50, blank=True, default='', verbose_name='Processo SEI')
 
     class Meta(BaseModel.Meta):
         ordering = ['data']
@@ -119,6 +133,7 @@ class CronogramaEntrega(BaseModel):
     data_realizada = models.DateField(null=True, blank=True, verbose_name='Data de entrega realizada')
     status         = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pendente')
     observacoes    = models.TextField(blank=True, default='')
+    numero_processo_sei = models.CharField(max_length=50, blank=True, default='', verbose_name='Processo SEI')
 
     class Meta(BaseModel.Meta):
         ordering = ['data_prevista']
@@ -150,6 +165,7 @@ class Medicao(BaseModel):
     status                = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pendente')
     parecer_fiscal        = models.TextField(blank=True, default='')
     data_aprovacao        = models.DateField(null=True, blank=True)
+    numero_processo_sei   = models.CharField(max_length=50, blank=True, default='', verbose_name='Processo SEI')
 
     class Meta(BaseModel.Meta):
         ordering = ['competencia_inicio']
@@ -177,6 +193,7 @@ class Pagamento(BaseModel):
     data_pagamento     = models.DateField(null=True, blank=True, verbose_name='Data de efetivação do pagamento')
     status              = models.CharField(max_length=10, choices=STATUS_CHOICES, default='pendente')
     observacoes         = models.TextField(blank=True, default='')
+    numero_processo_sei = models.CharField(max_length=50, blank=True, default='', verbose_name='Processo SEI')
 
     class Meta(BaseModel.Meta):
         ordering = ['-data_vencimento']
