@@ -2,6 +2,7 @@ from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from rest_framework.views import APIView
 from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
@@ -237,3 +238,83 @@ class NotificacaoViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         serializer.save(updated_by=self.request.user)
+
+
+class PainelNotificacoesView(APIView):
+    """
+    Painel agregado das Notificações Contratuais: totais gerais, contagem por
+    contrato (quantas notificações/rescisões cada um acumulou) e um apanhado
+    histórico cronológico — visão gerencial que a lista plana (NotificacaoViewSet)
+    não oferece.
+
+    GET /api/contratos/notificacao-painel/
+    Parâmetros opcionais: ?exercicio=... ?status=... ?tipo_acao=...
+    """
+    permission_classes = [IsAuthenticated, IsMultiTenant]
+
+    def get(self, request):
+        qs = Notificacao.objects.filter(
+            contrato__org_id=request.org_id
+        ).select_related('contrato', 'contrato__fornecedor', 'fornecedor')
+
+        params = request.query_params
+        for param, campo in {'exercicio': 'exercicio', 'status': 'status', 'tipo_acao': 'tipo_acao'}.items():
+            valor = params.get(param)
+            if valor:
+                qs = qs.filter(**{campo: valor})
+
+        notificacoes = list(qs.order_by('-data_notificacao', '-created_at'))
+
+        totais = {
+            'total': len(notificacoes),
+            'andamento': sum(1 for n in notificacoes if n.status == 'andamento'),
+            'cpa': sum(1 for n in notificacoes if n.status == 'cpa'),
+            'concluido': sum(1 for n in notificacoes if n.status == 'concluido'),
+            'notificacoes': sum(1 for n in notificacoes if n.tipo_acao == 'notificacao'),
+            'rescisoes': sum(1 for n in notificacoes if n.tipo_acao == 'rescisao'),
+            'contratos_afetados': len({n.contrato_id for n in notificacoes}),
+        }
+
+        por_contrato = {}
+        for n in notificacoes:
+            c = n.contrato
+            grupo = por_contrato.setdefault(c.id, {
+                'contrato_id': c.id,
+                'contrato_numero': c.numero,
+                'contrato_objeto': c.objeto,
+                'fornecedor_nome': c.fornecedor.nome_razao_social if c.fornecedor_id else None,
+                'total': 0, 'andamento': 0, 'cpa': 0, 'concluido': 0,
+                'notificacoes': 0, 'rescisoes': 0,
+                'ultima_data': None,
+            })
+            grupo['total'] += 1
+            grupo[n.status] += 1
+            grupo['notificacoes' if n.tipo_acao == 'notificacao' else 'rescisoes'] += 1
+            data_ref = n.data_notificacao or n.created_at.date()
+            if not grupo['ultima_data'] or data_ref > grupo['ultima_data']:
+                grupo['ultima_data'] = data_ref
+
+        por_contrato_lista = sorted(por_contrato.values(), key=lambda g: g['total'], reverse=True)
+
+        timeline = [{
+            'id': n.id,
+            'numero': n.numero,
+            'tipo_acao': n.tipo_acao,
+            'tipo_acao_display': n.get_tipo_acao_display(),
+            'status': n.status,
+            'status_display': n.get_status_display(),
+            'categoria_objeto_display': n.get_categoria_objeto_display(),
+            'contrato_id': n.contrato_id,
+            'contrato_numero': n.contrato.numero,
+            'fornecedor_nome': n.fornecedor.nome_razao_social if n.fornecedor_id else (
+                n.contrato.fornecedor.nome_razao_social if n.contrato.fornecedor_id else None),
+            'resumo_fato': n.resumo_fato,
+            'data': n.data_notificacao or n.created_at.date(),
+            'data_e_hora_registro': n.created_at,
+        } for n in notificacoes]
+
+        return Response({
+            'totais': totais,
+            'por_contrato': por_contrato_lista,
+            'timeline': timeline,
+        })
