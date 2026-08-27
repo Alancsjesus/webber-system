@@ -209,6 +209,20 @@ class DFDSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError(f"Área inválida: {area}")
         return value
 
+    def validate(self, attrs):
+        pca_previsto = attrs.get(
+            'pca_previsto', getattr(self.instance, 'pca_previsto', True)
+        )
+        if pca_previsto is False:
+            justificativa = attrs.get(
+                'pca_justificativa_ausencia', getattr(self.instance, 'pca_justificativa_ausencia', '')
+            )
+            if not (justificativa or '').strip():
+                raise serializers.ValidationError({
+                    'pca_justificativa_ausencia': 'Obrigatório quando a demanda não estava prevista no PCA.',
+                })
+        return attrs
+
     def create(self, validated_data):
         request = self.context['request']
         validated_data['org_id_id']  = request.org_id

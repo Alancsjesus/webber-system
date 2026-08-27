@@ -238,6 +238,29 @@ class ContratoSerializer(serializers.ModelSerializer):
     def get_saldo_a_pagar(self, obj):
         return self.get_valor_medido_total(obj) - self.get_valor_pago_total(obj)
 
+    def validate(self, attrs):
+        def _valor(campo, default=None):
+            if campo in attrs:
+                return attrs[campo]
+            return getattr(self.instance, campo, default)
+
+        if _valor('tipo_instrumento', 'contrato') == 'afm':
+            numero_afm = _valor('numero_afm', '')
+            if not (numero_afm or '').strip():
+                raise serializers.ValidationError({
+                    'numero_afm': 'Obrigatório quando o tipo de instrumento é AFM.',
+                })
+
+        garantia_percentual = _valor('garantia_percentual')
+        if garantia_percentual is not None and garantia_percentual > 5:
+            justificativa = _valor('garantia_justificativa_acima_5', '')
+            if not (justificativa or '').strip():
+                raise serializers.ValidationError({
+                    'garantia_justificativa_acima_5': 'Obrigatória quando o percentual de garantia é superior a 5% (Art. 96, §3º).',
+                })
+
+        return attrs
+
     def create(self, validated_data):
         req = self.context['request']
         validated_data['org_id_id']  = req.org_id

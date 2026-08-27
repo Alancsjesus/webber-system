@@ -198,6 +198,16 @@ class TRViewSet(viewsets.ModelViewSet):
         if papel not in PAPEIS_SOLICITANTE:
             return Response({'detail': 'Apenas o demandante pode submeter o TR.'},
                             status=status.HTTP_403_FORBIDDEN)
+        tr = self.get_object()
+        resultado = ChecklistEngine.avaliar_tr(tr)
+        if not resultado.pode_submeter:
+            return Response(
+                {
+                    'detail': 'TR não pode ser submetido — há pendências obrigatórias do checklist.',
+                    'bloqueadores': [b.detalhe for b in resultado.bloqueadores],
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         return self._transicao(request, 'Submetido',
                                campos_extra={'motivo_devolucao': None})
 

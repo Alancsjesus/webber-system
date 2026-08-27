@@ -1,6 +1,6 @@
 import logging
 
-from django.db.models import Q
+from django.db.models import Q, Sum
 from django.shortcuts import get_object_or_404
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
@@ -490,6 +490,25 @@ class IndicacaoOrcamentariaViewSet(viewsets.ModelViewSet):
         dotacao = get_object_or_404(
             DotacaoOrcamentaria, id=dotacao_id, org_id=request.org_id
         )
+
+        # Soma de todas as indicações ativas já vinculadas a esta dotação
+        # (exceto a própria linha, que será substituída por update_or_create)
+        # não pode ultrapassar o teto (valor_dotado) — mesma disciplina já
+        # aplicada a Empenho/Liquidação/Pagamento/Concessão.
+        ja_indicado = IndicacaoDotacao.objects.filter(
+            dotacao=dotacao
+        ).exclude(
+            indicacao=indicacao
+        ).exclude(
+            indicacao__status='Cancelada'
+        ).aggregate(total=Sum('valor_indicado'))['total'] or 0
+        if ja_indicado + valor_indicado > dotacao.valor_dotado:
+            saldo = dotacao.valor_dotado - ja_indicado
+            return Response(
+                {'detail': f'Valor indicado (R$ {valor_indicado:,.2f}) excede o saldo disponível da dotação (R$ {saldo:,.2f}).'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
         item, created = IndicacaoDotacao.objects.update_or_create(
             indicacao=indicacao, dotacao=dotacao,
             defaults={'valor_indicado': valor_indicado, 'em_diligencia': em_diligencia},

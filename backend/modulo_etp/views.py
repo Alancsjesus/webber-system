@@ -155,6 +155,16 @@ class ETPViewSet(viewsets.ModelViewSet):
         if papel not in PAPEIS_SOLICITANTE:
             return Response({'detail': 'Apenas solicitantes podem submeter o ETP.'},
                             status=status.HTTP_403_FORBIDDEN)
+        etp = self.get_object()
+        resultado = ChecklistEngine.avaliar_etp(etp)
+        if not resultado.pode_submeter:
+            return Response(
+                {
+                    'detail': 'ETP não pode ser submetido — há pendências obrigatórias do checklist.',
+                    'bloqueadores': [b.detalhe for b in resultado.bloqueadores],
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         return self._transicao(request, 'Submetido')
 
     @action(detail=True, methods=['post'])

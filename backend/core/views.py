@@ -105,10 +105,16 @@ class OrgaoViewSet(viewsets.ModelViewSet):
 
     def perform_update(self, serializer):
         _require_admin(self.request)
+        # Admin de órgão (não superusuário) só pode editar o próprio órgão —
+        # mesma regra já aplicada a UserManagementViewSet.perform_update.
+        if not self.request.user.is_superuser and serializer.instance.pk != self.request.org_id:
+            raise PermissionDenied('Só é possível editar o próprio órgão.')
         serializer.save()
 
     def perform_destroy(self, instance):
         _require_admin(self.request)
+        if not self.request.user.is_superuser and instance.pk != self.request.org_id:
+            raise PermissionDenied('Só é possível desativar o próprio órgão.')
         instance.ativa = False
         instance.save()
 
@@ -128,22 +134,34 @@ class UnidadeViewSet(viewsets.ModelViewSet):
         ativa = self.request.query_params.get('ativa', 'true')
         if tipo:
             qs = qs.filter(tipo=tipo)
-        if org:
+        # Admin de órgão (não superusuário) só enxerga/gerencia unidades do
+        # próprio órgão — ignora um `orgao` de outro órgão vindo por query param.
+        if not self.request.user.is_superuser:
+            qs = qs.filter(orgao_id=self.request.org_id)
+        elif org:
             qs = qs.filter(orgao_id=org)
         if ativa == 'true':
             qs = qs.filter(ativa=True)
         return qs
 
+    def _checar_orgao(self, orgao):
+        if orgao is not None and not self.request.user.is_superuser and str(orgao.pk) != str(self.request.org_id):
+            raise PermissionDenied('Só é possível gerenciar unidades do próprio órgão.')
+
     def perform_create(self, serializer):
         _require_admin(self.request)
+        self._checar_orgao(serializer.validated_data.get('orgao'))
         serializer.save()
 
     def perform_update(self, serializer):
         _require_admin(self.request)
+        self._checar_orgao(serializer.instance.orgao)
+        self._checar_orgao(serializer.validated_data.get('orgao'))
         serializer.save()
 
     def perform_destroy(self, instance):
         _require_admin(self.request)
+        self._checar_orgao(instance.orgao)
         instance.ativa = False
         instance.save()
 
