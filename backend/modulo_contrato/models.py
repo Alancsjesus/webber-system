@@ -187,6 +187,54 @@ class Pagamento(BaseModel):
         return f'{self.numero} — {self.get_status_display()}'
 
 
+class Notificacao(BaseModel):
+    """
+    Controle de notificações formais enviadas à empresa contratada (atraso,
+    ausência de garantia, paralisação, alegações finais etc.) — substitui o
+    controle manual em planilha, com numeração interna automática por
+    órgão/exercício além dos números de processo SEI envolvidos.
+    """
+    CATEGORIA_CHOICES = [
+        ('aquisicao', 'Aquisição'),
+        ('obra',      'Obra'),
+        ('servico',   'Serviço'),
+    ]
+    STATUS_CHOICES = [
+        ('andamento', 'Em Andamento'),
+        ('cpa',       'Em CPA'),
+        ('concluido', 'Concluído'),
+    ]
+
+    contrato = models.ForeignKey(Contrato, on_delete=models.CASCADE, related_name='notificacoes')
+    numero   = models.CharField(max_length=30, editable=False, verbose_name='Número de controle')
+    exercicio = models.IntegerField(verbose_name='Exercício', help_text='Usado na numeração de controle.')
+    categoria_objeto = models.CharField(max_length=10, choices=CATEGORIA_CHOICES, verbose_name='Tipo')
+    numero_processo_sei = models.CharField(
+        max_length=50, blank=True, default='', verbose_name='Processo SEI',
+        help_text='Processo SEI onde o fato foi tratado (pode ser distinto do SEI do contrato).',
+    )
+    numero_sei_comunicacao = models.CharField(
+        max_length=50, blank=True, default='', verbose_name='Nº Comunicação (SEI)',
+        help_text='SEI do registro/despacho interno do fato.',
+    )
+    numero_sei_notificacao = models.CharField(
+        max_length=50, blank=True, default='', verbose_name='Nº da Notificação (SEI)',
+        help_text='SEI do documento formal de notificação enviado à empresa, quando existir.',
+    )
+    data_notificacao = models.DateField(null=True, blank=True, verbose_name='Data da notificação')
+    resumo_fato = models.TextField(verbose_name='Resumo do fato')
+    status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='andamento')
+    observacoes = models.TextField(blank=True, default='')
+
+    class Meta(BaseModel.Meta):
+        ordering = ['-exercicio', '-created_at']
+        verbose_name = 'Notificação'
+        verbose_name_plural = 'Notificações'
+
+    def __str__(self):
+        return f'{self.numero} — {self.get_status_display()}'
+
+
 # ── Numeração automática ───────────────────────────────────────────────────────
 
 @receiver(pre_save, sender=Contrato)
@@ -243,3 +291,19 @@ def gerar_numero_pagamento(sender, instance, **kwargs):
         return
     seq = instance.contrato.pagamentos.count() + 1
     instance.numero = f'{instance.contrato.numero}-PAG-{seq:03d}'
+
+
+@receiver(pre_save, sender=Notificacao)
+def gerar_numero_notificacao(sender, instance, **kwargs):
+    if instance.numero:
+        return
+    orgao = instance.contrato.orgao_executor
+    sigla = orgao.sigla if orgao else 'ORG'
+    exercicio = instance.exercicio or timezone.localdate().year
+    ultimo = (
+        Notificacao.objects.filter(contrato__orgao_executor=orgao, exercicio=exercicio)
+        .exclude(pk=instance.pk)
+        .count()
+    )
+    seq = ultimo + 1
+    instance.numero = f'NOT-{sigla}-{seq:03d}/{exercicio}'

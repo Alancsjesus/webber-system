@@ -118,7 +118,10 @@ const NAV_BASE = [
   },
   {
     section: 'Contratos',
-    items: [{ to: '/contratos', label: 'Contratos' }],
+    items: [
+      { to: '/contratos', label: 'Contratos' },
+      { to: '/contratos/notificacoes', label: 'Notificações' },
+    ],
   },
   {
     section: 'Fornecedores',

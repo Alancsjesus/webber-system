@@ -6,10 +6,11 @@ from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 
 from core.permissions import IsMultiTenant
-from .models import Contrato, Apostila, Aditivo, CronogramaEntrega, Medicao, Pagamento
+from .models import Contrato, Apostila, Aditivo, CronogramaEntrega, Medicao, Pagamento, Notificacao
 from .serializers import (
     ContratoSerializer, ApostilaSerializer, AditivoSerializer,
     CronogramaEntregaSerializer, MedicaoSerializer, PagamentoSerializer,
+    NotificacaoSerializer,
 )
 
 PAPEIS_GESTORES = ['admin', 'gestor_contrato', 'analista', 'ordenador']
@@ -29,7 +30,7 @@ class ContratoViewSet(viewsets.ModelViewSet):
             org_id=self.request.org_id
         ).select_related(
             'orgao_executor', 'dfd', 'fiscal_contrato', 'gestor_contrato', 'ordenador', 'org_id', 'created_by'
-        ).prefetch_related('apostilas', 'aditivos', 'cronograma', 'medicoes__pagamentos', 'pagamentos')
+        ).prefetch_related('apostilas', 'aditivos', 'cronograma', 'medicoes__pagamentos', 'pagamentos', 'notificacoes')
 
     def perform_update(self, serializer):
         self._bloquear_se_encerrado(serializer.instance)
@@ -165,9 +166,69 @@ class ContratoViewSet(viewsets.ModelViewSet):
         serializer.save()
         return Response(ContratoSerializer(self._reload(contrato), context={'request': request}).data)
 
+    # ── Notificações ───────────────────────────────────────────────────────────
+    @action(detail=True, methods=['post'], url_path='notificacoes')
+    def add_notificacao(self, request, pk=None):
+        contrato = self.get_object()
+        serializer = NotificacaoSerializer(data=request.data, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save(contrato=contrato)
+        return Response(ContratoSerializer(self._reload(contrato), context={'request': request}).data,
+                        status=status.HTTP_201_CREATED)
+
+    @action(detail=True, methods=['patch', 'delete'], url_path=r'notificacoes/(?P<notificacao_pk>[^/.]+)')
+    def notificacao_item(self, request, pk=None, notificacao_pk=None):
+        contrato = self.get_object()
+        notificacao = get_object_or_404(Notificacao, pk=notificacao_pk, contrato=contrato)
+        if request.method == 'DELETE':
+            notificacao.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        serializer = NotificacaoSerializer(notificacao, data=request.data, partial=True, context={'request': request})
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response(ContratoSerializer(self._reload(contrato), context={'request': request}).data)
+
     @action(detail=True, methods=['get'], url_path='export/pdf')
     def export_pdf(self, request, pk=None):
         from exportacao.pdf_utils import gerar_pdf_contrato, resposta_pdf
         contrato = self.get_object()
         pdf = gerar_pdf_contrato(contrato)
         return resposta_pdf(pdf, f'Contrato_{contrato.numero}.pdf')
+
+
+class NotificacaoViewSet(viewsets.ModelViewSet):
+    """
+    Lista cruzada de Notificações de vários contratos ao mesmo tempo —
+    contraparte direta da planilha de controle usada hoje. Criar/editar uma
+    notificação de um contrato específico também é possível pelas actions
+    aninhadas em ContratoViewSet (notificacoes/notificacoes/<id>).
+    """
+    serializer_class   = NotificacaoSerializer
+    permission_classes = [IsAuthenticated, IsMultiTenant]
+    filter_backends    = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
+    filterset_fields   = ['status', 'categoria_objeto', 'exercicio', 'contrato']
+    search_fields      = [
+        'numero', 'resumo_fato', 'numero_processo_sei',
+        'numero_sei_comunicacao', 'numero_sei_notificacao',
+        'contrato__numero', 'contrato__fornecedor__nome_razao_social',
+    ]
+    ordering_fields    = ['exercicio', 'numero', 'data_notificacao', 'created_at']
+    ordering           = ['-exercicio', '-created_at']
+
+    def get_queryset(self):
+        return Notificacao.objects.filter(
+            contrato__org_id=self.request.org_id
+        ).select_related('contrato', 'contrato__fornecedor', 'contrato__orgao_executor')
+
+    def perform_create(self, serializer):
+        contrato = serializer.validated_data.get('contrato')
+        if not contrato:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({'contrato': 'Campo obrigatório.'})
+        if contrato.org_id_id != self.request.org_id:
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('Contrato não pertence a este órgão.')
+        serializer.save(updated_by=self.request.user)
+
+    def perform_update(self, serializer):
+        serializer.save(updated_by=self.request.user)

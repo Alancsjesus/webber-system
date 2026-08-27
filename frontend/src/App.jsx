@@ -52,6 +52,7 @@ import PlanoCompras from './pages/PlanoCompras'
 import ContratoList from './pages/ContratoList'
 import ContratoCreate from './pages/ContratoCreate'
 import ContratoDetail from './pages/ContratoDetail'
+import NotificacaoList from './pages/NotificacaoList'
 import FornecedorList from './pages/FornecedorList'
 import FornecedorCreate from './pages/FornecedorCreate'
 import FornecedorDetail from './pages/FornecedorDetail'
@@ -175,6 +176,7 @@ export default function App() {
           {/* Contratos */}
           <Route path="contratos"      element={<Guard><ContratoList /></Guard>} />
           <Route path="contratos/novo" element={<Guard><ContratoCreate /></Guard>} />
+          <Route path="contratos/notificacoes" element={<Guard><NotificacaoList /></Guard>} />
           <Route path="contratos/:id"  element={<Guard><ContratoDetail /></Guard>} />
 
           {/* Fornecedores */}

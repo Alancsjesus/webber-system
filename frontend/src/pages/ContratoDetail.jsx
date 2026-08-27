@@ -9,6 +9,7 @@ import { downloadFile } from '../services/api'
 import CronogramaSection from '../components/contrato/CronogramaSection'
 import MedicoesSection from '../components/contrato/MedicoesSection'
 import PagamentosSection from '../components/contrato/PagamentosSection'
+import NotificacoesSection from '../components/contrato/NotificacoesSection'
 
 const STATUS_CLS = {
   Vigente:    'bg-green-100 text-green-700',
@@ -43,6 +44,7 @@ export const pageHelp = {
     { label: '+ Item de cronograma', texto: 'Aba Execução Contratual: planeja uma etapa/item a ser entregue, com data prevista. Pode ser marcado como entregue depois.' },
     { label: '+ Nova medição',   texto: 'Aba Execução Contratual: registra a medição do fiscal para um período, com percentual/valor executado. Precisa ser aprovada para liberar pagamento.' },
     { label: '+ Novo pagamento', texto: 'Aba Execução Contratual: registra um pagamento vinculado a uma medição aprovada ou avulso (ex. pagamento único).' },
+    { label: '+ Nova notificação', texto: 'Aba Notificações: registra uma notificação formal enviada à empresa (atraso, ausência de garantia, paralisação etc.), com numeração de controle automática. Continua editável mesmo após o contrato encerrar.' },
     { label: 'PDF Contrato',     texto: 'Gera o documento do contrato em PDF para assinatura.' },
     { label: 'Excluir',          texto: 'Remove o contrato do sistema. Disponível apenas para administradores. Ação irreversível.' },
   ],
@@ -171,6 +173,7 @@ export default function ContratoDetail() {
           { key: 'garantia',  label: 'Garantia' },
           { key: 'alteracoes', label: `Apostilas & Aditivos (${(current.apostilas?.length || 0) + (current.aditivos?.length || 0)})` },
           { key: 'execucao',  label: `Execução Contratual (${(current.cronograma?.length || 0) + (current.medicoes?.length || 0) + (current.pagamentos?.length || 0)})` },
+          { key: 'notificacoes', label: `Notificações (${current.notificacoes?.length || 0})` },
         ].map(({ key, label }) => (
           <button key={key} onClick={() => setActiveTab(key)}
             className={`px-4 py-2 text-sm font-medium rounded-t-lg transition-colors ${
@@ -494,6 +497,11 @@ export default function ContratoDetail() {
           <PagamentosSection contratoId={id} pagamentos={current.pagamentos || []} medicoes={current.medicoes || []} podeEditar={podeEditar} />
         </div>
       </div>
+      )}
+
+      {/* Tab: Notificações */}
+      {activeTab === 'notificacoes' && (
+      <NotificacoesSection contratoId={id} notificacoes={current.notificacoes || []} />
       )}
     </div>
   )

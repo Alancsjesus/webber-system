@@ -1,6 +1,6 @@
 from decimal import Decimal
 from rest_framework import serializers
-from .models import Contrato, Apostila, Aditivo, CronogramaEntrega, Medicao, Pagamento
+from .models import Contrato, Apostila, Aditivo, CronogramaEntrega, Medicao, Pagamento, Notificacao
 
 
 class ApostilaSerializer(serializers.ModelSerializer):
@@ -112,6 +112,45 @@ class MedicaoSerializer(serializers.ModelSerializer):
         return super().update(instance, validated_data)
 
 
+class NotificacaoSerializer(serializers.ModelSerializer):
+    # required=False: na criação aninhada em ContratoViewSet.add_notificacao o
+    # contrato já vem da URL e é injetado via serializer.save(contrato=...);
+    # só é obrigatório de fato no endpoint plano (NotificacaoViewSet), que
+    # valida isso em perform_create.
+    contrato = serializers.PrimaryKeyRelatedField(queryset=Contrato.objects.all(), required=False)
+    status_display           = serializers.CharField(source='get_status_display', read_only=True)
+    categoria_objeto_display = serializers.CharField(source='get_categoria_objeto_display', read_only=True)
+    contrato_numero          = serializers.CharField(source='contrato.numero', read_only=True)
+    fornecedor_nome          = serializers.CharField(source='contrato.fornecedor.nome_razao_social', read_only=True, default=None)
+    fornecedor_documento     = serializers.CharField(source='contrato.fornecedor.documento', read_only=True, default=None)
+
+    class Meta:
+        model  = Notificacao
+        fields = [
+            'id', 'contrato', 'contrato_numero',
+            'numero', 'exercicio', 'categoria_objeto', 'categoria_objeto_display',
+            'numero_processo_sei', 'numero_sei_comunicacao', 'numero_sei_notificacao',
+            'data_notificacao', 'resumo_fato', 'status', 'status_display', 'observacoes',
+            'fornecedor_nome', 'fornecedor_documento',
+            'created_at', 'updated_at',
+        ]
+        read_only_fields = [
+            'id', 'numero', 'status_display', 'categoria_objeto_display', 'contrato_numero',
+            'fornecedor_nome', 'fornecedor_documento', 'created_at', 'updated_at',
+        ]
+
+    def create(self, validated_data):
+        req = self.context['request']
+        validated_data['org_id_id']  = req.org_id
+        validated_data['created_by'] = req.user
+        validated_data['updated_by'] = req.user
+        return super().create(validated_data)
+
+    def update(self, instance, validated_data):
+        validated_data['updated_by'] = self.context['request'].user
+        return super().update(instance, validated_data)
+
+
 class ContratoSerializer(serializers.ModelSerializer):
     orgao_executor_sigla   = serializers.CharField(source='orgao_executor.sigla',   read_only=True)
     orgao_executor_nome    = serializers.CharField(source='orgao_executor.nome',    read_only=True)
@@ -127,6 +166,7 @@ class ContratoSerializer(serializers.ModelSerializer):
     cronograma             = CronogramaEntregaSerializer(many=True, read_only=True)
     medicoes               = MedicaoSerializer(many=True, read_only=True)
     pagamentos             = PagamentoSerializer(many=True, read_only=True)
+    notificacoes           = NotificacaoSerializer(many=True, read_only=True)
 
     valor_medido_total = serializers.SerializerMethodField()
     valor_pago_total    = serializers.SerializerMethodField()
@@ -157,7 +197,7 @@ class ContratoSerializer(serializers.ModelSerializer):
             'org_id', 'created_by', 'created_by_username',
             'created_at', 'updated_at',
             'apostilas', 'aditivos',
-            'cronograma', 'medicoes', 'pagamentos',
+            'cronograma', 'medicoes', 'pagamentos', 'notificacoes',
             'valor_medido_total', 'valor_pago_total', 'saldo_a_pagar',
         ]
         read_only_fields = [
@@ -166,7 +206,7 @@ class ContratoSerializer(serializers.ModelSerializer):
             'orgao_executor_sigla', 'orgao_executor_nome',
             'dfd_numero_sei', 'fiscal_username', 'gestor_username', 'ordenador_username',
             'tipo_origem_display', 'garantia_tipo_display', 'apostilas', 'aditivos',
-            'cronograma', 'medicoes', 'pagamentos',
+            'cronograma', 'medicoes', 'pagamentos', 'notificacoes',
             'valor_medido_total', 'valor_pago_total', 'saldo_a_pagar',
         ]
 

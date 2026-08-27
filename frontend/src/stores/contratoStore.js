@@ -107,6 +107,21 @@ const useContratoStore = create((set, get) => ({
     await api.delete(`/contratos/contrato/${id}/pagamentos/${pagamentoId}/`)
     await get().fetchContrato(id)
   },
+
+  addNotificacao: async (id, payload) => {
+    const { data } = await api.post(`/contratos/contrato/${id}/notificacoes/`, payload)
+    set({ current: data })
+    return data
+  },
+  updateNotificacao: async (id, notificacaoId, payload) => {
+    const { data } = await api.patch(`/contratos/contrato/${id}/notificacoes/${notificacaoId}/`, payload)
+    set({ current: data })
+    return data
+  },
+  deleteNotificacao: async (id, notificacaoId) => {
+    await api.delete(`/contratos/contrato/${id}/notificacoes/${notificacaoId}/`)
+    await get().fetchContrato(id)
+  },
 }))
 
 export default useContratoStore
