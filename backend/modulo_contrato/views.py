@@ -5,6 +5,7 @@ from rest_framework.response import Response
 from rest_framework.views import APIView
 from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from django_filters.rest_framework import DjangoFilterBackend
 
 from core.permissions import IsMultiTenant
@@ -240,81 +241,127 @@ class NotificacaoViewSet(viewsets.ModelViewSet):
         serializer.save(updated_by=self.request.user)
 
 
-class PainelNotificacoesView(APIView):
+class PainelContratosView(APIView):
     """
-    Painel agregado das Notificações Contratuais: totais gerais, contagem por
-    contrato (quantas notificações/rescisões cada um acumulou) e um apanhado
-    histórico cronológico — visão gerencial que a lista plana (NotificacaoViewSet)
-    não oferece.
+    Painel gerencial da área de Contratos: visão rápida de controle —
+    quantos contratos existem por status, quanto já foi medido/pago, quais
+    vencem em breve, e como as Notificações Contratuais se distribuem entre
+    eles (contagem por contrato + apanhado cronológico). Não substitui as
+    listas detalhadas (ContratoViewSet/NotificacaoViewSet), é a visão de topo.
 
-    GET /api/contratos/notificacao-painel/
-    Parâmetros opcionais: ?exercicio=... ?status=... ?tipo_acao=...
+    GET /api/contratos/painel/
+    Parâmetros opcionais: ?exercicio=... ?status=... (filtram os CONTRATOS
+    considerados; a agregação de notificações segue os mesmos contratos)
     """
     permission_classes = [IsAuthenticated, IsMultiTenant]
+    LIMITE_DIAS_VENCIMENTO = 60
 
     def get(self, request):
-        qs = Notificacao.objects.filter(
-            contrato__org_id=request.org_id
-        ).select_related('contrato', 'contrato__fornecedor', 'fornecedor')
+        from decimal import Decimal
 
+        contratos_qs = Contrato.objects.filter(org_id=request.org_id).select_related('fornecedor').prefetch_related(
+            'medicoes', 'pagamentos', 'notificacoes',
+        )
         params = request.query_params
-        for param, campo in {'exercicio': 'exercicio', 'status': 'status', 'tipo_acao': 'tipo_acao'}.items():
-            valor = params.get(param)
-            if valor:
-                qs = qs.filter(**{campo: valor})
+        if params.get('exercicio'):
+            contratos_qs = contratos_qs.filter(exercicio=params['exercicio'])
+        if params.get('status'):
+            contratos_qs = contratos_qs.filter(status=params['status'])
 
-        notificacoes = list(qs.order_by('-data_notificacao', '-created_at'))
+        contratos = list(contratos_qs)
+        hoje = timezone.localdate()
 
-        totais = {
-            'total': len(notificacoes),
-            'andamento': sum(1 for n in notificacoes if n.status == 'andamento'),
-            'cpa': sum(1 for n in notificacoes if n.status == 'cpa'),
-            'concluido': sum(1 for n in notificacoes if n.status == 'concluido'),
-            'notificacoes': sum(1 for n in notificacoes if n.tipo_acao == 'notificacao'),
-            'rescisoes': sum(1 for n in notificacoes if n.tipo_acao == 'rescisao'),
-            'contratos_afetados': len({n.contrato_id for n in notificacoes}),
+        totais_status = {codigo: 0 for codigo, _ in Contrato.STATUS_CHOICES}
+        valor_total_contratado = Decimal('0')
+        valor_medido_total = Decimal('0')
+        valor_pago_total = Decimal('0')
+        vencendo_em_breve = []
+        por_contrato = []
+        todas_notificacoes = []
+
+        for c in contratos:
+            totais_status[c.status] = totais_status.get(c.status, 0) + 1
+            valor_total_contratado += c.valor_contrato
+            medido = sum((m.valor_medido for m in c.medicoes.all() if m.status == 'aprovada'), Decimal('0'))
+            pago = sum((p.valor_pago for p in c.pagamentos.all() if p.status == 'pago'), Decimal('0'))
+            valor_medido_total += medido
+            valor_pago_total += pago
+
+            notifs = list(c.notificacoes.all())
+            todas_notificacoes.extend(notifs)
+
+            if c.status == 'Vigente' and c.data_vigencia_fim:
+                dias_restantes = (c.data_vigencia_fim - hoje).days
+                if 0 <= dias_restantes <= self.LIMITE_DIAS_VENCIMENTO:
+                    vencendo_em_breve.append({
+                        'contrato_id': c.id, 'numero': c.numero,
+                        'fornecedor_nome': c.fornecedor.nome_razao_social if c.fornecedor_id else None,
+                        'data_vigencia_fim': c.data_vigencia_fim, 'dias_restantes': dias_restantes,
+                    })
+
+            por_contrato.append({
+                'contrato_id': c.id,
+                'numero': c.numero,
+                'objeto': c.objeto,
+                'status': c.status,
+                'fornecedor_nome': c.fornecedor.nome_razao_social if c.fornecedor_id else None,
+                'valor_contrato': c.valor_contrato,
+                'saldo_a_pagar': medido - pago,
+                'data_vigencia_fim': c.data_vigencia_fim,
+                'notificacoes_total': len(notifs),
+                'notificacoes_andamento': sum(1 for n in notifs if n.status == 'andamento'),
+                'notificacoes_cpa': sum(1 for n in notifs if n.status == 'cpa'),
+                'notificacoes_concluido': sum(1 for n in notifs if n.status == 'concluido'),
+                'rescisoes_total': sum(1 for n in notifs if n.tipo_acao == 'rescisao'),
+            })
+
+        vencendo_em_breve.sort(key=lambda v: v['dias_restantes'])
+        # Contratos com notificações (principalmente as em CPA) primeiro — é o que pede atenção.
+        por_contrato.sort(key=lambda g: (-g['notificacoes_cpa'], -g['notificacoes_total'], g['numero']))
+
+        totais_notificacoes = {
+            'total': len(todas_notificacoes),
+            'andamento': sum(1 for n in todas_notificacoes if n.status == 'andamento'),
+            'cpa': sum(1 for n in todas_notificacoes if n.status == 'cpa'),
+            'concluido': sum(1 for n in todas_notificacoes if n.status == 'concluido'),
+            'notificacoes': sum(1 for n in todas_notificacoes if n.tipo_acao == 'notificacao'),
+            'rescisoes': sum(1 for n in todas_notificacoes if n.tipo_acao == 'rescisao'),
+            'contratos_afetados': len({n.contrato_id for n in todas_notificacoes}),
         }
 
-        por_contrato = {}
-        for n in notificacoes:
-            c = n.contrato
-            grupo = por_contrato.setdefault(c.id, {
-                'contrato_id': c.id,
-                'contrato_numero': c.numero,
-                'contrato_objeto': c.objeto,
-                'fornecedor_nome': c.fornecedor.nome_razao_social if c.fornecedor_id else None,
-                'total': 0, 'andamento': 0, 'cpa': 0, 'concluido': 0,
-                'notificacoes': 0, 'rescisoes': 0,
-                'ultima_data': None,
-            })
-            grupo['total'] += 1
-            grupo[n.status] += 1
-            grupo['notificacoes' if n.tipo_acao == 'notificacao' else 'rescisoes'] += 1
-            data_ref = n.data_notificacao or n.created_at.date()
-            if not grupo['ultima_data'] or data_ref > grupo['ultima_data']:
-                grupo['ultima_data'] = data_ref
-
-        por_contrato_lista = sorted(por_contrato.values(), key=lambda g: g['total'], reverse=True)
-
-        timeline = [{
+        contrato_por_id = {c.id: c for c in contratos}
+        timeline_ordenada = sorted(
+            todas_notificacoes,
+            key=lambda n: n.data_notificacao or n.created_at.date(),
+            reverse=True,
+        )[:15]
+        timeline_notificacoes = [{
             'id': n.id,
             'numero': n.numero,
             'tipo_acao': n.tipo_acao,
             'tipo_acao_display': n.get_tipo_acao_display(),
             'status': n.status,
             'status_display': n.get_status_display(),
-            'categoria_objeto_display': n.get_categoria_objeto_display(),
             'contrato_id': n.contrato_id,
-            'contrato_numero': n.contrato.numero,
+            'contrato_numero': contrato_por_id[n.contrato_id].numero,
             'fornecedor_nome': n.fornecedor.nome_razao_social if n.fornecedor_id else (
-                n.contrato.fornecedor.nome_razao_social if n.contrato.fornecedor_id else None),
+                contrato_por_id[n.contrato_id].fornecedor.nome_razao_social
+                if contrato_por_id[n.contrato_id].fornecedor_id else None),
             'resumo_fato': n.resumo_fato,
             'data': n.data_notificacao or n.created_at.date(),
-            'data_e_hora_registro': n.created_at,
-        } for n in notificacoes]
+        } for n in timeline_ordenada]
 
         return Response({
-            'totais': totais,
-            'por_contrato': por_contrato_lista,
-            'timeline': timeline,
+            'totais_contratos': {
+                'total': len(contratos),
+                **totais_status,
+                'valor_total_contratado': valor_total_contratado,
+                'valor_medido_total': valor_medido_total,
+                'valor_pago_total': valor_pago_total,
+                'saldo_a_pagar_total': valor_medido_total - valor_pago_total,
+            },
+            'vencendo_em_breve': vencendo_em_breve,
+            'totais_notificacoes': totais_notificacoes,
+            'por_contrato': por_contrato,
+            'timeline_notificacoes': timeline_notificacoes,
         })

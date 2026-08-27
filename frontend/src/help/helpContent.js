@@ -43,7 +43,7 @@ import { pageHelp as procedimentoCreateHelp } from '../pages/ProcedimentoCreate'
 import { pageHelp as contratoListHelp }       from '../pages/ContratoList'
 import { pageHelp as contratoDetailHelp }     from '../pages/ContratoDetail'
 import { pageHelp as notificacaoListHelp }    from '../pages/NotificacaoList'
-import { pageHelp as painelNotificacoesHelp } from '../pages/PainelNotificacoes'
+import { pageHelp as painelContratosHelp }    from '../pages/PainelContratos'
 import { pageHelp as contratoCreateHelp }     from '../pages/ContratoCreate'
 import { pageHelp as fornecedorCreateHelp }   from '../pages/FornecedorCreate'
 import { pageHelp as fornecedorDetailHelp }   from '../pages/FornecedorDetail'
@@ -136,7 +136,7 @@ export const helpContent = {
   '/contratos':                 contratoListHelp,
   '/contratos/novo':            contratoCreateHelp,
   '/contratos/notificacoes':    notificacaoListHelp,
-  '/contratos/painel-notificacoes': painelNotificacoesHelp,
+  '/contratos/painel':          painelContratosHelp,
   '/contratos/:id':             contratoDetailHelp,
 
   '/fornecedores/novo':         fornecedorCreateHelp,

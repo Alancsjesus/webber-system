@@ -119,9 +119,9 @@ const NAV_BASE = [
   {
     section: 'Contratos',
     items: [
+      { to: '/contratos/painel', label: 'Painel de Contratos' },
       { to: '/contratos', label: 'Contratos' },
       { to: '/contratos/notificacoes', label: 'Notificações' },
-      { to: '/contratos/painel-notificacoes', label: 'Painel de Notificações' },
     ],
   },
   {
