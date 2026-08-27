@@ -194,6 +194,10 @@ class Notificacao(BaseModel):
     controle manual em planilha, com numeração interna automática por
     órgão/exercício além dos números de processo SEI envolvidos.
     """
+    TIPO_ACAO_CHOICES = [
+        ('notificacao', 'Notificação'),
+        ('rescisao',    'Rescisão'),
+    ]
     CATEGORIA_CHOICES = [
         ('aquisicao', 'Aquisição'),
         ('obra',      'Obra'),
@@ -208,7 +212,13 @@ class Notificacao(BaseModel):
     contrato = models.ForeignKey(Contrato, on_delete=models.CASCADE, related_name='notificacoes')
     numero   = models.CharField(max_length=30, editable=False, verbose_name='Número de controle')
     exercicio = models.IntegerField(verbose_name='Exercício', help_text='Usado na numeração de controle.')
+    tipo_acao = models.CharField(max_length=15, choices=TIPO_ACAO_CHOICES, default='notificacao', verbose_name='Ação')
     categoria_objeto = models.CharField(max_length=10, choices=CATEGORIA_CHOICES, verbose_name='Tipo')
+    fornecedor = models.ForeignKey(
+        'modulo_fornecedor.Fornecedor', null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='notificacoes', verbose_name='Fornecedor',
+        help_text='Opcional — sobrepõe o fornecedor do contrato quando este não tiver um vinculado ou for diferente.',
+    )
     numero_processo_sei = models.CharField(
         max_length=50, blank=True, default='', verbose_name='Processo SEI',
         help_text='Processo SEI onde o fato foi tratado (pode ser distinto do SEI do contrato).',

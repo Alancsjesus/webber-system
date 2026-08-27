@@ -2,6 +2,7 @@ from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
+from django.db.models import Prefetch
 from django.shortcuts import get_object_or_404
 from django_filters.rest_framework import DjangoFilterBackend
 
@@ -30,7 +31,10 @@ class ContratoViewSet(viewsets.ModelViewSet):
             org_id=self.request.org_id
         ).select_related(
             'orgao_executor', 'dfd', 'fiscal_contrato', 'gestor_contrato', 'ordenador', 'org_id', 'created_by'
-        ).prefetch_related('apostilas', 'aditivos', 'cronograma', 'medicoes__pagamentos', 'pagamentos', 'notificacoes')
+        ).prefetch_related(
+            'apostilas', 'aditivos', 'cronograma', 'medicoes__pagamentos', 'pagamentos',
+            Prefetch('notificacoes', queryset=Notificacao.objects.select_related('fornecedor')),
+        )
 
     def perform_update(self, serializer):
         self._bloquear_se_encerrado(serializer.instance)
@@ -206,11 +210,12 @@ class NotificacaoViewSet(viewsets.ModelViewSet):
     serializer_class   = NotificacaoSerializer
     permission_classes = [IsAuthenticated, IsMultiTenant]
     filter_backends    = [DjangoFilterBackend, filters.SearchFilter, filters.OrderingFilter]
-    filterset_fields   = ['status', 'categoria_objeto', 'exercicio', 'contrato']
+    filterset_fields   = ['status', 'categoria_objeto', 'tipo_acao', 'exercicio', 'contrato']
     search_fields      = [
         'numero', 'resumo_fato', 'numero_processo_sei',
         'numero_sei_comunicacao', 'numero_sei_notificacao',
         'contrato__numero', 'contrato__fornecedor__nome_razao_social',
+        'fornecedor__nome_razao_social', 'fornecedor__documento',
     ]
     ordering_fields    = ['exercicio', 'numero', 'data_notificacao', 'created_at']
     ordering           = ['-exercicio', '-created_at']
@@ -218,7 +223,7 @@ class NotificacaoViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         return Notificacao.objects.filter(
             contrato__org_id=self.request.org_id
-        ).select_related('contrato', 'contrato__fornecedor', 'contrato__orgao_executor')
+        ).select_related('contrato', 'contrato__fornecedor', 'contrato__orgao_executor', 'fornecedor')
 
     def perform_create(self, serializer):
         contrato = serializer.validated_data.get('contrato')

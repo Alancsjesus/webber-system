@@ -1,5 +1,6 @@
 from decimal import Decimal
 from rest_framework import serializers
+from modulo_fornecedor.models import Fornecedor
 from .models import Contrato, Apostila, Aditivo, CronogramaEntrega, Medicao, Pagamento, Notificacao
 
 
@@ -118,26 +119,42 @@ class NotificacaoSerializer(serializers.ModelSerializer):
     # só é obrigatório de fato no endpoint plano (NotificacaoViewSet), que
     # valida isso em perform_create.
     contrato = serializers.PrimaryKeyRelatedField(queryset=Contrato.objects.all(), required=False)
+    fornecedor = serializers.PrimaryKeyRelatedField(queryset=Fornecedor.objects.all(), required=False, allow_null=True)
     status_display           = serializers.CharField(source='get_status_display', read_only=True)
     categoria_objeto_display = serializers.CharField(source='get_categoria_objeto_display', read_only=True)
+    tipo_acao_display        = serializers.CharField(source='get_tipo_acao_display', read_only=True)
     contrato_numero          = serializers.CharField(source='contrato.numero', read_only=True)
-    fornecedor_nome          = serializers.CharField(source='contrato.fornecedor.nome_razao_social', read_only=True, default=None)
-    fornecedor_documento     = serializers.CharField(source='contrato.fornecedor.documento', read_only=True, default=None)
+    fornecedor_nome          = serializers.SerializerMethodField()
+    fornecedor_documento     = serializers.SerializerMethodField()
 
     class Meta:
         model  = Notificacao
         fields = [
             'id', 'contrato', 'contrato_numero',
-            'numero', 'exercicio', 'categoria_objeto', 'categoria_objeto_display',
+            'numero', 'exercicio', 'tipo_acao', 'tipo_acao_display',
+            'categoria_objeto', 'categoria_objeto_display',
             'numero_processo_sei', 'numero_sei_comunicacao', 'numero_sei_notificacao',
             'data_notificacao', 'resumo_fato', 'status', 'status_display', 'observacoes',
-            'fornecedor_nome', 'fornecedor_documento',
+            'fornecedor', 'fornecedor_nome', 'fornecedor_documento',
             'created_at', 'updated_at',
         ]
         read_only_fields = [
-            'id', 'numero', 'status_display', 'categoria_objeto_display', 'contrato_numero',
+            'id', 'numero', 'status_display', 'categoria_objeto_display', 'tipo_acao_display', 'contrato_numero',
             'fornecedor_nome', 'fornecedor_documento', 'created_at', 'updated_at',
         ]
+
+    def _fornecedor(self, obj):
+        # A notificação pode ter fornecedor próprio (quando o contrato não tem
+        # um vinculado, ou é diferente); senão cai no fornecedor do contrato.
+        return obj.fornecedor or (obj.contrato.fornecedor if obj.contrato_id else None)
+
+    def get_fornecedor_nome(self, obj):
+        f = self._fornecedor(obj)
+        return f.nome_razao_social if f else None
+
+    def get_fornecedor_documento(self, obj):
+        f = self._fornecedor(obj)
+        return f.documento if f else None
 
     def create(self, validated_data):
         req = self.context['request']

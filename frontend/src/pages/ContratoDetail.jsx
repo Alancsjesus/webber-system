@@ -44,7 +44,7 @@ export const pageHelp = {
     { label: '+ Item de cronograma', texto: 'Aba Execução Contratual: planeja uma etapa/item a ser entregue, com data prevista. Pode ser marcado como entregue depois.' },
     { label: '+ Nova medição',   texto: 'Aba Execução Contratual: registra a medição do fiscal para um período, com percentual/valor executado. Precisa ser aprovada para liberar pagamento.' },
     { label: '+ Novo pagamento', texto: 'Aba Execução Contratual: registra um pagamento vinculado a uma medição aprovada ou avulso (ex. pagamento único).' },
-    { label: '+ Nova notificação', texto: 'Aba Notificações: registra uma notificação formal enviada à empresa (atraso, ausência de garantia, paralisação etc.), com numeração de controle automática. Continua editável mesmo após o contrato encerrar.' },
+    { label: '+ Nova notificação', texto: 'Aba Notificações: registra uma Notificação ou Rescisão enviada à empresa (atraso, ausência de garantia, paralisação etc.), com numeração de controle automática. O fornecedor é pré-preenchido pelo do contrato, mas pode ser trocado. Continua editável mesmo após o contrato encerrar.' },
     { label: 'PDF Contrato',     texto: 'Gera o documento do contrato em PDF para assinatura.' },
     { label: 'Excluir',          texto: 'Remove o contrato do sistema. Disponível apenas para administradores. Ação irreversível.' },
   ],
@@ -501,7 +501,7 @@ export default function ContratoDetail() {
 
       {/* Tab: Notificações */}
       {activeTab === 'notificacoes' && (
-      <NotificacoesSection contratoId={id} notificacoes={current.notificacoes || []} />
+      <NotificacoesSection contratoId={id} contrato={current} notificacoes={current.notificacoes || []} />
       )}
     </div>
   )
