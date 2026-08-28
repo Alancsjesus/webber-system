@@ -1,7 +1,7 @@
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, include, re_path
 from django.conf import settings
-from django.conf.urls.static import static
+from django.views.static import serve as serve_static
 from rest_framework.routers import DefaultRouter
 from rest_framework_simplejwt.views import TokenRefreshView
 from core.serializers import WebberTokenObtainPairView
@@ -61,4 +61,13 @@ urlpatterns = [
     path('api/contratos/',  include('modulo_contrato.urls')),
     path('api/licitacao/', include('modulo_licitacao.urls')),
     path('api/pncp/',     include('modulo_pncp.urls')),
-] + static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    # django.conf.urls.static.static() só registra esta rota quando DEBUG=True.
+    # Em produção (DEBUG=False) isso deixava TODO arquivo enviado (comprovantes
+    # de cotação, documentos de preço coletado etc.) sem rota — 404 sempre,
+    # mesmo com o arquivo existindo em disco. Registrado manualmente aqui para
+    # funcionar nos dois ambientes. Aviso: enquanto o armazenamento continuar
+    # sendo o disco local do serviço, isso não resolve a perda de arquivo em
+    # redeploy/restart no plano free do Render (filesystem efêmero) — ver
+    # plano roadmap para migração a storage persistente (disco pago ou S3).
+    re_path(r'^media/(?P<path>.*)$', serve_static, {'document_root': settings.MEDIA_ROOT}),
+]
