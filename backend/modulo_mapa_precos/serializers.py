@@ -80,7 +80,7 @@ class SolicitacaoCotacaoSerializer(serializers.ModelSerializer):
             'justificativa_escolha', 'observacoes',
             'criado_em', 'atualizado_em',
         ]
-        read_only_fields = ['id', 'status_display', 'email_enviado_pdf_url', 'resposta_pdf_url', 'criado_em', 'atualizado_em']
+        read_only_fields = ['id', 'mapa', 'status_display', 'email_enviado_pdf_url', 'resposta_pdf_url', 'criado_em', 'atualizado_em']
 
     def get_email_enviado_pdf_url(self, obj):
         if not obj.email_enviado_pdf:
@@ -122,8 +122,10 @@ class MapaComparativoPrecosSerializer(serializers.ModelSerializer):
     fontes                = FonteConsultadaSerializer(many=True, read_only=True)
     itens                 = ItemMapaSerializer(many=True, read_only=True)
     historico             = HistoricoMapaSerializer(many=True, read_only=True)
+    solicitacoes_cotacao  = SolicitacaoCotacaoSerializer(many=True, read_only=True)
     qtd_itens             = serializers.IntegerField(source='itens.count',       read_only=True)
     qtd_fontes            = serializers.IntegerField(source='fontes.count',      read_only=True)
+    qtd_solicitacoes      = serializers.IntegerField(source='solicitacoes_cotacao.count', read_only=True)
 
     class Meta:
         model  = MapaComparativoPrecos
@@ -137,8 +139,8 @@ class MapaComparativoPrecosSerializer(serializers.ModelSerializer):
             'aprovador', 'aprovador_nome', 'data_aprovacao', 'motivo_devolucao',
             'justificativa_metodologia', 'observacoes',
             'parametros_combinados_justificativa',
-            'fontes', 'itens', 'historico',
-            'qtd_itens', 'qtd_fontes',
+            'fontes', 'itens', 'historico', 'solicitacoes_cotacao',
+            'qtd_itens', 'qtd_fontes', 'qtd_solicitacoes',
             'org_id', 'org_nome',
             'created_by', 'created_by_username',
             'created_at', 'updated_at',

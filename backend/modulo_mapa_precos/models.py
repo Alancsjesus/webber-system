@@ -435,6 +435,13 @@ class SolicitacaoCotacao(models.Model):
         ('recusada',   'Recusada — fornecedor declinou'),
     ]
 
+    TRANSICOES_PERMITIDAS = {
+        'enviada':    ['respondida', 'expirada', 'recusada'],
+        'respondida': [],
+        'expirada':   [],
+        'recusada':   [],
+    }
+
     mapa = models.ForeignKey(
         MapaComparativoPrecos, on_delete=models.CASCADE,
         related_name='solicitacoes_cotacao',

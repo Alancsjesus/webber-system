@@ -153,6 +153,22 @@ const useMapaStore = create((set, get) => ({
     await api.delete(`/pesquisa/mapa/${mapaId}/itens/${itemId}/precos/${precoId}/`)
     await get().fetchMapa(mapaId)
   },
+
+  // Solicitações de Cotação (Parâmetro V)
+  addSolicitacao: async (mapaId, payload) => {
+    const { data } = await api.post(`/pesquisa/mapa/${mapaId}/solicitacoes-cotacao/`, payload)
+    await get().fetchMapa(mapaId)
+    return data
+  },
+  updateSolicitacao: async (mapaId, solId, payload) => {
+    const { data } = await api.patch(`/pesquisa/mapa/${mapaId}/solicitacoes-cotacao/${solId}/`, payload)
+    await get().fetchMapa(mapaId)
+    return data
+  },
+  deleteSolicitacao: async (mapaId, solId) => {
+    await api.delete(`/pesquisa/mapa/${mapaId}/solicitacoes-cotacao/${solId}/`)
+    await get().fetchMapa(mapaId)
+  },
 }))
 
 export default useMapaStore

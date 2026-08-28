@@ -698,6 +698,13 @@ class MapaComparativoPrecosViewSet(viewsets.ModelViewSet):
         if request.method == 'DELETE':
             sol.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
+        novo_status = request.data.get('status')
+        if novo_status and novo_status != sol.status:
+            permitidos = SolicitacaoCotacao.TRANSICOES_PERMITIDAS.get(sol.status, [])
+            if novo_status not in permitidos:
+                raise ValidationError(
+                    f'Transição "{sol.status}" → "{novo_status}" não permitida.'
+                )
         serializer = SolicitacaoCotacaoSerializer(sol, data=request.data, partial=True, context=ctx)
         serializer.is_valid(raise_exception=True)
         serializer.save()
