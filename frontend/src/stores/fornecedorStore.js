@@ -47,6 +47,17 @@ const useFornecedorStore = create((set, get) => ({
     await api.delete(`/fornecedores/${id}/`)
     set((s) => ({ fornecedores: s.fornecedores.filter(f => f.id !== id) }))
   },
+
+  addFamilia: async (fornecedorId, familia_simpas) => {
+    const { data } = await api.post(`/fornecedores/${fornecedorId}/familias/`, { familia_simpas })
+    await get().fetchFornecedor(fornecedorId)
+    return data
+  },
+
+  deleteFamilia: async (fornecedorId, familiaId) => {
+    await api.delete(`/fornecedores/${fornecedorId}/familias/${familiaId}/`)
+    await get().fetchFornecedor(fornecedorId)
+  },
 }))
 
 export default useFornecedorStore

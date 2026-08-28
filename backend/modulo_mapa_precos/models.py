@@ -424,24 +424,12 @@ class PrecoColetado(models.Model):
 
 class SolicitacaoCotacao(models.Model):
     """
-    Registro de solicitação formal de cotação a fornecedor — Parâmetro V.
-    Rastreia o workflow: envio do e-mail → prazo → resposta → upload de documentos.
+    Disparo formal de solicitação de cotação — Parâmetro V. Um único disparo é
+    enviado por e-mail a TODOS os fornecedores cadastrados numa família SIMPAS
+    (ver FornecedorFamilia); as respostas individuais de cada fornecedor são
+    registradas em RespostaCotacao, uma por fornecedor que respondeu.
     Decreto Estadual 22.886/2024, Art. 5º, IV c/c Art. 7º, IV.
     """
-    STATUS_CHOICES = [
-        ('enviada',    'Enviada — aguardando resposta'),
-        ('respondida', 'Respondida — cotação recebida'),
-        ('expirada',   'Expirada — prazo encerrado sem resposta'),
-        ('recusada',   'Recusada — fornecedor declinou'),
-    ]
-
-    TRANSICOES_PERMITIDAS = {
-        'enviada':    ['respondida', 'expirada', 'recusada'],
-        'respondida': [],
-        'expirada':   [],
-        'recusada':   [],
-    }
-
     mapa = models.ForeignKey(
         MapaComparativoPrecos, on_delete=models.CASCADE,
         related_name='solicitacoes_cotacao',
@@ -452,23 +440,18 @@ class SolicitacaoCotacao(models.Model):
         on_delete=models.SET_NULL,
         related_name='solicitacoes',
         verbose_name='Fonte (Parâmetro V)',
-        help_text='Vincular à FonteConsultada de tipo V criada para este fornecedor.',
+        help_text='Vincular à FonteConsultada de tipo V criada para este disparo.',
     )
 
-    # Identificação do fornecedor
-    fornecedor = models.ForeignKey(
-        'modulo_fornecedor.Fornecedor', null=True, blank=True,
-        on_delete=models.PROTECT, related_name='cotacoes',
-        verbose_name='Fornecedor cadastrado',
+    familia_simpas = models.CharField(
+        max_length=15, verbose_name='Família SIMPAS',
+        help_text='Família de itens cujos fornecedores cadastrados (modulo_fornecedor.FornecedorFamilia) recebem o disparo.',
     )
-    fornecedor_nome = models.CharField(max_length=300, verbose_name='Nome / Razão social')
-    fornecedor_cnpj = models.CharField(max_length=18, blank=True, default='', verbose_name='CNPJ')
-    fornecedor_email = models.EmailField(verbose_name='E-mail do fornecedor')
 
     # Rastreamento do envio
     data_envio = models.DateField(verbose_name='Data de envio da solicitação')
     prazo_resposta = models.DateField(verbose_name='Prazo para resposta')
-    status = models.CharField(max_length=15, choices=STATUS_CHOICES, default='enviada')
+    encerrada = models.BooleanField(default=False, verbose_name='Disparo encerrado')
 
     # Documentação comprobatória — Art. 7º, IV
     email_enviado_pdf = models.FileField(
@@ -476,9 +459,31 @@ class SolicitacaoCotacao(models.Model):
         verbose_name='PDF do e-mail enviado',
         help_text='Decreto 22.886/2024, Art. 7º, IV — obrigatório para comprovação.',
     )
+    observacoes = models.TextField(blank=True, default='', verbose_name='Observações')
 
-    # Resposta do fornecedor
-    respondeu = models.BooleanField(default=False, verbose_name='Fornecedor respondeu?')
+    criado_em = models.DateTimeField(auto_now_add=True)
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ['mapa', '-data_envio']
+        verbose_name = 'Solicitação de Cotação'
+        verbose_name_plural = 'Solicitações de Cotação'
+
+    def __str__(self):
+        return f'{self.familia_simpas} — {self.data_envio}'
+
+
+class RespostaCotacao(models.Model):
+    """Resposta de um fornecedor específico a um disparo de SolicitacaoCotacao."""
+    solicitacao = models.ForeignKey(
+        SolicitacaoCotacao, on_delete=models.CASCADE,
+        related_name='respostas', verbose_name='Solicitação de cotação',
+    )
+    fornecedor = models.ForeignKey(
+        'modulo_fornecedor.Fornecedor', on_delete=models.PROTECT,
+        related_name='respostas_cotacao', verbose_name='Fornecedor',
+    )
+    recusou = models.BooleanField(default=False, verbose_name='Fornecedor recusou')
     valor_respondido = models.DecimalField(
         max_digits=15, decimal_places=2, null=True, blank=True,
         verbose_name='Valor unitário respondido (R$)',
@@ -487,10 +492,14 @@ class SolicitacaoCotacao(models.Model):
         upload_to='cotacoes/respostas/', null=True, blank=True,
         verbose_name='PDF da proposta/cotação recebida',
     )
+    data_resposta = models.DateField(verbose_name='Data da resposta')
+    escolhida = models.BooleanField(
+        default=False, verbose_name='Usar como referência de preço',
+    )
     justificativa_escolha = models.TextField(
         blank=True, default='',
         verbose_name='Justificativa da escolha deste fornecedor',
-        help_text='Art. 3º, inc. VII — Por que este fornecedor foi selecionado para receber a solicitação.',
+        help_text='Art. 3º, inc. VII — Por que esta resposta foi adotada como referência.',
     )
     observacoes = models.TextField(blank=True, default='', verbose_name='Observações')
 
@@ -498,9 +507,12 @@ class SolicitacaoCotacao(models.Model):
     atualizado_em = models.DateTimeField(auto_now=True)
 
     class Meta:
-        ordering = ['mapa', 'data_envio', 'fornecedor_nome']
-        verbose_name = 'Solicitação de Cotação'
-        verbose_name_plural = 'Solicitações de Cotação'
+        ordering = ['-data_resposta']
+        verbose_name = 'Resposta de Cotação'
+        verbose_name_plural = 'Respostas de Cotação'
+
+    def __str__(self):
+        return f'{self.fornecedor.nome_razao_social} — {self.solicitacao}'
 
     def __str__(self):
         return f'{self.fornecedor_nome} — {self.get_status_display()} ({self.data_envio})'

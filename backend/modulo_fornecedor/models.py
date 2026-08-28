@@ -51,3 +51,26 @@ class Fornecedor(models.Model):
 
     def __str__(self):
         return f'{self.documento} — {self.nome_razao_social}'
+
+
+class FornecedorFamilia(models.Model):
+    """
+    Vínculo de um fornecedor a uma família SIMPAS (código derivado dos dois
+    primeiros segmentos de core.ItemCatalogo.codigo_simpas — não existe
+    catálogo fixo de famílias, por isso é um CharField livre, não uma FK).
+    Usado para disparar Solicitação de Cotação (Parâmetro V) a todos os
+    fornecedores de uma família de uma vez.
+    """
+    fornecedor = models.ForeignKey(
+        Fornecedor, on_delete=models.CASCADE, related_name='familias',
+    )
+    familia_simpas = models.CharField(max_length=15, verbose_name='Família SIMPAS')
+
+    class Meta:
+        unique_together = ('fornecedor', 'familia_simpas')
+        ordering = ['familia_simpas']
+        verbose_name = 'Família do Fornecedor'
+        verbose_name_plural = 'Famílias do Fornecedor'
+
+    def __str__(self):
+        return f'{self.fornecedor.nome_razao_social} — {self.familia_simpas}'

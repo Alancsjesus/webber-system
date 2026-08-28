@@ -9,11 +9,13 @@ from rest_framework.response import Response
 from core.permissions import IsMultiTenant
 from .models import (
     MapaComparativoPrecos, HistoricoMapa, FonteConsultada, ItemMapa,
-    PrecoColetado, SolicitacaoCotacao, TIPO_FONTE_CHOICES, METODO_CALCULO_CHOICES, TRANSICOES_MAPA,
+    PrecoColetado, SolicitacaoCotacao, RespostaCotacao,
+    TIPO_FONTE_CHOICES, METODO_CALCULO_CHOICES, TRANSICOES_MAPA,
 )
 from .serializers import (
     MapaComparativoPrecosSerializer, FonteConsultadaSerializer,
-    ItemMapaSerializer, PrecoColetadoSerializer, SolicitacaoCotacaoSerializer,
+    ItemMapaSerializer, PrecoColetadoSerializer,
+    SolicitacaoCotacaoSerializer, RespostaCotacaoSerializer,
 )
 
 
@@ -698,14 +700,41 @@ class MapaComparativoPrecosViewSet(viewsets.ModelViewSet):
         if request.method == 'DELETE':
             sol.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
-        novo_status = request.data.get('status')
-        if novo_status and novo_status != sol.status:
-            permitidos = SolicitacaoCotacao.TRANSICOES_PERMITIDAS.get(sol.status, [])
-            if novo_status not in permitidos:
-                raise ValidationError(
-                    f'Transição "{sol.status}" → "{novo_status}" não permitida.'
-                )
         serializer = SolicitacaoCotacaoSerializer(sol, data=request.data, partial=True, context=ctx)
         serializer.is_valid(raise_exception=True)
         serializer.save()
+        return Response(serializer.data)
+
+    # ── Respostas individuais de cada fornecedor ao disparo ────────────────────
+    @action(detail=True, methods=['get', 'post'],
+            url_path='solicitacoes-cotacao/(?P<sol_pk>[^/.]+)/respostas')
+    def respostas_cotacao(self, request, pk=None, sol_pk=None):
+        mapa = self.get_object()
+        sol  = get_object_or_404(SolicitacaoCotacao, pk=sol_pk, mapa=mapa)
+        ctx  = {'request': request}
+        if request.method == 'POST':
+            serializer = RespostaCotacaoSerializer(data=request.data, context=ctx)
+            serializer.is_valid(raise_exception=True)
+            resposta = serializer.save(solicitacao=sol)
+            if resposta.escolhida:
+                sol.respostas.exclude(pk=resposta.pk).update(escolhida=False)
+            return Response(RespostaCotacaoSerializer(resposta, context=ctx).data, status=status.HTTP_201_CREATED)
+        qs = sol.respostas.select_related('fornecedor').order_by('-data_resposta')
+        return Response(RespostaCotacaoSerializer(qs, many=True, context=ctx).data)
+
+    @action(detail=True, methods=['patch', 'delete'],
+            url_path='solicitacoes-cotacao/(?P<sol_pk>[^/.]+)/respostas/(?P<resp_pk>[^/.]+)')
+    def resposta_cotacao_detail(self, request, pk=None, sol_pk=None, resp_pk=None):
+        mapa = self.get_object()
+        sol  = get_object_or_404(SolicitacaoCotacao, pk=sol_pk, mapa=mapa)
+        resp = get_object_or_404(RespostaCotacao, pk=resp_pk, solicitacao=sol)
+        ctx  = {'request': request}
+        if request.method == 'DELETE':
+            resp.delete()
+            return Response(status=status.HTTP_204_NO_CONTENT)
+        serializer = RespostaCotacaoSerializer(resp, data=request.data, partial=True, context=ctx)
+        serializer.is_valid(raise_exception=True)
+        resposta = serializer.save()
+        if resposta.escolhida:
+            sol.respostas.exclude(pk=resposta.pk).update(escolhida=False)
         return Response(serializer.data)

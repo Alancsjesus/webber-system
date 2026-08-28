@@ -1,5 +1,8 @@
 from rest_framework import serializers
-from .models import MapaComparativoPrecos, HistoricoMapa, FonteConsultada, ItemMapa, PrecoColetado, SolicitacaoCotacao
+from .models import (
+    MapaComparativoPrecos, HistoricoMapa, FonteConsultada, ItemMapa, PrecoColetado,
+    SolicitacaoCotacao, RespostaCotacao,
+)
 
 
 class HistoricoMapaSerializer(serializers.ModelSerializer):
@@ -63,36 +66,52 @@ class ItemMapaSerializer(serializers.ModelSerializer):
         ]
 
 
-class SolicitacaoCotacaoSerializer(serializers.ModelSerializer):
-    status_display = serializers.CharField(source='get_status_display', read_only=True)
-    email_enviado_pdf_url = serializers.SerializerMethodField()
+class RespostaCotacaoSerializer(serializers.ModelSerializer):
+    fornecedor_nome = serializers.CharField(source='fornecedor.nome_razao_social', read_only=True)
+    fornecedor_cnpj = serializers.CharField(source='fornecedor.documento', read_only=True)
+    fornecedor_email = serializers.CharField(source='fornecedor.email', read_only=True)
     resposta_pdf_url = serializers.SerializerMethodField()
 
     class Meta:
-        model  = SolicitacaoCotacao
+        model  = RespostaCotacao
         fields = [
-            'id', 'mapa', 'fonte', 'fornecedor',
+            'id', 'solicitacao', 'fornecedor',
             'fornecedor_nome', 'fornecedor_cnpj', 'fornecedor_email',
-            'data_envio', 'prazo_resposta', 'status', 'status_display',
-            'email_enviado_pdf', 'email_enviado_pdf_url',
-            'respondeu', 'valor_respondido',
+            'recusou', 'valor_respondido',
             'resposta_pdf', 'resposta_pdf_url',
-            'justificativa_escolha', 'observacoes',
+            'data_resposta', 'escolhida', 'justificativa_escolha', 'observacoes',
             'criado_em', 'atualizado_em',
         ]
-        read_only_fields = ['id', 'mapa', 'status_display', 'email_enviado_pdf_url', 'resposta_pdf_url', 'criado_em', 'atualizado_em']
-
-    def get_email_enviado_pdf_url(self, obj):
-        if not obj.email_enviado_pdf:
-            return None
-        request = self.context.get('request')
-        return request.build_absolute_uri(obj.email_enviado_pdf.url) if request else obj.email_enviado_pdf.url
+        read_only_fields = ['id', 'solicitacao', 'resposta_pdf_url', 'criado_em', 'atualizado_em']
 
     def get_resposta_pdf_url(self, obj):
         if not obj.resposta_pdf:
             return None
         request = self.context.get('request')
         return request.build_absolute_uri(obj.resposta_pdf.url) if request else obj.resposta_pdf.url
+
+
+class SolicitacaoCotacaoSerializer(serializers.ModelSerializer):
+    email_enviado_pdf_url = serializers.SerializerMethodField()
+    respostas = RespostaCotacaoSerializer(many=True, read_only=True)
+    qtd_respostas = serializers.IntegerField(source='respostas.count', read_only=True)
+
+    class Meta:
+        model  = SolicitacaoCotacao
+        fields = [
+            'id', 'mapa', 'fonte', 'familia_simpas',
+            'data_envio', 'prazo_resposta', 'encerrada',
+            'email_enviado_pdf', 'email_enviado_pdf_url',
+            'observacoes', 'respostas', 'qtd_respostas',
+            'criado_em', 'atualizado_em',
+        ]
+        read_only_fields = ['id', 'mapa', 'email_enviado_pdf_url', 'respostas', 'qtd_respostas', 'criado_em', 'atualizado_em']
+
+    def get_email_enviado_pdf_url(self, obj):
+        if not obj.email_enviado_pdf:
+            return None
+        request = self.context.get('request')
+        return request.build_absolute_uri(obj.email_enviado_pdf.url) if request else obj.email_enviado_pdf.url
 
 
 class FonteConsultadaSerializer(serializers.ModelSerializer):

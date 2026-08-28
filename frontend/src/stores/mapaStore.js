@@ -154,7 +154,7 @@ const useMapaStore = create((set, get) => ({
     await get().fetchMapa(mapaId)
   },
 
-  // Solicitações de Cotação (Parâmetro V)
+  // Solicitações de Cotação — disparo por família (Parâmetro V)
   addSolicitacao: async (mapaId, payload) => {
     const { data } = await api.post(`/pesquisa/mapa/${mapaId}/solicitacoes-cotacao/`, payload)
     await get().fetchMapa(mapaId)
@@ -167,6 +167,22 @@ const useMapaStore = create((set, get) => ({
   },
   deleteSolicitacao: async (mapaId, solId) => {
     await api.delete(`/pesquisa/mapa/${mapaId}/solicitacoes-cotacao/${solId}/`)
+    await get().fetchMapa(mapaId)
+  },
+
+  // Respostas individuais de fornecedores a um disparo
+  addResposta: async (mapaId, solId, payload) => {
+    const { data } = await api.post(`/pesquisa/mapa/${mapaId}/solicitacoes-cotacao/${solId}/respostas/`, payload)
+    await get().fetchMapa(mapaId)
+    return data
+  },
+  updateResposta: async (mapaId, solId, respId, payload) => {
+    const { data } = await api.patch(`/pesquisa/mapa/${mapaId}/solicitacoes-cotacao/${solId}/respostas/${respId}/`, payload)
+    await get().fetchMapa(mapaId)
+    return data
+  },
+  deleteResposta: async (mapaId, solId, respId) => {
+    await api.delete(`/pesquisa/mapa/${mapaId}/solicitacoes-cotacao/${solId}/respostas/${respId}/`)
     await get().fetchMapa(mapaId)
   },
 }))

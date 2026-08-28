@@ -8,7 +8,7 @@ import useDebouncedValue from '../hooks/useDebouncedValue'
  * mostra um link para cadastrar um fornecedor novo quando a busca não
  * encontra resultados.
  */
-export default function FornecedorPicker({ value, valueLabel, onChange, onCriarNovo, placeholder = 'Buscar por CNPJ/CPF ou nome...' }) {
+export default function FornecedorPicker({ value, valueLabel, onChange, onCriarNovo, placeholder = 'Buscar por CNPJ/CPF ou nome...', extraParams = {} }) {
   const [query, setQuery] = useState(valueLabel || '')
   const [resultados, setResultados] = useState([])
   const [aberto, setAberto] = useState(false)
@@ -21,10 +21,10 @@ export default function FornecedorPicker({ value, valueLabel, onChange, onCriarN
   useEffect(() => {
     if (!search || search === valueLabel) { setResultados([]); return }
     setLoading(true)
-    api.get('/fornecedores/', { params: { search, ativos: 'true', page_size: 10 } })
+    api.get('/fornecedores/', { params: { search, ativos: 'true', page_size: 10, ...extraParams } })
       .then(({ data }) => setResultados(data.results ?? data))
       .finally(() => setLoading(false))
-  }, [search])
+  }, [search, JSON.stringify(extraParams)])
 
   useEffect(() => {
     const onClickFora = (e) => { if (boxRef.current && !boxRef.current.contains(e.target)) setAberto(false) }

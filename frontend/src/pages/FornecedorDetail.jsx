@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import useFornecedorStore from '../stores/fornecedorStore'
 import LoadingSpinner from '../components/LoadingSpinner'
 import { mascararDocumento, validarDocumento } from '../utils/documentoValidator'
+import api from '../services/api'
 
 const fmt = (v) => v == null ? '—' : Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const fmtData = (v) => v ? new Date(v).toLocaleDateString('pt-BR') : '—'
@@ -15,6 +16,7 @@ export const pageHelp = {
     { label: 'Aviso de relação anterior', texto: 'Aparece quando o fornecedor já teve pelo menos uma cotação, licitação ou contrato registrado — útil para verificar histórico antes de uma nova contratação.' },
     { label: 'Abas Cotações/Licitações/Contratos', texto: 'Lista, por categoria, todos os registros já vinculados a este fornecedor em qualquer órgão da plataforma.' },
     { label: 'Editar',                    texto: 'Altera os dados cadastrais — CNPJ/CPF continua validado por dígito verificador.' },
+    { label: 'Famílias SIMPAS',           texto: 'Famílias de item que este fornecedor atende. Ao criar uma Solicitação de Cotação (Parâmetro V) para uma família, o sistema mostra todos os fornecedores marcados com ela como destinatários do disparo.' },
   ],
 }
 // ──────────────────────────────────────────────────────────────────────────────
@@ -22,7 +24,7 @@ export const pageHelp = {
 export default function FornecedorDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { current, historico, loading, fetchFornecedor, fetchHistorico, updateFornecedor } = useFornecedorStore()
+  const { current, historico, loading, fetchFornecedor, fetchHistorico, updateFornecedor, addFamilia, deleteFamilia } = useFornecedorStore()
   const [editing, setEditing] = useState(false)
   const [form, setForm] = useState(null)
   const [errors, setErrors] = useState({})
@@ -146,6 +148,13 @@ export default function FornecedorDetail() {
         )}
       </div>
 
+      <FamiliasFornecedor
+        fornecedorId={current.id}
+        familias={current.familias || []}
+        onAdd={(f) => addFamilia(current.id, f)}
+        onDelete={(familiaId) => deleteFamilia(current.id, familiaId)}
+      />
+
       <div className="border-b border-gray-200 mb-4 flex gap-4">
         {[
           ['cotacoes', `Cotações (${historico?.cotacoes.length ?? 0})`],
@@ -162,9 +171,9 @@ export default function FornecedorDetail() {
       {aba === 'cotacoes' && (
         <ListaHistorico
           itens={historico?.cotacoes}
-          vazio="Nenhuma cotação registrada para este fornecedor."
-          colunas={['Mapa', 'Status', 'Envio', 'Respondeu', 'Valor']}
-          render={(c) => [c.mapa_id, c.status, fmtData(c.data_envio), c.respondeu ? 'Sim' : 'Não', fmt(c.valor_respondido)]}
+          vazio="Nenhuma resposta de cotação registrada para este fornecedor."
+          colunas={['Mapa', 'Família', 'Resposta em', 'Recusou', 'Valor']}
+          render={(c) => [c.mapa_id, c.familia_simpas || '—', fmtData(c.data_resposta), c.recusou ? 'Sim' : 'Não', fmt(c.valor_respondido)]}
         />
       )}
       {aba === 'licitacoes' && (
@@ -184,6 +193,53 @@ export default function FornecedorDetail() {
           onClick={(ct) => navigate(`/contratos/${ct.id}`)}
         />
       )}
+    </div>
+  )
+}
+
+function FamiliasFornecedor({ fornecedorId, familias, onAdd, onDelete }) {
+  const [sugestoes, setSugestoes] = useState([])
+  const [novaFamilia, setNovaFamilia] = useState('')
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    api.get('/core/catalogo/familias/').then(({ data }) => setSugestoes(data)).catch(() => {})
+  }, [])
+
+  const handleAdd = async () => {
+    const valor = novaFamilia.trim()
+    if (!valor) return
+    setSaving(true)
+    try { await onAdd(valor); setNovaFamilia('') } finally { setSaving(false) }
+  }
+
+  return (
+    <div className="bg-white border border-gray-200 rounded-xl p-5 mb-6">
+      <p className="text-sm font-semibold text-gray-700 mb-1">Famílias SIMPAS atendidas</p>
+      <p className="text-xs text-gray-400 mb-3">
+        Usado para selecionar destinatários ao disparar uma Solicitação de Cotação (Parâmetro V).
+      </p>
+      <div className="flex flex-wrap gap-2 mb-3">
+        {familias.length === 0 && <span className="text-xs text-gray-400">Nenhuma família cadastrada ainda.</span>}
+        {familias.map((f) => (
+          <span key={f.id} className="inline-flex items-center gap-1.5 bg-blue-50 text-blue-700 text-xs font-medium px-2.5 py-1 rounded-full">
+            {f.familia_simpas}
+            <button onClick={() => onDelete(f.id)} className="text-blue-400 hover:text-blue-700">✕</button>
+          </span>
+        ))}
+      </div>
+      <div className="flex gap-2">
+        <input list="familias-sugestoes" value={novaFamilia} onChange={(e) => setNovaFamilia(e.target.value)}
+          placeholder="Ex: 42.40"
+          className="flex-1 border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        <datalist id="familias-sugestoes">
+          {sugestoes.map((f) => <option key={f} value={f} />)}
+        </datalist>
+        <button onClick={handleAdd} disabled={saving || !novaFamilia.trim()}
+          className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-medium px-3 py-1.5 rounded-lg">
+          Adicionar
+        </button>
+      </div>
     </div>
   )
 }

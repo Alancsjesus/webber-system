@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { downloadFile } from '../services/api'
+import api, { downloadFile } from '../services/api'
 import ModalDevolver, { MOTIVOS_MAPA } from '../components/ModalDevolver'
 import { useNavigate, useParams } from 'react-router-dom'
 import useMapaStore from '../stores/mapaStore'
@@ -19,13 +19,6 @@ const TIPO_FONTE_LABELS = {
   'IV':   'IV — Notas fiscais',
   'V':    'V — Pesquisa direta',
   'HIST': 'Histórico Weber-e',
-}
-
-const STATUS_SOLICITACAO_CLS = {
-  enviada:    'bg-blue-100 text-blue-700',
-  respondida: 'bg-green-100 text-green-700',
-  expirada:   'bg-gray-200 text-gray-600',
-  recusada:   'bg-red-100 text-red-600',
 }
 
 const MOTIVOS_EXCLUSAO = [
@@ -55,8 +48,8 @@ export const pageHelp = {
     { label: 'Recalcular',        texto: 'Atualiza o valor estimado com base nos preços válidos e no método selecionado.' },
     { label: 'Validar Prazos',    texto: 'Verifica se os preços coletados estão dentro do prazo de validade (180 dias para PNCP, 1 ano para outros).' },
     { label: 'Importar PNCP',     texto: 'Busca preços de contratações similares no Portal Nacional de Compras Públicas (PNCP) para subsidiar a pesquisa.' },
-    { label: '+ Solicitação de Cotação', texto: 'Registra o envio formal de uma solicitação de cotação a um fornecedor (Parâmetro V, Art. 5º, IV). Não envia e-mail automaticamente — use o link "Enviar por e-mail" para abrir seu cliente de e-mail, e depois anexe o comprovante do envio (obrigatório pelo Art. 7º, IV).' },
-    { label: 'Registrar Resposta', texto: 'Marca a solicitação como respondida, recusada ou expirada. Se respondida, registre o valor cotado e anexe a proposta/cotação recebida.' },
+    { label: '+ Solicitação de Cotação', texto: 'Registra o disparo formal de uma solicitação de cotação a TODOS os fornecedores cadastrados numa família SIMPAS (Parâmetro V, Art. 5º, IV). Não envia e-mail automaticamente — mostra os destinatários para copiar em BCC no seu cliente de e-mail, e depois anexe o comprovante do envio (obrigatório pelo Art. 7º, IV).' },
+    { label: '+ Resposta',        texto: 'Registra a resposta de um fornecedor específico ao disparo — valor cotado ou recusa, com upload da proposta recebida. Marque "Usar como referência" na resposta escolhida para justificar a seleção (Art. 3º, VII).' },
     { label: 'Submeter',          texto: 'Envia o mapa para aprovação. Todos os itens devem ter pelo menos 3 preços válidos.' },
     { label: 'Aprovar',           texto: 'Homologa o mapa de preços. O valor resultante é usado como referência no procedimento licitatório.' },
     { label: 'Download PDF',      texto: 'Exporta o mapa completo em PDF para compor o processo SEI.' },
@@ -83,6 +76,7 @@ export default function MapaDetail() {
     addItem, deleteItem,
     addPreco, updatePreco, deletePreco,
     addSolicitacao, updateSolicitacao, deleteSolicitacao,
+    addResposta, updateResposta, deleteResposta,
     metadados,
   } = useMapaStore()
 
@@ -347,35 +341,42 @@ export default function MapaDetail() {
       {activeTab === 'cotacoes' && (
         <div>
           <p className="text-sm text-gray-600 mb-4">
-            Registro formal de solicitação de cotação a fornecedores (Parâmetro V, Art. 5º, IV do Decreto 22.886/2024).
-            O envio do e-mail é feito pelo seu próprio cliente de e-mail — use o link "Enviar por e-mail" e depois
-            anexe o comprovante do envio, conforme exige o Art. 7º, IV.
+            Disparo formal de solicitação de cotação a todos os fornecedores cadastrados numa família
+            (Parâmetro V, Art. 5º, IV do Decreto 22.886/2024). O envio do e-mail é feito pelo seu próprio
+            cliente de e-mail — copie os destinatários para BCC e depois anexe o comprovante do envio,
+            conforme exige o Art. 7º, IV. As respostas de cada fornecedor são registradas individualmente
+            dentro do disparo.
           </p>
           {isEditavel && (
             <div className="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-4">
-              <p className="text-sm font-semibold text-gray-700 mb-3">Nova solicitação de cotação</p>
+              <p className="text-sm font-semibold text-gray-700 mb-3">Novo disparo de cotação</p>
               <SolicitacaoForm
                 fontes={(current.fontes || []).filter(f => f.tipo === 'V')}
                 onSave={async (payload) => {
-                  await act(() => addSolicitacao(id, payload), 'Solicitação de cotação registrada.')
+                  await act(() => addSolicitacao(id, payload), 'Disparo registrado.')
                 }}
               />
             </div>
           )}
 
           {(current.solicitacoes_cotacao || []).length === 0
-            ? <p className="text-sm text-gray-400">Nenhuma solicitação de cotação registrada.</p>
+            ? <p className="text-sm text-gray-400">Nenhum disparo de cotação registrado.</p>
             : (
-              <div className="space-y-2">
+              <div className="space-y-3">
                 {current.solicitacoes_cotacao.map((s) => (
                   <SolicitacaoCard
                     key={s.id}
                     sol={s}
                     isEditavel={isEditavel}
-                    onResponder={async (payload) => {
-                      await act(() => updateSolicitacao(id, s.id, payload), 'Solicitação atualizada.')
+                    onEncerrar={() => act(() => updateSolicitacao(id, s.id, { encerrada: true }), 'Disparo encerrado.')}
+                    onDelete={() => act(() => deleteSolicitacao(id, s.id), 'Disparo removido.')}
+                    onAddResposta={async (payload) => {
+                      await act(() => addResposta(id, s.id, payload), 'Resposta registrada.')
                     }}
-                    onDelete={() => act(() => deleteSolicitacao(id, s.id), 'Solicitação removida.')}
+                    onUpdateResposta={async (respId, payload) => {
+                      await act(() => updateResposta(id, s.id, respId, payload), 'Resposta atualizada.')
+                    }}
+                    onDeleteResposta={(respId) => act(() => deleteResposta(id, s.id, respId), 'Resposta removida.')}
                   />
                 ))}
               </div>
@@ -1007,89 +1008,71 @@ function ItemForm({ onSave }) {
 
 function SolicitacaoForm({ fontes, onSave }) {
   const hoje = new Date().toISOString().split('T')[0]
-  const [form, setForm] = useState({
-    fonte: '', fornecedor: null, fornecedor_nome: '', fornecedor_cnpj: '', fornecedor_email: '',
-    data_envio: hoje, prazo_resposta: '', justificativa_escolha: '',
-  })
-  const [fornecedorLabel, setFornecedorLabel] = useState('')
+  const [form, setForm] = useState({ fonte: '', familia_simpas: '', data_envio: hoje, prazo_resposta: '' })
+  const [sugestoes, setSugestoes] = useState([])
+  const [destinatarios, setDestinatarios] = useState(null)
+  const [buscandoDest, setBuscandoDest] = useState(false)
   const [arquivo, setArquivo] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [copiado, setCopiado] = useState(false)
+
+  useEffect(() => {
+    api.get('/core/catalogo/familias/').then(({ data }) => setSugestoes(data)).catch(() => {})
+  }, [])
+
+  useEffect(() => {
+    const familia = form.familia_simpas.trim()
+    if (!familia) { setDestinatarios(null); return }
+    setBuscandoDest(true)
+    const t = setTimeout(() => {
+      api.get('/fornecedores/', { params: { familia, ativos: 'true', page_size: 100 } })
+        .then(({ data }) => setDestinatarios(data.results ?? data))
+        .catch(() => setDestinatarios([]))
+        .finally(() => setBuscandoDest(false))
+    }, 400)
+    return () => clearTimeout(t)
+  }, [form.familia_simpas])
 
   const handleSave = async () => {
-    if (!form.fornecedor_nome.trim() || !form.fornecedor_email.trim() || !form.prazo_resposta) return
+    if (!form.familia_simpas.trim() || !form.prazo_resposta) return
     setSaving(true)
     try {
       let payload
       if (arquivo) {
         payload = new FormData()
-        Object.entries(form).forEach(([k, v]) => {
-          if (k === 'fornecedor' || k === 'fonte') { if (v) payload.append(k, v) }
-          else payload.append(k, v ?? '')
-        })
+        payload.append('familia_simpas', form.familia_simpas.trim())
+        payload.append('data_envio', form.data_envio)
+        payload.append('prazo_resposta', form.prazo_resposta)
+        if (form.fonte) payload.append('fonte', form.fonte)
         payload.append('email_enviado_pdf', arquivo)
       } else {
-        payload = { ...form, fonte: form.fonte || null, fornecedor: form.fornecedor || null }
+        payload = { ...form, familia_simpas: form.familia_simpas.trim(), fonte: form.fonte || null }
       }
       await onSave(payload)
-      setForm({
-        fonte: '', fornecedor: null, fornecedor_nome: '', fornecedor_cnpj: '', fornecedor_email: '',
-        data_envio: hoje, prazo_resposta: '', justificativa_escolha: '',
-      })
-      setFornecedorLabel('')
+      setForm({ fonte: '', familia_simpas: '', data_envio: hoje, prazo_resposta: '' })
+      setDestinatarios(null)
       setArquivo(null)
     } finally { setSaving(false) }
   }
 
-  const mailtoHref = form.fornecedor_email
-    ? `mailto:${form.fornecedor_email}?subject=${encodeURIComponent('Solicitação de Cotação de Preços')}&body=${encodeURIComponent('Prezado(a) fornecedor(a),\n\nSolicitamos cotação de preços para fins de instrução de processo administrativo, conforme itens em anexo.\n\nPrazo para resposta: ' + (form.prazo_resposta ? new Date(form.prazo_resposta + 'T00:00:00').toLocaleDateString('pt-BR') : '—') + '.\n\nAtenciosamente.')}`
-    : null
+  const emails = (destinatarios || []).map(f => f.email).filter(Boolean)
+  const copiarEmails = () => {
+    navigator.clipboard.writeText(emails.join('; ')).then(() => {
+      setCopiado(true); setTimeout(() => setCopiado(false), 2000)
+    })
+  }
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-      {fontes.length > 0 && (
-        <div className="col-span-3">
-          <label className="block text-xs font-medium text-gray-600 mb-1">Vincular à fonte (Parâmetro V)</label>
-          <select value={form.fonte} onChange={(e) => setForm(p => ({ ...p, fonte: e.target.value }))}
-            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
-            <option value="">Sem vínculo</option>
-            {fontes.map(f => <option key={f.id} value={f.id}>{f.descricao.slice(0, 60)}</option>)}
-          </select>
-        </div>
-      )}
-      <div className="col-span-3">
-        <label className="block text-xs font-medium text-gray-600 mb-1">Fornecedor cadastrado (opcional)</label>
-        <FornecedorPicker
-          value={form.fornecedor}
-          valueLabel={fornecedorLabel}
-          onChange={(fid, fornecedor) => {
-            setForm(p => ({
-              ...p,
-              fornecedor: fid,
-              fornecedor_nome: fornecedor?.nome_razao_social || p.fornecedor_nome,
-              fornecedor_cnpj: fornecedor?.documento || p.fornecedor_cnpj,
-              fornecedor_email: fornecedor?.email || p.fornecedor_email,
-            }))
-            setFornecedorLabel(fornecedor ? `${fornecedor.documento} — ${fornecedor.nome_razao_social}` : '')
-          }}
-        />
-      </div>
-      <div>
-        <label className="block text-xs font-medium text-gray-600 mb-1">Nome / Razão social *</label>
-        <input type="text" value={form.fornecedor_nome}
-          onChange={(e) => setForm(p => ({ ...p, fornecedor_nome: e.target.value }))}
+      <div className="col-span-3 sm:col-span-1">
+        <label className="block text-xs font-medium text-gray-600 mb-1">Família SIMPAS *</label>
+        <input list="familias-disparo" value={form.familia_simpas}
+          onChange={(e) => setForm(p => ({ ...p, familia_simpas: e.target.value }))}
+          placeholder="Ex: 42.40"
           className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
-      </div>
-      <div>
-        <label className="block text-xs font-medium text-gray-600 mb-1">CNPJ/CPF</label>
-        <input type="text" value={form.fornecedor_cnpj}
-          onChange={(e) => setForm(p => ({ ...p, fornecedor_cnpj: e.target.value }))}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
-      </div>
-      <div>
-        <label className="block text-xs font-medium text-gray-600 mb-1">E-mail *</label>
-        <input type="email" value={form.fornecedor_email}
-          onChange={(e) => setForm(p => ({ ...p, fornecedor_email: e.target.value }))}
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        <datalist id="familias-disparo">
+          {sugestoes.map((f) => <option key={f} value={f} />)}
+        </datalist>
       </div>
       <div>
         <label className="block text-xs font-medium text-gray-600 mb-1">Data de envio *</label>
@@ -1103,18 +1086,45 @@ function SolicitacaoForm({ fontes, onSave }) {
           onChange={(e) => setForm(p => ({ ...p, prazo_resposta: e.target.value }))}
           className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
       </div>
-      {mailtoHref && (
-        <div className="flex items-end">
-          <a href={mailtoHref} className="text-xs text-blue-600 hover:underline">✉ Enviar por e-mail</a>
+
+      {form.familia_simpas.trim() && (
+        <div className="col-span-3 bg-white border border-gray-200 rounded-lg p-3">
+          {buscandoDest ? (
+            <p className="text-xs text-gray-400">Buscando fornecedores da família...</p>
+          ) : (destinatarios || []).length === 0 ? (
+            <p className="text-xs text-orange-600">
+              Nenhum fornecedor cadastrado com a família "{form.familia_simpas}" ainda —
+              cadastre/taguear fornecedores em Fornecedores antes de disparar.
+            </p>
+          ) : (
+            <>
+              <p className="text-xs text-gray-600 mb-1.5">
+                <strong>{destinatarios.length}</strong> fornecedor(es) serão destinatários deste disparo:
+              </p>
+              <p className="text-xs text-gray-500 max-h-20 overflow-y-auto">
+                {destinatarios.map(f => f.nome_razao_social).join(', ')}
+              </p>
+              {emails.length > 0 && (
+                <button type="button" onClick={copiarEmails}
+                  className="mt-2 text-xs text-blue-600 hover:underline">
+                  {copiado ? '✓ Copiado!' : `Copiar ${emails.length} e-mail(s) para BCC`}
+                </button>
+              )}
+            </>
+          )}
         </div>
       )}
-      <div className="col-span-3">
-        <label className="block text-xs font-medium text-gray-600 mb-1">Justificativa da escolha deste fornecedor</label>
-        <textarea rows={2} value={form.justificativa_escolha}
-          onChange={(e) => setForm(p => ({ ...p, justificativa_escolha: e.target.value }))}
-          placeholder="Art. 3º, inc. VII — por que este fornecedor foi selecionado para receber a solicitação."
-          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500" />
-      </div>
+
+      {fontes.length > 0 && (
+        <div className="col-span-3">
+          <label className="block text-xs font-medium text-gray-600 mb-1">Vincular à fonte (Parâmetro V)</label>
+          <select value={form.fonte} onChange={(e) => setForm(p => ({ ...p, fonte: e.target.value }))}
+            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500">
+            <option value="">Sem vínculo</option>
+            {fontes.map(f => <option key={f.id} value={f.id}>{f.descricao.slice(0, 60)}</option>)}
+          </select>
+        </div>
+      )}
       <div className="col-span-3">
         <label className="block text-xs font-medium text-gray-600 mb-1">Comprovante do e-mail enviado (PDF, opcional agora — obrigatório pelo Art. 7º, IV)</label>
         <input type="file" accept=".pdf,.png,.jpg,.jpeg"
@@ -1124,118 +1134,204 @@ function SolicitacaoForm({ fontes, onSave }) {
       </div>
       <div className="col-span-3">
         <button onClick={handleSave}
-          disabled={saving || !form.fornecedor_nome.trim() || !form.fornecedor_email.trim() || !form.prazo_resposta}
+          disabled={saving || !form.familia_simpas.trim() || !form.prazo_resposta}
           className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-xs font-medium px-4 py-2 rounded-lg">
-          {saving ? 'Salvando...' : 'Registrar solicitação'}
+          {saving ? 'Salvando...' : 'Registrar disparo'}
         </button>
       </div>
     </div>
   )
 }
 
-function SolicitacaoCard({ sol, isEditavel, onResponder, onDelete }) {
-  const [showResposta, setShowResposta] = useState(false)
-  const [valorRespondido, setValorRespondido] = useState('')
-  const [respostaPdf, setRespostaPdf] = useState(null)
-  const [saving, setSaving] = useState(false)
-
+function SolicitacaoCard({ sol, isEditavel, onEncerrar, onDelete, onAddResposta, onUpdateResposta, onDeleteResposta }) {
+  const [showRespostaForm, setShowRespostaForm] = useState(false)
   const hoje = new Date().toISOString().split('T')[0]
-  const vencido = sol.status === 'enviada' && sol.prazo_resposta && sol.prazo_resposta < hoje
-
-  const marcar = async (novoStatus, extra = {}) => {
-    setSaving(true)
-    try { await onResponder({ status: novoStatus, ...extra }) } finally { setSaving(false) }
-  }
-
-  const confirmarResposta = async () => {
-    setSaving(true)
-    try {
-      let payload
-      if (respostaPdf) {
-        payload = new FormData()
-        payload.append('status', 'respondida')
-        payload.append('respondeu', 'true')
-        if (valorRespondido) payload.append('valor_respondido', valorRespondido)
-        payload.append('resposta_pdf', respostaPdf)
-      } else {
-        payload = { status: 'respondida', respondeu: true, valor_respondido: valorRespondido ? Number(valorRespondido) : null }
-      }
-      await onResponder(payload)
-      setShowResposta(false); setValorRespondido(''); setRespostaPdf(null)
-    } finally { setSaving(false) }
-  }
+  const vencido = !sol.encerrada && sol.prazo_resposta && sol.prazo_resposta < hoje
 
   return (
     <div className={`p-4 rounded-xl border ${vencido ? 'border-orange-300 bg-orange-50' : 'border-gray-200 bg-white'}`}>
       <div className="flex items-start justify-between">
         <div>
           <div className="flex items-center gap-2 mb-1">
-            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${STATUS_SOLICITACAO_CLS[sol.status] || 'bg-gray-100 text-gray-600'}`}>
-              {sol.status_display}
+            <span className="bg-blue-100 text-blue-800 text-xs font-semibold px-2 py-0.5 rounded-full">
+              Família {sol.familia_simpas}
+            </span>
+            <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${sol.encerrada ? 'bg-gray-200 text-gray-600' : 'bg-green-100 text-green-700'}`}>
+              {sol.encerrada ? 'Encerrado' : 'Aberto'}
             </span>
             {vencido && <span className="bg-orange-100 text-orange-700 text-xs px-2 py-0.5 rounded-full">Prazo vencido</span>}
           </div>
-          <p className="text-sm font-medium text-gray-800">{sol.fornecedor_nome}</p>
-          <p className="text-xs text-gray-500">
-            {sol.fornecedor_cnpj && `${sol.fornecedor_cnpj} · `}{sol.fornecedor_email}
-          </p>
-          <p className="text-xs text-gray-400 mt-0.5">
-            Enviada em {new Date(sol.data_envio + 'T00:00:00').toLocaleDateString('pt-BR')}
+          <p className="text-xs text-gray-400">
+            Enviado em {new Date(sol.data_envio + 'T00:00:00').toLocaleDateString('pt-BR')}
             {' · '}Prazo: {new Date(sol.prazo_resposta + 'T00:00:00').toLocaleDateString('pt-BR')}
+            {' · '}{sol.qtd_respostas} resposta(s)
           </p>
-          {sol.respondeu && sol.valor_respondido && (
-            <p className="text-sm font-semibold text-green-700 mt-1">
-              Valor cotado: {Number(sol.valor_respondido).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-            </p>
+          {sol.email_enviado_pdf_url && (
+            <a href={sol.email_enviado_pdf_url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:underline">📄 Comprovante de envio</a>
           )}
-          {sol.justificativa_escolha && (
-            <p className="text-xs text-gray-500 mt-1">Justificativa: {sol.justificativa_escolha}</p>
-          )}
-          <div className="flex gap-3 mt-1">
-            {sol.email_enviado_pdf_url && (
-              <a href={sol.email_enviado_pdf_url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:underline">📄 Comprovante de envio</a>
-            )}
-            {sol.resposta_pdf_url && (
-              <a href={sol.resposta_pdf_url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:underline">📄 Proposta recebida</a>
-            )}
-          </div>
         </div>
         {isEditavel && (
           <div className="flex flex-col items-end gap-1 shrink-0 ml-4">
-            {sol.status === 'enviada' && (
-              <>
-                <button onClick={() => setShowResposta(v => !v)} disabled={saving}
-                  className="text-xs text-green-700 hover:underline">Registrar Resposta</button>
-                <button onClick={() => marcar('recusada')} disabled={saving}
-                  className="text-xs text-red-500 hover:underline">Marcar recusada</button>
-                <button onClick={() => marcar('expirada')} disabled={saving}
-                  className="text-xs text-gray-500 hover:underline">Marcar expirada</button>
-              </>
-            )}
+            <button onClick={() => setShowRespostaForm(v => !v)} className="text-xs text-green-700 hover:underline">+ Resposta</button>
+            {!sol.encerrada && <button onClick={onEncerrar} className="text-xs text-gray-500 hover:underline">Encerrar disparo</button>}
             <button onClick={onDelete} className="text-xs text-red-500 hover:text-red-700">Remover</button>
           </div>
         )}
       </div>
 
-      {showResposta && (
-        <div className="mt-3 pt-3 border-t border-gray-200 grid grid-cols-2 gap-2">
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">Valor unitário cotado (R$)</label>
-            <CampoMoeda value={valorRespondido} onChange={setValorRespondido}
-              className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500" />
+      {showRespostaForm && (
+        <div className="mt-3 pt-3 border-t border-gray-200">
+          <RespostaForm
+            familia={sol.familia_simpas}
+            onSave={async (payload) => { await onAddResposta(payload); setShowRespostaForm(false) }}
+          />
+        </div>
+      )}
+
+      {(sol.respostas || []).length > 0 && (
+        <div className="mt-3 pt-3 border-t border-gray-200 space-y-2">
+          {sol.respostas.map((r) => (
+            <RespostaRow key={r.id} resp={r} isEditavel={isEditavel}
+              onUpdate={(payload) => onUpdateResposta(r.id, payload)}
+              onDelete={() => onDeleteResposta(r.id)} />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function RespostaForm({ familia, onSave }) {
+  const hoje = new Date().toISOString().split('T')[0]
+  const [form, setForm] = useState({ fornecedor: null, valor_respondido: '', recusou: false, data_resposta: hoje })
+  const [fornecedorLabel, setFornecedorLabel] = useState('')
+  const [arquivo, setArquivo] = useState(null)
+  const [saving, setSaving] = useState(false)
+
+  const handleSave = async () => {
+    if (!form.fornecedor || !form.data_resposta) return
+    setSaving(true)
+    try {
+      let payload
+      if (arquivo) {
+        payload = new FormData()
+        payload.append('fornecedor', form.fornecedor)
+        payload.append('recusou', form.recusou ? 'true' : 'false')
+        if (form.valor_respondido) payload.append('valor_respondido', form.valor_respondido)
+        payload.append('data_resposta', form.data_resposta)
+        payload.append('resposta_pdf', arquivo)
+      } else {
+        payload = {
+          fornecedor: form.fornecedor, recusou: form.recusou, data_resposta: form.data_resposta,
+          valor_respondido: form.valor_respondido ? Number(form.valor_respondido) : null,
+        }
+      }
+      await onSave(payload)
+      setForm({ fornecedor: null, valor_respondido: '', recusou: false, data_resposta: hoje })
+      setFornecedorLabel(''); setArquivo(null)
+    } finally { setSaving(false) }
+  }
+
+  return (
+    <div className="grid grid-cols-2 gap-2 bg-gray-50 rounded-lg p-3">
+      <div className="col-span-2">
+        <label className="block text-xs text-gray-500 mb-1">Fornecedor *</label>
+        <FornecedorPicker
+          value={form.fornecedor}
+          valueLabel={fornecedorLabel}
+          extraParams={{ familia }}
+          onChange={(fid, fornecedor) => {
+            setForm(p => ({ ...p, fornecedor: fid }))
+            setFornecedorLabel(fornecedor ? `${fornecedor.documento} — ${fornecedor.nome_razao_social}` : '')
+          }}
+        />
+      </div>
+      <div className="flex items-center gap-2">
+        <input type="checkbox" id={`recusou-${familia}`} checked={form.recusou}
+          onChange={(e) => setForm(p => ({ ...p, recusou: e.target.checked }))} className="accent-red-500" />
+        <label htmlFor={`recusou-${familia}`} className="text-xs text-gray-600">Fornecedor recusou</label>
+      </div>
+      <div>
+        <label className="block text-xs text-gray-500 mb-1">Data da resposta *</label>
+        <input type="date" value={form.data_resposta}
+          onChange={(e) => setForm(p => ({ ...p, data_resposta: e.target.value }))}
+          className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500" />
+      </div>
+      {!form.recusou && (
+        <div>
+          <label className="block text-xs text-gray-500 mb-1">Valor unitário cotado (R$)</label>
+          <CampoMoeda value={form.valor_respondido} onChange={(v) => setForm(p => ({ ...p, valor_respondido: v }))}
+            className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500" />
+        </div>
+      )}
+      <div>
+        <label className="block text-xs text-gray-500 mb-1">Proposta/cotação recebida (PDF)</label>
+        <input type="file" accept=".pdf,.png,.jpg,.jpeg"
+          onChange={(e) => setArquivo(e.target.files[0] || null)}
+          className="w-full text-xs text-gray-600 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
+      </div>
+      <div className="col-span-2 flex justify-end">
+        <button onClick={handleSave} disabled={saving || !form.fornecedor}
+          className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-xs font-medium px-4 py-1.5 rounded-lg">
+          {saving ? 'Salvando...' : 'Registrar resposta'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function RespostaRow({ resp, isEditavel, onUpdate, onDelete }) {
+  const [showJustificativa, setShowJustificativa] = useState(false)
+  const [justificativa, setJustificativa] = useState(resp.justificativa_escolha || '')
+  const [saving, setSaving] = useState(false)
+
+  const toggleEscolhida = async () => {
+    if (!resp.escolhida && !justificativa.trim()) { setShowJustificativa(true); return }
+    setSaving(true)
+    try { await onUpdate({ escolhida: !resp.escolhida, justificativa_escolha: justificativa }) }
+    finally { setSaving(false); setShowJustificativa(false) }
+  }
+
+  return (
+    <div className={`p-2.5 rounded-lg border text-sm ${resp.escolhida ? 'border-green-300 bg-green-50' : 'border-gray-100 bg-white'}`}>
+      <div className="flex items-start justify-between">
+        <div>
+          <p className="font-medium text-gray-800">
+            {resp.fornecedor_nome}
+            {resp.escolhida && <span className="ml-2 text-xs bg-green-100 text-green-700 px-1.5 py-0.5 rounded-full">Referência</span>}
+            {resp.recusou && <span className="ml-2 text-xs bg-red-100 text-red-600 px-1.5 py-0.5 rounded-full">Recusou</span>}
+          </p>
+          <p className="text-xs text-gray-500">{resp.fornecedor_cnpj} · {resp.fornecedor_email}</p>
+          <p className="text-xs text-gray-400">Respondeu em {new Date(resp.data_resposta + 'T00:00:00').toLocaleDateString('pt-BR')}</p>
+          {!resp.recusou && resp.valor_respondido && (
+            <p className="text-sm font-semibold text-green-700 mt-0.5">
+              {Number(resp.valor_respondido).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+            </p>
+          )}
+          {resp.resposta_pdf_url && (
+            <a href={resp.resposta_pdf_url} target="_blank" rel="noreferrer" className="text-xs text-blue-600 hover:underline">📄 Proposta recebida</a>
+          )}
+        </div>
+        {isEditavel && (
+          <div className="flex flex-col items-end gap-1 shrink-0 ml-3">
+            {!resp.recusou && (
+              <button onClick={toggleEscolhida} disabled={saving} className="text-xs text-green-700 hover:underline">
+                {resp.escolhida ? 'Desmarcar referência' : 'Usar como referência'}
+              </button>
+            )}
+            <button onClick={onDelete} className="text-xs text-red-500 hover:text-red-700">Remover</button>
           </div>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">Proposta/cotação recebida (PDF)</label>
-            <input type="file" accept=".pdf,.png,.jpg,.jpeg"
-              onChange={(e) => setRespostaPdf(e.target.files[0] || null)}
-              className="w-full text-xs text-gray-600 file:mr-2 file:py-1 file:px-2 file:rounded file:border-0 file:text-xs file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100" />
-          </div>
-          <div className="col-span-2 flex justify-end">
-            <button onClick={confirmarResposta} disabled={saving}
-              className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-xs font-medium px-4 py-1.5 rounded-lg">
-              {saving ? 'Salvando...' : 'Confirmar resposta'}
-            </button>
-          </div>
+        )}
+      </div>
+      {showJustificativa && (
+        <div className="mt-2 pt-2 border-t border-gray-100">
+          <label className="block text-xs text-gray-500 mb-1">Justificativa da escolha (Art. 3º, VII) *</label>
+          <textarea rows={2} value={justificativa} onChange={(e) => setJustificativa(e.target.value)}
+            className="w-full border border-gray-300 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-1 focus:ring-blue-500" />
+          <button onClick={toggleEscolhida} disabled={saving || !justificativa.trim()}
+            className="mt-1.5 bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-xs font-medium px-3 py-1 rounded-lg">
+            Confirmar
+          </button>
         </div>
       )}
     </div>

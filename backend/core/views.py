@@ -670,6 +670,16 @@ class ItemCatalogoViewSet(viewsets.ModelViewSet):
         instance.ativo = False
         instance.save()
 
+    @action(detail=False, methods=['get'], url_path='familias')
+    def familias(self, request):
+        """Lista distinta de famílias SIMPAS já cadastradas no catálogo — usada
+        como sugestão (não é uma lista fechada) em seletores de família."""
+        codigos = (
+            ItemCatalogo.objects.exclude(familia='')
+            .values_list('familia', flat=True).distinct().order_by('familia')
+        )
+        return Response(list(codigos))
+
     @action(detail=False, methods=['post'], url_path='importar-csv')
     def importar_csv(self, request):
         import csv, json

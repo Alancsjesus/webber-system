@@ -1,10 +1,11 @@
+from django.shortcuts import get_object_or_404
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 
-from .models import Fornecedor
-from .serializers import FornecedorSerializer
+from .models import Fornecedor, FornecedorFamilia
+from .serializers import FornecedorSerializer, FornecedorFamiliaSerializer
 
 PAPEIS_GERENCIAM_FORNECEDOR = ('admin', 'analista', 'gestor_contrato', 'ordenador')
 
@@ -28,7 +29,10 @@ class FornecedorViewSet(viewsets.ModelViewSet):
         ativos = self.request.query_params.get('ativos')
         if ativos == 'true':
             qs = qs.filter(ativo=True)
-        return qs
+        familia = self.request.query_params.get('familia')
+        if familia:
+            qs = qs.filter(familias__familia_simpas=familia)
+        return qs.distinct()
 
     def perform_create(self, serializer):
         _check_permissao(self.request)
@@ -43,6 +47,27 @@ class FornecedorViewSet(viewsets.ModelViewSet):
         instance.ativo = False
         instance.save()
 
+    # ── Famílias SIMPAS vinculadas ──────────────────────────────────────────────
+    @action(detail=True, methods=['get', 'post'], url_path='familias')
+    def familias(self, request, pk=None):
+        fornecedor = self.get_object()
+        if request.method == 'POST':
+            _check_permissao(request)
+            serializer = FornecedorFamiliaSerializer(data=request.data)
+            serializer.is_valid(raise_exception=True)
+            serializer.save(fornecedor=fornecedor)
+            return Response(serializer.data, status=status.HTTP_201_CREATED)
+        qs = fornecedor.familias.all()
+        return Response(FornecedorFamiliaSerializer(qs, many=True).data)
+
+    @action(detail=True, methods=['delete'], url_path='familias/(?P<familia_pk>[^/.]+)')
+    def familia_detail(self, request, pk=None, familia_pk=None):
+        _check_permissao(request)
+        fornecedor = self.get_object()
+        fam = get_object_or_404(FornecedorFamilia, pk=familia_pk, fornecedor=fornecedor)
+        fam.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
     @action(detail=True, methods=['get'], url_path='historico')
     def historico(self, request, pk=None):
         """
@@ -53,14 +78,14 @@ class FornecedorViewSet(viewsets.ModelViewSet):
 
         cotacoes = [
             {
-                'id': c.id,
-                'mapa_id': c.mapa_id,
-                'status': c.status,
-                'data_envio': c.data_envio,
-                'respondeu': c.respondeu,
-                'valor_respondido': c.valor_respondido,
+                'id': r.id,
+                'mapa_id': r.solicitacao.mapa_id,
+                'familia_simpas': r.solicitacao.familia_simpas,
+                'data_resposta': r.data_resposta,
+                'recusou': r.recusou,
+                'valor_respondido': r.valor_respondido,
             }
-            for c in fornecedor.cotacoes.select_related('mapa').order_by('-data_envio')
+            for r in fornecedor.respostas_cotacao.select_related('solicitacao').order_by('-data_resposta')
         ]
 
         resultados_licitacao = [
