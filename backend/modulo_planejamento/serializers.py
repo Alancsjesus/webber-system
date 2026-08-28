@@ -3,6 +3,7 @@ from django.db.models import Sum
 from rest_framework import serializers
 from .models import NecessidadePlanejamento, HistoricoNecessidade, PlanoOrcamentario, ItemPlanoOrcamentario
 from core.models import Orgao
+from modulo_arp.models import Ata
 
 
 class HistoricoNecessidadeSerializer(serializers.ModelSerializer):
@@ -27,6 +28,7 @@ class NecessidadeSerializer(serializers.ModelSerializer):
     planos_ids           = serializers.PrimaryKeyRelatedField(source='planos', many=True, read_only=True)
     origem               = serializers.SerializerMethodField()
     historico            = HistoricoNecessidadeSerializer(many=True, read_only=True)
+    ata_origem_numero_ata = serializers.CharField(source='ata_origem.numero_ata', read_only=True, default=None)
 
     def get_itens_plano_count(self, obj):
         return obj.itens_plano.count()
@@ -66,6 +68,8 @@ class NecessidadeSerializer(serializers.ModelSerializer):
             'org_gestor_nome',
             'unidade_demandante',
             'aceite_pai',
+            'ata_origem',
+            'ata_origem_numero_ata',
             'historico',
             'org_id',
             'org_nome',
@@ -83,7 +87,16 @@ class NecessidadeSerializer(serializers.ModelSerializer):
             'org_gestor', 'org_gestor_sigla', 'org_gestor_nome',
             'orgao_executor_sigla', 'orgao_executor_nome',
             'dfd_numero_sei', 'itens_plano_count', 'planos_ids', 'origem', 'historico',
+            'ata_origem_numero_ata',
         ]
+
+    def validate_ata_origem(self, value):
+        if value and value.tipo_origem != 'gerenciador':
+            raise serializers.ValidationError(
+                'Esta Necessidade só aceita Ata gerenciada por esta Secretaria (saque). '
+                'Para adesão a Ata de outro órgão, vincule no ETP.'
+            )
+        return value
 
     def validate_prazo_desejado(self, value):
         if value and value < date.today():
@@ -125,7 +138,7 @@ class NecessidadeSerializer(serializers.ModelSerializer):
     # Campos que o pai pode ajustar nas necessidades aceitas dos filhos
     CAMPOS_PAI_PERMITIDOS = frozenset([
         'exercicio_fiscal', 'prioridade', 'prazo_desejado',
-        'unidade_demandante', 'observacoes', 'area_aplicacao',
+        'unidade_demandante', 'observacoes', 'area_aplicacao', 'ata_origem',
     ])
 
     def _is_edicao_pai(self, instance):

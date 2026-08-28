@@ -53,6 +53,7 @@ export const pageHelp = {
     { label: '+ Item',          texto: 'Adiciona um item ao DFD com descrição, quantidade, unidade e valor estimado unitário.' },
     { label: 'Pré-visualizar texto', texto: 'Mostra o texto pronto (composto a partir dos campos já preenchidos, seguindo os modelos configurados em Configurações → Estrutura de Artefatos) para copiar e colar no SEI. É apenas uma pré-visualização — não altera nem preenche os campos do DFD.' },
     { label: 'Download PDF',    texto: 'Gera o DFD em PDF para assinatura e arquivamento no processo SEI.' },
+    { label: '📄 Instrumento da Ata', texto: 'Aparece quando esta demanda está vinculada a uma Ata de Registro de Preços — por saque (vínculo feito na Necessidade de origem) ou por adesão (vínculo feito no ETP). Baixa o instrumento preparatório anexado na Ata, para compor o processo SEI junto com o DFD.' },
     { label: 'Checklist SSP-BA', texto: 'Badge colorido mostrando quantos campos do checklist estão preenchidos. Vermelho = campos obrigatórios pendentes (bloqueia submissão). Amarelo = campos recomendados em falta. Verde = completo.' },
   ],
   fluxo: [
@@ -382,6 +383,12 @@ export default function DFDDetail() {
               className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg transition-colors">
               ↓ HTML
             </DownloadButton>
+              {current.ata_vinculada_instrumento_url && (
+                <a href={current.ata_vinculada_instrumento_url} target="_blank" rel="noreferrer"
+                  className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg transition-colors inline-flex items-center">
+                  📄 Instrumento da Ata
+                </a>
+              )}
               <button onClick={handleDelete}
                 className="border border-red-300 text-red-500 hover:bg-red-50 text-sm px-4 py-1.5 rounded-lg transition-colors">
                 Excluir
@@ -614,6 +621,11 @@ export default function DFDDetail() {
             </select>
           ) : (
             <p className="text-sm text-gray-700">{current.modalidade_display || current.modalidade_aquisicao || 'Licitação'}</p>
+          )}
+          {current.ata_vinculada_numero && (
+            <p className="text-xs text-indigo-700 mt-1">
+              Ata vinculada: <span className="font-medium">{current.ata_vinculada_numero}</span>
+            </p>
           )}
         </DetailField>
 

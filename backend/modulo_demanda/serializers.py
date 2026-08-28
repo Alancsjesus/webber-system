@@ -117,6 +117,9 @@ class DFDSerializer(serializers.ModelSerializer):
     gestor_contrato_username = serializers.CharField(source='gestor_contrato.username', read_only=True, default=None)
     gestor_suplente_username = serializers.CharField(source='gestor_suplente.username', read_only=True, default=None)
 
+    ata_vinculada_numero = serializers.SerializerMethodField()
+    ata_vinculada_instrumento_url = serializers.SerializerMethodField()
+
     def get_etp_id(self, obj):
         etp = getattr(obj, 'etp', None)
         return etp.pk if etp else None
@@ -124,6 +127,27 @@ class DFDSerializer(serializers.ModelSerializer):
     def get_etp_dispensado(self, obj):
         etp = getattr(obj, 'etp', None)
         return etp.status == 'Dispensado' if etp else False
+
+    def _ata_vinculada(self, obj):
+        """Saque (via Necessidade) tem prioridade; senão tenta adesão (via ETP)."""
+        necessidade = getattr(obj, 'necessidade_origem', None)
+        if necessidade and necessidade.ata_origem_id:
+            return necessidade.ata_origem
+        etp = getattr(obj, 'etp', None)
+        if etp and etp.ata_adesao_id:
+            return etp.ata_adesao
+        return None
+
+    def get_ata_vinculada_numero(self, obj):
+        ata = self._ata_vinculada(obj)
+        return ata.numero_ata if ata else None
+
+    def get_ata_vinculada_instrumento_url(self, obj):
+        ata = self._ata_vinculada(obj)
+        if not ata or not ata.instrumento_preparatorio:
+            return None
+        request = self.context.get('request')
+        return request.build_absolute_uri(ata.instrumento_preparatorio.url) if request else ata.instrumento_preparatorio.url
 
     def get_unidade_demandante_nome(self, obj):
         return str(obj.unidade_demandante) if obj.unidade_demandante_id else None
@@ -186,6 +210,8 @@ class DFDSerializer(serializers.ModelSerializer):
             'gestor_suplente_username',
             'pca_previsto',
             'pca_justificativa_ausencia',
+            'ata_vinculada_numero',
+            'ata_vinculada_instrumento_url',
         ]
         read_only_fields = [
             'id', 'org_id', 'created_by', 'updated_by',

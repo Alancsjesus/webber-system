@@ -3,7 +3,7 @@ import ModalDevolver, { MOTIVOS_ETP } from '../components/ModalDevolver'
 import { useNavigate, useParams } from 'react-router-dom'
 import useEtpStore from '../stores/etpStore'
 import useAuthStore from '../stores/authStore'
-import { downloadFile } from '../services/api'
+import api, { downloadFile } from '../services/api'
 import DownloadButton from '../components/DownloadButton'
 import ChecklistBadge from '../components/ChecklistBadge'
 import ModalPreviewTexto from '../components/ModalPreviewTexto'
@@ -38,6 +38,7 @@ export const pageHelp = {
     { label: 'Dispensar',       texto: 'Dispensa o ETP quando a contratação é de baixa complexidade ou valor (art. 18, § 3º, Lei 14.133/2021).' },
     { label: 'Pré-visualizar texto', texto: 'Mostra o texto pronto (composto a partir dos campos já preenchidos, seguindo os modelos configurados em Configurações → Estrutura de Artefatos) para copiar e colar no SEI. É apenas uma pré-visualização — não altera nem preenche os campos do ETP.' },
     { label: 'Download PDF',    texto: 'Exporta o ETP completo em PDF para compor o processo SEI.' },
+    { label: 'Ata de Registro de Preços (adesão)', texto: 'Selecione quando a solução for aderir a uma Ata gerenciada por outro órgão — a justificativa de vantajosidade fica obrigatória (Art. 86, §2º).' },
     { label: 'Checklist SSP-BA', texto: 'Badge colorido mostrando quantos campos do checklist estão preenchidos. Vermelho = obrigatórios pendentes (bloqueia submissão). Amarelo = recomendados em falta. Verde = completo.' },
   ],
   fluxo: [
@@ -73,11 +74,17 @@ export default function ETPDetail() {
   const [showPreviewTexto, setShowPreviewTexto]     = useState(false)
   const [motivoReabrir, setMotivoReabrir]           = useState('')
   const [motivoNumeroSEI, setMotivoNumeroSEI]       = useState('')
+  const [atasAdesao, setAtasAdesao] = useState([])
 
   useEffect(() => { fetchEtp(id) }, [id])
   useEffect(() => {
     if (current) setForm({ ...current })
   }, [current])
+  useEffect(() => {
+    api.get('/arp/', { params: { status: 'vigente', page_size: 100 } })
+      .then(({ data }) => setAtasAdesao((data.results ?? data).filter(a => a.tipo_origem !== 'gerenciador')))
+      .catch(() => {})
+  }, [])
 
   const set = (field, value) => {
     setForm((p) => ({ ...p, [field]: value }))
@@ -97,6 +104,8 @@ export default function ETPDetail() {
         estimativa_valor:        form.estimativa_valor ? Number(form.estimativa_valor) : null,
         descricao_solucao:       form.descricao_solucao,
         justificativa_solucao:   form.justificativa_solucao,
+        ata_adesao:              form.ata_adesao || null,
+        justificativa_vantajosidade_adesao: form.justificativa_vantajosidade_adesao ?? '',
         riscos:                  form.riscos,
         sustentabilidade:        form.sustentabilidade,
         tipo_objeto:                form.tipo_objeto                ?? '',
@@ -404,6 +413,38 @@ export default function ETPDetail() {
               : <p className="text-sm text-gray-700 whitespace-pre-wrap text-justify">{current[field] || '—'}</p>}
           </DF>
         ))}
+
+        {/* ── Adesão a Ata de Registro de Preços ── */}
+        <div className="pt-4 border-t border-gray-100">
+          <p className="text-xs font-semibold text-gray-400 uppercase mb-3">
+            Adesão a Ata de Registro de Preços <span className="normal-case font-normal">(Art. 86, §2º a §4º)</span>
+          </p>
+          <div className="space-y-4">
+            <DF label="Ata considerada para adesão">
+              {editing ? (
+                <select value={form.ata_adesao || ''} onChange={(e) => set('ata_adesao', e.target.value || null)} className={inp()}>
+                  <option value="">Nenhuma (não é caso de adesão)</option>
+                  {atasAdesao.map(a => (
+                    <option key={a.id} value={a.id}>{a.numero_ata} — {a.orgao_gerenciador_nome} — {a.objeto?.slice(0, 40)}</option>
+                  ))}
+                </select>
+              ) : current.ata_adesao_numero_ata ? (
+                <p className="text-sm text-gray-700">{current.ata_adesao_numero_ata}</p>
+              ) : (
+                <p className="text-sm text-gray-400">—</p>
+              )}
+            </DF>
+            {(editing ? form.ata_adesao : current.ata_adesao_numero_ata) && (
+              <DF label="Justificativa de vantajosidade da adesão" error={formErrors.justificativa_vantajosidade_adesao}>
+                {editing
+                  ? <textarea rows={3} value={form.justificativa_vantajosidade_adesao || ''}
+                      onChange={(e) => set('justificativa_vantajosidade_adesao', e.target.value)}
+                      className={inp(formErrors.justificativa_vantajosidade_adesao)} />
+                  : <p className="text-sm text-gray-700 whitespace-pre-wrap text-justify">{current.justificativa_vantajosidade_adesao || '—'}</p>}
+              </DF>
+            )}
+          </div>
+        </div>
 
         <DF label="Estimativa de valor">
           {editing

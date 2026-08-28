@@ -44,6 +44,7 @@ export const pageHelp = {
     { label: 'Aprovar',     texto: 'Aprova a necessidade, liberando a criação do DFD correspondente.' },
     { label: 'Cancelar',    texto: 'Cancela a necessidade definitivamente.' },
     { label: 'Iniciar DFD', texto: 'Cria automaticamente um DFD vinculado a esta necessidade aprovada.' },
+    { label: 'Ata de Registro de Preços (saque)', texto: 'Vincule quando esta necessidade for atendida por saque de uma Ata gerenciada por esta Secretaria — permite baixar o instrumento preparatório da Ata junto com o DFD para compor o SEI. Para adesão a Ata de outro órgão, o vínculo é feito no ETP (exige análise de vantajosidade, Art. 86).' },
     { label: 'Tramitação',  texto: 'Exibe o histórico completo de transições de status da necessidade, com data, usuário responsável e motivo de cada etapa.' },
   ],
 }
@@ -71,11 +72,18 @@ export default function NecessidadeDetail() {
   const [motivo, setMotivo]             = useState('')
   const [actionLoading, setActionLoading] = useState(false)
   const [orgaoAtual, setOrgaoAtual]  = useState(null)
+  const [atasGerenciador, setAtasGerenciador] = useState([])
 
   useEffect(() => { fetchNecessidade(id) }, [id])
   useEffect(() => {
     if (current) setForm({ ...current })
   }, [current])
+
+  useEffect(() => {
+    api.get('/arp/', { params: { tipo_origem: 'gerenciador', status: 'vigente', page_size: 100 } })
+      .then(({ data }) => setAtasGerenciador(data.results ?? data))
+      .catch(() => {})
+  }, [])
 
   // O órgão pai já está cadastrado na relação do próprio órgão (Orgao.parent) —
   // não é uma escolha do usuário, só carregamos para exibir/preencher.
@@ -115,6 +123,7 @@ export default function NecessidadeDetail() {
         tipo_execucao: form.tipo_execucao,
         orgao_executor: form.tipo_execucao === 'externa' && form.orgao_executor
           ? Number(form.orgao_executor) : null,
+        ata_origem: form.ata_origem || null,
       })
       setEditing(false)
     } catch (err) {
@@ -442,6 +451,24 @@ export default function NecessidadeDetail() {
                 </span>
               )}
             </div>
+          )}
+        </DF>
+
+        <DF label="Ata de Registro de Preços (saque)">
+          {editing ? (
+            <select value={form.ata_origem || ''} onChange={(e) => set('ata_origem', e.target.value || null)} className={inp()}>
+              <option value="">Nenhuma (contratação regular)</option>
+              {atasGerenciador.map((a) => (
+                <option key={a.id} value={a.id}>{a.numero_ata} — {a.objeto?.slice(0, 50)}</option>
+              ))}
+            </select>
+          ) : current.ata_origem_numero_ata ? (
+            <p className="text-sm text-gray-700">
+              <span className="bg-indigo-100 text-indigo-700 text-xs font-medium px-2 py-0.5 rounded-full mr-2">Saque de Ata</span>
+              {current.ata_origem_numero_ata}
+            </p>
+          ) : (
+            <p className="text-sm text-gray-400">—</p>
           )}
         </DF>
 

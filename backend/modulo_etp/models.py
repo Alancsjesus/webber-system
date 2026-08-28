@@ -50,6 +50,18 @@ class ETP(BaseModel):
     )
     descricao_solucao       = models.TextField(blank=True, default='', verbose_name='Descrição da solução escolhida')
     justificativa_solucao   = models.TextField(blank=True, default='', verbose_name='Justificativa da solução')
+
+    ata_adesao = models.ForeignKey(
+        'modulo_arp.Ata', null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='etps_adesao',
+        verbose_name='Ata de Registro de Preços (adesão)',
+        help_text='Ata gerenciada por outro órgão cuja adesão está sendo analisada — Art. 86, §2º a §4º.',
+    )
+    justificativa_vantajosidade_adesao = models.TextField(
+        blank=True, default='', verbose_name='Justificativa de vantajosidade da adesão',
+        help_text='Por que aderir a esta Ata é a opção mais vantajosa frente às alternativas — Art. 86, §2º.',
+    )
+
     riscos                  = models.TextField(blank=True, default='', verbose_name='Mapa de riscos')
     sustentabilidade        = models.TextField(blank=True, default='', verbose_name='Critérios de sustentabilidade')
 

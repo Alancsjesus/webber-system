@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import useEtpStore from '../stores/etpStore'
 import useAuthStore from '../stores/authStore'
+import api from '../services/api'
 import CampoSei from '../components/CampoSei'
 import CampoMoeda from '../components/CampoMoeda'
 
@@ -13,6 +14,7 @@ export const pageHelp = {
     { label: 'Tipo de parcelamento',    texto: 'Define se a contratação será por lote único (global), dividida em lotes ou por item — decisão que precisa de justificativa e impacta diretamente o TR e o Procedimento.' },
     { label: 'Reserva de Cota ME/EPP',  texto: 'Obrigatória para objetos divisíveis (LC 123/2006, Art. 48, III). Se desmarcada, é preciso justificar por que a reserva não se aplica ao objeto.' },
     { label: 'Licitação exclusiva ME/EPP', texto: 'Aplicável quando o valor total do item não ultrapassa R$80.000 (Art. 48, I).' },
+    { label: 'Ata de Registro de Preços (adesão)', texto: 'Selecione quando a solução escolhida for aderir a uma Ata gerenciada por outro órgão (participante ou carona) — obrigatório justificar a vantajosidade, conforme Art. 86, §2º.' },
     { label: 'Criar ETP',               texto: 'Salva o ETP vinculado ao DFD de origem. Os demais campos podem ser complementados depois, na tela de detalhe.' },
   ],
   baseLegal: 'Lei 14.133/2021 — Art. 18, §1º, II e Art. 40, V (parcelamento).',
@@ -34,6 +36,8 @@ export default function ETPCreate() {
     estimativa_valor: '',
     descricao_solucao: '',
     justificativa_solucao: '',
+    ata_adesao: '',
+    justificativa_vantajosidade_adesao: '',
     riscos: '',
     sustentabilidade: '',
     tipo_objeto: '',
@@ -46,6 +50,13 @@ export default function ETPCreate() {
   })
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState({})
+  const [atasAdesao, setAtasAdesao] = useState([])
+
+  useEffect(() => {
+    api.get('/arp/', { params: { status: 'vigente', page_size: 100 } })
+      .then(({ data }) => setAtasAdesao((data.results ?? data).filter(a => a.tipo_origem !== 'gerenciador')))
+      .catch(() => {})
+  }, [])
 
   if (!dfd) {
     return (
@@ -69,6 +80,9 @@ export default function ETPCreate() {
     const e = {}
     if (!form.numero_sei.trim())                e.numero_sei = 'Campo obrigatório'
     if (!form.necessidade_contratacao.trim())   e.necessidade_contratacao = 'Campo obrigatório'
+    if (form.ata_adesao && !form.justificativa_vantajosidade_adesao.trim()) {
+      e.justificativa_vantajosidade_adesao = 'Obrigatória quando uma Ata de adesão é informada — Art. 86, §2º'
+    }
     return e
   }
 
@@ -83,6 +97,7 @@ export default function ETPCreate() {
         dfd: dfd.id,
         ...form,
         estimativa_valor: form.estimativa_valor ? Number(form.estimativa_valor) : null,
+        ata_adesao: form.ata_adesao || null,
       })
       navigate(`/etp/etps/${etp.id}`)
     } catch (err) {
@@ -163,6 +178,27 @@ export default function ETPCreate() {
             onChange={(e) => set('justificativa_solucao', e.target.value)}
             className={inp()} />
         </Field>
+
+        {/* Adesão a Ata de Registro de Preços */}
+        <div className="border border-gray-200 rounded-xl p-4 bg-gray-50 space-y-4">
+          <p className="text-sm font-semibold text-gray-700">Adesão a Ata de Registro de Preços <span className="text-xs font-normal text-gray-400">(Art. 86, §2º a §4º)</span></p>
+          <Field label="Ata considerada para adesão">
+            <select value={form.ata_adesao} onChange={e => set('ata_adesao', e.target.value)} className={inp()}>
+              <option value="">Nenhuma (não é caso de adesão)</option>
+              {atasAdesao.map(a => (
+                <option key={a.id} value={a.id}>{a.numero_ata} — {a.orgao_gerenciador_nome} — {a.objeto?.slice(0, 40)}</option>
+              ))}
+            </select>
+          </Field>
+          {form.ata_adesao && (
+            <Field label="Justificativa de vantajosidade da adesão *" error={errors.justificativa_vantajosidade_adesao}>
+              <textarea rows={3} value={form.justificativa_vantajosidade_adesao}
+                onChange={e => set('justificativa_vantajosidade_adesao', e.target.value)}
+                placeholder="Por que aderir a esta Ata é a opção mais vantajosa frente às alternativas (nova licitação, outra Ata, etc.)..."
+                className={inp(errors.justificativa_vantajosidade_adesao)} />
+            </Field>
+          )}
+        </div>
 
         <Field label="Mapa de riscos">
           <textarea rows={2} value={form.riscos}

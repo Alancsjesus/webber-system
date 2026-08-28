@@ -103,6 +103,13 @@ class NecessidadePlanejamento(BaseModel):
         verbose_name='DFD gerado',
     )
 
+    ata_origem = models.ForeignKey(
+        'modulo_arp.Ata', null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='necessidades_saque',
+        verbose_name='Ata de Registro de Preços (saque)',
+        help_text='Preencher quando a necessidade for atendida por saque de Ata gerenciada por esta Secretaria.',
+    )
+
     # Origem: quando a necessidade nasce da consolidação de itens de um
     # Plano de Aplicação FESP/Emendas/Financiamentos (ver modulo_fesp).
     origem_plano_aplicacao_fesp = models.ForeignKey(

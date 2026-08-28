@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import ETP, HistoricoETP, HistoricoNumeroSEI
+from modulo_arp.models import Ata
 
 
 class HistoricoETPSerializer(serializers.ModelSerializer):
@@ -31,6 +32,7 @@ class ETPSerializer(serializers.ModelSerializer):
     historico            = HistoricoETPSerializer(many=True, read_only=True)
     historico_numero_sei = HistoricoNumeroSEISerializer(many=True, read_only=True)
     tr_id                = serializers.SerializerMethodField()
+    ata_adesao_numero_ata = serializers.CharField(source='ata_adesao.numero_ata', read_only=True, default=None)
 
     def get_tr_id(self, obj):
         tr = getattr(obj, 'tr', None)
@@ -52,6 +54,9 @@ class ETPSerializer(serializers.ModelSerializer):
             'estimativa_valor',
             'descricao_solucao',
             'justificativa_solucao',
+            'ata_adesao',
+            'ata_adesao_numero_ata',
+            'justificativa_vantajosidade_adesao',
             'riscos',
             'sustentabilidade',
             'tipo_objeto',
@@ -92,6 +97,7 @@ class ETPSerializer(serializers.ModelSerializer):
             'dfd_numero_sei', 'dfd_status', 'dfd_descricao', 'dfd_local_entrega',
             'motivo_devolucao',
             'historico', 'historico_numero_sei', 'tr_id',
+            'ata_adesao_numero_ata',
         ]
 
     def validate_dfd(self, dfd):
@@ -104,6 +110,26 @@ class ETPSerializer(serializers.ModelSerializer):
                 'Este DFD já possui um ETP associado.'
             )
         return dfd
+
+    def validate_ata_adesao(self, value):
+        if value and value.tipo_origem not in Ata.TIPOS_ORIGEM_EXTERNA:
+            raise serializers.ValidationError(
+                'O ETP só aceita Ata gerenciada por outro órgão (participante ou carona) — '
+                'para saque de Ata gerenciada por esta Secretaria, vincule na Necessidade de Planejamento.'
+            )
+        return value
+
+    def validate(self, attrs):
+        ata_adesao = attrs.get('ata_adesao', getattr(self.instance, 'ata_adesao', None))
+        justificativa = attrs.get(
+            'justificativa_vantajosidade_adesao',
+            getattr(self.instance, 'justificativa_vantajosidade_adesao', ''),
+        )
+        if ata_adesao and not (justificativa or '').strip():
+            raise serializers.ValidationError({
+                'justificativa_vantajosidade_adesao': 'Obrigatória quando uma Ata de adesão é informada — Art. 86, §2º.',
+            })
+        return attrs
 
     def create(self, validated_data):
         request = self.context['request']
