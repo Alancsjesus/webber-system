@@ -137,6 +137,12 @@ class ContratoViewSet(viewsets.ModelViewSet):
         if request.method == 'DELETE':
             medicao.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
+        novo_status = request.data.get('status')
+        if novo_status == 'aprovada' and medicao.status != 'aprovada':
+            parecer = request.data.get('parecer_fiscal', medicao.parecer_fiscal)
+            if not parecer or not parecer.strip():
+                from rest_framework.exceptions import ValidationError
+                raise ValidationError({'parecer_fiscal': 'Parecer do fiscal é obrigatório para aprovar a medição — atesto sem parecer é irregularidade recorrente em auditorias de execução contratual.'})
         serializer = MedicaoSerializer(medicao, data=request.data, partial=True, context={'request': request})
         serializer.is_valid(raise_exception=True)
         serializer.save()

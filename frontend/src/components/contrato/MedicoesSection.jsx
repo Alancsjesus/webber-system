@@ -36,7 +36,12 @@ export default function MedicoesSection({ contratoId, medicoes, podeEditar }) {
     } finally { setSaving(false) }
   }
 
-  const aprovar = (m) => updateMedicao(contratoId, m.id, { status: 'aprovada', data_aprovacao: new Date().toISOString().slice(0, 10) })
+  const aprovar = (m) => {
+    const parecer = prompt('Parecer do fiscal (obrigatório para aprovar — atesta que o percentual/valor executado foi verificado):', m.parecer_fiscal || '')
+    if (parecer === null) return
+    if (!parecer.trim()) { alert('Parecer do fiscal é obrigatório para aprovar a medição.'); return }
+    updateMedicao(contratoId, m.id, { status: 'aprovada', parecer_fiscal: parecer, data_aprovacao: new Date().toISOString().slice(0, 10) })
+  }
   const rejeitar = (m) => {
     const parecer = prompt('Motivo da rejeição:')
     if (parecer === null) return
