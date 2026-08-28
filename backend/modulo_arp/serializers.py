@@ -45,26 +45,34 @@ class AtaSerializer(serializers.ModelSerializer):
     itens = ItemAtaSerializer(many=True, read_only=True)
     historico = HistoricoAtaSerializer(many=True, read_only=True)
     saldo_total = serializers.SerializerMethodField()
+    instrumento_preparatorio_url = serializers.SerializerMethodField()
 
     class Meta:
         model = Ata
         fields = [
             'id', 'tipo_origem', 'tipo_origem_display', 'numero_ata', 'procedimento', 'procedimento_numero',
             'numero_pncp', 'orgao_gerenciador_nome', 'orgao_gerenciador_cnpj', 'orgao_gerenciador_uf',
+            'instrumento_preparatorio', 'instrumento_preparatorio_url',
             'objeto', 'status', 'status_display',
             'data_assinatura', 'data_vigencia_inicio', 'data_vigencia_fim', 'observacoes',
             'itens', 'historico', 'saldo_total',
             'org_id', 'org_nome', 'created_by', 'created_by_username', 'created_at', 'updated_at',
         ]
-        read_only_fields = ['id', 'status', 'org_id', 'created_by', 'created_at', 'updated_at']
+        read_only_fields = ['id', 'status', 'instrumento_preparatorio_url', 'org_id', 'created_by', 'created_at', 'updated_at']
 
     def get_saldo_total(self, obj):
         return sum((item.saldo_disponivel for item in obj.itens.all()), Decimal('0'))
 
+    def get_instrumento_preparatorio_url(self, obj):
+        if not obj.instrumento_preparatorio:
+            return None
+        request = self.context.get('request')
+        return request.build_absolute_uri(obj.instrumento_preparatorio.url) if request else obj.instrumento_preparatorio.url
+
     def validate(self, attrs):
         tipo_origem = attrs.get('tipo_origem', getattr(self.instance, 'tipo_origem', None))
         if tipo_origem in Ata.TIPOS_ORIGEM_EXTERNA:
-            campos_obrigatorios = ['numero_pncp', 'orgao_gerenciador_nome']
+            campos_obrigatorios = ['numero_pncp', 'orgao_gerenciador_nome', 'instrumento_preparatorio']
             faltando = [c for c in campos_obrigatorios if not (attrs.get(c) or getattr(self.instance, c, ''))]
             if faltando:
                 raise serializers.ValidationError({

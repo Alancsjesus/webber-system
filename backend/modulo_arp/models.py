@@ -60,6 +60,11 @@ class Ata(BaseModel):
     orgao_gerenciador_nome = models.CharField(max_length=255, blank=True, default='', verbose_name='Órgão gerenciador')
     orgao_gerenciador_cnpj = models.CharField(max_length=18, blank=True, default='', verbose_name='CNPJ do órgão gerenciador')
     orgao_gerenciador_uf = models.CharField(max_length=2, blank=True, default='', verbose_name='UF do órgão gerenciador')
+    instrumento_preparatorio = models.FileField(
+        upload_to='arp/instrumentos_preparatorios/', null=True, blank=True,
+        verbose_name='Instrumento preparatório',
+        help_text='ETP ou documento equivalente que fundamentou a adesão — exigido para ata participante/carona (Nota Recomendatória Atricon-IRB-CNPTC-AUDICON nº 01/2025).',
+    )
 
     objeto = models.TextField(verbose_name='Objeto')
     status = models.CharField(max_length=10, choices=STATUS_CHOICES, default='rascunho')

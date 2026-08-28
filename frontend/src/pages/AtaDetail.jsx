@@ -142,6 +142,12 @@ export default function AtaDetail() {
             {current.procedimento_numero && ` · Procedimento ${current.procedimento_numero}`}
             {current.orgao_gerenciador_nome && ` · Gerenciada por ${current.orgao_gerenciador_nome}`}
           </p>
+          {current.instrumento_preparatorio_url && (
+            <a href={current.instrumento_preparatorio_url} target="_blank" rel="noreferrer"
+              className="text-xs text-blue-600 hover:underline">
+              📄 Instrumento preparatório (ETP da adesão)
+            </a>
+          )}
         </div>
         <div className="flex gap-2 flex-wrap justify-end">
           {!editing && (

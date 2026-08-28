@@ -18,7 +18,7 @@ export const pageHelp = {
   titulo: 'Nova Ata de Registro de Preços',
   descricao: 'Cadastra a ata e seus itens registrados. Vincular o item ao catálogo SIMPAS é o que permite que ele apareça no Confronto de Necessidades — sem esse vínculo, o item fica só de registro, sem cruzamento automático.',
   acoes: [
-    { label: 'Tipo de origem',        texto: 'Gerenciador: este órgão conduziu a licitação e gerencia a ata — selecione o procedimento de origem. Participante: aderiu desde a formação da ata gerenciada por outro órgão (constava do edital/pesquisa original). Carona: adere depois de a ata já vigente, sem ter participado da formação (Art. 86, sujeita a limites de adesão). Participante e Carona exigem número no PNCP e dados do órgão gerenciador — pode ser outro órgão do mesmo estado ou de outro ente federativo (município, União, outro estado).' },
+    { label: 'Tipo de origem',        texto: 'Gerenciador: este órgão conduziu a licitação e gerencia a ata — selecione o procedimento de origem. Participante: aderiu desde a formação da ata gerenciada por outro órgão (constava do edital/pesquisa original). Carona: adere depois de a ata já vigente, sem ter participado da formação (Art. 86, sujeita a limites de adesão). Participante e Carona exigem número no PNCP, dados do órgão gerenciador e o instrumento preparatório (ETP ou equivalente) que fundamentou a adesão — pode ser outro órgão do mesmo estado ou de outro ente federativo (município, União, outro estado).' },
     { label: 'Procedimento de origem', texto: 'Só lista procedimentos cujo TR está marcado como Sistema de Registro de Preços — TRs de contratação delegada não aparecem, já que nesse caso este órgão não é quem gerencia a licitação. Ao selecionar, os itens da ata são herdados automaticamente dos lotes do TR (objeto, unidade, quantidade), com o fornecedor vencedor e o valor final de cada lote já homologado — funciona para qualquer modalidade (Pregão, Dispensa, Inexigibilidade). Sem resultado homologado ainda, os valores vêm da estimativa de referência. Revise os itens herdados antes de salvar — continuam editáveis.' },
     { label: 'Buscar no catálogo',    texto: 'Vincula o item ao catálogo SIMPAS (pré-preenche descrição e unidade) — necessário para o item entrar no confronto contra DFDs pendentes. Sem catálogo, o item fica só de registro manual.' },
     { label: '+ Adicionar item',      texto: 'Cada item registra quantidade e valor unitário pactuados na ata — o saldo disponível é calculado automaticamente (quantidade registrada menos consumida).' },
@@ -48,6 +48,7 @@ export default function AtaCreate() {
   })
   const [procedimentos, setProcedimentos] = useState([])
   const [itens, setItens] = useState([novoItem()])
+  const [arquivo, setArquivo] = useState(null)
   const [saving, setSaving] = useState(false)
   const [errors, setErrors] = useState({})
   const [herdando, setHerdando] = useState(false)
@@ -157,6 +158,7 @@ export default function AtaCreate() {
     if (form.tipo_origem !== 'gerenciador') {
       if (!form.numero_pncp.trim()) errs.numero_pncp = 'Obrigatório para ata gerenciada por outro órgão'
       if (!form.orgao_gerenciador_nome.trim()) errs.orgao_gerenciador_nome = 'Obrigatório para ata gerenciada por outro órgão'
+      if (!arquivo) errs.instrumento_preparatorio = 'Obrigatório para ata gerenciada por outro órgão'
     }
     const itensValidos = itens.filter(
       i => i.objeto.trim() && i.unidade_medida.trim() &&
@@ -173,21 +175,35 @@ export default function AtaCreate() {
 
     setSaving(true)
     try {
-      const payload = {
+      const campos = {
         tipo_origem: form.tipo_origem,
         numero_ata: form.numero_ata,
         objeto: form.objeto,
-        data_assinatura: form.data_assinatura || null,
-        data_vigencia_inicio: form.data_vigencia_inicio || null,
-        data_vigencia_fim: form.data_vigencia_fim || null,
+        data_assinatura: form.data_assinatura || '',
+        data_vigencia_inicio: form.data_vigencia_inicio || '',
+        data_vigencia_fim: form.data_vigencia_fim || '',
         observacoes: form.observacoes,
-        ...(form.tipo_origem === 'gerenciador' && form.procedimento ? { procedimento: Number(form.procedimento) } : {}),
+        ...(form.tipo_origem === 'gerenciador' && form.procedimento ? { procedimento: form.procedimento } : {}),
         ...(form.tipo_origem !== 'gerenciador' ? {
           numero_pncp: form.numero_pncp,
           orgao_gerenciador_nome: form.orgao_gerenciador_nome,
           orgao_gerenciador_cnpj: form.orgao_gerenciador_cnpj,
           orgao_gerenciador_uf: form.orgao_gerenciador_uf,
         } : {}),
+      }
+      let payload
+      if (arquivo) {
+        payload = new FormData()
+        Object.entries(campos).forEach(([k, v]) => payload.append(k, v ?? ''))
+        payload.append('instrumento_preparatorio', arquivo)
+      } else {
+        payload = {
+          ...campos,
+          data_assinatura: campos.data_assinatura || null,
+          data_vigencia_inicio: campos.data_vigencia_inicio || null,
+          data_vigencia_fim: campos.data_vigencia_fim || null,
+          procedimento: campos.procedimento ? Number(campos.procedimento) : undefined,
+        }
       }
       const ata = await createAta(payload)
 
@@ -284,6 +300,16 @@ export default function AtaCreate() {
                 onChange={e => set('orgao_gerenciador_uf', e.target.value.toUpperCase())} className={inp()} />
             </Field>
           </div>
+        )}
+
+        {form.tipo_origem !== 'gerenciador' && (
+          <Field label="Instrumento preparatório (ETP ou equivalente) *" error={errors.instrumento_preparatorio}
+            hint="Documento que fundamentou a adesão a esta ata gerenciada por outro órgão — exigência de boas práticas (Nota Recomendatória Atricon-IRB-CNPTC-AUDICON nº 01/2025).">
+            <input type="file" accept=".pdf,.png,.jpg,.jpeg"
+              onChange={(e) => setArquivo(e.target.files[0] || null)}
+              className="w-full text-sm text-gray-600 file:mr-2 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100" />
+            {arquivo && <p className="text-xs text-green-700 mt-1">📄 {arquivo.name}</p>}
+          </Field>
         )}
 
         <Field label="Objeto *" error={errors.objeto}>
