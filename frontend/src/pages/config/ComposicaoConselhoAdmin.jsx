@@ -116,7 +116,7 @@ export default function ComposicaoConselhoAdmin() {
                 {usuarios.map((u) => <option key={u.id} value={u.id}>{u.first_name || u.username} ({u.username})</option>)}
               </select>
             </F>
-            <F label="Órgão representado (tenant Webber)">
+            <F label="Órgão representado (tenant Weber-e)">
               <select value={form.orgao_representado} onChange={(e) => set('orgao_representado', e.target.value)} className={inp()}>
                 <option value="">—</option>
                 {orgaos.map((o) => <option key={o.id} value={o.id}>{o.sigla} — {o.nome}</option>)}

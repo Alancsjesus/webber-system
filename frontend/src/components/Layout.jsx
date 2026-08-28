@@ -436,7 +436,7 @@ export default function Layout() {
           )}
           {expandido && (
             <div className="overflow-hidden">
-              <span className="text-base font-black text-white tracking-tight whitespace-nowrap">Webber</span>
+              <span className="text-base font-black text-white tracking-tight whitespace-nowrap">Weber-e</span>
               <p className="text-[10px] text-gray-500 leading-none mt-0.5">Lei 14.133/2021</p>
             </div>
           )}
@@ -711,7 +711,7 @@ export default function Layout() {
             </svg>
           </button>
           <span className="font-black text-sm tracking-tight truncate">
-            {orgaoSigla ? `Webber — ${orgaoSigla}` : 'Webber'}
+            {orgaoSigla ? `Weber-e — ${orgaoSigla}` : 'Weber-e'}
           </span>
           <button
             onClick={() => { setShowNotif((v) => !v); if (!showNotif) fetchNotificacoes() }}

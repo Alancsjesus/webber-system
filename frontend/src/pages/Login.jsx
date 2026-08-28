@@ -62,7 +62,7 @@ export default function Login() {
           <WatermarkLogo />
         </div>
         <div className="absolute bottom-8 left-0 right-0 flex flex-col items-center pointer-events-none select-none" style={{ opacity: 0.30 }}>
-          <span style={{ fontFamily: 'Georgia, serif', letterSpacing: '0.35em', fontSize: '1.05rem', color: '#1e3a5f', fontWeight: 'bold' }}>WEBBER</span>
+          <span style={{ fontFamily: 'Georgia, serif', letterSpacing: '0.35em', fontSize: '1.05rem', color: '#1e3a5f', fontWeight: 'bold' }}>WEBER-E</span>
           <span style={{ fontFamily: 'Arial, sans-serif', letterSpacing: '0.18em', fontSize: '0.6rem', color: '#1e3a5f', marginTop: '2px' }}>GESTÃO DE CONTRATAÇÕES</span>
         </div>
         <div className="relative z-10 bg-white/92 backdrop-blur-sm rounded-2xl shadow-lg w-full max-w-md p-8 text-center">
@@ -111,7 +111,7 @@ export default function Login() {
         <WatermarkLogo />
       </div>
       <div className="absolute bottom-8 left-0 right-0 flex flex-col items-center pointer-events-none select-none" style={{ opacity: 0.30 }}>
-        <span style={{ fontFamily: 'Georgia, serif', letterSpacing: '0.35em', fontSize: '1.05rem', color: '#1e3a5f', fontWeight: 'bold' }}>WEBBER</span>
+        <span style={{ fontFamily: 'Georgia, serif', letterSpacing: '0.35em', fontSize: '1.05rem', color: '#1e3a5f', fontWeight: 'bold' }}>WEBER-E</span>
         <span style={{ fontFamily: 'Arial, sans-serif', letterSpacing: '0.18em', fontSize: '0.6rem', color: '#1e3a5f', marginTop: '2px' }}>GESTÃO DE CONTRATAÇÕES</span>
       </div>
       <div className="relative z-10 bg-white/92 backdrop-blur-sm rounded-2xl shadow-lg w-full max-w-md p-8">
@@ -124,7 +124,7 @@ export default function Login() {
             </svg>
           </div>
           <div>
-            <h1 className="text-xl font-bold text-gray-800 leading-tight">Webber</h1>
+            <h1 className="text-xl font-bold text-gray-800 leading-tight">Weber-e</h1>
             <p className="text-xs text-gray-400">Sistema de planejamento e contratações</p>
           </div>
         </div>

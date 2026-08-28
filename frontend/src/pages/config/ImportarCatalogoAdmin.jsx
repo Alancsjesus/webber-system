@@ -15,7 +15,7 @@ export const pageHelp = {
   descricao: 'Wizard de 3 etapas para importação em lote de itens de catálogo a partir de um arquivo CSV.',
   acoes: [
     { label: '1. Upload',    texto: 'Envia o CSV para análise em modo dry-run (nada é salvo ainda) — o backend identifica as famílias de itens presentes no arquivo.' },
-    { label: '2. Mapear',    texto: 'Associa cada família de item detectada no CSV a uma categoria já existente no Webber, antes da importação definitiva.' },
+    { label: '2. Mapear',    texto: 'Associa cada família de item detectada no CSV a uma categoria já existente no Weber-e, antes da importação definitiva.' },
     { label: '3. Resultado', texto: 'Mostra quantos itens foram criados, atualizados ou ignorados por erro após a importação real.' },
   ],
 }
@@ -211,7 +211,7 @@ export default function ImportarCatalogoAdmin() {
           <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
             <div className="px-5 py-3 bg-gray-50 border-b border-gray-200">
               <h2 className="text-sm font-semibold text-gray-700">
-                Mapear famílias ComprasNet → Categorias Webber
+                Mapear famílias ComprasNet → Categorias Weber-e
               </h2>
               <p className="text-xs text-gray-400 mt-0.5">
                 Opcional — vincule cada família a uma categoria para facilitar o agrupamento no Plano de Compras. Deixe em branco para importar sem categoria.
@@ -220,7 +220,7 @@ export default function ImportarCatalogoAdmin() {
 
             {categorias.length === 0 && (
               <div className="px-5 py-4 text-xs text-gray-500 italic">
-                Nenhuma categoria cadastrada no Webber.{' '}
+                Nenhuma categoria cadastrada no Weber-e.{' '}
                 <button onClick={() => navigate('/config/categorias')} className="text-blue-600 hover:underline">
                   Criar categorias primeiro
                 </button>{' '}

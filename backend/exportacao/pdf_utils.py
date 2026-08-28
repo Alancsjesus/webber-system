@@ -124,7 +124,7 @@ def _rodape(canvas, doc):
     canvas.saveState()
     canvas.setFont('Helvetica', 7)
     canvas.setFillColor(CINZA_TXT)
-    canvas.drawString(2 * cm, 1.2 * cm, 'Sistema WEBBER — Documento gerado eletronicamente')
+    canvas.drawString(2 * cm, 1.2 * cm, 'Sistema Weber-e — Documento gerado eletronicamente')
     canvas.drawRightString(
         A4[0] - 2 * cm, 1.2 * cm,
         f'Página {doc.page}  •  {datetime.now().strftime("%d/%m/%Y %H:%M")}'
@@ -227,7 +227,7 @@ def _logo_cabecalho(org_sigla):
 def _cabecalho(tipo_doc, numero_sei, org_nome, estilos, org_sigla=None):
     logo = _logo_cabecalho(org_sigla)
     texto = [
-        Paragraph(org_nome.upper() or 'WEBBER', estilos['subtitulo']),
+        Paragraph(org_nome.upper() or 'WEBER-E', estilos['subtitulo']),
         Paragraph(tipo_doc, estilos['titulo_doc']),
         Paragraph(f'Número SEI: {numero_sei}', estilos['subtitulo']),
     ]
@@ -1495,7 +1495,7 @@ def gerar_pdf_historico(
     e.append(Spacer(1, 0.2*cm))
     e.append(Paragraph(
         f'Código de verificação: <b>{hash_doc}</b> &nbsp;|&nbsp; '
-        'Documento gerado eletronicamente pelo Sistema WEBBER &nbsp;|&nbsp; '
+        'Documento gerado eletronicamente pelo Sistema Weber-e &nbsp;|&nbsp; '
         f'Emitido em {datetime.now().strftime("%d/%m/%Y às %H:%M")}',
         ParagraphStyle('hash', fontSize=7, textColor=CINZA_TXT, alignment=TA_CENTER),
     ))
@@ -1864,7 +1864,7 @@ def gerar_pdf_pca(plano) -> bytes:
         canvas.setFont('Helvetica', 7)
         canvas.setFillColor(CINZA_TXT)
         w = landscape(A4)[0]
-        canvas.drawString(1.5 * cm, 1.0 * cm, 'Sistema WEBBER — Documento gerado eletronicamente')
+        canvas.drawString(1.5 * cm, 1.0 * cm, 'Sistema Weber-e — Documento gerado eletronicamente')
         canvas.drawRightString(w - 1.5 * cm, 1.0 * cm,
             f'Página {doc.page}  •  {datetime.now().strftime("%d/%m/%Y %H:%M")}')
         canvas.restoreState()
@@ -2064,7 +2064,7 @@ def gerar_pdf_contrato(contrato) -> bytes:
         canvas.saveState()
         canvas.setFont('Helvetica', 7)
         canvas.setFillColor(CINZA_TXT)
-        canvas.drawString(2 * cm, 1.0 * cm, 'Sistema WEBBER — Documento gerado eletronicamente')
+        canvas.drawString(2 * cm, 1.0 * cm, 'Sistema Weber-e — Documento gerado eletronicamente')
         canvas.drawRightString(A4[0] - 2 * cm, 1.0 * cm,
             f'Página {doc.page}  •  {datetime.now().strftime("%d/%m/%Y %H:%M")}')
         canvas.restoreState()
@@ -2213,7 +2213,7 @@ def gerar_relatorio_procedimento(proc) -> bytes:
         canvas.saveState()
         canvas.setFont('Helvetica', 7)
         canvas.setFillColor(CINZA_TXT)
-        canvas.drawString(2 * cm, 1.0 * cm, 'Sistema WEBBER — Documento gerado eletronicamente')
+        canvas.drawString(2 * cm, 1.0 * cm, 'Sistema Weber-e — Documento gerado eletronicamente')
         canvas.drawRightString(A4[0] - 2 * cm, 1.0 * cm,
             f'Página {doc.page}  •  {datetime.now().strftime("%d/%m/%Y %H:%M")}')
         canvas.restoreState()
@@ -2465,7 +2465,7 @@ def gerar_relatorio_procedimento(proc) -> bytes:
     # ── Rodapé de emissão ─────────────────────────────────────────────────────
     e.append(Spacer(1, 0.5*cm))
     e.append(Paragraph(
-        f'Relatório emitido em {datetime.now().strftime("%d/%m/%Y às %H:%M")} pelo Sistema WEBBER.',
+        f'Relatório emitido em {datetime.now().strftime("%d/%m/%Y às %H:%M")} pelo Sistema Weber-e.',
         ParagraphStyle('emit', fontSize=7, textColor=CINZA_TXT, alignment=TA_CENTER),
     ))
 
@@ -2483,7 +2483,7 @@ def gerar_pdf_auditoria(logs, org, params=None) -> bytes:
         canvas.setFont('Helvetica', 7)
         canvas.setFillColor(CINZA_TXT)
         canvas.drawString(2 * cm, 1.0 * cm,
-            'Sistema WEBBER — Documento gerado eletronicamente')
+            'Sistema Weber-e — Documento gerado eletronicamente')
         canvas.drawRightString(A4[0] - 2 * cm, 1.0 * cm,
             f'Página {doc.page}  •  {datetime.now().strftime("%d/%m/%Y %H:%M")}')
         canvas.restoreState()
@@ -2583,7 +2583,7 @@ def _cabecalho_relatorio(titulo, subtitulo, org, estilos):
     Mantém identidade visual dos demais PDFs do sistema.
     """
     logo      = _logo_cabecalho(org.sigla if org else None)
-    org_nome  = org.nome.upper() if org else 'WEBBER'
+    org_nome  = org.nome.upper() if org else 'WEBER-E'
     data_ext  = datetime.now().strftime('%d/%m/%Y às %H:%M')
 
     bloco_texto = [
@@ -2679,7 +2679,7 @@ def _rodape_fn(canvas, doc):
     canvas.saveState()
     canvas.setFont('Helvetica', 7)
     canvas.setFillColor(CINZA_TXT)
-    canvas.drawString(2 * cm, 1.0 * cm, 'Sistema WEBBER — Documento gerado eletronicamente')
+    canvas.drawString(2 * cm, 1.0 * cm, 'Sistema Weber-e — Documento gerado eletronicamente')
     canvas.drawRightString(A4[0] - 2 * cm, 1.0 * cm,
         f'Página {doc.page}  •  {datetime.now().strftime("%d/%m/%Y %H:%M")}')
     canvas.restoreState()

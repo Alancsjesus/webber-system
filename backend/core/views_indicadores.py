@@ -485,7 +485,7 @@ class PlanoComprasView(APIView):
             from exportacao.pdf_utils import gerar_pdf_plano_compras, resposta_pdf
             from core.models import Orgao
             orgao = Orgao.objects.filter(pk=org_id).first()
-            org_nome  = orgao.nome  if orgao else 'WEBBER'
+            org_nome  = orgao.nome  if orgao else 'WEBER-E'
             org_sigla = orgao.sigla if orgao else None
             pdf = gerar_pdf_plano_compras(dados, org_nome, org_sigla)
             nome = f'PlanoCompras{"-" + str(exercicio) if exercicio else ""}.pdf'

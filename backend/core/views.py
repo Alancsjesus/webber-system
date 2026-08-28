@@ -1192,7 +1192,7 @@ class SecaoArtefatoViewSet(viewsets.ModelViewSet):
 
 class VerificarDocumentoView(APIView):
     """
-    Endpoint público de verificação de autenticidade de documentos gerados pelo WEBBER.
+    Endpoint público de verificação de autenticidade de documentos gerados pelo Weber-e.
     GET /api/verificar/<hash_code>/
     Retorna os metadados do documento identificado pelo código de verificação.
     """
@@ -1240,7 +1240,7 @@ class VerificarDocumentoView(APIView):
                             'criado_em':   obj.created_at.strftime('%d/%m/%Y %H:%M') if obj.created_at else '—',
                             'status':      getattr(obj, 'status', '—'),
                             'hash':        hash_code,
-                            'mensagem':    'Documento autêntico gerado pelo Sistema WEBBER.',
+                            'mensagem':    'Documento autêntico gerado pelo Sistema Weber-e.',
                         })
                 except Exception:
                     continue

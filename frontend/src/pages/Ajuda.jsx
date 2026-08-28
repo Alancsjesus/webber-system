@@ -8,7 +8,7 @@ export const pageHelp = {
 export default function Ajuda() {
   return (
     <div className="p-8 max-w-3xl">
-      <h1 className="text-2xl font-bold text-gray-800 mb-2">Central de Ajuda — WEBBER</h1>
+      <h1 className="text-2xl font-bold text-gray-800 mb-2">Central de Ajuda — WEBER-E</h1>
       <p className="text-sm text-gray-500 mb-8">
         Orientações sobre fluxos, ações disponíveis e regras de negócio do sistema.
         Baseado na Lei 14.133/2021 e Decreto Estadual 22.886/2024.

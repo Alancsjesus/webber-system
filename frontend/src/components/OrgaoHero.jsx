@@ -44,7 +44,7 @@ export default function OrgaoHero({ orgaoSigla, orgaoNome, unidadeNome, tipoUnid
           {orgaoSigla && <span className="text-gray-300 font-black">{orgaoSigla}</span>}
           {orgaoSigla && orgaoNome && <span className="text-gray-500 mx-2">·</span>}
           {orgaoNome && <span>{orgaoNome}</span>}
-          {!orgaoSigla && !orgaoNome && <span className="text-gray-400">Webber</span>}
+          {!orgaoSigla && !orgaoNome && <span className="text-gray-400">Weber-e</span>}
         </p>
       </div>
 

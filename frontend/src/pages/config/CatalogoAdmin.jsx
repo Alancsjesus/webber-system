@@ -300,7 +300,7 @@ export default function CatalogoAdmin() {
         <div>
           <h1 className="text-xl font-bold text-gray-800">Catálogo de Itens</h1>
           <p className="text-sm text-gray-400 mt-0.5">
-            {totalCount > 0 ? `${totalCount.toLocaleString('pt-BR')} itens cadastrados` : 'Gerencie os itens do catálogo SIMPAS/WEBBER'}
+            {totalCount > 0 ? `${totalCount.toLocaleString('pt-BR')} itens cadastrados` : 'Gerencie os itens do catálogo SIMPAS/Weber-e'}
           </p>
         </div>
         <div className="flex items-center gap-2">

@@ -379,7 +379,7 @@ class MapaComparativoPrecosViewSet(viewsets.ModelViewSet):
                     'quantidade':         float(it.quantidade),
                     'contrato':           contrato_info,
                     'match_simpas':       bool(matches_simpas),
-                    'origem_label':       f'Histórico WEBBER — DFD {it.dfd.numero_sei}',
+                    'origem_label':       f'Histórico Weber-e — DFD {it.dfd.numero_sei}',
                 })
 
             grupos.append({

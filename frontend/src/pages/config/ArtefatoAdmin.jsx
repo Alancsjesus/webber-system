@@ -139,7 +139,7 @@ function PreviewDocumento({ tipo, secoes }) {
 
       {/* Rodapé */}
       <div className="px-3 py-2 border-t border-gray-100 bg-gray-50 flex justify-between items-center">
-        <span className="text-[10px] text-gray-400">Sistema WEBBER — documento gerado eletronicamente</span>
+        <span className="text-[10px] text-gray-400">Sistema Weber-e — documento gerado eletronicamente</span>
         <span className="text-[10px] text-gray-400">{ativas.length} seção(ões)</span>
       </div>
     </div>

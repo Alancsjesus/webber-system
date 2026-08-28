@@ -58,7 +58,7 @@ function OnboardingBanner({ navigate }) {
       <div className="flex items-start gap-3">
         <span className="text-blue-400 text-lg mt-0.5">🚀</span>
         <div>
-          <p className="text-sm font-semibold text-blue-200 mb-1.5">Bem-vindo ao WEBBER System!</p>
+          <p className="text-sm font-semibold text-blue-200 mb-1.5">Bem-vindo ao Weber-e!</p>
           <p className="text-xs text-blue-400 mb-3">O sistema está pronto. Siga os passos abaixo para começar:</p>
           <ol className="space-y-1.5">
             {[

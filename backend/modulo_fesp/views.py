@@ -783,7 +783,7 @@ class RelatorioItensPlanoAplicacaoView(APIView):
             from core.models import Orgao
             from exportacao.pdf_utils import gerar_pdf_relatorio_itens_plano_aplicacao, resposta_pdf
             orgao = Orgao.objects.filter(pk=request.org_id).first()
-            org_nome = orgao.nome if orgao else 'WEBBER'
+            org_nome = orgao.nome if orgao else 'WEBER-E'
             org_sigla = orgao.sigla if orgao else None
             pdf = gerar_pdf_relatorio_itens_plano_aplicacao(list(qs), org_nome, org_sigla)
             nome = f'RelatorioItensFESP{"-" + str(exercicio) if exercicio else ""}.pdf'

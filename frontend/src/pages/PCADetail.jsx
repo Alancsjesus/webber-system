@@ -457,7 +457,7 @@ export default function PCADetail() {
       )}
 
       <p className="text-xs text-gray-400 mt-4 text-right">
-        IN SEGES/ME nº 65, de 7 de julho de 2021 — Sistema WEBBER
+        IN SEGES/ME nº 65, de 7 de julho de 2021 — Sistema Weber-e
       </p>
     </div>
   )

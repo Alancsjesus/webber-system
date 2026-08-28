@@ -18,7 +18,7 @@ const TIPO_FONTE_LABELS = {
   'III':  'III — Mídia especializada',
   'IV':   'IV — Pesquisa direta',
   'V':    'V — Notas fiscais',
-  'HIST': 'Histórico WEBBER',
+  'HIST': 'Histórico Weber-e',
 }
 
 const MOTIVOS_EXCLUSAO = [
@@ -255,7 +255,7 @@ export default function MapaDetail() {
           { key: 'fontes',   label: `Fontes (${current.fontes?.length ?? 0})` },
           { key: 'itens',    label: `Itens e Preços (${current.itens?.length ?? 0})` },
           { key: 'analise',  label: 'Análise e Método' },
-          { key: 'historico_wb', label: 'Histórico WEBBER' },
+          { key: 'historico_wb', label: 'Histórico Weber-e' },
           { key: 'historico',label: `Tramitação (${current.historico?.length ?? 0})` },
         ].map(({ key, label }) => (
           <button key={key} onClick={() => {
@@ -651,10 +651,10 @@ export default function MapaDetail() {
         </div>
       )}
 
-      {/* Tab: Histórico WEBBER */}
+      {/* Tab: Histórico Weber-e */}
       {activeTab === 'historico_wb' && (
         <div>
-          {loadingHist && <LoadingSpinner message="Consultando histórico WEBBER..." />}
+          {loadingHist && <LoadingSpinner message="Consultando histórico Weber-e..." />}
           {!loadingHist && !historicoWB && (
             <button onClick={loadHistoricoWB}
               className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-4 py-2 rounded-lg">

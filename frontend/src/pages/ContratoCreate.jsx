@@ -34,7 +34,7 @@ export const pageHelp = {
   descricao: 'Registra um contrato firmado com um fornecedor, geralmente após conclusão de um Procedimento — mas pode ser criado independentemente (ex: Saque/Adesão a ATA de Registro de Preços).',
   acoes: [
     { label: 'Tipo de origem',       texto: 'Classifica como o contrato foi originado: licitação, dispensa, inexigibilidade, ou saque/adesão a Ata de Registro de Preços.' },
-    { label: 'Tipo de instrumento',  texto: 'Contrato: instrumento formal gerado pelo próprio Webber. AFM: Autorização de Fornecimento de Material recebida do SIMPAS — nesse caso, informe o número da AFM.' },
+    { label: 'Tipo de instrumento',  texto: 'Contrato: instrumento formal gerado pelo próprio Weber-e. AFM: Autorização de Fornecimento de Material recebida do SIMPAS — nesse caso, informe o número da AFM.' },
     { label: 'Processo SEI',         texto: 'Processo SEI da contratação em si. Cada fase posterior (apostila, aditivo, cronograma, medição, pagamento, notificação) pode ter seu próprio processo SEI, registrado na aba correspondente.' },
     { label: 'Fornecedor contratado', texto: 'Busca por CNPJ/CPF ou razão social no cadastro de fornecedores — histórico de relações anteriores fica disponível na tela de detalhe do fornecedor.' },
     { label: 'Exigir garantia contratual', texto: 'Percentual limitado a 5% do valor — acima disso exige justificativa obrigatória para contrato de grande vulto ou risco elevado (Art. 96, §3º).' },
