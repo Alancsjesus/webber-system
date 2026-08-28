@@ -58,6 +58,13 @@ class PNCPClient:
         GET /contratos
         Retorna contratos publicados no período.
         timeout_override permite usar timeout menor que o padrão do sistema.
+
+        IMPORTANTE: este endpoint do PNCP não tem parâmetro de UF — "uf" é
+        ignorado silenciosamente pela API se enviado (confirmado testando
+        direto contra a API: uf=BA e uf=SP retornam o mesmo total nacional
+        de registros). O filtro de UF é aplicado depois, no lado do cliente,
+        em _filtrar_uf(). O filtro de órgão também tem nome de parâmetro
+        diferente do de /atas: aqui é "cnpjOrgao", não "cnpj".
         """
         params = {
             'dataInicial': data_ini.strftime('%Y%m%d'),
@@ -66,9 +73,7 @@ class PNCPClient:
             'tamanhoPagina': tamanho,
         }
         if cnpj:
-            params['cnpj'] = cnpj.replace('.', '').replace('/', '').replace('-', '')
-        if uf:
-            params['uf'] = uf
+            params['cnpjOrgao'] = cnpj.replace('.', '').replace('/', '').replace('-', '')
         url = f"{PNCP_BASE}/contratos?{urllib.parse.urlencode(params)}"
         timeout = timeout_override if timeout_override else _get_timeout()
         req = urllib.request.Request(
@@ -84,6 +89,12 @@ class PNCPClient:
         """
         GET /atas
         Retorna atas de registro de preços vigentes no período.
+
+        IMPORTANTE: este endpoint não tem parâmetro de UF nem retorna UF no
+        payload de cada ata (diferente de /contratos, que ao menos devolve
+        unidadeOrgao.ufSigla) — então "uf" nem é enviado à API nem pode ser
+        filtrado depois no cliente. O único filtro efetivo aqui é "cnpj"
+        (esse sim funciona nesse endpoint, confirmado por teste direto).
         """
         params = {
             'dataInicial': data_ini.strftime('%Y%m%d'),
@@ -93,8 +104,6 @@ class PNCPClient:
         }
         if cnpj:
             params['cnpj'] = cnpj.replace('.', '').replace('/', '').replace('-', '')
-        if uf:
-            params['uf'] = uf
         url = f"{PNCP_BASE}/atas?{urllib.parse.urlencode(params)}"
         return _get_json(url)
 
@@ -120,11 +129,14 @@ class PNCPClient:
 
 
 def _normalizar_contrato(item: dict) -> dict:
-    """Normaliza um item de /contratos para o formato interno."""
+    """Normaliza um item de /contratos para o formato interno.
+    Campo de controle é "numeroControlePNCP" (maiúsculo) — não
+    "numeroControlePncp"; a grafia errada fazia numero_certame sair
+    sempre vazio."""
     orgao = item.get('orgaoEntidade') or {}
     unidade = item.get('unidadeOrgao') or {}
     return {
-        'numero_pncp':    item.get('numeroContratoEmpenho', '') or item.get('numeroControlePncp', ''),
+        'numero_pncp':    item.get('numeroContratoEmpenho', '') or item.get('numeroControlePNCP', ''),
         'objeto':         item.get('objetoContrato', ''),
         'valor_global':   _dec(item.get('valorGlobal')),
         'valor_unitario': None,
@@ -134,28 +146,29 @@ def _normalizar_contrato(item: dict) -> dict:
         'orgao_cnpj':     orgao.get('cnpj', ''),
         'uf':             unidade.get('ufSigla', ''),
         'data_referencia': _data(item.get('dataPublicacaoPncp') or item.get('dataVigenciaInicio')),
-        'numero_certame': item.get('numeroControlePncp', ''),
+        'numero_certame': item.get('numeroControlePNCP', ''),
         'modalidade':     item.get('modalidadeNome', ''),
         'tipo_registro':  'contrato',
     }
 
 
 def _normalizar_ata(item: dict) -> dict:
-    """Normaliza um item de /atas para o formato interno."""
-    orgao = item.get('orgaoEntidade') or {}
-    unidade = item.get('unidadeOrgao') or {}
+    """Normaliza um item de /atas para o formato interno.
+    Campo do objeto é "objetoContratacao" nesta API — não "objeto" (bug
+    anterior fazia o objeto sair sempre vazio, o que também quebrava o
+    filtro por termo, já que ele compara contra esse campo)."""
     return {
-        'numero_pncp':    item.get('numeroControlePncp', ''),
-        'objeto':         item.get('objeto', ''),
-        'valor_global':   _dec(item.get('valorTotal')),
+        'numero_pncp':    item.get('numeroControlePNCPAta', ''),
+        'objeto':         item.get('objetoContratacao', ''),
+        'valor_global':   None,
         'valor_unitario': None,
         'quantidade':     None,
         'unidade_medida': '',
-        'orgao_nome':     orgao.get('razaoSocial', ''),
-        'orgao_cnpj':     orgao.get('cnpj', ''),
-        'uf':             unidade.get('ufSigla', ''),
-        'data_referencia': _data(item.get('dataVigenciaInicio')),
-        'numero_certame': item.get('numeroControlePncp', ''),
+        'orgao_nome':     item.get('nomeOrgao', ''),
+        'orgao_cnpj':     item.get('cnpjOrgao', ''),
+        'uf':             '',  # /atas não retorna UF — ver nota em PNCPClient.buscar_atas
+        'data_referencia': _data(item.get('vigenciaInicio')),
+        'numero_certame': item.get('numeroControlePNCPAta', ''),
         'modalidade':     'Ata de Registro de Preços',
         'tipo_registro':  'ata',
     }
@@ -190,6 +203,16 @@ def _filtrar_termo(registros: list, termo: str) -> list:
     return [r for r in registros if t in r.get('objeto', '').lower()]
 
 
+def _filtrar_uf(registros: list, uf: str) -> list:
+    """Filtra registros pela UF já extraída (só populada para contratos —
+    ver nota em PNCPClient.buscar_atas). Como a API não filtra por UF no
+    servidor, isso só reduz o que já veio na página consultada — não
+    substitui informar um CNPJ para resultados relevantes."""
+    if not uf:
+        return registros
+    return [r for r in registros if not r.get('uf') or r['uf'].upper() == uf.upper()]
+
+
 def buscar_preview(data_ini: date, data_fim: date,
                    cnpj: str = '', uf: str = '',
                    termo: str = '',
@@ -203,21 +226,33 @@ def buscar_preview(data_ini: date, data_fim: date,
     registros = []
     erros = []
 
+    # A API do PNCP não tem parâmetro de UF em /contratos nem em /atas — sem
+    # CNPJ, a página consultada vem de um universo nacional de ~300-600 mil
+    # registros no período, e a chance de algum bater com o objeto/UF
+    # procurados é próxima de zero. Avisar de antemão em vez de deixar o
+    # usuário concluir errado que "não tem resultado" ou esperar um timeout.
+    if not cnpj and (incluir_contratos or incluir_atas):
+        erros.append(
+            'Sem CNPJ, o PNCP retorna uma amostra de todo o Brasil (centenas de milhares de '
+            'registros no período) — UF e palavra-chave só filtram essa amostra pequena, '
+            'não a busca em si. Informe o CNPJ do órgão de referência para resultados relevantes.'
+        )
+
     if incluir_contratos:
         # Contratos usa timeout reduzido (8s) — sem filtro de objeto tende a ser lento
         # Resultado parcial é aceito: se timeout, atas ainda funcionam
         try:
             resp = client.buscar_contratos(
-                data_ini, data_fim, cnpj=cnpj, uf=uf,
-                termo=termo, timeout_override=8,
+                data_ini, data_fim, cnpj=cnpj,
+                termo=termo, timeout_override=12,
             )
             for item in (resp.get('data') or []):
                 registros.append(_normalizar_contrato(item))
         except TimeoutError:
             erros.append(
-                'Contratos: a API do PNCP não respondeu a tempo. '
-                'Use o campo "Termo de busca" para filtrar pelo objeto e reduzir o volume, '
-                'ou desmarque "Contratos" e consulte apenas Atas de RP.'
+                'Contratos: a API do PNCP não respondeu a tempo. Informe o CNPJ do órgão '
+                'de referência (é o único filtro que reduz o volume nesse endpoint) ou '
+                'desmarque "Contratos" e consulte apenas Atas de RP.'
             )
             logger.warning('PNCP buscar_contratos timeout')
         except Exception as e:
@@ -225,7 +260,7 @@ def buscar_preview(data_ini: date, data_fim: date,
             if code in (422, 400):
                 erros.append(
                     'Contratos: parâmetros rejeitados pela API do PNCP. '
-                    'Reduza o período ou informe um termo de busca.'
+                    'Reduza o período ou informe o CNPJ do órgão.'
                 )
             else:
                 erros.append(f'Contratos: {e}')
@@ -233,20 +268,20 @@ def buscar_preview(data_ini: date, data_fim: date,
 
     if incluir_atas:
         try:
-            resp = client.buscar_atas(data_ini, data_fim, cnpj=cnpj, uf=uf)
+            resp = client.buscar_atas(data_ini, data_fim, cnpj=cnpj)
             for item in (resp.get('data') or []):
                 registros.append(_normalizar_ata(item))
         except TimeoutError:
             erros.append(
-                'Atas: timeout na API do PNCP. Reduza o período de busca ou '
-                'filtre por CNPJ/UF para diminuir o volume de resultados.'
+                'Atas: timeout na API do PNCP. Informe o CNPJ do órgão de referência — '
+                'é o único filtro que esse endpoint aceita além do período.'
             )
         except Exception as e:
             code = getattr(e, 'code', None)
             if code == 422:
                 erros.append(
                     'Atas: a API do PNCP retornou 422 — muitos registros ou parâmetros inválidos. '
-                    'Reduza o período para ≤ 90 dias ou adicione filtro de CNPJ.'
+                    'Reduza o período para ≤ 90 dias ou informe o CNPJ do órgão.'
                 )
             elif code == 400:
                 erros.append(f'Atas: parâmetro inválido na API do PNCP (400). Detalhe: {e}')
@@ -254,6 +289,8 @@ def buscar_preview(data_ini: date, data_fim: date,
                 erros.append(f'Atas: {e}')
             logger.warning('PNCP buscar_atas erro: %s', e)
 
+    if uf:
+        registros = _filtrar_uf(registros, uf)
     if termo:
         registros = _filtrar_termo(registros, termo)
 

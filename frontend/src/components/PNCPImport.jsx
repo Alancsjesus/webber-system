@@ -148,11 +148,14 @@ export default function PNCPImport({ mapaId, itensDoMapa = [], onImportado }) {
                 className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm" />
             </div>
             <div>
-              <label className="block text-xs text-gray-600 mb-1">CNPJ do órgão de referência (opcional)</label>
+              <label className="block text-xs text-gray-600 mb-1">CNPJ do órgão de referência</label>
               <input value={filtros.cnpj_orgao_referencia}
                 onChange={e => setF('cnpj_orgao_referencia', e.target.value)}
                 placeholder="00.000.000/0001-00"
                 className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm" />
+              <p className="text-[11px] text-amber-700 mt-0.5">
+                A API do PNCP não filtra por UF/palavra-chave — sem CNPJ, a busca cai numa amostra nacional (centenas de milhares de registros) e dificilmente encontra algo relevante.
+              </p>
             </div>
             <div>
               <label className="block text-xs text-gray-600 mb-1">UF</label>
@@ -161,6 +164,9 @@ export default function PNCPImport({ mapaId, itensDoMapa = [], onImportado }) {
                 <option value="">Todos os estados</option>
                 {UF_OPTS.map(uf => <option key={uf} value={uf}>{uf}</option>)}
               </select>
+              <p className="text-[11px] text-gray-400 mt-0.5">
+                Só se aplica a Contratos (filtro aplicado sobre a amostra recebida, não na consulta em si). Sem efeito em Atas de RP.
+              </p>
             </div>
             <div className="col-span-2">
               <label className="block text-xs text-gray-600 mb-1">Palavra-chave no objeto (opcional)</label>
