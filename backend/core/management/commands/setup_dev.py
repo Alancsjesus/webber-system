@@ -293,8 +293,12 @@ class Command(BaseCommand):
             ('ETP', 'observacoes',         'Observações',                      11, False, False, []),
             # ── TR ────────────────────────────────────────────────────────────
             ('TR',  'objeto',              'Objeto da Contratação',             1, True,  True,  []),
-            ('TR',  'justificativa',       'Justificativa da Contratação',      2, True,  True,  []),
-            ('TR',  'requisitos',          'Requisitos da Contratação',         3, True,  True,  []),
+            # 'justificativa'/'requisitos' do TR ficam de fora: colidem com o checklist
+            # oficial PGE-BA (seed_secoes_tr.py — 'fundamentacao' e as seções 5.x
+            # estruturadas cobrem o mesmo conteúdo) e apareciam como seções soltas e
+            # redundantes nas peças geradas (achado de auditoria 31/08/2026, ver
+            # migração core/0019_desativa_secoes_tr_legadas.py para instâncias que já
+            # tinham essas seções ativas antes desta correção).
             ('TR',  'obrigacoes_contratada','Obrigações da Contratada',         4, True,  True,  []),
             ('TR',  'obrigacoes_contratante','Obrigações da Contratante',       5, True,  True,  []),
             ('TR',  'criterios_selecao',   'Critérios de Seleção',              6, True,  False, ['licitacao']),
