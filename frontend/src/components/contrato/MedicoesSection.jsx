@@ -13,26 +13,32 @@ const fmtDate = (v) => v ? new Date(v).toLocaleDateString('pt-BR') : '—'
 const fmt = (v) => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const inp = () => 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500'
 
-export default function MedicoesSection({ contratoId, medicoes, podeEditar }) {
+export default function MedicoesSection({ contratoId, medicoes, aditivos = [], podeEditar }) {
   const { addMedicao, updateMedicao, deleteMedicao } = useContratoStore()
   const [showForm, setShowForm] = useState(false)
   const [saving, setSaving]     = useState(false)
   const [form, setForm] = useState({
     competencia_inicio: '', competencia_fim: '', data_medicao: '',
     percentual_executado: '', valor_medido: '', numero_processo_sei: '',
+    houve_alteracao_planilha: false, aditivo_referencia: '',
   })
 
   const handleAdd = async () => {
     if (!form.competencia_inicio || !form.competencia_fim || !form.data_medicao || !form.valor_medido) return
+    if (form.houve_alteracao_planilha && !form.aditivo_referencia) {
+      alert('Selecione o Aditivo que autoriza a alteração de item da planilha — pagar por item substituído sem aditivo formal é "química contratual" (irregularidade grave, TCU).')
+      return
+    }
     setSaving(true)
     try {
       await addMedicao(contratoId, {
         ...form,
         percentual_executado: form.percentual_executado ? Number(form.percentual_executado) : null,
         valor_medido: Number(form.valor_medido),
+        aditivo_referencia: form.aditivo_referencia || null,
       })
       setShowForm(false)
-      setForm({ competencia_inicio: '', competencia_fim: '', data_medicao: '', percentual_executado: '', valor_medido: '', numero_processo_sei: '' })
+      setForm({ competencia_inicio: '', competencia_fim: '', data_medicao: '', percentual_executado: '', valor_medido: '', numero_processo_sei: '', houve_alteracao_planilha: false, aditivo_referencia: '' })
     } finally { setSaving(false) }
   }
 
@@ -73,6 +79,11 @@ export default function MedicoesSection({ contratoId, medicoes, podeEditar }) {
                     </p>
                     <p className="text-sm font-semibold text-gray-800 mt-0.5">{fmt(m.valor_medido)}</p>
                     {m.numero_processo_sei && <p className="text-xs text-gray-400 mt-0.5">SEI: <span className="font-mono">{m.numero_processo_sei}</span></p>}
+                    {m.houve_alteracao_planilha && (
+                      <p className="text-xs text-amber-700 mt-0.5">
+                        ⚠ Alteração de item da planilha — Aditivo {m.aditivo_referencia_numero || '—'}
+                      </p>
+                    )}
                     {m.parecer_fiscal && <p className="text-xs text-gray-500 italic mt-0.5">{m.parecer_fiscal}</p>}
                   </div>
                   {podeEditar && (
@@ -125,6 +136,26 @@ export default function MedicoesSection({ contratoId, medicoes, podeEditar }) {
             <div className="col-span-2">
               <label className="block text-xs text-gray-500 mb-0.5">Processo SEI</label>
               <CampoSei value={form.numero_processo_sei} onChange={v => setForm(p => ({ ...p, numero_processo_sei: v }))} className={inp()} />
+            </div>
+            <div className="col-span-2 border-t border-blue-100 pt-2 mt-1">
+              <label className="flex items-center gap-2 text-xs text-gray-700">
+                <input type="checkbox" checked={form.houve_alteracao_planilha}
+                  onChange={e => setForm(p => ({ ...p, houve_alteracao_planilha: e.target.checked, aditivo_referencia: e.target.checked ? p.aditivo_referencia : '' }))} />
+                Houve substituição/alteração de item da planilha orçamentária nesta medição?
+                <HelpTip text='TCU trata pagamento por item substituído sem aditivo formal como "química contratual" — irregularidade grave mesmo sem dano ao erário.' position="right" />
+              </label>
+              {form.houve_alteracao_planilha && (
+                <div className="mt-1.5">
+                  <label className="block text-xs text-gray-500 mb-0.5">Aditivo que autoriza a alteração *</label>
+                  <select value={form.aditivo_referencia} onChange={e => setForm(p => ({ ...p, aditivo_referencia: e.target.value }))} className={inp()}>
+                    <option value="">Selecione o aditivo...</option>
+                    {aditivos.map(a => (
+                      <option key={a.id} value={a.id}>{a.numero} — {a.tipo_display || a.tipo} ({fmtDate(a.data)})</option>
+                    ))}
+                  </select>
+                  {aditivos.length === 0 && <p className="text-xs text-red-500 mt-0.5">Nenhum aditivo registrado neste contrato — cadastre-o na aba "Apostilas & Aditivos" antes de continuar.</p>}
+                </div>
+              )}
             </div>
           </div>
           <div className="flex gap-2 mt-2">

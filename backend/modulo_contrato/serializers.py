@@ -89,6 +89,7 @@ class MedicaoSerializer(serializers.ModelSerializer):
     status_display          = serializers.CharField(source='get_status_display', read_only=True)
     fiscal_responsavel_username = serializers.CharField(source='fiscal_responsavel.username', read_only=True, default='')
     pagamentos               = PagamentoSerializer(many=True, read_only=True)
+    aditivo_referencia_numero = serializers.CharField(source='aditivo_referencia.numero', read_only=True, default='')
 
     class Meta:
         model  = Medicao
@@ -97,6 +98,7 @@ class MedicaoSerializer(serializers.ModelSerializer):
             'percentual_executado', 'valor_medido',
             'fiscal_responsavel', 'fiscal_responsavel_username',
             'status', 'status_display', 'parecer_fiscal', 'data_aprovacao',
+            'houve_alteracao_planilha', 'aditivo_referencia', 'aditivo_referencia_numero',
             'pagamentos', 'numero_processo_sei', 'created_at',
         ]
         read_only_fields = ['id', 'numero', 'status_display', 'fiscal_responsavel_username', 'pagamentos', 'created_at']

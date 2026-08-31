@@ -48,7 +48,7 @@ export const pageHelp = {
     { label: '+ Apostila',       texto: 'Registra uma apostila: alteração unilateral de menor importância que não modifica o objeto nem o valor. Informe número, data e objeto da apostila.' },
     { label: '+ Aditivo',        texto: 'Registra um termo aditivo de prorrogação, acréscimo/redução de valor, alteração de objeto ou rescisão. Prorrogações e acréscimos têm limites legais de 25% (50% para obras).' },
     { label: '+ Item de cronograma', texto: 'Aba Execução Contratual: planeja uma etapa/item a ser entregue, com data prevista. Pode ser marcado como entregue depois.' },
-    { label: '+ Nova medição',   texto: 'Aba Execução Contratual: registra a medição do fiscal para um período, com percentual/valor executado. Precisa ser aprovada para liberar pagamento.' },
+    { label: '+ Nova medição',   texto: 'Aba Execução Contratual: registra a medição do fiscal para um período, com percentual/valor executado. Precisa ser aprovada para liberar pagamento. Se algum item da planilha orçamentária foi substituído/alterado nesta medição, é obrigatório vincular o Aditivo que autoriza a mudança — pagar por item substituído sem aditivo formal é "química contratual" (irregularidade grave apontada pelo TCU, mesmo sem dano ao erário).' },
     { label: '+ Novo pagamento', texto: 'Aba Execução Contratual: registra um pagamento vinculado a uma medição aprovada ou avulso (ex. pagamento único).' },
     { label: '+ Nova notificação', texto: 'Aba Notificações: registra uma Notificação ou Rescisão enviada à empresa (atraso, ausência de garantia, paralisação etc.), com numeração de controle automática. O fornecedor é pré-preenchido pelo do contrato, mas pode ser trocado. Continua editável mesmo após o contrato encerrar.' },
     { label: 'PDF Contrato',     texto: 'Gera o documento do contrato em PDF para assinatura.' },
@@ -542,7 +542,7 @@ export default function ContratoDetail() {
           <CronogramaSection contratoId={id} itens={current.cronograma || []} podeEditar={podeEditar} />
         </div>
         <div className="pt-4 border-t border-gray-100">
-          <MedicoesSection contratoId={id} medicoes={current.medicoes || []} podeEditar={podeEditar} />
+          <MedicoesSection contratoId={id} medicoes={current.medicoes || []} aditivos={current.aditivos || []} podeEditar={podeEditar} />
         </div>
         <div className="pt-4 border-t border-gray-100">
           <PagamentosSection contratoId={id} pagamentos={current.pagamentos || []} medicoes={current.medicoes || []} podeEditar={podeEditar} />

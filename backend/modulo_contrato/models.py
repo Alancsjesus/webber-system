@@ -166,6 +166,14 @@ class Medicao(BaseModel):
     parecer_fiscal        = models.TextField(blank=True, default='')
     data_aprovacao        = models.DateField(null=True, blank=True)
     numero_processo_sei   = models.CharField(max_length=50, blank=True, default='', verbose_name='Processo SEI')
+    houve_alteracao_planilha = models.BooleanField(
+        default=False, verbose_name='Houve substituição/alteração de item da planilha orçamentária nesta medição?',
+        help_text='TCU considera "química contratual" (pagamento por item não previsto sem aditivo formal) irregularidade grave, mesmo sem dano ao erário.',
+    )
+    aditivo_referencia = models.ForeignKey(
+        Aditivo, null=True, blank=True, on_delete=models.PROTECT, related_name='medicoes_cobertas',
+        verbose_name='Aditivo que autoriza a alteração', help_text='Obrigatório quando houve_alteracao_planilha=True.',
+    )
 
     class Meta(BaseModel.Meta):
         ordering = ['competencia_inicio']

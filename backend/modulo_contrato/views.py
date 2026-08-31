@@ -123,11 +123,28 @@ class ContratoViewSet(viewsets.ModelViewSet):
     def add_medicao(self, request, pk=None):
         contrato = self.get_object()
         self._bloquear_se_encerrado(contrato)
+        self._validar_aditivo_referencia(contrato, request.data)
         serializer = MedicaoSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
         serializer.save(contrato=contrato)
         return Response(ContratoSerializer(self._reload(contrato), context={'request': request}).data,
                         status=status.HTTP_201_CREATED)
+
+    def _validar_aditivo_referencia(self, contrato, dados, medicao_atual=None):
+        houve_alteracao = dados.get('houve_alteracao_planilha')
+        if houve_alteracao is None and medicao_atual is not None:
+            houve_alteracao = medicao_atual.houve_alteracao_planilha
+        if not houve_alteracao:
+            return
+        aditivo_id = dados.get('aditivo_referencia')
+        if aditivo_id is None and medicao_atual is not None:
+            aditivo_id = medicao_atual.aditivo_referencia_id
+        if not aditivo_id:
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({'aditivo_referencia': 'Informe o Aditivo que autoriza a alteração de item da planilha — pagar por item substituído sem aditivo formal é "química contratual" (irregularidade grave apontada pelo TCU/TCE, mesmo sem dano ao erário).'})
+        if not contrato.aditivos.filter(pk=aditivo_id).exists():
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({'aditivo_referencia': 'O aditivo informado não pertence a este contrato.'})
 
     @action(detail=True, methods=['patch', 'delete'], url_path=r'medicoes/(?P<medicao_pk>[^/.]+)')
     def medicao_item(self, request, pk=None, medicao_pk=None):
@@ -143,6 +160,7 @@ class ContratoViewSet(viewsets.ModelViewSet):
             if not parecer or not parecer.strip():
                 from rest_framework.exceptions import ValidationError
                 raise ValidationError({'parecer_fiscal': 'Parecer do fiscal é obrigatório para aprovar a medição — atesto sem parecer é irregularidade recorrente em auditorias de execução contratual.'})
+        self._validar_aditivo_referencia(contrato, request.data, medicao_atual=medicao)
         serializer = MedicaoSerializer(medicao, data=request.data, partial=True, context={'request': request})
         serializer.is_valid(raise_exception=True)
         serializer.save()
