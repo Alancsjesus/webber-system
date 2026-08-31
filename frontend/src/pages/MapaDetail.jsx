@@ -50,7 +50,7 @@ export const pageHelp = {
     { label: 'Importar PNCP',     texto: 'Busca preços de contratações similares no Portal Nacional de Compras Públicas (PNCP) para subsidiar a pesquisa.' },
     { label: '+ Solicitação de Cotação', texto: 'Registra o disparo formal de uma solicitação de cotação a TODOS os fornecedores cadastrados numa família SIMPAS (Parâmetro V, Art. 5º, IV). Não envia e-mail automaticamente — mostra os destinatários para copiar em BCC no seu cliente de e-mail, e depois anexe o comprovante do envio (obrigatório pelo Art. 7º, IV).' },
     { label: '+ Resposta',        texto: 'Registra a resposta de um fornecedor específico ao disparo — valor cotado ou recusa, com upload da proposta recebida. Marque "Usar como referência" na resposta escolhida para justificar a seleção (Art. 3º, VII).' },
-    { label: 'Submeter',          texto: 'Envia o mapa para aprovação. Todos os itens devem ter pelo menos 3 preços válidos.' },
+    { label: 'Submeter',          texto: 'Envia o mapa para aprovação. Todos os itens devem ter pelo menos 3 preços válidos. Se nenhuma fonte válida for institucional (SIMPAS/Comprasnet, contratações públicas similares ou histórico Weber-e), é exigida a justificativa pela não combinação de parâmetros — o TCU prioriza preços públicos numa "cesta de preços" antes do mercado privado.' },
     { label: 'Aprovar',           texto: 'Homologa o mapa de preços. O valor resultante é usado como referência no procedimento licitatório.' },
     { label: 'Download PDF',      texto: 'Exporta o mapa completo em PDF para compor o processo SEI.' },
   ],
@@ -69,7 +69,7 @@ export default function MapaDetail() {
   const {
     current, loading, error,
     fetchMapa, fetchMetadados, deleteMapa,
-    analisar, salvarMetodo, recalcular, validarPrazos,
+    analisar, salvarMetodo, recalcular, validarPrazos, updateMapa,
     submeter, iniciarAnalise, aprovar, devolver, cancelar,
     fetchHistoricoWebber,
     addFonte, deleteFonte,
@@ -88,6 +88,8 @@ export default function MapaDetail() {
   const [analise, setAnalise]           = useState(null)
   const [loadingAnalise, setLoadingAnalise] = useState(false)
   const [metodoForm, setMetodoForm]     = useState({ metodo_calculo: 'media', justificativa_metodologia: '' })
+  const [justifFontes, setJustifFontes] = useState('')
+  const [savingJustifFontes, setSavingJustifFontes] = useState(false)
   const [showDevolver, setShowDevolver] = useState(false)
   const [motivoDevolucao, setMotivoDevolucao] = useState('')
   const [showCancelar, setShowCancelar] = useState(false)
@@ -100,6 +102,7 @@ export default function MapaDetail() {
         metodo_calculo:           current.metodo_calculo || 'media',
         justificativa_metodologia: current.justificativa_metodologia || '',
       })
+      setJustifFontes(current.parametros_combinados_justificativa || '')
     }
   }, [current])
 
@@ -334,6 +337,40 @@ export default function MapaDetail() {
                 ))}
               </div>
             )}
+          {(() => {
+            const FONTES_INSTITUCIONAIS = ['I', 'II', 'HIST']
+            const temInstitucional = (current.fontes || []).some(f => !f.infrutífera && FONTES_INSTITUCIONAIS.includes(f.tipo))
+            if (temInstitucional) return null
+            return (
+              <div className="mt-4 bg-amber-50 border border-amber-200 rounded-xl p-4">
+                <p className="text-sm font-semibold text-amber-800 mb-1">⚠ Pesquisa sem nenhuma fonte institucional</p>
+                <p className="text-xs text-amber-700 mb-3">
+                  Nenhuma fonte válida é do SIMPAS/Comprasnet, de contratações públicas similares ou do
+                  histórico Weber-e. O TCU exige priorizar preços públicos numa "cesta de preços"
+                  (Acórdão 1875/2021 e reiterações) — pesquisa de preços só de fornecedores privados deve
+                  ser exceção justificada. Preencha a justificativa abaixo antes de submeter o mapa.
+                </p>
+                <label className="block text-xs font-medium text-amber-800 mb-1">
+                  Justificativa pela não combinação de parâmetros (Art. 5º, §1º) *
+                </label>
+                <textarea rows={3} value={justifFontes} onChange={e => setJustifFontes(e.target.value)}
+                  placeholder="Explique a ausência ou impossibilidade de obtenção de preços públicos para este objeto..."
+                  className="w-full border border-amber-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-500" />
+                {isEditavel && (
+                  <button
+                    onClick={async () => {
+                      setSavingJustifFontes(true)
+                      try { await updateMapa(id, { parametros_combinados_justificativa: justifFontes }) }
+                      finally { setSavingJustifFontes(false) }
+                    }}
+                    disabled={savingJustifFontes}
+                    className="mt-2 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white text-xs font-medium px-3 py-1.5 rounded-lg">
+                    {savingJustifFontes ? 'Salvando...' : 'Salvar justificativa'}
+                  </button>
+                )}
+              </div>
+            )
+          })()}
         </div>
       )}
 

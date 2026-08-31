@@ -74,6 +74,17 @@ class MapaComparativoPrecosViewSet(viewsets.ModelViewSet):
         if not mapa.fontes.filter(infrutífera=False).exists():
             return Response({'detail': 'Adicione ao menos uma fonte de consulta válida.'},
                             status=status.HTTP_400_BAD_REQUEST)
+        FONTES_INSTITUCIONAIS = ('I', 'II', 'HIST')  # SIMPAS/Comprasnet, contratações públicas, histórico próprio
+        tem_fonte_institucional = mapa.fontes.filter(infrutífera=False, tipo__in=FONTES_INSTITUCIONAIS).exists()
+        if not tem_fonte_institucional and not mapa.parametros_combinados_justificativa.strip():
+            return Response({
+                'detail': 'A pesquisa usa apenas fontes de mercado/privadas (Parâmetros III/IV/V), sem nenhuma fonte '
+                           'institucional (SIMPAS/Comprasnet, contratações públicas similares ou histórico WEBBER). '
+                           'O TCU exige priorizar preços públicos numa "cesta de preços" (Acórdão 1875/2021 e '
+                           'reiterações); preencha "Justificativa pela não combinação de parâmetros" explicando a '
+                           'ausência ou impossibilidade de fontes públicas antes de submeter.',
+                'campo': 'parametros_combinados_justificativa',
+            }, status=status.HTTP_400_BAD_REQUEST)
         # Valida prazo das cotações antes de submeter
         invalidados = mapa.validar_prazo_cotacoes()
         # Recalcula
