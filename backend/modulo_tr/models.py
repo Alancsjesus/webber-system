@@ -75,6 +75,12 @@ class TR(BaseModel):
     ]
     req_vistoria         = models.CharField(max_length=15, choices=REQ_VISTORIA_CHOICES, default='nao', verbose_name='Vistoria prévia')
     req_vistoria_detalhes= models.TextField(blank=True, default='', verbose_name='Detalhes da vistoria (endereço, horário)')
+    req_vistoria_justificativa_obrigatoriedade = models.TextField(
+        blank=True, default='', verbose_name='Justificativa técnica da obrigatoriedade da vistoria',
+        help_text='Obrigatório quando a vistoria é "obrigatória" — TCU só admite vistoria obrigatória quando a Administração '
+                   'demonstra que o conhecimento presencial das condições locais é imprescindível e não pode ser suprido por '
+                   'outros meios (Súmula 272/2012 e Acórdão 138/2024, ambos do TCU).',
+    )
 
     # 4.5 Subcontratação
     REQ_SUBCONTR_CHOICES = [

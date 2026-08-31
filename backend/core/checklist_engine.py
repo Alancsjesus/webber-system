@@ -85,6 +85,17 @@ def _avaliador_classificacao_sensivel(obj: Any, _: str) -> tuple[bool, str]:
     return True, ''
 
 
+def _avaliador_vistoria_obrigatoria(obj: Any, _: str) -> tuple[bool, str]:
+    """Vistoria obrigatória exige justificativa técnica (Súmula 272 e Acórdão 138/2024, TCU)."""
+    if getattr(obj, 'req_vistoria', 'nao') != 'obrigatoria':
+        return True, ''
+    if getattr(obj, 'req_vistoria_justificativa_obrigatoriedade', ''):
+        return True, ''
+    return False, ('Vistoria obrigatória exige justificativa técnica de que o conhecimento presencial das '
+                    'condições locais é imprescindível — vistoria sem essa demonstração é restrição indevida '
+                    'à competitividade apontada pelo TCU.')
+
+
 def _avaliador_qualificacao_juridica(obj: Any, _: str) -> tuple[bool, str]:
     """Qualificação jurídica: OK se preenchida OU suprimida com justificativa."""
     texto = getattr(obj, 'qualificacao_juridica', '')
@@ -315,6 +326,13 @@ REGRAS_TR: list[RegraChecklist] = [
         base_legal='Lei 14.133, art. 15',
         obrigatorio=False,
         avaliador=_avaliador_consorcio,
+    ),
+    RegraChecklist(
+        campo='req_vistoria_justificativa_obrigatoriedade',
+        descricao='Justificativa técnica quando vistoria é obrigatória',
+        base_legal='Súmula TCU 272/2012 + Acórdão TCU 138/2024',
+        obrigatorio=False,
+        avaliador=_avaliador_vistoria_obrigatoria,
     ),
     RegraChecklist(
         campo='qualificacao_juridica',

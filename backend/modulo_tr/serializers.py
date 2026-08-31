@@ -130,7 +130,7 @@ class TRSerializer(serializers.ModelSerializer):
             'req_sustentabilidade', 'req_sustentabilidade_criterios',
             'req_indicacao_marca', 'req_indicacao_marca_justific',
             'req_exame_adequacao', 'req_exame_descricao',
-            'req_vistoria', 'req_vistoria_detalhes',
+            'req_vistoria', 'req_vistoria_detalhes', 'req_vistoria_justificativa_obrigatoriedade',
             'req_subcontratacao', 'req_subcontratacao_descricao', 'req_subcontratacao_mep',
             'req_garantia_proposta', 'req_garantia_contratacao',
             'req_garantia_percentual', 'req_garantia_modalidade',

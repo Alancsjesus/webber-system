@@ -140,7 +140,7 @@ export const pageHelp = {
     { label: 'Sistema de Registro de Preços (ARP)', texto: 'Marque quando a contratação vai gerar uma Ata de Registro de Preços em vez de contrato direto.' },
     { label: 'Forma de execução do contrato', texto: 'Escopo (entrega única), Contínuo, Emergencial ou Art. 108 — cada uma gera automaticamente a redação legal do prazo de vigência (mostrada em destaque), com limites de meses diferentes por tipo.' },
     { label: 'Reserva de Cota ME/EPP (Bens)', texto: 'Vem pré-selecionada conforme decisão já tomada no ETP; pode ser ajustada aqui.' },
-    { label: 'Exame de adequação / Vistoria / Subcontratação', texto: 'Cada um tem opções que, quando diferentes do padrão restritivo, abrem um campo de detalhamento obrigatório para a redação do edital.' },
+    { label: 'Exame de adequação / Vistoria / Subcontratação', texto: 'Cada um tem opções que, quando diferentes do padrão restritivo, abrem um campo de detalhamento obrigatório para a redação do edital. Vistoria "Obrigatória" também exige justificativa técnica da imprescindibilidade — TCU só admite vistoria obrigatória quando esse conhecimento presencial não pode ser suprido por outros meios (Súmula 272/2012).' },
     { label: 'Garantia da contratação',       texto: 'Percentual limitado a 5% (até 10% em casos justificados, Art. 98) e modalidade preferencial — deixe em branco para permitir qualquer modalidade do Art. 96, §1º.' },
     { label: 'Criar Minuta TR',               texto: 'Salva o TR vinculado ao ETP de origem. Os lotes de licitação são configurados depois, na tela de detalhe.' },
   ],
@@ -187,6 +187,7 @@ export default function TRCreate() {
     req_exame_descricao:            '',
     req_vistoria:                   'nao',
     req_vistoria_detalhes:          '',
+    req_vistoria_justificativa_obrigatoriedade: '',
     req_subcontratacao:             'nao',
     req_subcontratacao_descricao:   '',
     req_subcontratacao_mep:         false,
@@ -270,6 +271,7 @@ export default function TRCreate() {
         req_exame_descricao: form.req_exame_descricao,
         req_vistoria: form.req_vistoria,
         req_vistoria_detalhes: form.req_vistoria_detalhes,
+        req_vistoria_justificativa_obrigatoriedade: form.req_vistoria_justificativa_obrigatoriedade,
         req_subcontratacao: form.req_subcontratacao,
         req_subcontratacao_descricao: form.req_subcontratacao_descricao,
         req_subcontratacao_mep: form.req_subcontratacao_mep,
@@ -408,6 +410,18 @@ export default function TRCreate() {
           {form.req_vistoria !== 'nao' && (
             <F label="Detalhes da vistoria (endereço, horário, responsável)">
               <textarea rows={2} value={form.req_vistoria_detalhes} onChange={e => set('req_vistoria_detalhes', e.target.value)} className={inp()} />
+            </F>
+          )}
+          {form.req_vistoria === 'obrigatoria' && (
+            <F label="Justificativa técnica da obrigatoriedade da vistoria">
+              <textarea rows={3} value={form.req_vistoria_justificativa_obrigatoriedade}
+                onChange={e => set('req_vistoria_justificativa_obrigatoriedade', e.target.value)}
+                placeholder="Por que o conhecimento presencial das condições locais é imprescindível e não pode ser suprido por outros meios (fotos, plantas, memorial descritivo)..."
+                className={inp()} />
+              <p className="text-xs text-amber-600 mt-1">
+                O TCU só admite vistoria obrigatória quando essa imprescindibilidade é demonstrada (Súmula 272/2012 e
+                Acórdão 138/2024) — sem justificativa, a exigência é restrição indevida à competitividade.
+              </p>
             </F>
           )}
 

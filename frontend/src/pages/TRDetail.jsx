@@ -429,6 +429,11 @@ export default function TRDetail() {
                   <span className="font-medium text-indigo-700">Vistoria:</span>{' '}
                   {{ obrigatoria:'Obrigatória', facultativa:'Facultativa' }[current.req_vistoria]}
                   {current.req_vistoria_detalhes && <span> — {current.req_vistoria_detalhes}</span>}
+                  {current.req_vistoria === 'obrigatoria' && (
+                    current.req_vistoria_justificativa_obrigatoriedade
+                      ? <p className="text-xs text-gray-500 mt-0.5">Justificativa: {current.req_vistoria_justificativa_obrigatoriedade}</p>
+                      : <p className="text-xs text-amber-600 mt-0.5">⚠ Sem justificativa técnica da obrigatoriedade — pendência de checklist (TCU Súmula 272/Acórdão 138-2024).</p>
+                  )}
                 </div>
               )}
               {current.req_subcontratacao === 'parcial' && (
