@@ -20,6 +20,11 @@ CODIGOS_ESTATICOS_TR = [
     'local_entrega', 'garantia', 'lotes', 'adequacao_orcamentaria', 'permite_consorcio',
     'qualificacao_juridica', 'qualificacao_economica', 'prazos_execucao', 'degrau_lances',
     'estimativa_valor', 'observacoes',
+    # hab_juridica/hab_economica são o mesmo conteúdo de qualificacao_juridica/
+    # qualificacao_economica sob os códigos oficiais do checklist (14.1/14.3) —
+    # o bloco fixo acima já cobre supressão/dispensa com justificativa; excluir
+    # do loop genérico para não duplicar a seção com título diferente.
+    'hab_juridica', 'hab_economica',
 ]
 
 

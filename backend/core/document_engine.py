@@ -20,12 +20,17 @@ def _fmt_valor(v):
         return ''
 
 
-def _get_secoes_ativas(tipo, modalidade=None):
-    """Seções ativas de um tipo de artefato, filtradas por modalidade quando aplicável."""
+def _get_secoes_ativas(tipo, modalidade=None, tipo_objeto=None):
+    """
+    Seções ativas de um tipo de artefato, filtradas por modalidade e por tipo de
+    objeto (Bens/Serviços/Híbrido — só relevante para TR) quando aplicável.
+    """
     from core.models import SecaoArtefato
     qs = list(SecaoArtefato.objects.filter(tipo=tipo, ativo=True).order_by('ordem'))
     if modalidade and qs:
         qs = [s for s in qs if not s.aplica_modalidades or modalidade in s.aplica_modalidades]
+    if tipo_objeto and qs:
+        qs = [s for s in qs if not s.aplica_tipo_objeto or tipo_objeto in s.aplica_tipo_objeto]
     return qs
 
 
@@ -215,6 +220,8 @@ def _contexto_tr(tr) -> dict:
         partes = [f'Vistoria prévia: {tr.get_req_vistoria_display()}']
         if tr.req_vistoria_detalhes:
             partes.append(tr.req_vistoria_detalhes)
+        if tr.req_vistoria == 'obrigatoria' and tr.req_vistoria_justificativa_obrigatoriedade:
+            partes.append(f'Justificativa da obrigatoriedade: {tr.req_vistoria_justificativa_obrigatoriedade}')
         return '\n'.join(partes)
 
     def _req_subcontratacao_texto():
@@ -390,7 +397,8 @@ class DocumentEngine:
     @classmethod
     def gerar(cls, tipo: str, obj, modalidade: str = None) -> list[dict]:
         resultado = []
-        for secao in _get_secoes_ativas(tipo, modalidade):
+        tipo_objeto = getattr(obj, 'tipo_objeto', None) if tipo == 'TR' else None
+        for secao in _get_secoes_ativas(tipo, modalidade, tipo_objeto=tipo_objeto):
             texto = renderizar_secao(tipo, secao, obj)
             if not texto:
                 continue
