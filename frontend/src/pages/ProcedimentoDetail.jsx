@@ -74,6 +74,7 @@ export const pageHelp = {
     { label: 'Revogar',       texto: 'Encerra o procedimento por interesse público superveniente, com justificativa. Ato irreversível.' },
     { label: '+ Tramitação',  texto: 'Registra envio a órgão externo (PGE, SAEB, TCE-BA, CGE, etc.) para parecer jurídico, técnico ou anuência prévia. Informe o prazo de retorno.' },
     { label: '+ Resultado',   texto: 'Lança o resultado por lote: empresa vencedora, CNPJ, valor homologado. Necessário antes de homologar.' },
+    { label: 'Nº controle PNCP / Valor publicado', texto: 'Registre manualmente o identificador e o valor exibidos na página pública do PNCP após a publicação — o sistema alerta se o valor publicado divergir do valor estimado deste procedimento em mais de 1%.' },
   ],
   fluxo: [
     { status: 'Em Instrução',         descricao: 'Procedimento em montagem. Peças instrutórias sendo anexadas.' },
@@ -140,6 +141,8 @@ export default function ProcedimentoDetail() {
       valor_estimado: current.valor_estimado || '',
       data_publicacao: current.data_publicacao || '',
       data_abertura: current.data_abertura || '',
+      numero_controle_pncp: current.numero_controle_pncp || '',
+      valor_publicado_pncp: current.valor_publicado_pncp || '',
       observacoes: current.observacoes || '',
     })
   }, [current])
@@ -392,6 +395,8 @@ export default function ProcedimentoDetail() {
             ['Valor estimado (R$)', 'valor_estimado', 'number'],
             ['Data de publicação', 'data_publicacao', 'date'],
             ['Data de abertura', 'data_abertura', 'date'],
+            ['Nº de controle PNCP', 'numero_controle_pncp', 'text'],
+            ['Valor publicado no PNCP (R$)', 'valor_publicado_pncp', 'number'],
             ['Observações', 'observacoes', 'textarea'],
           ].map(([label, key, type]) => (
             <div key={key}>
@@ -409,7 +414,7 @@ export default function ProcedimentoDetail() {
                 : key === 'numero_sei'
                   ? (current[key] ? <NumeroSeiTexto valor={current[key]} seiBaseUrl={seiBaseUrl} className="text-sm text-gray-700 font-mono" /> : <p className="text-sm text-gray-400">—</p>)
                 : <p className="text-sm text-gray-700">
-                    {key === 'valor_estimado' ? fmt(current[key]) : (current[key] ? (
+                    {['valor_estimado', 'valor_publicado_pncp'].includes(key) ? (current[key] != null ? fmt(current[key]) : <span className="text-gray-400">—</span>) : (current[key] ? (
                       ['data_publicacao','data_abertura'].includes(key)
                         ? new Date(current[key]+'T12:00').toLocaleDateString('pt-BR')
                         : current[key]
@@ -417,6 +422,17 @@ export default function ProcedimentoDetail() {
                   </p>}
             </div>
           ))}
+          {current.divergencia_valor_pncp && (
+            <div className="bg-amber-50 border border-amber-200 rounded-xl p-3">
+              <p className="text-sm font-semibold text-amber-800">⚠ Divergência de valor com o PNCP</p>
+              <p className="text-xs text-amber-700 mt-0.5">
+                O valor publicado no PNCP ({fmt(current.valor_publicado_pncp)}) diverge do valor estimado
+                deste procedimento ({fmt(current.valor_estimado)}) em mais de 1%. Achado real do TCE/BA: ato de
+                autorização com um valor, PNCP publicado com outro, sem explicação nos autos — confira e registre
+                a justificativa no processo SEI se a diferença for legítima (ex.: parcela do objeto).
+              </p>
+            </div>
+          )}
 
           {/* Info adicionais */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">

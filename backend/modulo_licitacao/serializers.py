@@ -83,6 +83,7 @@ class ProcedimentoSerializer(serializers.ModelSerializer):
     alerta_teto_dispensa = serializers.SerializerMethodField()
     dias_ate_abertura    = serializers.SerializerMethodField()
     pecas_instutorias    = serializers.SerializerMethodField()
+    divergencia_valor_pncp = serializers.BooleanField(read_only=True)
 
     class Meta:
         model  = Procedimento
@@ -93,6 +94,7 @@ class ProcedimentoSerializer(serializers.ModelSerializer):
             'objeto', 'valor_estimado',
             'fundamento_dispensa', 'fundamento_inexigibilidade', 'justificativa',
             'numero_sei',
+            'numero_controle_pncp', 'valor_publicado_pncp', 'divergencia_valor_pncp',
             'data_publicacao', 'data_abertura', 'data_homologacao',
             'prazo_minimo_dias_uteis',
             'motivo_revogacao', 'observacoes',

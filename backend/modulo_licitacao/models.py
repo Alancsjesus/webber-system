@@ -171,6 +171,16 @@ class Procedimento(BaseModel):
     numero_sei    = models.CharField(max_length=50, blank=True, default='',
                                      verbose_name='Número do processo SEI')
 
+    # Publicação no PNCP (Portal Nacional de Contratações Públicas — Lei 14.133, art. 174)
+    numero_controle_pncp = models.CharField(
+        max_length=40, blank=True, default='', verbose_name='Nº de controle PNCP',
+        help_text='Identificador da contratação no Portal Nacional de Contratações Públicas (pncp.gov.br).',
+    )
+    valor_publicado_pncp = models.DecimalField(
+        max_digits=15, decimal_places=2, null=True, blank=True, verbose_name='Valor publicado no PNCP (R$)',
+        help_text='Valor exibido na página pública do PNCP para este procedimento — conferir contra valor_estimado.',
+    )
+
     # Datas do procedimento
     data_publicacao  = models.DateField(null=True, blank=True,
                                         verbose_name='Data de publicação do edital')
@@ -204,6 +214,18 @@ class Procedimento(BaseModel):
 
     def __str__(self):
         return f'{self.numero} — {self.get_modalidade_display()}'
+
+    @property
+    def divergencia_valor_pncp(self):
+        """
+        True quando o valor publicado no PNCP diverge do valor estimado do
+        procedimento em mais de 1% — achado real do TCE/BA: ato de autorização
+        divulgado com um valor, PNCP publicado com outro, sem explicação nos autos.
+        """
+        if self.valor_publicado_pncp is None or not self.valor_estimado:
+            return False
+        diferenca = abs(self.valor_publicado_pncp - self.valor_estimado)
+        return diferenca > (self.valor_estimado * Decimal('0.01'))
 
     @property
     def eh_licitacao(self):
