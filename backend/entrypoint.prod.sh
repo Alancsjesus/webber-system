@@ -4,16 +4,6 @@ set -e
 echo "==> Aplicando migrações..."
 python manage.py migrate --noinput
 
-echo "==> [DIAGNÓSTICO TEMPORÁRIO] Estado das migrações do app core:"
-python manage.py showmigrations core
-echo "==> [DIAGNÓSTICO TEMPORÁRIO] Contagem de SecaoArtefato por tipo:"
-python manage.py shell -c "
-from core.models import SecaoArtefato
-for t in ['DFD','ETP','TR']:
-    qs = SecaoArtefato.objects.filter(tipo=t)
-    print(f'{t}: total={qs.count()} ativas={qs.filter(ativo=True).count()}')
-"
-
 echo "==> Coletando arquivos estáticos..."
 python manage.py collectstatic --noinput --clear
 

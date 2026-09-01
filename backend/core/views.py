@@ -1167,6 +1167,13 @@ class SecaoArtefatoViewSet(viewsets.ModelViewSet):
     search_fields      = ['titulo', 'codigo']
     ordering_fields    = ['tipo', 'ordem']
     ordering           = ['tipo', 'ordem']
+    # Tela de admin (ArtefatoAdmin.jsx) sempre carrega DFD+ETP+TR inteiros numa
+    # única chamada para montar as 3 abas — sem paginação real na UI. Sem isso,
+    # o PAGE_SIZE global (20, PageNumberPagination sem page_size_query_param)
+    # corta a lista ordenada por tipo (DFD, ETP, TR) antes de chegar no TR
+    # assim que DFD+ETP passam de 20 linhas somadas — a aba TR aparecia vazia
+    # mesmo com dado no banco (achado de auditoria, 01/09/2026).
+    pagination_class  = None
 
     def get_queryset(self):
         # Para operações de detalhe (retrieve/update/delete), retorna todas — inclusive inativas
