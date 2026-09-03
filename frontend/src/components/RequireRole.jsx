@@ -52,6 +52,7 @@ const ACESSO_POR_PAPEL = {
     '/config/conselho-fesp',
     '/rastreabilidade',
     '/fesp',
+    '/tramitacao',
   ],
 
   gestor_contrato: [
@@ -90,6 +91,7 @@ const ACESSO_POR_PAPEL = {
     '/calendario',
     '/rastreabilidade',
     '/fesp',
+    '/tramitacao',
   ],
 
   responsavel_tecnico: [

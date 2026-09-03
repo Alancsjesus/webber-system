@@ -2787,6 +2787,69 @@ def _mini_historico_audit(logs, estilos):
 
 # ── Relatório por Cadeia de Demanda (Necessidade) ─────────────────────────────
 
+def gerar_pdf_painel_tramitacao(processos: list, org) -> bytes:
+    """
+    Painel gerencial de tramitação, agrupado por setor atual — mesmo layout de
+    referência do relatório gerencial usado hoje fora do sistema (setor com
+    contagem no cabeçalho, tabela SEI/Objeto/Fonte(s)/Fase-Data). `processos` é
+    uma lista de ProcessoTramitacao com `.fontes_recurso` já prefetch'ado.
+    """
+    from modulo_tramitacao.models import ProcessoTramitacao
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4,
+                             leftMargin=2*cm, rightMargin=2*cm,
+                             topMargin=2*cm, bottomMargin=2.5*cm)
+    estilos = _estilos()
+    e = []
+
+    estilo_cel = ParagraphStyle('pt_cel', fontSize=7.5, leading=10)
+    estilo_hdr = ParagraphStyle('pt_hdr', fontSize=7.5, leading=10, fontName='Helvetica-Bold', textColor=BRANCO)
+
+    def cel(txt):
+        return Paragraph(str(txt) if txt not in (None, '') else '—', estilo_cel)
+
+    def cel_h(txt):
+        return Paragraph(txt, estilo_hdr)
+
+    e += _cabecalho_relatorio('PAINEL GERENCIAL DE TRAMITAÇÃO', 'Processos por setor atual', org, estilos)
+
+    grupos = {codigo: [] for codigo, _ in ProcessoTramitacao.SETOR_CHOICES}
+    for p in processos:
+        grupos[p.setor_atual].append(p)
+
+    e += _campo('Total de processos', str(len(processos)), estilos)
+
+    for codigo, label in ProcessoTramitacao.SETOR_CHOICES:
+        itens = grupos[codigo]
+        if not itens:
+            continue
+        e.append(_secao(f'{label}  (Total: {len(itens)})', estilos))
+        cabecalho = [[cel_h('Processo SEI'), cel_h('Objeto'), cel_h('Fonte(s)'), cel_h('Fase')]]
+        dados_tab = list(cabecalho)
+        for p in itens:
+            fontes = ', '.join(f.nome for f in p.fontes_recurso.all()) or '—'
+            fase = p.fase_atual or label
+            data_fmt = p.data_entrada_fase.strftime('%d/%m/%Y') if p.data_entrada_fase else '—'
+            dados_tab.append([cel(p.numero_sei), cel(p.objeto), cel(fontes), cel(f'{fase} - {data_fmt}')])
+        t = Table(dados_tab, colWidths=[3.2*cm, 6.3*cm, 3.5*cm, 4*cm])
+        t.setStyle(TableStyle([
+            ('BACKGROUND',     (0, 0), (-1, 0),  AZUL_GOV),
+            ('TEXTCOLOR',      (0, 0), (-1, 0),  BRANCO),
+            ('FONTNAME',       (0, 0), (-1, 0),  'Helvetica-Bold'),
+            ('FONTSIZE',       (0, 0), (-1, -1), 7.5),
+            ('ROWBACKGROUNDS', (0, 1), (-1, -1), [BRANCO, AZUL_CLARO]),
+            ('GRID',           (0, 0), (-1, -1), 0.5, CINZA_BD),
+            ('VALIGN',         (0, 0), (-1, -1), 'TOP'),
+            ('TOPPADDING',     (0, 0), (-1, -1), 3),
+            ('BOTTOMPADDING',  (0, 0), (-1, -1), 3),
+        ]))
+        e.append(t)
+
+    doc.build(e, onFirstPage=_rodape_fn, onLaterPages=_rodape_fn)
+    return buf.getvalue()
+
+
 def gerar_pdf_relatorio_necessidade(nec, org) -> bytes:
     """
     Percorre a cadeia completa: Necessidade → DFD → ETP → TR → Procedimento → Contrato.

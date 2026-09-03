@@ -57,3 +57,34 @@ def gerar_xlsx_relatorio_itens_plano_aplicacao(itens: list, filename: str) -> Ht
         ws.column_dimensions[get_column_letter(i)].width = max(len(header) + 2, 14)
 
     return resposta_xlsx(wb, filename)
+
+
+def gerar_xlsx_painel_tramitacao(processos: list, filename: str) -> HttpResponse:
+    """
+    Gera XLSX do Painel Gerencial de Tramitação. `processos` é uma lista de
+    ProcessoTramitacao com `.fontes_recurso` já prefetch'ado.
+    """
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'Tramitação'
+
+    headers = ['Setor', 'Processo SEI', 'Objeto', 'Fonte(s) de Recurso', 'Fase', 'Data de Entrada na Fase']
+    ws.append(headers)
+    for col in range(1, len(headers) + 1):
+        ws.cell(row=1, column=col).font = Font(bold=True)
+
+    for p in processos:
+        fontes = ', '.join(f.nome for f in p.fontes_recurso.all())
+        ws.append([
+            p.get_setor_atual_display(),
+            p.numero_sei,
+            p.objeto,
+            fontes,
+            p.fase_atual,
+            p.data_entrada_fase.strftime('%d/%m/%Y') if p.data_entrada_fase else '',
+        ])
+
+    for i, header in enumerate(headers, start=1):
+        ws.column_dimensions[get_column_letter(i)].width = max(len(header) + 2, 16)
+
+    return resposta_xlsx(wb, filename)
