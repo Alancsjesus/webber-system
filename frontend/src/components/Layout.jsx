@@ -308,6 +308,7 @@ function buildSections(papel, tipoUnidade, flags) {
   const auditoriaItems = []
   if (['admin', 'analista', 'gestor_planejamento', 'ordenador', 'gestor_contrato'].includes(papel)) {
     auditoriaItems.push({ to: '/rastreabilidade', label: 'Rastreabilidade' })
+    auditoriaItems.push({ to: '/rastreabilidade/reconciliacao', label: 'Reconciliação' })
   }
   if (['admin', 'auditor'].includes(papel)) {
     auditoriaItems.push({ to: '/auditoria', label: 'Log do Sistema' })

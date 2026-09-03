@@ -14,7 +14,7 @@ from core.views import (
     SecaoArtefatoViewSet, ItemCatalogoViewSet, CategoriaItemViewSet, AuditLogViewSet,
     NotificacaoViewSet,
 )
-from core.views_indicadores import IndicadoresOrcamentoView, IndicadoresDevolucoesView, IndicadoresAgrupamentoView, PlanoComprasView
+from core.views_indicadores import IndicadoresOrcamentoView, IndicadoresDevolucoesView, IndicadoresAgrupamentoView, PlanoComprasView, IndicadoresReconciliacaoView
 from core.views_calendario import CalendarioContratacaoView
 from core.views_rastreabilidade import RastreabilidadeListView, RastreabilidadeDetailView
 from core.views_busca_global import BuscaGlobalView
@@ -43,6 +43,7 @@ urlpatterns = [
     path('api/indicadores/devolucoes/',  IndicadoresDevolucoesView.as_view(),  name='indicadores-devolucoes'),
     path('api/indicadores/agrupamento/',   IndicadoresAgrupamentoView.as_view(), name='indicadores-agrupamento'),
     path('api/indicadores/plano-compras/', PlanoComprasView.as_view(), name='plano-compras'),
+    path('api/indicadores/reconciliacao/', IndicadoresReconciliacaoView.as_view(), name='indicadores-reconciliacao'),
     path('api/painel/', PainelOrgaoPaiView.as_view(), name='painel-orgao-pai'),
     path('api/verificar/<str:hash_code>/', VerificarDocumentoView.as_view(), name='verificar-documento'),
     path('api/core/users-list/', UserListView.as_view(), name='user-list'),

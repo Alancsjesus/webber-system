@@ -457,7 +457,16 @@ class DFDViewSet(viewsets.ModelViewSet):
         Body: { familia, exercicio, numero_sei, prazo_necessidade, area_aplicacao,
                 modalidade_aquisicao, observacoes,
                 itens: [{item_catalogo_id?, objeto, unidade_medida,
-                          quantidade, valor_unitario_estimado}] }
+                          quantidade, valor_unitario_estimado,
+                          item_dfd_ids?: [id, ...]}] }
+
+        `item_dfd_ids` é opcional (retrocompatível) — quando informado, identifica
+        os ItemDFD de origem que foram consolidados nesta linha (modo "consolidar"
+        da tela). Para cada um, registra um VinculoRastreabilidade
+        (tipo='agrupamento') e marca o item de origem como migrado
+        (quantidade_migrada = quantidade cheia), para que ele não possa ser
+        levado a um lote de TR nem migrado de novo em outro agrupamento — ver
+        ItemDFD.quantidade_disponivel/status_execucao.
         """
         numero_sei        = (request.data.get('numero_sei') or '').strip()
         prazo_necessidade = request.data.get('prazo_necessidade')
@@ -476,6 +485,42 @@ class DFDViewSet(viewsets.ModelViewSet):
             erros['itens'] = 'Adicione pelo menos 1 item ao DFD.'
         if erros:
             return Response(erros, status=status.HTTP_400_BAD_REQUEST)
+
+        # ── Validação de origem: cada ItemDFD referenciado precisa ter saldo
+        # disponível (não pode já estar comprometido num TR nem migrado para
+        # outro agrupamento) — evita agrupar duas vezes a mesma necessidade.
+        todos_origem_ids = {
+            item_dfd_id
+            for it in itens_data
+            for item_dfd_id in (it.get('item_dfd_ids') or [])
+        }
+        itens_origem_por_id = {}
+        if todos_origem_ids:
+            itens_origem_por_id = {
+                i.id: i for i in ItemDFD.objects.filter(id__in=todos_origem_ids, org_id_id=request.org_id)
+            }
+            faltantes = todos_origem_ids - set(itens_origem_por_id)
+            if faltantes:
+                return Response(
+                    {'itens': f'Item(ns) de origem não encontrado(s): {sorted(faltantes)}'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+            # Exige status 'disponivel' completo (não só saldo > 0): a migração
+            # marca o item de origem como 100% consumido, então um item
+            # parcialmente comprometido num TR não pode ser agrupado sem antes
+            # resolver esse comprometimento (evita quantidade_migrada +
+            # quantidade_comprometida ultrapassar a quantidade total do item).
+            sem_saldo = [
+                i for i in itens_origem_por_id.values() if i.status_execucao != 'disponivel'
+            ]
+            if sem_saldo:
+                return Response({
+                    'itens': (
+                        'Item(ns) já comprometido(s) em outro TR ou já migrado(s) para outro '
+                        'agrupamento, não podem ser consolidados novamente: '
+                        + '; '.join(f'{i.objeto} (DFD {i.dfd.numero_sei})' for i in sem_saldo)
+                    )
+                }, status=status.HTTP_400_BAD_REQUEST)
 
         descricao = request.data.get('descricao') or (
             f'DFD agrupado — Família SIMPAS {familia}' if familia else 'DFD agrupado a partir do Plano de Compras'
@@ -500,8 +545,10 @@ class DFDViewSet(viewsets.ModelViewSet):
             updated_by=request.user,
         )
 
+        from core.models import VinculoRastreabilidade
+
         for item in itens_data:
-            ItemDFD.objects.create(
+            novo_item = ItemDFD.objects.create(
                 dfd=dfd,
                 item_catalogo_id=item.get('item_catalogo_id') or None,
                 objeto=item.get('objeto', ''),
@@ -513,6 +560,22 @@ class DFDViewSet(viewsets.ModelViewSet):
                 created_by=request.user,
                 updated_by=request.user,
             )
+            for item_dfd_id in (item.get('item_dfd_ids') or []):
+                item_origem = itens_origem_por_id[item_dfd_id]
+                VinculoRastreabilidade.objects.create(
+                    tipo='agrupamento',
+                    origem=item_origem,
+                    destino=novo_item,
+                    processo_sei_referencia=numero_sei,
+                    justificativa=f'Consolidado no DFD agrupado {numero_sei} (família {familia})' if familia
+                                  else f'Consolidado no DFD agrupado {numero_sei}',
+                    org_id_id=request.org_id,
+                    created_by=request.user,
+                    updated_by=request.user,
+                )
+                ItemDFD.objects.filter(pk=item_origem.pk).update(
+                    quantidade_migrada=item_origem.quantidade_migrada + item_origem.quantidade
+                )
 
         serializer = self.get_serializer(dfd)
         return Response(serializer.data, status=status.HTTP_201_CREATED)

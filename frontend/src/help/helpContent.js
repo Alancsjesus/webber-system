@@ -73,6 +73,7 @@ import { pageHelp as calendarioHelp }         from '../pages/Calendario'
 import { pageHelp as auditoriaHelp }              from '../pages/AuditoriaList'
 import { pageHelp as rastreabilidadeListHelp }    from '../pages/RastreabilidadeList'
 import { pageHelp as rastreabilidadeDetailHelp }  from '../pages/RastreabilidadeDetail'
+import { pageHelp as reconciliacaoHelp }          from '../pages/ReconciliacaoRastreabilidade'
 import { pageHelp as fornecedorListHelp }         from '../pages/FornecedorList'
 import { pageHelp as ataListHelp }                from '../pages/AtaList'
 import { pageHelp as ataCreateHelp }              from '../pages/AtaCreate'
@@ -151,6 +152,7 @@ export const helpContent = {
 
   '/rastreabilidade':           rastreabilidadeListHelp,
   '/rastreabilidade/:id':       rastreabilidadeDetailHelp,
+  '/rastreabilidade/reconciliacao': reconciliacaoHelp,
 
   '/fornecedores':              fornecedorListHelp,
   '/arp':                       ataListHelp,

@@ -39,6 +39,28 @@ class ItemLoteTRSerializer(serializers.ModelSerializer):
     def get_valor_total(self, obj):
         return float(obj.valor_total)
 
+    def validate(self, data):
+        """
+        Bloqueia comprometer, num lote de ampla concorrência ou exclusivo
+        ME/EPP, mais do que o saldo disponível do ItemDFD — evita que o
+        mesmo item seja levado a dois TRs/lotes distintos e gere
+        contratação duplicada. Lotes de cota são gerados à parte (via
+        gerar_cota) e não passam por aqui.
+        """
+        item_dfd   = data.get('item_dfd')
+        quantidade = data.get('quantidade')
+        if item_dfd is not None and quantidade is not None:
+            if quantidade > item_dfd.quantidade_disponivel:
+                raise serializers.ValidationError({
+                    'quantidade': (
+                        f'Quantidade solicitada ({quantidade}) excede o saldo disponível '
+                        f'deste item ({item_dfd.quantidade_disponivel} {item_dfd.unidade_medida}). '
+                        f'{item_dfd.quantidade_comprometida} {item_dfd.unidade_medida} já foram '
+                        'comprometidos em outro lote/TR.'
+                    )
+                })
+        return data
+
 
 LIMITE_EXCLUSIVO_ME_EPP = Decimal('80000.00')
 

@@ -70,6 +70,7 @@ import PlanoList from './pages/PlanoList'
 import PNCPList from './pages/PNCPList'
 import AuditoriaList from './pages/AuditoriaList'
 import RastreabilidadeList from './pages/RastreabilidadeList'
+import ReconciliacaoRastreabilidade from './pages/ReconciliacaoRastreabilidade'
 import RastreabilidadeDetail from './pages/RastreabilidadeDetail'
 import FespInstrumentoList from './pages/FespInstrumentoList'
 import FespInstrumentoCreate from './pages/FespInstrumentoCreate'
@@ -209,6 +210,7 @@ export default function App() {
           <Route path="config/categorias"        element={<Guard><CategoriaAdmin /></Guard>} />
           <Route path="auditoria"                  element={<Guard><AuditoriaList /></Guard>} />
           <Route path="rastreabilidade"            element={<Guard><RastreabilidadeList /></Guard>} />
+          <Route path="rastreabilidade/reconciliacao" element={<Guard><ReconciliacaoRastreabilidade /></Guard>} />
           <Route path="rastreabilidade/:id"        element={<Guard><RastreabilidadeDetail /></Guard>} />
 
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from django.contrib.contenttypes.fields import GenericForeignKey
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 
@@ -390,3 +391,58 @@ class NotificacaoInterna(models.Model):
 
     def __str__(self):
         return f'[{self.tipo}] {self.titulo} → {self.destinatario.username}'
+
+
+class VinculoRastreabilidade(BaseModel):
+    """
+    Registra a proveniência de um objeto do fluxo de contratação quando ele
+    nasce de um agrupamento, desmembramento ou substituição de outro(s)
+    objeto(s) — ex.: itens de vários DFDs consolidados num DFD "agrupado"
+    (modulo_demanda.iniciar_de_familia), ou um Procedimento desmembrado de
+    outro. Sem esse vínculo explícito, a origem se perde e nada impede que
+    a mesma necessidade seja contratada duas vezes.
+
+    origem/destino são genéricos (GenericForeignKey) porque a proveniência
+    acontece em granularidades diferentes conforme o caso: ItemDFD↔ItemDFD
+    (agrupamento de itens), DFD↔DFD, Procedimento↔Procedimento etc.
+    """
+    TIPO_CHOICES = [
+        ('agrupamento',     'Agrupamento'),
+        ('desmembramento',  'Desmembramento'),
+        ('substituicao',    'Substituição'),
+    ]
+
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, verbose_name='Tipo de vínculo')
+
+    origem_content_type = models.ForeignKey(
+        'contenttypes.ContentType', on_delete=models.CASCADE, related_name='+',
+        verbose_name='Tipo do objeto de origem',
+    )
+    origem_object_id = models.PositiveIntegerField(verbose_name='ID do objeto de origem')
+    origem = GenericForeignKey('origem_content_type', 'origem_object_id')
+
+    destino_content_type = models.ForeignKey(
+        'contenttypes.ContentType', on_delete=models.CASCADE, related_name='+',
+        verbose_name='Tipo do objeto de destino',
+    )
+    destino_object_id = models.PositiveIntegerField(verbose_name='ID do objeto de destino')
+    destino = GenericForeignKey('destino_content_type', 'destino_object_id')
+
+    processo_sei_referencia = models.CharField(
+        max_length=50, blank=True, default='',
+        verbose_name='Processo SEI de referência',
+        help_text='Número do processo SEI que formaliza a decisão de agrupar/desmembrar/substituir.',
+    )
+    justificativa = models.TextField(blank=True, default='', verbose_name='Justificativa')
+
+    class Meta(BaseModel.Meta):
+        ordering = ['-created_at']
+        verbose_name = 'Vínculo de Rastreabilidade'
+        verbose_name_plural = 'Vínculos de Rastreabilidade'
+        indexes = BaseModel.Meta.indexes + [
+            models.Index(fields=['origem_content_type', 'origem_object_id']),
+            models.Index(fields=['destino_content_type', 'destino_object_id']),
+        ]
+
+    def __str__(self):
+        return f'{self.get_tipo_display()}: {self.origem} → {self.destino}'

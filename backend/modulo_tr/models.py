@@ -366,6 +366,29 @@ class ItemLoteTR(models.Model):
         return self.quantidade * self.valor_unitario_efetivo
 
 
+from django.db.models.signals import post_save, post_delete
+from django.dispatch import receiver
+
+
+@receiver([post_save, post_delete], sender=ItemLoteTR)
+def atualizar_quantidade_comprometida_item_dfd(sender, instance, **kwargs):
+    """
+    Recalcula ItemDFD.quantidade_comprometida sempre que um ItemLoteTR é
+    criado, alterado ou removido. Lotes de Reserva de Cota ME/EPP são
+    excluídos do somatório: são um recorte do lote de origem (ver
+    LoteTR.gerar_cota), não uma demanda adicional — contá-los duplicaria o
+    comprometimento do mesmo item.
+    """
+    item_dfd = instance.item_dfd
+    if item_dfd is None:
+        return
+    from modulo_demanda.models import ItemDFD
+    total = item_dfd.lotes_tr.exclude(lote__modalidade='cota_me_epp').aggregate(
+        total=models.Sum('quantidade')
+    )['total'] or Decimal('0')
+    ItemDFD.objects.filter(pk=item_dfd.pk).update(quantidade_comprometida=total)
+
+
 MOTIVOS_DEVOLUCAO_TR = [
     ('objeto_mal_definido',          'Objeto mal definido'),
     ('criterios_habilitacao_excess', 'Critérios de habilitação excessivos'),

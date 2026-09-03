@@ -20,6 +20,10 @@ class HistoricoTramitacaoSerializer(serializers.ModelSerializer):
 
 class ItemDFDSerializer(serializers.ModelSerializer):
     valor_total_estimado      = serializers.DecimalField(max_digits=15, decimal_places=2, read_only=True)
+    quantidade_comprometida   = serializers.DecimalField(max_digits=15, decimal_places=4, read_only=True)
+    quantidade_migrada        = serializers.DecimalField(max_digits=15, decimal_places=4, read_only=True)
+    quantidade_disponivel     = serializers.DecimalField(max_digits=15, decimal_places=4, read_only=True)
+    status_execucao           = serializers.CharField(read_only=True)
     catalogo_codigo_interno   = serializers.CharField(source='item_catalogo.codigo_interno',    read_only=True)
     catalogo_codigo_simpas    = serializers.CharField(source='item_catalogo.codigo_simpas',     read_only=True)
     catalogo_familia          = serializers.CharField(source='item_catalogo.familia',            read_only=True)
@@ -41,6 +45,7 @@ class ItemDFDSerializer(serializers.ModelSerializer):
             'catalogo_valor_referencia', 'catalogo_data_referencia',
             'objeto', 'unidade_medida', 'quantidade',
             'valor_unitario_estimado', 'valor_total_estimado', 'observacao',
+            'quantidade_comprometida', 'quantidade_migrada', 'quantidade_disponivel', 'status_execucao',
             'created_at', 'updated_at',
         ]
         read_only_fields = [

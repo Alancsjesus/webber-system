@@ -1,3 +1,4 @@
+from decimal import Decimal
 from django.db import models
 from django.core.exceptions import ValidationError
 from django.contrib.auth.models import User
@@ -189,6 +190,29 @@ class ItemDFD(BaseModel):
     valor_total_estimado = models.DecimalField(max_digits=15, decimal_places=2, editable=False)
     observacao = models.TextField(blank=True)
 
+    # Saldo de execução — quanto deste item já foi levado a um lote de TR
+    # (comprometido). Recalculado por sinal sempre que um ItemLoteTR muda
+    # (ver modulo_tr.models). Lotes de Reserva de Cota ME/EPP (modalidade
+    # 'cota_me_epp') são desconsiderados no somatório porque representam um
+    # recorte do próprio lote de origem, não uma demanda adicional — ver
+    # LoteTR.gerar_cota.
+    quantidade_comprometida = models.DecimalField(
+        max_digits=15, decimal_places=4, default=0, editable=False,
+        verbose_name='Quantidade comprometida',
+        help_text='Soma das quantidades deste item já incluídas em lotes de TR (exceto lotes de cota).',
+    )
+
+    # Quantidade já consumida por um agrupamento (ex.: DFD.iniciar_de_familia
+    # migrou este item para um DFD agrupado novo). Separado de
+    # quantidade_comprometida porque a origem não passou por um lote de TR —
+    # foi substituída por outro ItemDFD, rastreado via
+    # core.VinculoRastreabilidade (tipo='agrupamento').
+    quantidade_migrada = models.DecimalField(
+        max_digits=15, decimal_places=4, default=0, editable=False,
+        verbose_name='Quantidade migrada',
+        help_text='Quantidade deste item já consumida por agrupamento em outro DFD.',
+    )
+
     class Meta(BaseModel.Meta):
         ordering = ['created_at']
         verbose_name = 'Item do DFD'
@@ -200,6 +224,22 @@ class ItemDFD(BaseModel):
 
     def __str__(self):
         return f"{self.objeto} ({self.quantidade} {self.unidade_medida})"
+
+    @property
+    def quantidade_disponivel(self):
+        """Saldo ainda não levado a nenhum lote de TR nem migrado por agrupamento."""
+        saldo = self.quantidade - self.quantidade_comprometida - self.quantidade_migrada
+        return saldo if saldo > 0 else Decimal('0')
+
+    @property
+    def status_execucao(self):
+        if self.quantidade_migrada > 0 and self.quantidade_disponivel <= 0 and self.quantidade_comprometida <= 0:
+            return 'migrado'
+        if self.quantidade_comprometida <= 0 and self.quantidade_migrada <= 0:
+            return 'disponivel'
+        if self.quantidade_disponivel <= 0:
+            return 'comprometido_total'
+        return 'comprometido_parcial'
 
 
 class NumeroProcesso(BaseModel):

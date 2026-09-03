@@ -434,10 +434,17 @@ class PlanoComprasView(APIView):
                         'dfds': [it['dfd_sei']],
                         'quantidade_total': it['quantidade'],
                         'valor_total_consolidado': it['valor_total'],
+                        # Todos os ItemDFD de origem consolidados nesta linha —
+                        # 'item_id' acima é só o primeiro; sem esta lista, o
+                        # DFD agrupado criado a partir daqui não teria como
+                        # registrar a proveniência dos demais (ver
+                        # DFDViewSet.iniciar_de_familia / core.VinculoRastreabilidade).
+                        'item_ids': [it['item_id']],
                     }
                 else:
                     itens_consolidados[key]['quantidade_total'] += it['quantidade']
                     itens_consolidados[key]['valor_total_consolidado'] += it['valor_total']
+                    itens_consolidados[key]['item_ids'].append(it['item_id'])
                     if it['dfd_sei'] not in itens_consolidados[key]['dfds']:
                         itens_consolidados[key]['dfds'].append(it['dfd_sei'])
 
@@ -490,5 +497,121 @@ class PlanoComprasView(APIView):
             pdf = gerar_pdf_plano_compras(dados, org_nome, org_sigla)
             nome = f'PlanoCompras{"-" + str(exercicio) if exercicio else ""}.pdf'
             return resposta_pdf(pdf, nome)
+
+
+class IndicadoresReconciliacaoView(APIView):
+    """
+    Painel de reconciliação de rastreabilidade (épico C-Trace) — audita ativamente
+    o que os campos de saldo/vínculo (ItemDFD.quantidade_comprometida/migrada,
+    core.VinculoRastreabilidade) não bloqueiam sozinhos, só registram:
+
+    1. `duplicados` — mesmo item de catálogo + mesma unidade demandante presente
+       em 2+ DFDs ativos, nenhum deles migrado (status_execucao != 'migrado') nem
+       ligado por um VinculoRastreabilidade — candidato a pedido de compra
+       duplicado que ninguém percebeu (agrupamento que deveria ter sido feito,
+       mas não foi).
+    2. `orfaos` — itens com quantidade_comprometida > 0 cujo(s) TR(s) de destino
+       só têm Procedimentos Revogados/Anulados (ou tiveram todos cancelados) —
+       o item ficou "preso" num comprometimento morto porque nada libera
+       automaticamente o saldo quando um Procedimento é revogado/anulado
+       (ver ItemLoteTR, sinal em modulo_tr/models.py). Fica invisível até esta
+       checagem: o item não aparece mais em nenhuma tela de pendência porque
+       "tecnicamente" está comprometido, mas a demanda real segue sem atender.
+
+    GET /api/indicadores/reconciliacao/
+    """
+    permission_classes = [IsAuthenticated, IsMultiTenant]
+
+    def get(self, request):
+        from modulo_demanda.models import ItemDFD
+        from modulo_licitacao.models import Procedimento
+
+        org_id = request.org_id
+
+        # ── 1. Duplicidade sem vínculo registrado ──────────────────────────
+        qs = (
+            ItemDFD.objects
+            .filter(dfd__org_id=org_id, item_catalogo__isnull=False)
+            .exclude(dfd__status__in=['Rejeitada', 'Cancelada'])
+            .select_related('item_catalogo', 'dfd__unidade_demandante')
+        )
+        grupos = {}
+        for item in qs:
+            if item.status_execucao == 'migrado':
+                continue  # já rastreado como origem de um agrupamento — não é duplicidade
+            chave = (item.item_catalogo_id, item.dfd.unidade_demandante_id)
+            grupos.setdefault(chave, []).append(item)
+
+        duplicados = []
+        for (catalogo_id, unidade_id), itens_grupo in grupos.items():
+            dfds_distintos = {i.dfd_id for i in itens_grupo}
+            if len(dfds_distintos) < 2:
+                continue
+            duplicados.append({
+                'item_catalogo_id':    catalogo_id,
+                'catalogo_nome':       itens_grupo[0].item_catalogo.nome,
+                'unidade_demandante':  itens_grupo[0].dfd.unidade_demandante.nome
+                                        if itens_grupo[0].dfd.unidade_demandante else None,
+                'quantidade_total':    float(sum(i.quantidade for i in itens_grupo)),
+                'valor_total':         float(sum(i.valor_total_estimado for i in itens_grupo)),
+                'itens': [
+                    {
+                        'item_id':   i.id,
+                        'dfd_id':    i.dfd_id,
+                        'dfd_sei':   i.dfd.numero_sei,
+                        'dfd_status': i.dfd.status,
+                        'quantidade': float(i.quantidade),
+                        'status_execucao': i.status_execucao,
+                    }
+                    for i in itens_grupo
+                ],
+            })
+        duplicados.sort(key=lambda d: -d['valor_total'])
+
+        # ── 2. Itens órfãos (comprometidos num Procedimento morto) ─────────
+        comprometidos = (
+            ItemDFD.objects
+            .filter(dfd__org_id=org_id, quantidade_comprometida__gt=0)
+            .select_related('dfd')
+            .prefetch_related('lotes_tr__lote__tr')
+        )
+        orfaos = []
+        for item in comprometidos:
+            tr_ids = {
+                lt.lote.tr_id for lt in item.lotes_tr.all()
+                if lt.lote.modalidade != 'cota_me_epp'
+            }
+            if not tr_ids:
+                continue
+            tem_tr_ativo = False
+            for tr_id in tr_ids:
+                procs = Procedimento.objects.filter(tr_id=tr_id)
+                if not procs.exists():
+                    tem_tr_ativo = True  # TR ainda não virou Procedimento — normal, não é órfão
+                    break
+                if procs.exclude(status__in=['Revogado', 'Anulado']).exists():
+                    tem_tr_ativo = True
+                    break
+            if not tem_tr_ativo:
+                orfaos.append({
+                    'item_id':   item.id,
+                    'objeto':    item.objeto,
+                    'dfd_id':    item.dfd_id,
+                    'dfd_sei':   item.dfd.numero_sei,
+                    'quantidade_comprometida': float(item.quantidade_comprometida),
+                    'valor_comprometido':      float(item.quantidade_comprometida * item.valor_unitario_estimado),
+                })
+        orfaos.sort(key=lambda o: -o['valor_comprometido'])
+
+        return Response({
+            'duplicados': duplicados,
+            'orfaos':     orfaos,
+            'resumo': {
+                'total_grupos_duplicados': len(duplicados),
+                'valor_total_duplicados':  sum(d['valor_total'] for d in duplicados),
+                'total_itens_orfaos':      len(orfaos),
+                'valor_total_orfaos':      sum(o['valor_comprometido'] for o in orfaos),
+            },
+        })
 
         return Response(dados)

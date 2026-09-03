@@ -452,6 +452,27 @@ class TRViewSet(viewsets.ModelViewSet):
                             status=status.HTTP_400_BAD_REQUEST)
 
         LoteTR.objects.filter(tr=tr).delete()
+
+        # Recarrega os itens após excluir os lotes anteriores deste TR — a
+        # exclusão libera (via sinal) o saldo que este próprio TR comprometia,
+        # então a checagem abaixo reflete só o que está comprometido em *outros*
+        # TRs/lotes.
+        itens_dfd = list(tr.etp.dfd.itens.all())
+        saldo_insuficiente = [
+            item for item in itens_dfd if item.quantidade > item.quantidade_disponivel
+        ]
+        if saldo_insuficiente:
+            return Response({
+                'detail': (
+                    'Um ou mais itens do DFD já estão parcial ou totalmente comprometidos '
+                    'em outro TR/lote e não podem ser levados a este lote sem exceder o saldo: '
+                    + '; '.join(
+                        f'{i.objeto} (disponível {i.quantidade_disponivel} de {i.quantidade} {i.unidade_medida})'
+                        for i in saldo_insuficiente
+                    )
+                )
+            }, status=status.HTTP_400_BAD_REQUEST)
+
         for item in itens_dfd:
             lote = LoteTR.objects.create(
                 tr=tr,

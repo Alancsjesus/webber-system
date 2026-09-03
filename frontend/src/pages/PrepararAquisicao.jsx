@@ -124,6 +124,9 @@ export default function PrepararAquisicao() {
         unidade_medida:       it.unidade_medida  || 'un',
         quantidade:           Number(it.quantidade_total) || 1,
         valor_unitario_estimado: Number(it.valor_unitario) || 0,
+        // ItemDFD de origem consolidados nesta linha — mantém a rastreabilidade
+        // do agrupamento (ver core.VinculoRastreabilidade / iniciar_de_familia)
+        item_dfd_ids:         it.item_ids || [],
       }))
     }
     return []
@@ -140,6 +143,7 @@ export default function PrepararAquisicao() {
         if (mapa.has(chave)) {
           const ex = mapa.get(chave)
           ex.quantidade += it.quantidade
+          if (it.id != null) ex.item_dfd_ids.push(it.id)
         } else {
           mapa.set(chave, {
             _key:                 nextKey(),
@@ -150,6 +154,9 @@ export default function PrepararAquisicao() {
             unidade_medida:       it.unidade_medida,
             quantidade:           it.quantidade,
             valor_unitario_estimado: it.valor_unitario_estimado,
+            // ItemDFD de origem consolidados nesta linha — ver comentário
+            // equivalente acima, no bloco origem === 'familia'.
+            item_dfd_ids:         it.id != null ? [it.id] : [],
           })
         }
       }
@@ -245,6 +252,9 @@ export default function PrepararAquisicao() {
       unidade_medida:          it.unidade_medida,
       quantidade:              Number(it.quantidade),
       valor_unitario_estimado: Number(it.valor_unitario_estimado),
+      // Só relevante para o endpoint de agrupamento (iniciar-de-familia) —
+      // ignorado pelo endpoint de necessidade, que não conhece este campo.
+      ...(it.item_dfd_ids?.length ? { item_dfd_ids: it.item_dfd_ids } : {}),
     }))
 
     // Observações automáticas ao consolidar DFDs
