@@ -84,6 +84,11 @@ class ProcedimentoSerializer(serializers.ModelSerializer):
     dias_ate_abertura    = serializers.SerializerMethodField()
     pecas_instutorias    = serializers.SerializerMethodField()
     divergencia_valor_pncp = serializers.BooleanField(read_only=True)
+    mesa_atual_label       = serializers.SerializerMethodField()
+
+    def get_mesa_atual_label(self, obj):
+        from core.mesa_atual import mesa_atual_label
+        return mesa_atual_label(obj)
 
     class Meta:
         model  = Procedimento
@@ -106,6 +111,7 @@ class ProcedimentoSerializer(serializers.ModelSerializer):
             'alerta_prazo', 'alerta_teto_dispensa', 'dias_ate_abertura',
             'pecas_instutorias',
             'historico', 'tramitacoes', 'resultados',
+            'mesa_atual_label', 'data_mesa_atual',
         ]
         read_only_fields = [
             'id', 'numero', 'org_id', 'org_sigla',
@@ -116,6 +122,7 @@ class ProcedimentoSerializer(serializers.ModelSerializer):
             'prazo_minimo_dias_uteis', 'modalidade_display', 'status_display',
             'dfd_numero_sei', 'tr_numero_sei', 'transicoes_disponiveis',
             'historico', 'tramitacoes', 'resultados',
+            'mesa_atual_label', 'data_mesa_atual',
         ]
 
     def get_alerta_prazo(self, obj):

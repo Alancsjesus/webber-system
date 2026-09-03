@@ -268,6 +268,16 @@ class TRViewSet(viewsets.ModelViewSet):
         tr.save(update_fields=['status', 'motivo_devolucao'])
         return Response(TRSerializer(tr, context={'request': request}).data)
 
+    @action(detail=True, methods=['post'], url_path='marcar-mesa-atual')
+    def marcar_mesa_atual(self, request, pk=None):
+        from core.mesa_atual import aplicar_mesa_atual
+        tr = self.get_object()
+        aplicar_mesa_atual(
+            tr, request.data.get('tipo'), request.data.get('id'),
+            request.data.get('data'), usuario=request.user,
+        )
+        return Response(self.get_serializer(tr).data)
+
     def perform_update(self, serializer):
         if serializer.instance.status in ('Aprovado', 'Cancelado'):
             from rest_framework.exceptions import PermissionDenied

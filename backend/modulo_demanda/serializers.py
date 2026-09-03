@@ -125,6 +125,12 @@ class DFDSerializer(serializers.ModelSerializer):
     ata_vinculada_numero = serializers.SerializerMethodField()
     ata_vinculada_instrumento_url = serializers.SerializerMethodField()
 
+    mesa_atual_label = serializers.SerializerMethodField()
+
+    def get_mesa_atual_label(self, obj):
+        from core.mesa_atual import mesa_atual_label
+        return mesa_atual_label(obj)
+
     def get_etp_id(self, obj):
         etp = getattr(obj, 'etp', None)
         return etp.pk if etp else None
@@ -217,6 +223,8 @@ class DFDSerializer(serializers.ModelSerializer):
             'pca_justificativa_ausencia',
             'ata_vinculada_numero',
             'ata_vinculada_instrumento_url',
+            'mesa_atual_label',
+            'data_mesa_atual',
         ]
         read_only_fields = [
             'id', 'org_id', 'created_by', 'updated_by',
@@ -225,7 +233,7 @@ class DFDSerializer(serializers.ModelSerializer):
             'org_gestor', 'org_gestor_sigla', 'org_gestor_nome',
             'orgao_compras', 'orgao_compras_sigla', 'orgao_compras_nome',
             'etp_id', 'etp_dispensado', 'modalidade_display',
-            'unidade_demandante',
+            'unidade_demandante', 'mesa_atual_label', 'data_mesa_atual',
             'unidade_demandante_nome', 'unidade_licitante_nome', 'unidade_contratante_nome',
             'fiscal_contrato_username', 'fiscal_suplente_username',
             'gestor_contrato_username', 'gestor_suplente_username',

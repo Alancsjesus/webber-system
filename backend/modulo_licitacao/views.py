@@ -241,6 +241,16 @@ class ProcedimentoViewSet(viewsets.ModelViewSet):
         s.save()
         return Response(self._serializar(proc))
 
+    @action(detail=True, methods=['post'], url_path='marcar-mesa-atual')
+    def marcar_mesa_atual(self, request, pk=None):
+        from core.mesa_atual import aplicar_mesa_atual
+        proc = self.get_object()
+        aplicar_mesa_atual(
+            proc, request.data.get('tipo'), request.data.get('id'),
+            request.data.get('data'), usuario=request.user,
+        )
+        return Response(self._serializar(proc))
+
     # ── Resultados dos lotes ──────────────────────────────────────────────────
 
     @action(detail=True, methods=['get', 'post'], url_path='resultados')

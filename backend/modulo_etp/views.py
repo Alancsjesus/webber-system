@@ -244,6 +244,16 @@ class ETPViewSet(viewsets.ModelViewSet):
             data['aviso'] = f'TR {tr_cascata} também foi devolvido automaticamente pois estava Aprovado.'
         return Response(data)
 
+    @action(detail=True, methods=['post'], url_path='marcar-mesa-atual')
+    def marcar_mesa_atual(self, request, pk=None):
+        from core.mesa_atual import aplicar_mesa_atual
+        etp = self.get_object()
+        aplicar_mesa_atual(
+            etp, request.data.get('tipo'), request.data.get('id'),
+            request.data.get('data'), usuario=request.user,
+        )
+        return Response(self.get_serializer(etp).data)
+
     def perform_update(self, serializer):
         if serializer.instance.status in ('Aprovado', 'Cancelado', 'Dispensado'):
             from rest_framework.exceptions import PermissionDenied

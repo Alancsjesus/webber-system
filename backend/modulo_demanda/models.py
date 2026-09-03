@@ -5,10 +5,10 @@ from django.contrib.auth.models import User
 from django.db.models import Sum
 from django.db.models.signals import post_save, post_delete
 from django.dispatch import receiver
-from core.models import BaseModel
+from core.models import BaseModel, MesaAtualMixin
 
 
-class DFD(BaseModel):
+class DFD(MesaAtualMixin, BaseModel):
     """
     Documento Formalização Demanda
     Entry point for any new initiative under Lei 14.133/2021

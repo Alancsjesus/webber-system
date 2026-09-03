@@ -12,7 +12,7 @@ from django.db import models
 from django.contrib.auth.models import User
 from django.db.models.signals import pre_save
 from django.dispatch import receiver
-from core.models import BaseModel
+from core.models import BaseModel, MesaAtualMixin
 
 
 # ── Constantes legais (Lei 14.133/2021) ────────────────────────────────────
@@ -117,7 +117,7 @@ TIPO_TRAMITACAO_CHOICES = [
 
 # ── Models ──────────────────────────────────────────────────────────────────
 
-class Procedimento(BaseModel):
+class Procedimento(MesaAtualMixin, BaseModel):
     """
     Procedimento licitatório ou contratação direta vinculado a um DFD/TR.
     Núcleo do Módulo de Licitação — conecta o planejamento (TR) ao Contrato.

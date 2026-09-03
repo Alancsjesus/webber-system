@@ -62,20 +62,3 @@ class ProcessoTramitacaoSerializer(serializers.ModelSerializer):
     def update(self, instance, validated_data):
         validated_data['updated_by'] = self.context['request'].user
         return super().update(instance, validated_data)
-
-
-class ProcessoTramitacaoResumoSerializer(serializers.ModelSerializer):
-    """Serializer enxuto para o painel agregado (evita serializar `historico` por linha)."""
-    setor_atual_display = serializers.CharField(source='get_setor_atual_display', read_only=True)
-    fontes_recurso_nomes = serializers.SerializerMethodField()
-
-    class Meta:
-        model = ProcessoTramitacao
-        fields = [
-            'id', 'numero_sei', 'objeto', 'fontes_recurso_nomes',
-            'setor_atual', 'setor_atual_display', 'fase_atual', 'data_entrada_fase',
-        ]
-        read_only_fields = fields
-
-    def get_fontes_recurso_nomes(self, obj):
-        return [f.nome for f in obj.fontes_recurso.all()]

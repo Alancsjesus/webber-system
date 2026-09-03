@@ -33,10 +33,15 @@ class ETPSerializer(serializers.ModelSerializer):
     historico_numero_sei = HistoricoNumeroSEISerializer(many=True, read_only=True)
     tr_id                = serializers.SerializerMethodField()
     ata_adesao_numero_ata = serializers.CharField(source='ata_adesao.numero_ata', read_only=True, default=None)
+    mesa_atual_label = serializers.SerializerMethodField()
 
     def get_tr_id(self, obj):
         tr = getattr(obj, 'tr', None)
         return tr.pk if tr else None
+
+    def get_mesa_atual_label(self, obj):
+        from core.mesa_atual import mesa_atual_label
+        return mesa_atual_label(obj)
 
     class Meta:
         model  = ETP
@@ -88,6 +93,8 @@ class ETPSerializer(serializers.ModelSerializer):
             'historico',
             'historico_numero_sei',
             'tr_id',
+            'mesa_atual_label',
+            'data_mesa_atual',
         ]
         read_only_fields = [
             'id', 'org_id', 'org_sigla',
@@ -98,6 +105,7 @@ class ETPSerializer(serializers.ModelSerializer):
             'motivo_devolucao',
             'historico', 'historico_numero_sei', 'tr_id',
             'ata_adesao_numero_ata',
+            'mesa_atual_label', 'data_mesa_atual',
         ]
 
     def validate_dfd(self, dfd):

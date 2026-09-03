@@ -2787,15 +2787,16 @@ def _mini_historico_audit(logs, estilos):
 
 # ── Relatório por Cadeia de Demanda (Necessidade) ─────────────────────────────
 
-def gerar_pdf_painel_tramitacao(processos: list, org) -> bytes:
+def gerar_pdf_painel_tramitacao(itens_painel: list, org) -> bytes:
     """
-    Painel gerencial de tramitação, agrupado por setor atual — mesmo layout de
+    Painel gerencial de tramitação, agrupado por setor — mesmo layout de
     referência do relatório gerencial usado hoje fora do sistema (setor com
-    contagem no cabeçalho, tabela SEI/Objeto/Fonte(s)/Fase-Data). `processos` é
-    uma lista de ProcessoTramitacao com `.fontes_recurso` já prefetch'ado.
+    contagem no cabeçalho, tabela SEI/Objeto/Fonte(s)/Fase-Data). `itens_painel`
+    é a lista de dicts já resolvida por `modulo_tramitacao.estagio` (automático,
+    a partir de DFD/ETP/TR/Procedimento) + `ProcessoTramitacao` manual sem DFD
+    — ver `PainelTramitacaoView._itens()`. Setor é o rótulo já resolvido (unidade/
+    órgão/etapa), não um código fixo.
     """
-    from modulo_tramitacao.models import ProcessoTramitacao
-
     buf = io.BytesIO()
     doc = SimpleDocTemplate(buf, pagesize=A4,
                              leftMargin=2*cm, rightMargin=2*cm,
@@ -2812,26 +2813,24 @@ def gerar_pdf_painel_tramitacao(processos: list, org) -> bytes:
     def cel_h(txt):
         return Paragraph(txt, estilo_hdr)
 
-    e += _cabecalho_relatorio('PAINEL GERENCIAL DE TRAMITAÇÃO', 'Processos por setor atual', org, estilos)
+    e += _cabecalho_relatorio('PAINEL GERENCIAL DE TRAMITAÇÃO', 'Processos por setor', org, estilos)
 
-    grupos = {codigo: [] for codigo, _ in ProcessoTramitacao.SETOR_CHOICES}
-    for p in processos:
-        grupos[p.setor_atual].append(p)
+    grupos = {}
+    for item in itens_painel:
+        grupos.setdefault(item['setor'], []).append(item)
 
-    e += _campo('Total de processos', str(len(processos)), estilos)
+    e += _campo('Total de processos', str(len(itens_painel)), estilos)
 
-    for codigo, label in ProcessoTramitacao.SETOR_CHOICES:
-        itens = grupos[codigo]
-        if not itens:
-            continue
-        e.append(_secao(f'{label}  (Total: {len(itens)})', estilos))
+    for setor in sorted(grupos.keys()):
+        itens = grupos[setor]
+        e.append(_secao(f'{setor}  (Total: {len(itens)})', estilos))
         cabecalho = [[cel_h('Processo SEI'), cel_h('Objeto'), cel_h('Fonte(s)'), cel_h('Fase')]]
         dados_tab = list(cabecalho)
         for p in itens:
-            fontes = ', '.join(f.nome for f in p.fontes_recurso.all()) or '—'
-            fase = p.fase_atual or label
-            data_fmt = p.data_entrada_fase.strftime('%d/%m/%Y') if p.data_entrada_fase else '—'
-            dados_tab.append([cel(p.numero_sei), cel(p.objeto), cel(fontes), cel(f'{fase} - {data_fmt}')])
+            fontes = ', '.join(p['fontes_recurso_nomes']) or '—'
+            fase = p['fase_atual'] or setor
+            data_fmt = p['data_entrada_fase'].strftime('%d/%m/%Y') if p['data_entrada_fase'] else '—'
+            dados_tab.append([cel(p['numero_sei']), cel(p['objeto']), cel(fontes), cel(f'{fase} - {data_fmt}')])
         t = Table(dados_tab, colWidths=[3.2*cm, 6.3*cm, 3.5*cm, 4*cm])
         t.setStyle(TableStyle([
             ('BACKGROUND',     (0, 0), (-1, 0),  AZUL_GOV),

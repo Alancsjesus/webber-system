@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
 import api, { downloadFile } from '../services/api'
 import useTramitacaoStore from '../stores/tramitacaoStore'
 import DFDPicker from '../components/DFDPicker'
@@ -6,13 +7,24 @@ import LoadingSpinner from '../components/LoadingSpinner'
 
 export const pageHelp = {
   titulo: 'Painel Gerencial de Tramitação',
-  descricao: 'Visão de topo para o gestor da organização: em qual setor/mesa cada processo SEI está agora, com objeto, fonte(s) de recurso e a fase atual. Diferente do Gestor de Contrato (que acompanha execução pós-contrato) — aqui é "onde cada processo está parado".',
+  descricao: 'Visão de topo para o gestor da organização: em qual setor/mesa cada processo SEI está agora, com objeto, fonte(s) de recurso e a fase atual. Diferente do Gestor de Contrato (que acompanha execução pós-contrato) — aqui é "onde cada processo está parado". A maior parte dos grupos é calculada automaticamente (unidade responsável pela etapa, TramitacaoExterna, mesa marcada no próprio DFD/ETP/TR/Procedimento) — o cadastro manual deste painel só cobre a fase anterior a existir DFD no sistema.',
   acoes: [
-    { label: 'Novo processo', texto: 'Cadastra um processo em tramitação. Não exige DFD/TR/Procedimento existente — cobre desde a fase inicial na unidade demandante.' },
-    { label: 'Atualizar fase', texto: 'Registra a mudança de setor/fase de um processo, com data e motivo opcional. Fica guardado no histórico do processo.' },
+    { label: 'Novo processo', texto: 'Cadastra um processo em tramitação anterior a existir DFD ("demandante puro"). Assim que o DFD for criado e vinculado, o processo passa a ser calculado automaticamente e some desta lista manual.' },
+    { label: 'Atualizar fase', texto: 'Só disponível para processos manuais (sem DFD). Para os demais, use "Abrir" e marque a Mesa Atual na própria tela do DFD/ETP/TR/Procedimento.' },
     { label: 'Exportar PDF/XLSX', texto: 'Gera o relatório gerencial agrupado por setor, no mesmo formato usado hoje fora da plataforma.' },
   ],
   dica: 'A fase é texto livre (o campo sugere valores comuns) porque a rotina real inclui situações que não cabem numa lista fechada, como "Retornou para demandante - ajustes".',
+}
+
+const ROTA_ETAPA = {
+  DFD: (id) => `/demanda/dfd/${id}`,
+  ETP: (id) => `/etp/etps/${id}`,
+  TR: (id) => `/analise-tecnica/trs/${id}`,
+  Procedimento: (id) => `/licitacao/${id}`,
+}
+
+function rotaEtapa(etapa, id) {
+  return ROTA_ETAPA[etapa]?.(id) ?? '#'
 }
 
 const FASES_SUGERIDAS = [
@@ -149,7 +161,7 @@ function ModalNovoProcesso({ onClose, onSalvo, fontes }) {
 
 function ModalAtualizarFase({ processo, onClose, onSalvo }) {
   const mudarFase = useTramitacaoStore((s) => s.mudarFase)
-  const [setor, setSetor] = useState(processo.setor_atual)
+  const [setor, setSetor] = useState(processo.setor_atual_codigo)
   const [fase, setFase] = useState('')
   const [data, setData] = useState(new Date().toISOString().slice(0, 10))
   const [motivo, setMotivo] = useState('')
@@ -158,7 +170,7 @@ function ModalAtualizarFase({ processo, onClose, onSalvo }) {
   const salvar = async () => {
     setSalvando(true)
     try {
-      await mudarFase(processo.id, { setor_atual: setor, fase_atual: fase, data_entrada_fase: data, motivo })
+      await mudarFase(processo.processo_tramitacao_id, { setor_atual: setor, fase_atual: fase, data_entrada_fase: data, motivo })
       onSalvo()
     } finally { setSalvando(false) }
   }
@@ -309,8 +321,9 @@ export default function TramitacaoPainel() {
                       </tr>
                     </thead>
                     <tbody>
-                      {g.itens.map((p) => (
-                        <tr key={p.id} className="border-b border-gray-50 last:border-0">
+                      {g.itens.map((p, i) => (
+                        <tr key={p.processo_tramitacao_id ?? `${p.etapa_atual}-${p.etapa_registro_id}-${i}`}
+                          className="border-b border-gray-50 last:border-0">
                           <td className="py-2 px-4 font-mono text-xs">{p.numero_sei}</td>
                           <td className="py-2 px-4">{p.objeto}</td>
                           <td className="py-2 px-4 text-xs text-gray-500">
@@ -320,8 +333,15 @@ export default function TramitacaoPainel() {
                             {(p.fase_atual || g.setor_display)} - {fmtData(p.data_entrada_fase)}
                           </td>
                           <td className="py-2 px-4 text-right">
-                            <button onClick={() => setProcessoEditando(p)}
-                              className="text-xs text-blue-600 hover:underline">Atualizar fase</button>
+                            {p.processo_tramitacao_id ? (
+                              <button onClick={() => setProcessoEditando(p)}
+                                className="text-xs text-blue-600 hover:underline">Atualizar fase</button>
+                            ) : (
+                              <Link to={rotaEtapa(p.etapa_atual, p.etapa_registro_id)}
+                                className="text-xs text-blue-600 hover:underline">
+                                Abrir {p.etapa_atual}
+                              </Link>
+                            )}
                           </td>
                         </tr>
                       ))}

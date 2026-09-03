@@ -9,6 +9,7 @@ import HelpTip from '../components/HelpTip'
 import CampoSei, { NumeroSeiTexto } from '../components/CampoSei'
 import FornecedorPicker from '../components/FornecedorPicker'
 import CampoMoeda from '../components/CampoMoeda'
+import MesaAtualCard from '../components/MesaAtualCard'
 
 const fmt = v => Number(v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const fmtPct = v => v != null ? `${Number(v).toFixed(1)}%` : '—'
@@ -609,6 +610,12 @@ export default function ProcedimentoDetail() {
       {/* ── Tab: Tramitações Externas ── */}
       {activeTab === 'tramitacoes' && (
         <div className="space-y-4">
+          <MesaAtualCard
+            actionUrl={`/licitacao/procedimento/${id}/marcar-mesa-atual/`}
+            mesaAtualLabel={current.mesa_atual_label}
+            dataMesaAtual={current.data_mesa_atual}
+            onAtualizado={() => fetchProcedimento(id)}
+          />
           <div className="flex justify-end">
             <button onClick={() => setShowTramForm(v => !v)}
               className="bg-blue-600 hover:bg-blue-700 text-white text-sm px-3 py-1.5 rounded-lg">

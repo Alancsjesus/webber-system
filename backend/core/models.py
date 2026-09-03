@@ -5,6 +5,25 @@ from django.db.models.signals import post_save
 from django.dispatch import receiver
 
 
+class MesaAtualMixin(models.Model):
+    """
+    Onde o processo está tramitando fisicamente agora (UnidadeOrganizacional ou Orgao
+    já cadastrado) — distinto de qualquer FK fixa de responsabilidade que o model
+    concreto já tenha (ex.: DFD.unidade_licitante diz quem é dono da etapa; mesa_atual
+    diz onde ela está circulando neste momento). Ver core/mesa_atual.py.
+    """
+    mesa_atual_content_type = models.ForeignKey(
+        'contenttypes.ContentType', null=True, blank=True,
+        on_delete=models.SET_NULL, related_name='+',
+    )
+    mesa_atual_object_id = models.PositiveIntegerField(null=True, blank=True)
+    mesa_atual = GenericForeignKey('mesa_atual_content_type', 'mesa_atual_object_id')
+    data_mesa_atual = models.DateField(null=True, blank=True, verbose_name='Data na mesa atual')
+
+    class Meta:
+        abstract = True
+
+
 class Orgao(models.Model):
     """Órgão ou secretaria — suporta hierarquia pai/filho."""
     nome   = models.CharField(max_length=255)
@@ -37,6 +56,7 @@ class UnidadeOrganizacional(models.Model):
         ('licitante',    'Unidade Licitante'),
         ('contratante',  'Unidade Contratante'),
         ('planejamento', 'Unidade de Planejamento'),
+        ('tramitacao',   'Tramitação (sem ação no sistema)'),
     ]
     orgao = models.ForeignKey(Orgao, on_delete=models.CASCADE, related_name='unidades')
     nome  = models.CharField(max_length=200)

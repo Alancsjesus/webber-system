@@ -59,10 +59,11 @@ def gerar_xlsx_relatorio_itens_plano_aplicacao(itens: list, filename: str) -> Ht
     return resposta_xlsx(wb, filename)
 
 
-def gerar_xlsx_painel_tramitacao(processos: list, filename: str) -> HttpResponse:
+def gerar_xlsx_painel_tramitacao(itens_painel: list, filename: str) -> HttpResponse:
     """
-    Gera XLSX do Painel Gerencial de Tramitação. `processos` é uma lista de
-    ProcessoTramitacao com `.fontes_recurso` já prefetch'ado.
+    Gera XLSX do Painel Gerencial de Tramitação. `itens_painel` é a lista de
+    dicts já resolvida por `modulo_tramitacao.estagio` + `ProcessoTramitacao`
+    manual sem DFD — ver `PainelTramitacaoView._itens()`.
     """
     wb = openpyxl.Workbook()
     ws = wb.active
@@ -73,15 +74,14 @@ def gerar_xlsx_painel_tramitacao(processos: list, filename: str) -> HttpResponse
     for col in range(1, len(headers) + 1):
         ws.cell(row=1, column=col).font = Font(bold=True)
 
-    for p in processos:
-        fontes = ', '.join(f.nome for f in p.fontes_recurso.all())
+    for p in itens_painel:
         ws.append([
-            p.get_setor_atual_display(),
-            p.numero_sei,
-            p.objeto,
-            fontes,
-            p.fase_atual,
-            p.data_entrada_fase.strftime('%d/%m/%Y') if p.data_entrada_fase else '',
+            p['setor'],
+            p['numero_sei'],
+            p['objeto'],
+            ', '.join(p['fontes_recurso_nomes']),
+            p['fase_atual'],
+            p['data_entrada_fase'].strftime('%d/%m/%Y') if p['data_entrada_fase'] else '',
         ])
 
     for i, header in enumerate(headers, start=1):

@@ -695,3 +695,13 @@ class DFDViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         serializer.save()
         return Response(serializer.data)
+
+    @action(detail=True, methods=['post'], url_path='marcar-mesa-atual')
+    def marcar_mesa_atual(self, request, pk=None):
+        from core.mesa_atual import aplicar_mesa_atual
+        dfd = self.get_object()
+        aplicar_mesa_atual(
+            dfd, request.data.get('tipo'), request.data.get('id'),
+            request.data.get('data'), usuario=request.user,
+        )
+        return Response(self.get_serializer(dfd).data)

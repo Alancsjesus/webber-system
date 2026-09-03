@@ -1,10 +1,10 @@
 from decimal import Decimal
 from django.db import models
 from django.contrib.auth.models import User
-from core.models import BaseModel
+from core.models import BaseModel, MesaAtualMixin
 
 
-class TR(BaseModel):
+class TR(MesaAtualMixin, BaseModel):
     """
     Termo de Referência — criado a partir de um ETP aprovado.
     Referência normativa: Lei 14.133/2021 Art. 6º, XXIII.

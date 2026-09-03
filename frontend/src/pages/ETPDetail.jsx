@@ -9,6 +9,7 @@ import ChecklistBadge from '../components/ChecklistBadge'
 import ModalPreviewTexto from '../components/ModalPreviewTexto'
 import HelpTip from '../components/HelpTip'
 import CampoSei, { NumeroSeiTexto } from '../components/CampoSei'
+import MesaAtualCard from '../components/MesaAtualCard'
 
 const STATUS_CLS = {
   Rascunho:     'bg-gray-100 text-gray-600',
@@ -275,6 +276,15 @@ export default function ETPDetail() {
           — o TR será devolvido automaticamente.
         </div>
       )}
+
+      <div className="mb-5">
+        <MesaAtualCard
+          actionUrl={`/etp/etp/${id}/marcar-mesa-atual/`}
+          mesaAtualLabel={current.mesa_atual_label}
+          dataMesaAtual={current.data_mesa_atual}
+          onAtualizado={() => fetchEtp(id)}
+        />
+      </div>
 
       {/* Devolução banner */}
       {current.status === 'Devolvido' && current.motivo_devolucao && (

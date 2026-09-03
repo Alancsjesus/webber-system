@@ -1,9 +1,9 @@
 from django.db import models
 from django.contrib.auth.models import User
-from core.models import BaseModel
+from core.models import BaseModel, MesaAtualMixin
 
 
-class ETP(BaseModel):
+class ETP(MesaAtualMixin, BaseModel):
     """
     Estudo Técnico Preliminar — criado a partir de um DFD aprovado.
     Referência normativa: IN SEGES 58/2022 (Lei 14.133/2021).

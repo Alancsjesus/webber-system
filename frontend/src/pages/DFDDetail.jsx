@@ -9,6 +9,7 @@ import ChecklistBadge from '../components/ChecklistBadge'
 import ModalPreviewTexto from '../components/ModalPreviewTexto'
 import HelpTip from '../components/HelpTip'
 import CampoMoeda from '../components/CampoMoeda'
+import MesaAtualCard from '../components/MesaAtualCard'
 
 const STATUS_CLS = {
   Rascunho:    'bg-gray-100 text-gray-600',
@@ -533,6 +534,15 @@ export default function DFDDetail() {
           <UnitCard label="Licitante"  nome={current.unidade_licitante_nome}  color="yellow" />
           <UnitCard label="Contratante" nome={current.unidade_contratante_nome} color="green" />
         </div>
+      </div>
+
+      <div className="mb-5">
+        <MesaAtualCard
+          actionUrl={`/demanda/dfd/${id}/marcar-mesa-atual/`}
+          mesaAtualLabel={current.mesa_atual_label}
+          dataMesaAtual={current.data_mesa_atual}
+          onAtualizado={() => fetchDFD(id)}
+        />
       </div>
 
       {/* Responsáveis pelo Contrato */}

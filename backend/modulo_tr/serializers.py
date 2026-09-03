@@ -128,8 +128,13 @@ class TRSerializer(serializers.ModelSerializer):
     historico           = HistoricoTRSerializer(many=True, read_only=True)
     lotes               = LoteTRSerializer(many=True, read_only=True)
     alerta_cota_me_epp  = serializers.SerializerMethodField()
+    mesa_atual_label    = serializers.SerializerMethodField()
     # Optional on create — defaults to ETP's numero_sei when omitted
     numero_sei          = serializers.CharField(required=False, allow_blank=True, default='')
+
+    def get_mesa_atual_label(self, obj):
+        from core.mesa_atual import mesa_atual_label
+        return mesa_atual_label(obj)
 
     class Meta:
         model  = TR
@@ -183,6 +188,7 @@ class TRSerializer(serializers.ModelSerializer):
             'updated_by', 'updated_by_username',
             'created_at', 'updated_at',
             'historico', 'lotes',
+            'mesa_atual_label', 'data_mesa_atual',
         ]
         read_only_fields = [
             'id', 'org_id', 'org_sigla',
@@ -194,6 +200,7 @@ class TRSerializer(serializers.ModelSerializer):
             'etp_reserva_cota_me_epp', 'etp_licitacao_exclusiva_me',
             'alerta_cota_me_epp',
             'motivo_devolucao', 'historico', 'lotes',
+            'mesa_atual_label', 'data_mesa_atual',
         ]
 
     def get_alerta_cota_me_epp(self, obj):
