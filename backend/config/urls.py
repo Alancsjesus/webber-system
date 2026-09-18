@@ -18,6 +18,7 @@ from core.views_indicadores import IndicadoresOrcamentoView, IndicadoresDevoluco
 from core.views_calendario import CalendarioContratacaoView
 from core.views_rastreabilidade import RastreabilidadeListView, RastreabilidadeDetailView
 from core.views_busca_global import BuscaGlobalView
+from core.views_base_conhecimento import ProcessosSimilaresView
 
 router = DefaultRouter()
 router.register(r'demanda/dfd', DFDViewSet, basename='dfd')
@@ -51,6 +52,7 @@ urlpatterns = [
     path('api/busca-global/',           BuscaGlobalView.as_view(),           name='busca-global'),
     path('api/rastreabilidade/',        RastreabilidadeListView.as_view(),   name='rastreabilidade-list'),
     path('api/rastreabilidade/<int:pk>/', RastreabilidadeDetailView.as_view(), name='rastreabilidade-detail'),
+    path('api/base-conhecimento/similares/', ProcessosSimilaresView.as_view(), name='base-conhecimento-similares'),
     path('api/', include(router.urls)),
     path('api/orcamento/', include('modulo_orcamento.urls')),
     path('api/fesp/', include('modulo_fesp.urls')),

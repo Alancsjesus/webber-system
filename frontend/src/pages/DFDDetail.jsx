@@ -10,6 +10,7 @@ import ModalPreviewTexto from '../components/ModalPreviewTexto'
 import HelpTip from '../components/HelpTip'
 import CampoMoeda from '../components/CampoMoeda'
 import MesaAtualCard from '../components/MesaAtualCard'
+import ModalProcessosSimilares from '../components/ModalProcessosSimilares'
 
 const STATUS_CLS = {
   Rascunho:    'bg-gray-100 text-gray-600',
@@ -53,6 +54,7 @@ export const pageHelp = {
     { label: 'Devolver',        texto: 'Retorna o DFD ao demandante para correções, com categorias de motivo e justificativa obrigatória.' },
     { label: '+ Item',          texto: 'Adiciona um item ao DFD com descrição, quantidade, unidade e valor estimado unitário.' },
     { label: 'Pré-visualizar texto', texto: 'Mostra o texto pronto (composto a partir dos campos já preenchidos, seguindo os modelos configurados em Configurações → Estrutura de Artefatos) para copiar e colar no SEI. É apenas uma pré-visualização — não altera nem preenche os campos do DFD.' },
+    { label: 'Processos semelhantes', texto: 'Busca outros DFDs do órgão que já demandaram os mesmos itens do catálogo, mostrando status, etapa atual e quantas vezes cada um já foi devolvido — ajuda a antecipar problemas conhecidos desse tipo de compra antes de avançar.' },
     { label: 'Download PDF',    texto: 'Gera o DFD em PDF para assinatura e arquivamento no processo SEI.' },
     { label: '📄 Instrumento da Ata', texto: 'Aparece quando esta demanda está vinculada a uma Ata de Registro de Preços — por saque (vínculo feito na Necessidade de origem) ou por adesão (vínculo feito no ETP). Baixa o instrumento preparatório anexado na Ata, para compor o processo SEI junto com o DFD.' },
     { label: 'Checklist SSP-BA', texto: 'Badge colorido mostrando quantos campos do checklist estão preenchidos. Vermelho = campos obrigatórios pendentes (bloqueia submissão). Amarelo = campos recomendados em falta. Verde = completo.' },
@@ -88,6 +90,7 @@ export default function DFDDetail() {
   const [motivoDevolucao, setMotivoDevolucao]       = useState('')
   const [showDispensaModal, setShowDispensaModal]   = useState(false)
   const [showPreviewTexto, setShowPreviewTexto]     = useState(false)
+  const [showSimilares, setShowSimilares]           = useState(false)
   const [motivoDispensa, setMotivoDispensa]         = useState('')
   const [dispensando, setDispensando]               = useState(false)
 
@@ -369,6 +372,13 @@ export default function DFDDetail() {
                 </button>
                 <HelpTip text="Mostra o texto pronto (gerado a partir dos campos já preenchidos, conforme os modelos configurados em Configurações → Estrutura de Artefatos) para copiar e colar no processo SEI. Não altera os campos deste DFD." />
               </span>
+              <span className="inline-flex items-center gap-1">
+                <button onClick={() => setShowSimilares(true)}
+                  className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg transition-colors">
+                  Processos semelhantes
+                </button>
+                <HelpTip text="Busca outros DFDs que já demandaram os mesmos itens do catálogo, com status, etapa atual e quantas vezes cada um já foi devolvido — ajuda a antecipar problemas conhecidos desse tipo de compra." />
+              </span>
               <DownloadButton
               onClick={() => downloadFile(`/demanda/dfd/${id}/export/pdf/`, `DFD_${current.numero_sei}.pdf`)}
               className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg transition-colors">
@@ -467,6 +477,10 @@ export default function DFDDetail() {
         onClose={() => setShowPreviewTexto(false)}
         endpoint={`/demanda/dfd/${id}/`}
       />
+
+      {showSimilares && (
+        <ModalProcessosSimilares dfdId={id} onClose={() => setShowSimilares(false)} />
+      )}
 
       {showDispensaModal && (
         <div className="mb-6 bg-amber-50 border border-amber-300 rounded-xl p-4">
