@@ -158,7 +158,7 @@ export default function AuditoriaList() {
   }
 
   return (
-    <div className="p-6 max-w-6xl space-y-4">
+    <div className="p-6 max-w-6xl mx-auto space-y-4">
       {/* Cabeçalho */}
       <div className="flex items-start justify-between">
         <div>

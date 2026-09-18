@@ -59,7 +59,7 @@ export default function OrgaoAdmin() {
   const filhos = list.filter(o => o.parent)
 
   return (
-    <div className="p-6 lg:p-8 max-w-3xl">
+    <div className="p-6 lg:p-8 max-w-3xl mx-auto">
       <div className="flex items-center justify-between mb-6">
         <div>
           <h1 className="text-xl font-bold text-gray-800">Órgãos</h1>

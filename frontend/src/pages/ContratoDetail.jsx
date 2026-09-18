@@ -149,7 +149,7 @@ export default function ContratoDetail() {
   const podeEditar = !['Encerrado', 'Rescindido'].includes(current.status)
 
   return (
-    <div className="p-6 lg:p-8 max-w-4xl">
+    <div className="p-6 lg:p-8 max-w-4xl mx-auto">
       <button onClick={() => navigate(-1)} className="text-sm text-gray-400 hover:text-gray-600 mb-4">← Voltar</button>
 
       {/* Cabeçalho */}

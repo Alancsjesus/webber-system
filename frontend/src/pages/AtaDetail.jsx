@@ -126,7 +126,7 @@ export default function AtaDetail() {
   const isVigente = current.status === 'vigente'
 
   return (
-    <div className="p-6 lg:p-8 max-w-4xl">
+    <div className="p-6 lg:p-8 max-w-4xl mx-auto">
       <button onClick={() => navigate(-1)} className="text-sm text-gray-400 hover:text-gray-600 mb-4">← Voltar</button>
 
       <div className="flex items-start justify-between mb-6 flex-wrap gap-3">

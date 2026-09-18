@@ -66,7 +66,7 @@ export default function FornecedorDetail() {
   }
 
   return (
-    <div className="p-6 lg:p-8 max-w-4xl">
+    <div className="p-6 lg:p-8 max-w-4xl mx-auto">
       <button onClick={() => navigate('/fornecedores')} className="text-sm text-blue-600 hover:underline mb-4">
         ← Voltar para Fornecedores
       </button>

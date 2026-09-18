@@ -310,7 +310,7 @@ export default function TRCreate() {
   }
 
   return (
-    <div className="p-6 max-w-3xl">
+    <div className="p-6 max-w-3xl mx-auto">
       <button onClick={() => navigate(-1)} className="text-sm text-gray-400 hover:text-gray-600 mb-4">← Voltar</button>
 
       <h1 className="text-xl font-bold text-gray-800 mb-1">Nova Minuta — Termo de Referência</h1>

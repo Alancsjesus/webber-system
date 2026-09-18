@@ -68,7 +68,7 @@ export default function FespPlanoCreate() {
   }
 
   return (
-    <div className="p-6 lg:p-8 max-w-3xl">
+    <div className="p-6 lg:p-8 max-w-3xl mx-auto">
       <button onClick={() => navigate(-1)} className="text-sm text-gray-400 hover:text-gray-600 mb-4">← Voltar</button>
       <h1 className="text-xl font-bold text-gray-800 mb-1">Novo Plano de Aplicação</h1>
       <p className="text-sm text-gray-500 mb-6">O número do plano é gerado automaticamente ao salvar.</p>

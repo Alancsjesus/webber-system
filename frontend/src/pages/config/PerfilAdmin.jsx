@@ -127,7 +127,7 @@ export default function PerfilAdmin() {
   const navigate = useNavigate()
 
   return (
-    <div className="p-6 lg:p-8 max-w-4xl">
+    <div className="p-6 lg:p-8 max-w-4xl mx-auto">
       <div className="mb-8">
         <h1 className="text-xl font-bold text-gray-800">Perfis e Permissões</h1>
         <p className="text-sm text-gray-500 mt-0.5">

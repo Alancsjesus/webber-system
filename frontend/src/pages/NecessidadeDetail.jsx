@@ -168,7 +168,7 @@ export default function NecessidadeDetail() {
   const podeRecusar   = isPlanejamento && current.tipo_execucao === 'externa' && current.aceite_pai === 'pendente'
 
   return (
-    <div className="p-6 lg:p-8 max-w-3xl">
+    <div className="p-6 lg:p-8 max-w-3xl mx-auto">
       <button onClick={() => navigate(-1)} className="text-sm text-gray-400 hover:text-gray-600 mb-4">
         ← Voltar
       </button>

@@ -315,7 +315,7 @@ export default function DFDDetail() {
   const totalItens = itens.reduce((acc, i) => acc + parseFloat(i.valor_total_estimado || 0), 0)
 
   return (
-    <div className="p-6 lg:p-8 max-w-3xl">
+    <div className="p-6 lg:p-8 max-w-3xl mx-auto">
       <button
         onClick={() => navigate(-1)}
         className="text-sm text-gray-400 hover:text-gray-600 mb-4 inline-flex items-center gap-1"

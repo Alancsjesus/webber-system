@@ -101,7 +101,7 @@ export default function ImportarCatalogoAdmin() {
 
   // ── render ────────────────────────────────────────────────────────────────
   return (
-    <div className="p-6 lg:p-8 max-w-4xl">
+    <div className="p-6 lg:p-8 max-w-4xl mx-auto">
       {/* Cabeçalho */}
       <div className="mb-6">
         <button onClick={() => navigate('/config/catalogo')}

@@ -83,7 +83,7 @@ export default function SubFonteAdmin() {
   }
 
   return (
-    <div className="p-6 lg:p-8 max-w-3xl">
+    <div className="p-6 lg:p-8 max-w-3xl mx-auto">
       <div className="mb-6">
         <h1 className="text-xl font-bold text-gray-800">Subfontes de Recurso</h1>
         <p className="text-sm text-gray-500 mt-0.5">Detalhamento opcional de uma Fonte de Recurso (ex: Tesouro Livre / Tesouro Vinculado)</p>

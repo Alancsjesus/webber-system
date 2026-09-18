@@ -73,7 +73,7 @@ export default function IndicacaoCreate() {
   }
 
   return (
-    <div className="p-8 max-w-xl">
+    <div className="p-8 max-w-xl mx-auto">
       <button onClick={() => navigate(-1)} className="text-sm text-gray-400 hover:text-gray-600 mb-4">
         ← Voltar
       </button>

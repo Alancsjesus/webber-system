@@ -45,7 +45,7 @@ export default function PNCPList() {
   }, [])
 
   return (
-    <div className="p-6 max-w-5xl">
+    <div className="p-6 max-w-5xl mx-auto">
       {/* Cabeçalho */}
       <div className="mb-6">
         <h1 className="text-xl font-bold text-gray-800">Importações PNCP</h1>

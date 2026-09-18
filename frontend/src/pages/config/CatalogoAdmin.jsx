@@ -293,7 +293,7 @@ export default function CatalogoAdmin() {
 
   // ── render ───────────────────────────────────────────────────────────────────
   return (
-    <div className="p-6 max-w-6xl space-y-4">
+    <div className="p-6 max-w-6xl mx-auto space-y-4">
 
       {/* Cabeçalho */}
       <div className="flex items-center justify-between">
