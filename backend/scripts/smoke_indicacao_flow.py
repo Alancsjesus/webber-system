@@ -1,6 +1,10 @@
 """
-Teste end-to-end do fluxo de Indicação Orçamentária — via ORM + serializers.
-Executar: docker compose exec backend python test_indicacao_flow.py
+Smoke-test manual end-to-end do fluxo de Indicação Orçamentária — via ORM + serializers.
+Não é um teste pytest (mexe em dados reais da dotação e depois desfaz por conta própria);
+por isso vive em scripts/, fora do padrão test_*.py que o pytest coletaria.
+
+Executar local (sem Docker):  venv/Scripts/python.exe backend/scripts/smoke_indicacao_flow.py
+Executar com Docker:          docker compose exec backend python scripts/smoke_indicacao_flow.py
 """
 import os, sys, django
 os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'config.settings')

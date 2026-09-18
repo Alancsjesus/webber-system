@@ -89,7 +89,9 @@ switch ($cmd) {
         Invoke-Expression "$BACKEND python manage.py $manageArgs"
     }
     "test" {
-        Invoke-Expression "$BACKEND python manage.py test"
+        # pytest, não manage.py test — os testes atuais (core/modulo_fesp/modulo_arp)
+        # sao pytest-style e "manage.py test" reporta "0 tests" sem avisar.
+        Invoke-Expression "$BACKEND pytest"
     }
     "vite" {
         $env:PATH = "C:\Program Files\nodejs;$env:PATH"

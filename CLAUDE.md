@@ -43,11 +43,19 @@ docker compose exec backend python manage.py setup_dev
 ```
 
 ### Running Tests
+Todos os testes atuais (core, modulo_fesp, modulo_arp) são pytest-style — usam
+`@pytest.mark.django_db`, fixtures e classes que não herdam `TestCase`.
+`manage.py test` não os coleta (reporta "0 tests" silenciosamente); use `pytest`:
 ```powershell
 .\scripts\webber.ps1 test
-# Or directly:
-docker compose exec backend python manage.py test
+# Ou diretamente:
+docker compose exec backend pytest
+# Sem Docker (venv local):
+venv\Scripts\python.exe -m pytest backend
 ```
+Se algum teste futuro for escrito no estilo `TestCase` (`manage.py test`), padronize
+para pytest-style — os dois estilos não coexistem bem no mesmo `python_files` do
+`pytest.ini`.
 
 ### Frontend only
 ```powershell
