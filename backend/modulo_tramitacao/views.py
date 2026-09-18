@@ -144,7 +144,9 @@ class IndicadoresTramitacaoView(APIView):
     de processos críticos/em atenção (limiares configuráveis via
     ParametroSistema: tramitacao_dias_atencao, tramitacao_dias_critico —
     default 15/30 dias) e lista dos processos mais parados.
-    Filtro opcional: ?busca=<texto> (nº SEI ou objeto) — mesmo do painel.
+    Filtros opcionais: ?busca=<texto> (nº SEI ou objeto, mesmo do painel),
+    ?setor=<setor exato>, ?etapa=<DFD|ETP|TR|Procedimento|manual>,
+    ?data_inicio=/?data_fim=<YYYY-MM-DD> (sobre data_entrada_fase).
     """
     permission_classes = [IsAuthenticated, IsMultiTenant]
 

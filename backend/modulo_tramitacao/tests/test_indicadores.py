@@ -59,9 +59,9 @@ class _FakeRequest:
     """calcular_indicadores() só usa .org_id e .query_params — evita subir o
     dispatch completo do DRF quando o teste é sobre a agregação, não sobre a
     view/rota em si (essa parte é coberta separadamente via api_client)."""
-    def __init__(self, org_id, busca=None):
+    def __init__(self, org_id, **params):
         self.org_id = org_id
-        self.query_params = {'busca': busca} if busca else {}
+        self.query_params = {k: v for k, v in params.items() if v is not None}
 
 
 def _criar_dfd(org, dias_atras, numero_sei, status='Rascunho'):
@@ -132,6 +132,45 @@ class TestClassificacaoIndicadores:
         _criar_dfd(ssp, dias_atras=100, numero_sei='001.2026.0000009-99', status='Rejeitada')
         ind = calcular_indicadores(_FakeRequest(ssp))
         assert ind['total_processos'] == 0
+
+
+@pytest.mark.django_db
+class TestFiltrosIndicadores:
+    def test_filtro_por_etapa(self, ssp):
+        _criar_dfd(ssp, dias_atras=10, numero_sei='001.2026.0000011-11')
+        ind_dfd = calcular_indicadores(_FakeRequest(ssp, etapa='DFD'))
+        ind_etp = calcular_indicadores(_FakeRequest(ssp, etapa='ETP'))
+        assert ind_dfd['total_processos'] == 1
+        assert ind_etp['total_processos'] == 0
+
+    def test_filtro_por_setor(self, ssp):
+        _criar_dfd(ssp, dias_atras=10, numero_sei='001.2026.0000012-12')
+        ind = calcular_indicadores(_FakeRequest(ssp))
+        setor_real = ind['por_setor'][0]['setor']
+        ind_filtrado = calcular_indicadores(_FakeRequest(ssp, setor=setor_real))
+        ind_vazio = calcular_indicadores(_FakeRequest(ssp, setor='Setor Que Não Existe'))
+        assert ind_filtrado['total_processos'] == 1
+        assert ind_vazio['total_processos'] == 0
+
+    def test_filtro_por_periodo(self, ssp):
+        hoje = date.today()
+        _criar_dfd(ssp, dias_atras=5, numero_sei='001.2026.0000013-13')
+        _criar_dfd(ssp, dias_atras=40, numero_sei='001.2026.0000014-14')
+
+        so_recente = calcular_indicadores(_FakeRequest(
+            ssp, data_inicio=(hoje - timedelta(days=10)).isoformat(),
+        ))
+        assert so_recente['total_processos'] == 1
+
+        so_antigo = calcular_indicadores(_FakeRequest(
+            ssp, data_fim=(hoje - timedelta(days=10)).isoformat(),
+        ))
+        assert so_antigo['total_processos'] == 1
+
+    def test_filtro_data_invalida_e_ignorado_sem_erro(self, ssp):
+        _criar_dfd(ssp, dias_atras=5, numero_sei='001.2026.0000015-15')
+        ind = calcular_indicadores(_FakeRequest(ssp, data_inicio='not-a-date'))
+        assert ind['total_processos'] == 1
 
 
 @pytest.mark.django_db

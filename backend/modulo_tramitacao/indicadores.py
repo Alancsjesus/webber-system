@@ -47,10 +47,39 @@ def _media(valores):
     return round(sum(valores) / len(valores), 1) if valores else None
 
 
+def _filtrar_itens(itens, request):
+    """Filtros do painel de indicadores (D2 — Solução 3 do diagnóstico CLIC:
+    período/unidade/etapa). ?setor= e ?etapa= são exatos; ?data_inicio=/
+    ?data_fim= restringem por data_entrada_fase (formato YYYY-MM-DD)."""
+    setor = request.query_params.get('setor')
+    etapa = request.query_params.get('etapa')
+    data_inicio = request.query_params.get('data_inicio')
+    data_fim = request.query_params.get('data_fim')
+
+    if setor:
+        itens = [i for i in itens if i['setor'] == setor]
+    if etapa:
+        alvo = None if etapa == 'manual' else etapa
+        itens = [i for i in itens if i['etapa_atual'] == alvo]
+    if data_inicio:
+        try:
+            di = date.fromisoformat(data_inicio)
+            itens = [i for i in itens if i['data_entrada_fase'] and i['data_entrada_fase'] >= di]
+        except ValueError:
+            pass
+    if data_fim:
+        try:
+            df = date.fromisoformat(data_fim)
+            itens = [i for i in itens if i['data_entrada_fase'] and i['data_entrada_fase'] <= df]
+        except ValueError:
+            pass
+    return itens
+
+
 def calcular_indicadores(request):
     hoje = date.today()
     atencao, critico = _dias_atencao(), _dias_critico()
-    itens = listar_itens_painel(request)
+    itens = _filtrar_itens(listar_itens_painel(request), request)
 
     for item in itens:
         if item['data_entrada_fase']:
