@@ -306,7 +306,10 @@ function buildSections(papel, tipoUnidade, flags) {
 
   // Painel Gerencial de Tramitação
   if (['admin', 'gestor_planejamento', 'ordenador'].includes(papel)) {
-    sections.push({ section: 'Tramitação', items: [{ to: '/tramitacao', label: 'Painel Gerencial' }] })
+    sections.push({ section: 'Tramitação', items: [
+      { to: '/tramitacao', label: 'Painel Gerencial' },
+      { to: '/tramitacao/indicadores', label: 'Indicadores' },
+    ] })
   }
 
   // Auditoria e Rastreabilidade

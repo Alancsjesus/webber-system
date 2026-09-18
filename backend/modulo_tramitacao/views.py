@@ -1,4 +1,3 @@
-from django.db.models import Q
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.exceptions import PermissionDenied
@@ -103,49 +102,8 @@ class PainelTramitacaoView(APIView):
     permission_classes = [IsAuthenticated, IsMultiTenant]
 
     def _itens(self, request):
-        from modulo_demanda.models import DFD
-        from .estagio import resolver_item_painel
-
-        busca = request.query_params.get('busca')
-
-        dfds = (
-            DFD.objects.filter(org_id=request.org_id)
-            .exclude(status='Rejeitada')
-            .select_related('etp__tr', 'unidade_demandante', 'unidade_licitante',
-                             'mesa_atual_content_type')
-            .prefetch_related('procedimentos__tramitacoes',
-                               'procedimentos__unidade_gestora',
-                               'procedimentos__mesa_atual_content_type')
-        )
-        if busca:
-            dfds = dfds.filter(Q(numero_sei__icontains=busca) | Q(descricao__icontains=busca))
-
-        itens = []
-        for dfd in dfds:
-            item = resolver_item_painel(dfd, request.org_id)
-            if item:
-                itens.append(item)
-
-        manuais = ProcessoTramitacao.objects.filter(
-            org_id=request.org_id, ativo=True, dfd__isnull=True,
-        ).prefetch_related('fontes_recurso')
-        if busca:
-            manuais = manuais.filter(Q(numero_sei__icontains=busca) | Q(objeto__icontains=busca))
-        for p in manuais:
-            itens.append({
-                'setor': p.get_setor_atual_display(),
-                'numero_sei': p.numero_sei,
-                'objeto': p.objeto,
-                'fontes_recurso_nomes': [f.nome for f in p.fontes_recurso.all()],
-                'fase_atual': p.fase_atual,
-                'data_entrada_fase': p.data_entrada_fase,
-                'etapa_atual': None,
-                'etapa_registro_id': None,
-                'processo_tramitacao_id': p.id,
-                'setor_atual_codigo': p.setor_atual,
-            })
-
-        return itens
+        from .estagio import listar_itens_painel
+        return listar_itens_painel(request)
 
     def get(self, request):
         itens = self._itens(request)
@@ -176,3 +134,20 @@ class PainelTramitacaoView(APIView):
             })
 
         return Response({'total_geral': len(itens), 'grupos': grupos})
+
+
+class IndicadoresTramitacaoView(APIView):
+    """
+    GET /api/tramitacao/indicadores/
+    Indicadores de tempo sobre o Painel de Tramitação (D1): tempo médio de
+    permanência na etapa/fase atual (geral, por setor e por etapa), contagem
+    de processos críticos/em atenção (limiares configuráveis via
+    ParametroSistema: tramitacao_dias_atencao, tramitacao_dias_critico —
+    default 15/30 dias) e lista dos processos mais parados.
+    Filtro opcional: ?busca=<texto> (nº SEI ou objeto) — mesmo do painel.
+    """
+    permission_classes = [IsAuthenticated, IsMultiTenant]
+
+    def get(self, request):
+        from .indicadores import calcular_indicadores
+        return Response(calcular_indicadores(request))

@@ -73,6 +73,7 @@ import RastreabilidadeList from './pages/RastreabilidadeList'
 import ReconciliacaoRastreabilidade from './pages/ReconciliacaoRastreabilidade'
 import RastreabilidadeDetail from './pages/RastreabilidadeDetail'
 import TramitacaoPainel from './pages/TramitacaoPainel'
+import TramitacaoIndicadores from './pages/TramitacaoIndicadores'
 import FespInstrumentoList from './pages/FespInstrumentoList'
 import FespInstrumentoCreate from './pages/FespInstrumentoCreate'
 import FespInstrumentoDetail from './pages/FespInstrumentoDetail'
@@ -214,6 +215,7 @@ export default function App() {
           <Route path="rastreabilidade/reconciliacao" element={<Guard><ReconciliacaoRastreabilidade /></Guard>} />
           <Route path="rastreabilidade/:id"        element={<Guard><RastreabilidadeDetail /></Guard>} />
           <Route path="tramitacao"                 element={<Guard><TramitacaoPainel /></Guard>} />
+          <Route path="tramitacao/indicadores"     element={<Guard><TramitacaoIndicadores /></Guard>} />
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>

@@ -5,6 +5,8 @@ que o sistema já sabe. Ver core/mesa_atual.py (mesa física atual, manual) e
 core/views_rastreabilidade.py (STATUS_CONCLUIDO, mesma semântica de "etapa
 concluída" reaproveitada aqui para consistência).
 """
+from django.db.models import Q
+
 from core.mesa_atual import mesa_atual_label
 from core.views_rastreabilidade import STATUS_CONCLUIDO, _rel
 
@@ -121,3 +123,56 @@ def resolver_item_painel(dfd, org_id):
         'etapa_atual': etapa,
         'etapa_registro_id': registro.id,
     }
+
+
+def listar_itens_painel(request):
+    """
+    Monta a lista completa de itens do Painel de Tramitação — automáticos
+    (todo DFD "aberto" da org, via resolver_item_painel) + manuais
+    (ProcessoTramitacao sem DFD vinculado). Compartilhado por
+    PainelTramitacaoView e pelos indicadores (D1), para não duplicar a
+    montagem entre o painel bruto e as agregações sobre ele.
+    """
+    from modulo_demanda.models import DFD
+    from .models import ProcessoTramitacao
+
+    busca = request.query_params.get('busca')
+
+    dfds = (
+        DFD.objects.filter(org_id=request.org_id)
+        .exclude(status='Rejeitada')
+        .select_related('etp__tr', 'unidade_demandante', 'unidade_licitante',
+                         'mesa_atual_content_type')
+        .prefetch_related('procedimentos__tramitacoes',
+                           'procedimentos__unidade_gestora',
+                           'procedimentos__mesa_atual_content_type')
+    )
+    if busca:
+        dfds = dfds.filter(Q(numero_sei__icontains=busca) | Q(descricao__icontains=busca))
+
+    itens = []
+    for dfd in dfds:
+        item = resolver_item_painel(dfd, request.org_id)
+        if item:
+            itens.append(item)
+
+    manuais = ProcessoTramitacao.objects.filter(
+        org_id=request.org_id, ativo=True, dfd__isnull=True,
+    ).prefetch_related('fontes_recurso')
+    if busca:
+        manuais = manuais.filter(Q(numero_sei__icontains=busca) | Q(objeto__icontains=busca))
+    for p in manuais:
+        itens.append({
+            'setor': p.get_setor_atual_display(),
+            'numero_sei': p.numero_sei,
+            'objeto': p.objeto,
+            'fontes_recurso_nomes': [f.nome for f in p.fontes_recurso.all()],
+            'fase_atual': p.fase_atual,
+            'data_entrada_fase': p.data_entrada_fase,
+            'etapa_atual': None,
+            'etapa_registro_id': None,
+            'processo_tramitacao_id': p.id,
+            'setor_atual_codigo': p.setor_atual,
+        })
+
+    return itens
