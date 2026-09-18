@@ -1,5 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import {
+  Bar, BarChart, Cell, Funnel, FunnelChart, LabelList, Pie, PieChart,
+  ResponsiveContainer, Tooltip, XAxis, YAxis,
+} from 'recharts'
 
 // ── Status color maps ──────────────────────────────────────────────────────────
 const CLS_NEC = {
@@ -67,21 +71,39 @@ function fmt(valor) {
   return Number(valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
+// Hex real por classe Tailwind — recharts precisa de cor, não de className.
+const HEX = {
+  'bg-gray-400': '#9CA3AF', 'bg-gray-300': '#D1D5DB',
+  'bg-yellow-400': '#FBBF24', 'bg-yellow-500': '#F59E0B',
+  'bg-green-500': '#22C55E', 'bg-green-400': '#4ADE80',
+  'bg-blue-500': '#3B82F6', 'bg-blue-400': '#60A5FA',
+  'bg-indigo-400': '#818CF8', 'bg-indigo-500': '#6366F1',
+  'bg-red-400': '#F87171', 'bg-red-500': '#EF4444',
+  'bg-orange-400': '#FB923C', 'bg-orange-500': '#F97316',
+  'bg-purple-500': '#A855F7', 'bg-purple-400': '#C084FC',
+  'bg-teal-500': '#14B8A6', 'bg-violet-500': '#8B5CF6', 'bg-amber-500': '#F59E0B',
+}
+const hex = (cls) => HEX[cls] || '#CBD5E1'
+
 // ── Sub-componentes internos ───────────────────────────────────────────────────
 
 function StatusBar({ porStatus, colorMap }) {
   const total = Object.values(porStatus).reduce((a, b) => a + b, 0)
   if (total === 0) return <p className="text-xs text-gray-400 mt-2">Sem dados.</p>
+  const dados = Object.entries(porStatus).filter(([, c]) => c > 0).map(([s, c]) => ({ nome: s, valor: c }))
   return (
-    <div className="mt-2">
-      <div className="flex h-2 rounded-full overflow-hidden gap-px">
-        {Object.entries(porStatus).map(([s, c]) => (
-          <div key={s} title={`${s}: ${c}`}
-            style={{ width: `${(c / total) * 100}%` }}
-            className={`${colorMap[s] || 'bg-gray-300'} transition-all`} />
-        ))}
+    <div className="mt-2 flex items-center gap-4">
+      <div style={{ width: 72, height: 72 }} className="shrink-0">
+        <ResponsiveContainer>
+          <PieChart>
+            <Pie data={dados} dataKey="valor" nameKey="nome" innerRadius={20} outerRadius={34} paddingAngle={2}>
+              {dados.map((d, i) => <Cell key={i} fill={hex(colorMap[d.nome])} />)}
+            </Pie>
+            <Tooltip formatter={(value, name) => [`${value}`, name]} contentStyle={{ fontSize: 11, borderRadius: 8 }} />
+          </PieChart>
+        </ResponsiveContainer>
       </div>
-      <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1.5">
+      <div className="flex flex-wrap gap-x-3 gap-y-1">
         {Object.entries(porStatus).map(([s, c]) => (
           <span key={s} className="flex items-center gap-1 text-xs text-gray-500">
             <span className={`inline-block w-2 h-2 rounded-full ${colorMap[s] || 'bg-gray-300'}`} />
@@ -89,6 +111,44 @@ function StatusBar({ porStatus, colorMap }) {
           </span>
         ))}
       </div>
+    </div>
+  )
+}
+
+function FunilExecucao({ etapas }) {
+  // Funnel do recharts lê a cor do próprio campo "fill" de cada item de dados
+  // (diferente de Pie/Bar, onde <Cell> por índice é o idiomático) — sem isso,
+  // as faixas maiores renderizam sem preenchimento.
+  const dados = etapas.filter((e) => e.valor > 0).map((e) => ({ ...e, fill: e.cor }))
+  if (dados.length === 0) return <p className="text-xs text-gray-400">Sem execução no período.</p>
+  return (
+    <div style={{ width: '100%', height: 220 }}>
+      <ResponsiveContainer>
+        <FunnelChart>
+          <Tooltip formatter={(value, _n, item) => [fmt(value), item?.payload?.nome]} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
+          <Funnel dataKey="valor" data={dados} isAnimationActive={false}>
+            <LabelList position="right" dataKey="nome" fill="#475569" stroke="none" fontSize={11} />
+          </Funnel>
+        </FunnelChart>
+      </ResponsiveContainer>
+    </div>
+  )
+}
+
+// Contagens (não valores monetários) — DFD/ETP/TR/Mapa por total vs. devolvidos.
+function BarraComparativa({ dados, corA, corB, labelA, labelB }) {
+  const max = Math.max(1, ...dados.map((d) => d.total))
+  return (
+    <div style={{ width: '100%', height: Math.max(120, dados.length * 48) }}>
+      <ResponsiveContainer>
+        <BarChart data={dados} layout="vertical" margin={{ left: 8, right: 16 }}>
+          <XAxis type="number" allowDecimals={false} domain={[0, max]} tick={{ fontSize: 10, fill: '#94A3B8' }} />
+          <YAxis type="category" dataKey="nome" width={44} tick={{ fontSize: 11, fill: '#475569' }} />
+          <Tooltip formatter={(value) => `${value} documento${value === 1 ? '' : 's'}`} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
+          <Bar dataKey="total" name={labelA} fill={corA} radius={[0, 3, 3, 0]} maxBarSize={14} />
+          <Bar dataKey="devolvidos" name={labelB} fill={corB} radius={[0, 3, 3, 0]} maxBarSize={14} />
+        </BarChart>
+      </ResponsiveContainer>
     </div>
   )
 }
@@ -345,23 +405,16 @@ export default function DashboardAnalytics({ stats, indOrc, indDev, indAgrup }) 
                 </div>
                 <button onClick={() => navigate('/orcamento/dotacoes')} className="text-xs text-blue-600 hover:underline">Ver dotações</button>
               </div>
-              <div className="space-y-2 mb-4">
-                {[
-                  { label: 'Dotado',          value: indOrc.totais.dotado,          pct: 100,                               cor: 'bg-blue-500' },
-                  { label: 'Indicado',        value: indOrc.totais.indicado,        pct: indOrc.totais.pct_indicado,        cor: 'bg-yellow-500' },
-                  { label: 'Descentralizado', value: indOrc.totais.descentralizado, pct: indOrc.totais.pct_descentralizado, cor: 'bg-orange-500' },
-                  { label: 'Concedido',       value: indOrc.totais.concedido,       pct: indOrc.totais.pct_concedido,       cor: 'bg-green-500' },
-                ].map(({ label, value, pct, cor }) => (
-                  <div key={label}>
-                    <div className="flex items-center justify-between text-xs text-gray-500 mb-0.5">
-                      <span className="font-medium">{label}</span>
-                      <span className="font-semibold text-gray-700">{fmt(value)} <span className="text-gray-400 font-normal">({pct}%)</span></span>
-                    </div>
-                    <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                      <div className={`h-full ${cor} rounded-full transition-all`} style={{ width: `${Math.min(pct, 100)}%` }} />
-                    </div>
-                  </div>
-                ))}
+              <FunilExecucao etapas={[
+                { nome: 'Dotado', valor: indOrc.totais.dotado, cor: hex('bg-blue-500') },
+                { nome: 'Indicado', valor: indOrc.totais.indicado, cor: hex('bg-yellow-500') },
+                { nome: 'Descentralizado', valor: indOrc.totais.descentralizado, cor: hex('bg-orange-500') },
+                { nome: 'Concedido', valor: indOrc.totais.concedido, cor: hex('bg-green-500') },
+              ]} />
+              <div className="flex flex-wrap gap-x-4 gap-y-1 mb-4 mt-1 text-xs text-gray-500">
+                <span>Indicado: <b className="text-gray-700">{indOrc.totais.pct_indicado}%</b></span>
+                <span>Descentralizado: <b className="text-gray-700">{indOrc.totais.pct_descentralizado}%</b></span>
+                <span>Concedido: <b className="text-gray-700">{indOrc.totais.pct_concedido}%</b></span>
               </div>
               {indOrc.por_elemento.length > 0 && (
                 <div>
@@ -395,45 +448,40 @@ export default function DashboardAnalytics({ stats, indOrc, indDev, indAgrup }) 
                   <p className="text-xs text-gray-400 mt-0.5">Taxa de devoluções por tipo de documento</p>
                 </div>
               </div>
-              <div className="space-y-3">
+              <BarraComparativa
+                dados={['DFD', 'ETP', 'TR', 'Mapa'].map((tipo) => ({
+                  nome: tipo,
+                  total: (indDev[tipo] || {}).total || 0,
+                  devolvidos: (indDev[tipo] || {}).devolvidos || 0,
+                }))}
+                corA={hex('bg-blue-400')} corB={hex('bg-red-400')}
+                labelA="Total" labelB="Devolvidos"
+              />
+              <div className="space-y-2 mt-3">
                 {[
-                  { tipo: 'DFD',  cor: 'bg-blue-500',   navTo: '/demanda/dfd' },
-                  { tipo: 'ETP',  cor: 'bg-purple-500',  navTo: '/etp/etps' },
-                  { tipo: 'TR',   cor: 'bg-teal-500',    navTo: '/analise-tecnica/trs' },
-                  { tipo: 'Mapa', cor: 'bg-violet-500',  navTo: '/pesquisa/mapa' },
-                ].map(({ tipo, cor, navTo }) => {
+                  { tipo: 'DFD',  navTo: '/demanda/dfd' },
+                  { tipo: 'ETP',  navTo: '/etp/etps' },
+                  { tipo: 'TR',   navTo: '/analise-tecnica/trs' },
+                  { tipo: 'Mapa', navTo: '/pesquisa/mapa' },
+                ].map(({ tipo, navTo }) => {
                   const d    = indDev[tipo] || { total: 0, devolvidos: 0, taxa_devolucao: 0 }
                   const taxa = d.taxa_devolucao
                   const taxaCor = taxa === 0
                     ? 'text-green-600 bg-green-50'
                     : taxa < 20 ? 'text-yellow-700 bg-yellow-50' : 'text-red-600 bg-red-50'
                   return (
-                    <div key={tipo} className="flex items-center gap-3">
-                      <button onClick={() => navigate(navTo)}
-                        className={`w-12 h-6 rounded text-xs font-bold text-white flex items-center justify-center shrink-0 ${cor} hover:opacity-80`}>
-                        {tipo}
-                      </button>
-                      <div className="flex-1">
-                        <div className="flex items-center justify-between mb-0.5">
-                          <span className="text-xs text-gray-500">
-                            {d.total} doc{d.total !== 1 ? 's' : ''} · {d.devolvidos} devolvido{d.devolvidos !== 1 ? 's' : ''}
-                          </span>
-                          <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${taxaCor}`}>{taxa}%</span>
+                    <div key={tipo} className="flex items-center gap-2 text-xs">
+                      <button onClick={() => navigate(navTo)} className="font-semibold text-gray-600 hover:text-blue-600 w-9 text-left shrink-0">{tipo}</button>
+                      <span className={`font-semibold px-1.5 py-0.5 rounded ${taxaCor}`}>{taxa}%</span>
+                      {d.por_categoria && Object.keys(d.por_categoria).length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {Object.entries(d.por_categoria).map(([cat, count]) => (
+                            <span key={cat} className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full">
+                              {cat.replace(/_/g, ' ')}: {count}
+                            </span>
+                          ))}
                         </div>
-                        <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
-                          <div className={`h-full rounded-full transition-all ${taxa === 0 ? 'bg-green-400' : taxa < 20 ? 'bg-yellow-400' : 'bg-red-400'}`}
-                            style={{ width: `${Math.min(taxa, 100)}%` }} />
-                        </div>
-                        {d.por_categoria && Object.keys(d.por_categoria).length > 0 && (
-                          <div className="flex flex-wrap gap-1 mt-1">
-                            {Object.entries(d.por_categoria).map(([cat, count]) => (
-                              <span key={cat} className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full">
-                                {cat.replace(/_/g, ' ')}: {count}
-                              </span>
-                            ))}
-                          </div>
-                        )}
-                      </div>
+                      )}
                     </div>
                   )
                 })}
