@@ -67,13 +67,31 @@ def _fontes_dfd(dfd, org_id):
     return sorted({n for n in nomes if n})
 
 
+def _unidade_criacao(registro):
+    """
+    Unidade organizacional de quem criou o registro (DFD/ETP/TR/Procedimento)
+    — usada como local de elaboração/análise quando nenhuma FK estrutural de
+    responsabilidade está preenchida. Nunca é o nome da etapa: DFD/ETP/TR são
+    peças da fase de instrução processual do planejamento (Lei 14.133/2021),
+    não lugares — o "setor" tem que ser sempre uma unidade real.
+    """
+    autor = registro.created_by
+    if not autor:
+        return None
+    perfil = _rel(autor, 'profile')
+    if not perfil or not perfil.unidade_id:
+        return None
+    return str(perfil.unidade)
+
+
 def resolver_item_painel(dfd, org_id):
     """
     Resolve o item de painel de um DFD "aberto": setor (label pra agrupar),
     fase (texto), data. Ordem de prioridade documentada no plano: (1)
     TramitacaoExterna aberta do Procedimento, (2) mesa_atual manual, (3) FK
     fixa de responsabilidade da etapa (unidade_demandante/licitante/gestora),
-    (4) fallback estrutural (nome da etapa + status bruto).
+    (4) unidade de quem criou a peça (`_unidade_criacao`), (5) fallback
+    último caso — nome da etapa, só quando nem o autor tem unidade cadastrada.
 
     Retorna None quando o DFD já saiu do escopo do painel (execução contratual).
     """
@@ -106,6 +124,11 @@ def resolver_item_painel(dfd, org_id):
             setor = str(dfd.unidade_licitante)
         elif etapa == 'Procedimento' and registro.unidade_gestora_id:
             setor = str(registro.unidade_gestora)
+        if setor is not None:
+            fase = registro.status
+
+    if setor is None:
+        setor = _unidade_criacao(registro)
         if setor is not None:
             fase = registro.status
 
