@@ -9,12 +9,6 @@ import CommandPalette from './CommandPalette'
 const SECTION_ACCENT = {
   'Geral':              { dot: 'bg-slate-400',   ring: 'bg-slate-500/20',   text: 'text-slate-300'  },
   'Planejamento':       { dot: 'bg-emerald-400',  ring: 'bg-emerald-500/15', text: 'text-emerald-300'},
-  'Aceite':             { dot: 'bg-amber-400',    ring: 'bg-amber-500/15',   text: 'text-amber-300'  },
-  'Orçamento':          { dot: 'bg-yellow-400',   ring: 'bg-yellow-500/15',  text: 'text-yellow-300' },
-  'Planos de Aplicação': { dot: 'bg-amber-400',    ring: 'bg-amber-500/15',   text: 'text-amber-300'  },
-  'Demanda':            { dot: 'bg-blue-400',     ring: 'bg-blue-500/15',    text: 'text-blue-300'   },
-  'Pesquisa de Preços': { dot: 'bg-violet-400',   ring: 'bg-violet-500/15',  text: 'text-violet-300' },
-  'Análise Técnica':    { dot: 'bg-indigo-400',   ring: 'bg-indigo-500/15',  text: 'text-indigo-300' },
   'Licitação':          { dot: 'bg-orange-400',   ring: 'bg-orange-500/15',  text: 'text-orange-300' },
   'Contratos':          { dot: 'bg-teal-400',     ring: 'bg-teal-500/15',    text: 'text-teal-300'   },
   'Fornecedores':       { dot: 'bg-sky-400',      ring: 'bg-sky-500/15',     text: 'text-sky-300'    },
@@ -26,12 +20,6 @@ const SECTION_ACCENT = {
 const ACTIVE_CLS = {
   'Geral':              'bg-gray-800/70 text-white',
   'Planejamento':       'bg-gray-800/70 text-white',
-  'Aceite':             'bg-gray-800/70 text-white',
-  'Orçamento':          'bg-gray-800/70 text-white',
-  'Planos de Aplicação': 'bg-gray-800/70 text-white',
-  'Demanda':            'bg-gray-800/70 text-white',
-  'Pesquisa de Preços': 'bg-gray-800/70 text-white',
-  'Análise Técnica':    'bg-gray-800/70 text-white',
   'Licitação':          'bg-gray-800/70 text-white',
   'Contratos':          'bg-gray-800/70 text-white',
   'Fornecedores':       'bg-gray-800/70 text-white',
@@ -43,12 +31,6 @@ const ACTIVE_CLS = {
 const ACTIVE_BORDER = {
   'Geral':              'border-l-2 border-slate-500',
   'Planejamento':       'border-l-2 border-emerald-500',
-  'Aceite':             'border-l-2 border-amber-500',
-  'Orçamento':          'border-l-2 border-yellow-500',
-  'Planos de Aplicação': 'border-l-2 border-amber-500',
-  'Demanda':            'border-l-2 border-blue-500',
-  'Pesquisa de Preços': 'border-l-2 border-violet-500',
-  'Análise Técnica':    'border-l-2 border-indigo-500',
   'Licitação':          'border-l-2 border-orange-500',
   'Contratos':          'border-l-2 border-teal-500',
   'Fornecedores':       'border-l-2 border-sky-500',
@@ -65,51 +47,6 @@ const NAV_BASE = [
       { to: '/',           label: 'Dashboard',       end: true },
       { to: '/painel',     label: 'Painel de Demandas' },
       { to: '/calendario', label: 'Calendário' },
-    ],
-  },
-  {
-    section: 'Planejamento',
-    items: [
-      { to: '/planejamento/necessidades', label: 'Necessidades' },
-      { to: '/planejamento/planos',       label: 'PCA / Planos' },
-      { to: '/plano-compras',             label: 'Plano de Compras' },
-    ],
-  },
-  {
-    section: 'Orçamento',
-    items: [
-      { to: '/orcamento/painel',     label: 'Painel' },
-      { to: '/orcamento/dotacoes',   label: 'Dotações' },
-      { to: '/orcamento/indicacoes', label: 'Indicações / DOD' },
-      { to: '/orcamento/relatorio-indicacoes', label: 'Relatório por Fonte' },
-    ],
-  },
-  {
-    section: 'Planos de Aplicação',
-    items: [
-      { to: '/fesp/planos',       label: 'Planos de Aplicação' },
-      { to: '/fesp/instrumentos', label: 'Instrumentos Financeiros' },
-      { to: '/fesp/conselho',     label: 'Conselho Gestor' },
-      { to: '/fesp/execucao',        label: 'Painel de Execução' },
-      { to: '/fesp/relatorio-itens', label: 'Relatório de Itens' },
-    ],
-  },
-  {
-    section: 'Demanda',
-    items: [{ to: '/demanda/dfd', label: 'DFDs' }],
-  },
-  {
-    section: 'Pesquisa de Preços',
-    items: [
-      { to: '/pesquisa/mapa',  label: 'Mapa Comparativo' },
-      { to: '/pesquisa/pncp',  label: 'Importações PNCP' },
-    ],
-  },
-  {
-    section: 'Análise Técnica',
-    items: [
-      { to: '/etp/etps',            label: 'ETPs' },
-      { to: '/analise-tecnica/trs', label: 'Minutas TR' },
     ],
   },
   {
@@ -134,9 +71,78 @@ const NAV_BASE = [
   },
 ]
 
-const NAV_ACEITE = {
-  section: 'Aceite',
-  items: [{ to: '/planejamento/aceite', label: 'Aceite de Necessidades' }],
+// A fase de planejamento da contratação (Lei 14.133/2021, art. 18 — fase preparatória)
+// é uma dinâmica processual única: Necessidade → Orçamento → Instrução Técnica
+// (ETP/Pesquisa de Preços/TR) → Consolidação no PCA. Antes ela aparecia espalhada em
+// 6 seções soltas no menu (Planejamento, Orçamento, Planos de Aplicação, Demanda,
+// Pesquisa de Preços, Análise Técnica) — reagrupada aqui em subgrupos de uma única
+// seção "Planejamento", na ordem em que o processo real acontece.
+function buildGrupoPlanejamento(f, podeAceitar) {
+  const grupos = []
+
+  grupos.push({
+    label: 'Necessidades & Demanda',
+    items: [
+      ...(f.modulo_planejamento_ativo !== false
+        ? [{ to: '/planejamento/necessidades', label: 'Necessidades' }]
+        : []),
+      ...(podeAceitar ? [{ to: '/planejamento/aceite', label: 'Aceite de Necessidades' }] : []),
+      { to: '/demanda/dfd', label: 'DFDs' },
+    ],
+  })
+
+  if (f.modulo_orcamento_ativo !== false) {
+    grupos.push({
+      label: 'Programação Orçamentária',
+      items: [
+        { to: '/orcamento/painel',     label: 'Painel' },
+        { to: '/orcamento/dotacoes',   label: 'Dotações' },
+        { to: '/orcamento/indicacoes', label: 'Indicações / DOD' },
+        { to: '/orcamento/relatorio-indicacoes', label: 'Relatório por Fonte' },
+      ],
+    })
+  }
+
+  if (f.modulo_fesp_ativo !== false) {
+    grupos.push({
+      label: 'Fundos e Instrumentos (FESP)',
+      items: [
+        { to: '/fesp/planos',       label: 'Planos de Aplicação' },
+        { to: '/fesp/instrumentos', label: 'Instrumentos Financeiros' },
+        { to: '/fesp/conselho',     label: 'Conselho Gestor' },
+        { to: '/fesp/execucao',        label: 'Painel de Execução' },
+        { to: '/fesp/relatorio-itens', label: 'Relatório de Itens' },
+      ],
+    })
+  }
+
+  const instrucaoItems = [
+    ...(f.modulo_etp_ativo !== false ? [{ to: '/etp/etps', label: 'ETPs' }] : []),
+    { to: '/analise-tecnica/trs', label: 'Minutas TR' },
+  ]
+  if (instrucaoItems.length > 0) grupos.push({ label: 'Instrução Técnica', items: instrucaoItems })
+
+  if (f.modulo_mapa_ativo !== false) {
+    grupos.push({
+      label: 'Pesquisa de Preços',
+      items: [
+        { to: '/pesquisa/mapa', label: 'Mapa Comparativo' },
+        { to: '/pesquisa/pncp', label: 'Importações PNCP' },
+      ],
+    })
+  }
+
+  if (f.modulo_planejamento_ativo !== false) {
+    grupos.push({
+      label: 'Consolidação',
+      items: [
+        { to: '/planejamento/planos', label: 'PCA / Planos' },
+        { to: '/plano-compras',       label: 'Plano de Compras' },
+      ],
+    })
+  }
+
+  return grupos.filter(g => g.items.length > 0)
 }
 
 // Configurações como seção agrupada (type: 'grouped')
@@ -280,29 +286,25 @@ function buildSections(papel, tipoUnidade, flags) {
   const f = flags || {}
   let sections = [...NAV_BASE]
 
-  if (!f.modulo_planejamento_ativo) sections = sections.filter(s => s.section !== 'Planejamento')
-  if (!f.modulo_orcamento_ativo)    sections = sections.filter(s => s.section !== 'Orçamento')
-  if (!f.modulo_fesp_ativo)         sections = sections.filter(s => s.section !== 'Planos de Aplicação')
-  if (!f.modulo_mapa_ativo)         sections = sections.filter(s => s.section !== 'Pesquisa de Preços')
-  if (!f.modulo_etp_ativo) {
-    sections = sections
-      .map(s => s.section === 'Análise Técnica' ? { ...s, items: s.items.filter(i => !i.to.startsWith('/etp')) } : s)
-      .filter(s => s.items?.length !== 0)
-  }
-
-  if (f.modulo_planejamento_ativo !== false &&
-      (tipoUnidade === 'planejamento' || ['gestor_planejamento', 'admin'].includes(papel))) {
-    const idx = sections.findIndex(s => s.section === 'Planejamento')
-    if (idx >= 0) sections.splice(idx + 1, 0, NAV_ACEITE)
+  const podeAceitar = f.modulo_planejamento_ativo !== false &&
+    (tipoUnidade === 'planejamento' || ['gestor_planejamento', 'admin'].includes(papel))
+  const gruposPlanejamento = buildGrupoPlanejamento(f, podeAceitar)
+  if (gruposPlanejamento.length > 0) {
+    sections.splice(1, 0, { section: 'Planejamento', type: 'grouped', groups: gruposPlanejamento })
   }
 
   // Filtrar itens e seções baseado na matriz de permissões
   sections = sections
-    .map(s => ({
-      ...s,
-      items: (s.items || []).filter(item => podeAcessar(item.to, papel, tipoUnidade)),
-    }))
-    .filter(s => (s.items || []).length > 0)
+    .map(s => {
+      if (s.type === 'grouped') {
+        const groups = s.groups
+          .map(g => ({ ...g, items: g.items.filter(item => podeAcessar(item.to, papel, tipoUnidade)) }))
+          .filter(g => g.items.length > 0)
+        return { ...s, groups }
+      }
+      return { ...s, items: (s.items || []).filter(item => podeAcessar(item.to, papel, tipoUnidade)) }
+    })
+    .filter(s => (s.type === 'grouped' ? s.groups.length > 0 : (s.items || []).length > 0))
 
   // Painel Gerencial de Tramitação
   if (['admin', 'gestor_planejamento', 'ordenador'].includes(papel)) {
@@ -555,7 +557,7 @@ export default function Layout() {
                       <div className="ml-3 pl-2 border-l border-gray-800 space-y-2">
                         {sec.groups.map((group) => (
                           <div key={group.label}>
-                            <p className="px-3 py-1 text-[10px] font-semibold text-gray-600 uppercase tracking-widest">
+                            <p className="px-3 py-1 text-[10.5px] font-bold text-gray-500 uppercase tracking-wider">
                               {group.label}
                             </p>
                             <div className="space-y-0.5">

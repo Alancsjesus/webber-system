@@ -315,7 +315,7 @@ export default function Calendario() {
             popup
             views={['month', 'agenda']}
             defaultView="month"
-            defaultDate={new Date(ano, 0, 1)}
+            defaultDate={new Date(ano, ano === new Date().getFullYear() ? new Date().getMonth() : 0, 1)}
           />
         </div>
       )}
