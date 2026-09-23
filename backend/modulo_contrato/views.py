@@ -29,6 +29,9 @@ class ContratoViewSet(viewsets.ModelViewSet):
     ordering           = ['-exercicio', 'numero']
 
     def get_queryset(self):
+        from modulo_licitacao.models import ResultadoLote
+        from modulo_tr.models import LoteTR
+
         return Contrato.objects.filter(
             org_id=self.request.org_id
         ).select_related(
@@ -36,6 +39,12 @@ class ContratoViewSet(viewsets.ModelViewSet):
         ).prefetch_related(
             'apostilas', 'aditivos', 'cronograma', 'medicoes__pagamentos', 'pagamentos',
             Prefetch('notificacoes', queryset=Notificacao.objects.select_related('fornecedor')),
+            # cadeia_origem (ContratoSerializer) lê estes dois prefetches via cache —
+            # nunca .first()/.filter() no related manager, que ignora o prefetch e
+            # gera N+1 (ver feedback_webber_drf_prefetch_nested_actions).
+            Prefetch('resultado_licitacao', queryset=ResultadoLote.objects.select_related(
+                'procedimento', 'procedimento__tr', 'procedimento__tr__etp', 'procedimento__dfd')),
+            Prefetch('lotes', queryset=LoteTR.objects.select_related('tr', 'tr__etp')),
         )
 
     def perform_update(self, serializer):

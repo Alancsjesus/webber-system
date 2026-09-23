@@ -17,6 +17,7 @@ export const pageHelp = {
     { label: 'Aba Analytics',  texto: 'Indicadores consolidados: volume de procedimentos por status, valores empenhados, tempo médio de tramitação e distribuição por modalidade.' },
     { label: 'Aceites',        texto: 'Quando há necessidades de órgãos filhos aguardando aceite, um alerta aparece aqui. Clique para revisar e aceitar as demandas.' },
     { label: 'Prazos importantes', texto: 'Resumo dos 5 prazos mais urgentes entre os tipos que você configurou como destaque no Calendário (⚙ Destaques). Some sozinho quando não há prazos vencendo.' },
+    { label: 'Pendências de rastreabilidade', texto: 'Quando a checagem de reconciliação encontra itens duplicados entre DFDs ou saldo órfão de execução, um alerta aparece aqui. Clique para investigar na tela de Reconciliação.' },
     { label: 'Painel',         texto: 'Abre a visão consolidada de demandas por órgão e unidade, com filtros por exercício.' },
   ],
   dica: 'Os módulos visíveis variam por perfil. Administradores veem todos; solicitantes veem apenas Planejamento e Demanda.',
@@ -99,6 +100,33 @@ function AceitesBanner({ count, navigate }) {
   )
 }
 
+// ── Banner: pendências de reconciliação (C-Trace) ─────────────────────────────
+
+function ReconciliacaoBanner({ resumo, navigate }) {
+  const total = (resumo?.total_grupos_duplicados ?? 0) + (resumo?.total_itens_orfaos ?? 0)
+  if (total === 0) return null
+  return (
+    <button
+      onClick={() => navigate('/rastreabilidade/reconciliacao')}
+      className="w-full flex items-center gap-3 mt-4 bg-rose-950 border border-rose-800 rounded-xl px-4 py-3 text-left hover:bg-rose-900 transition-colors"
+    >
+      <span className="text-rose-400 text-lg">⚑</span>
+      <div>
+        <p className="text-sm font-semibold text-rose-200">
+          {total} pendência{total > 1 ? 's' : ''} de rastreabilidade encontrada{total > 1 ? 's' : ''}
+        </p>
+        <p className="text-xs text-rose-500">
+          {resumo.total_grupos_duplicados > 0 && `${resumo.total_grupos_duplicados} possível(is) duplicidade(s)`}
+          {resumo.total_grupos_duplicados > 0 && resumo.total_itens_orfaos > 0 && ' · '}
+          {resumo.total_itens_orfaos > 0 && `${resumo.total_itens_orfaos} item(ns) com saldo órfão`}
+          {' — clique para investigar'}
+        </p>
+      </div>
+      <span className="ml-auto text-rose-500 text-lg">›</span>
+    </button>
+  )
+}
+
 // ── Dashboard principal ────────────────────────────────────────────────────────
 
 export default function Dashboard() {
@@ -116,7 +144,10 @@ export default function Dashboard() {
   const [indOrc, setIndOrc]       = useState(null)
   const [indDev, setIndDev]       = useState(null)
   const [indAgrup, setIndAgrup]   = useState(null)
+  const [reconciliacao, setReconciliacao] = useState(null)
   const [loading, setLoading]     = useState(true)
+
+  const vePendenciasReconciliacao = ['admin', 'analista', 'gestor_planejamento', 'ordenador', 'gestor_contrato'].includes(papel)
 
   useEffect(() => {
     api.get('/dashboard/stats/')
@@ -135,6 +166,12 @@ export default function Dashboard() {
     api.get('/indicadores/agrupamento/')
       .then(({ data }) => setIndAgrup(data))
       .catch(() => {})
+
+    if (vePendenciasReconciliacao) {
+      api.get('/indicadores/reconciliacao/')
+        .then(({ data }) => setReconciliacao(data.resumo))
+        .catch(() => {})
+    }
   }, [])
 
   const showAnalyticsTab  = ['admin', 'analista', 'gestor_planejamento'].includes(papel)
@@ -166,6 +203,7 @@ export default function Dashboard() {
 
         {systemIsEmpty && <OnboardingBanner navigate={navigate} />}
         {aceitesPendentes > 0 && <AceitesBanner count={aceitesPendentes} navigate={navigate} />}
+        <ReconciliacaoBanner resumo={reconciliacao} navigate={navigate} />
         <PrazosImportantesWidget />
 
         {showAnalyticsTab && (

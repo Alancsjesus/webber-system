@@ -165,6 +165,7 @@ export default function ContratoDetail() {
             </span>
           )}
           <p className="text-xs text-gray-400 mt-1">{current.orgao_executor_sigla} · Ex. {current.exercicio} · {current.tipo_origem_display}</p>
+          <CadeiaOrigem cadeia={current.cadeia_origem} navigate={navigate} />
         </div>
         <div className="flex gap-2">
           <button
@@ -554,6 +555,29 @@ export default function ContratoDetail() {
       {activeTab === 'notificacoes' && (
       <NotificacoesSection contratoId={id} contrato={current} notificacoes={current.notificacoes || []} />
       )}
+    </div>
+  )
+}
+
+const CADEIA_LABEL = { dfd: 'DFD', etp: 'ETP', tr: 'TR', procedimento: 'Procedimento' }
+
+function CadeiaOrigem({ cadeia, navigate }) {
+  if (!cadeia || cadeia.length === 0) return null
+  return (
+    <div className="flex flex-wrap items-center gap-1 mt-2 text-xs">
+      <span className="text-gray-400">Origem:</span>
+      {cadeia.map((elo, i) => (
+        <span key={elo.to} className="flex items-center gap-1">
+          {i > 0 && <span className="text-gray-300">→</span>}
+          <button
+            onClick={() => navigate(elo.to)}
+            className="px-2 py-0.5 rounded-md bg-gray-100 text-gray-600 hover:bg-blue-50 hover:text-blue-700 font-medium transition-colors"
+            title={`Abrir ${CADEIA_LABEL[elo.tipo] || elo.tipo}`}
+          >
+            {CADEIA_LABEL[elo.tipo] || elo.tipo}: {elo.label}
+          </button>
+        </span>
+      ))}
     </div>
   )
 }

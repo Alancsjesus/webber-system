@@ -8,6 +8,7 @@ import DownloadButton from '../components/DownloadButton'
 import ChecklistBadge from '../components/ChecklistBadge'
 import ModalPreviewTexto from '../components/ModalPreviewTexto'
 import HelpTip from '../components/HelpTip'
+import ModalProcessosSimilares from '../components/ModalProcessosSimilares'
 import CampoSei, { NumeroSeiTexto } from '../components/CampoSei'
 import MesaAtualCard from '../components/MesaAtualCard'
 
@@ -73,6 +74,7 @@ export default function ETPDetail() {
   const [showDevolverModal, setShowDevolverModal]   = useState(false)
   const [showReabrirModal, setShowReabrirModal]     = useState(false)
   const [showPreviewTexto, setShowPreviewTexto]     = useState(false)
+  const [showSimilares, setShowSimilares]           = useState(false)
   const [motivoReabrir, setMotivoReabrir]           = useState('')
   const [motivoNumeroSEI, setMotivoNumeroSEI]       = useState('')
   const [atasAdesao, setAtasAdesao] = useState([])
@@ -223,6 +225,13 @@ export default function ETPDetail() {
               </button>
               <HelpTip text="Mostra o texto pronto (gerado a partir dos campos já preenchidos, conforme os modelos configurados em Configurações → Estrutura de Artefatos) para copiar e colar no processo SEI. Não altera os campos deste ETP." />
           </span>
+          <span className="inline-flex items-center gap-1">
+            <button onClick={() => setShowSimilares(true)}
+              className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg transition-colors">
+              Processos semelhantes
+            </button>
+            <HelpTip text="Busca outros DFDs do órgão que já demandaram os mesmos itens do catálogo desta contratação, com status, etapa atual e quantas vezes cada um já foi devolvido — ajuda a antecipar problemas conhecidos desse tipo de compra." />
+          </span>
           <DownloadButton
               onClick={() => downloadFile(`/etp/etp/${id}/export/pdf/`, `ETP_${current.numero_sei}.pdf`)}
               className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg">
@@ -350,6 +359,10 @@ export default function ETPDetail() {
         onClose={() => setShowPreviewTexto(false)}
         endpoint={`/etp/etp/${id}/`}
       />
+
+      {showSimilares && (
+        <ModalProcessosSimilares tipo="etp" id={id} onClose={() => setShowSimilares(false)} />
+      )}
 
       {showReabrirModal && (
         <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">

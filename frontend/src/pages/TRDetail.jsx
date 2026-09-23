@@ -7,6 +7,7 @@ import DownloadButton from '../components/DownloadButton'
 import ModalDevolver, { MOTIVOS_TR } from '../components/ModalDevolver'
 import ChecklistBadge from '../components/ChecklistBadge'
 import ModalPreviewTexto from '../components/ModalPreviewTexto'
+import ModalProcessosSimilares from '../components/ModalProcessosSimilares'
 import HelpTip from '../components/HelpTip'
 import MesaAtualCard from '../components/MesaAtualCard'
 
@@ -66,6 +67,7 @@ export default function TRDetail() {
   const [showDevolver, setShowDevolver]   = useState(false)
   const [showReabrir, setShowReabrir]     = useState(false)
   const [showPreviewTexto, setShowPreviewTexto] = useState(false)
+  const [showSimilares, setShowSimilares]       = useState(false)
   const [motivo, setMotivo]               = useState('')
   const [motivoReabrir, setMotivoReabrir] = useState('')
   const [formErrors, setFormErrors]       = useState({})
@@ -214,6 +216,13 @@ export default function TRDetail() {
               </button>
               <HelpTip text="Mostra o texto pronto (gerado a partir dos campos já preenchidos, conforme os modelos configurados em Configurações → Estrutura de Artefatos) para copiar e colar no processo SEI. Não altera os campos deste TR." />
           </span>
+          <span className="inline-flex items-center gap-1">
+            <button onClick={() => setShowSimilares(true)}
+              className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg transition-colors">
+              Processos semelhantes
+            </button>
+            <HelpTip text="Busca outros DFDs do órgão que já demandaram os mesmos itens do catálogo desta contratação, com status, etapa atual e quantas vezes cada um já foi devolvido — ajuda a antecipar problemas conhecidos desse tipo de compra." />
+          </span>
           <DownloadButton
               onClick={() => downloadFile(`/tr/tr/${id}/export/pdf/`, `TR_${current.numero_sei}.pdf`)}
               className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg">
@@ -294,6 +303,10 @@ export default function TRDetail() {
         onClose={() => setShowPreviewTexto(false)}
         endpoint={`/tr/tr/${id}/`}
       />
+
+      {showSimilares && (
+        <ModalProcessosSimilares tipo="tr" id={id} onClose={() => setShowSimilares(false)} />
+      )}
 
       {/* Modal reabrir */}
       {showReabrir && (

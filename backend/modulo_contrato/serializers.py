@@ -190,6 +190,7 @@ class ContratoSerializer(serializers.ModelSerializer):
     valor_medido_total = serializers.SerializerMethodField()
     valor_pago_total    = serializers.SerializerMethodField()
     saldo_a_pagar       = serializers.SerializerMethodField()
+    cadeia_origem       = serializers.SerializerMethodField()
 
     garantia_tipo_display = serializers.CharField(source='get_garantia_tipo_display', read_only=True, default='')
     tipo_instrumento_display = serializers.CharField(source='get_tipo_instrumento_display', read_only=True)
@@ -219,7 +220,7 @@ class ContratoSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at',
             'apostilas', 'aditivos',
             'cronograma', 'medicoes', 'pagamentos', 'notificacoes',
-            'valor_medido_total', 'valor_pago_total', 'saldo_a_pagar',
+            'valor_medido_total', 'valor_pago_total', 'saldo_a_pagar', 'cadeia_origem',
         ]
         read_only_fields = [
             'id', 'numero', 'org_id', 'created_by', 'created_by_username',
@@ -228,8 +229,46 @@ class ContratoSerializer(serializers.ModelSerializer):
             'dfd_numero_sei', 'fiscal_username', 'gestor_username', 'ordenador_username',
             'tipo_origem_display', 'tipo_instrumento_display', 'garantia_tipo_display', 'apostilas', 'aditivos',
             'cronograma', 'medicoes', 'pagamentos', 'notificacoes',
-            'valor_medido_total', 'valor_pago_total', 'saldo_a_pagar',
+            'valor_medido_total', 'valor_pago_total', 'saldo_a_pagar', 'cadeia_origem',
         ]
+
+    def get_cadeia_origem(self, obj):
+        """Reconstrói DFD → ETP → TR → Procedimento a partir dos vínculos já existentes
+        no modelo (Contrato.dfd, Contrato.lotes, ResultadoLote.procedimento) para exibir
+        a proveniência do contrato sem exigir nenhum campo novo.
+
+        Usa .all() (não .first()/.filter()) nos dois managers para aproveitar o
+        prefetch_related da view — ver ContratoViewSet.get_queryset."""
+        dfd, tr, procedimento = obj.dfd, None, None
+
+        resultados = list(obj.resultado_licitacao.all())
+        resultado = next((r for r in resultados if r.procedimento_id), None)
+        if resultado:
+            procedimento = resultado.procedimento
+            tr = procedimento.tr
+            dfd = dfd or procedimento.dfd
+
+        if not tr:
+            lotes = list(obj.lotes.all())
+            if lotes:
+                tr = lotes[0].tr
+
+        etp = getattr(tr, 'etp', None) if tr else None
+
+        cadeia = []
+        if dfd:
+            cadeia.append({'tipo': 'dfd', 'label': dfd.numero_sei or f'DFD #{dfd.id}',
+                            'to': f'/demanda/dfd/{dfd.id}'})
+        if etp:
+            cadeia.append({'tipo': 'etp', 'label': etp.numero_sei or f'ETP #{etp.id}',
+                            'to': f'/etp/etps/{etp.id}'})
+        if tr:
+            cadeia.append({'tipo': 'tr', 'label': tr.numero_sei or f'TR #{tr.id}',
+                            'to': f'/analise-tecnica/trs/{tr.id}'})
+        if procedimento:
+            cadeia.append({'tipo': 'procedimento', 'label': procedimento.numero,
+                            'to': f'/licitacao/{procedimento.id}'})
+        return cadeia
 
     def get_valor_medido_total(self, obj):
         return sum((m.valor_medido for m in obj.medicoes.all() if m.status == 'aprovada'), Decimal('0'))

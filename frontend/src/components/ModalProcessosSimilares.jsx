@@ -18,18 +18,23 @@ function fmtData(iso) {
   return `${dia}/${mes}/${ano}`
 }
 
-export default function ModalProcessosSimilares({ dfdId, onClose }) {
+export default function ModalProcessosSimilares({ dfdId, tipo = 'dfd', id, onClose }) {
   const navigate = useNavigate()
   const [dados, setDados] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
+  // dfdId é o formato original (compatibilidade); tipo+id permite chamar também
+  // a partir de ETP/TR — o backend resolve os dois para o DFD de origem.
+  const paramKey = dfdId ? 'dfd' : tipo
+  const paramValue = dfdId || id
+
   useEffect(() => {
-    api.get('/base-conhecimento/similares/', { params: { dfd: dfdId } })
+    api.get('/base-conhecimento/similares/', { params: { [paramKey]: paramValue } })
       .then(({ data }) => setDados(data))
       .catch(() => setError('Não foi possível buscar processos semelhantes.'))
       .finally(() => setLoading(false))
-  }, [dfdId])
+  }, [paramKey, paramValue])
 
   return (
     <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 p-4">
