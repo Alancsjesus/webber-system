@@ -235,14 +235,22 @@ node scripts/check-help.js
 ---
 
 ### Test Users (from `setup_dev`)
-| Username | Password | Role | Org |
+Esta tabela já ficou desatualizada uma vez (confirmado em 23/09/2026 contra o
+banco real — 6 dos 9 usuários listados não existiam ou tinham username
+errado). O resumo impresso pelo próprio `python manage.py setup_dev` agora é
+gerado a partir da lista `USUARIOS` do comando, não mais hardcoded — rode o
+comando para conferir a lista atual em vez de confiar só nesta tabela.
+
+| Username | Password | Role | Org / Unidade |
 |---|---|---|---|
-| admin | admin123 | admin | SSP |
-| analista_ssp | admin123 | analista | SSP |
+| admin | admin123 | admin | SSP / CLIC |
+| analista_ssp | admin123 | analista | SSP / CLIC |
 | plan_ssp | admin123 | gestor_planejamento | SSP / CPLAM |
-| solicitante_ssp | admin123 | solicitante | SSP / CMP |
-| analista_pmba | admin123 | analista | PMBA |
-| plan_pmba | admin123 | gestor_planejamento | PMBA / DEPLAN |
-| gestor_contrato | admin123 | gestor_contrato | SSP / CCC |
+| plan_cbm | admin123 | gestor_planejamento | CBMBA / DEPLAN |
+| plan_pm | admin123 | gestor_planejamento | PMBA / DEPLAN |
+| solicitante | admin123 | solicitante | CBMBA / DEM_CBM |
+| solicitante_pm | admin123 | solicitante | PMBA / DEM_PM |
+| gestor | admin123 | gestor_contrato | SSP / CCC |
+| dem_ssp | admin123 | solicitante | SSP / CMP |
 | fiscal | admin123 | fiscal_contrato | SSP / CCC |
-| ordenador | admin123 | ordenador | SSP |
+| ordenador | admin123 | ordenador | SSP / CCC |

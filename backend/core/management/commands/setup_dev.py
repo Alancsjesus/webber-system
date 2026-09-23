@@ -141,6 +141,8 @@ USUARIOS = [
     ('solicitante_pm', 'sol.pm@dev.local',      'solicitante',         'PMBA',  'DEM_PM',  'demandante',   False),
     ('gestor',         'gestor@dev.local',      'gestor_contrato',     'SSP',   'CCC',     'contratante',  False),
     ('dem_ssp',        'dem@dev.local',         'solicitante',         'SSP',   'CMP',     'demandante',   False),
+    ('fiscal',         'fiscal@dev.local',      'fiscal_contrato',     'SSP',   'CCC',     'contratante',  False),
+    ('ordenador',      'ordenador@dev.local',   'ordenador',           'SSP',   'CCC',     'contratante',  False),
 ]
 
 
@@ -323,14 +325,11 @@ class Command(BaseCommand):
         self.stdout.write('')
         self.stdout.write(self.style.SUCCESS('=== Setup concluído ==='))
         self.stdout.write(f'  Orgaos:   SSP (pai) > CBMBA, PMBA (filhos)')
-        self.stdout.write(f'  Unidades: 11 unidades (demandante/licitante/contratante/planejamento)')
+        self.stdout.write(f'  Unidades: {len(UNIDADES)} unidades (demandante/licitante/contratante/planejamento)')
         self.stdout.write('')
-        self.stdout.write(f'  admin          / {pw}  >SSP/CLIC   (licitante),    admin')
-        self.stdout.write(f'  analista_ssp   / {pw}  >SSP/CLIC   (licitante),    analista')
-        self.stdout.write(f'  plan_ssp       / {pw}  >SSP/CPLAM  (planejamento), gestor_planejamento')
-        self.stdout.write(f'  plan_cbm       / {pw}  >CBM/DEPLAN (planejamento), gestor_planejamento')
-        self.stdout.write(f'  plan_pm        / {pw}  >PM/DEPLAN  (planejamento), gestor_planejamento')
-        self.stdout.write(f'  solicitante    / {pw}  >CBM/DEM_CBM(demandante),   solicitante')
-        self.stdout.write(f'  solicitante_pm / {pw}  >PM/DEM_PM  (demandante),   solicitante')
-        self.stdout.write(f'  gestor         / {pw}  >SSP/CCC    (contratante),  gestor_contrato')
-        self.stdout.write(f'  dem_ssp        / {pw}  >SSP/CMP    (demandante),   solicitante')
+        # Gerado a partir de USUARIOS (não hardcoded) — um resumo hardcoded já
+        # ficou desatualizado antes (mesma classe de bug do CLAUDE.md: uma
+        # segunda fonte da verdade que ninguém lembra de manter em dia).
+        largura_user = max(len(u[0]) for u in USUARIOS)
+        for username, _email, papel, org_sigla, und_sigla, und_tipo, _superuser in USUARIOS:
+            self.stdout.write(f'  {username.ljust(largura_user)} / {pw}  >{org_sigla}/{und_sigla} ({und_tipo}), {papel}')
