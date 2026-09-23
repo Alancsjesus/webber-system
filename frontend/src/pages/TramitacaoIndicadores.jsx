@@ -12,6 +12,7 @@ export const pageHelp = {
     { label: 'Cards de topo', texto: 'Visão geral: total de processos, quantos estão críticos/em atenção, tempo médio geral e qual etapa concentra o maior tempo médio.' },
     { label: 'Gráficos por setor/etapa', texto: 'Comparação visual do tempo médio — a barra mais alta é onde vale investigar primeiro. Cor segue o mesmo limiar dos cards (verde/âmbar/vermelho).' },
     { label: 'Processos mais parados', texto: 'Os 10 processos com mais dias na fase atual, com link direto para abrir o registro (quando não é um item manual).' },
+    { label: 'Duração de processos concluídos', texto: 'Mede o ciclo completo (início do Procedimento até assinatura do Contrato) de processos já concluídos, não o tempo parado dos que estão em andamento. Segmentado por modalidade, natureza do objeto e passagem por órgão externo (Casa Civil, PGE, SEFAZ) — uma média única esconderia a diferença entre uma compra simples e uma que exige mais trâmite.' },
   ],
 }
 
@@ -146,6 +147,148 @@ function DonutClassificacao({ total, criticos, atencao }) {
             ))}
           </div>
         </div>
+      )}
+    </div>
+  )
+}
+
+const COR_DURACAO = '#6366F1'
+
+function GraficoDuracaoPorGrupo({ titulo, dados, chaveLabel }) {
+  const comAmostra = dados.filter((g) => g.amostra_suficiente)
+  const semAmostra = dados.filter((g) => !g.amostra_suficiente)
+  const linhas = comAmostra.map((g) => ({ nome: g[chaveLabel], duracao_media: g.duracao_media, min: g.duracao_min, max: g.duracao_max, n: g.quantidade_amostra }))
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
+        <h2 className="text-sm font-bold text-gray-700">{titulo}</h2>
+      </div>
+      {linhas.length === 0 ? (
+        <p className="text-sm text-gray-400 p-5">Ainda não há amostra suficiente (mínimo 3 processos concluídos) em nenhum grupo.</p>
+      ) : (
+        <div style={{ width: '100%', height: Math.max(120, linhas.length * 42) }} className="py-3">
+          <ResponsiveContainer>
+            <BarChart data={linhas} layout="vertical" margin={{ left: 8, right: 24 }}>
+              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#F1F5F9" />
+              <XAxis type="number" tick={{ fontSize: 11, fill: '#94A3B8' }} unit="d" />
+              <YAxis type="category" dataKey="nome" width={130} tick={{ fontSize: 11, fill: '#475569' }} />
+              <Tooltip
+                formatter={(value, _name, item) => [`${value}d (mín. ${item.payload.min} · máx. ${item.payload.max} · n=${item.payload.n})`, 'Duração média']}
+                labelStyle={{ color: '#334155', fontWeight: 600 }}
+                contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E2E8F0' }}
+              />
+              <Bar dataKey="duracao_media" radius={[0, 4, 4, 0]} maxBarSize={22} fill={COR_DURACAO} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+      {semAmostra.length > 0 && (
+        <p className="text-xs text-gray-400 px-5 py-2 border-t border-gray-100">
+          Ainda sem amostra suficiente: {semAmostra.map((g) => g[chaveLabel]).join(', ')}
+        </p>
+      )}
+    </div>
+  )
+}
+
+const COR_SEM_EXTERNA = '#6366F1'
+const COR_COM_EXTERNA = '#C026D3'
+
+function GraficoDuracaoModalidadeSegmentado({ duracaoPorModalidade, impactoTramitacaoExterna }) {
+  const impactoPorModalidade = Object.fromEntries(impactoTramitacaoExterna.map((g) => [g.modalidade, g]))
+  const linhas = []
+  const semAmostra = []
+  for (const m of duracaoPorModalidade) {
+    if (!m.amostra_suficiente) { semAmostra.push(m.modalidade_label); continue }
+    const impacto = impactoPorModalidade[m.modalidade]
+    const temSegmentacao = impacto && impacto.sem_tramitacao_externa.amostra_suficiente && impacto.com_tramitacao_externa.amostra_suficiente
+    if (temSegmentacao) {
+      linhas.push({ nome: `${m.modalidade_label} — sem trâmite externo`, duracao_media: impacto.sem_tramitacao_externa.duracao_media, cor: COR_SEM_EXTERNA })
+      linhas.push({ nome: `${m.modalidade_label} — com trâmite externo`, duracao_media: impacto.com_tramitacao_externa.duracao_media, cor: COR_COM_EXTERNA })
+    } else {
+      linhas.push({ nome: m.modalidade_label, duracao_media: m.duracao_media, min: m.duracao_min, max: m.duracao_max, cor: COR_SEM_EXTERNA })
+    }
+  }
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="px-5 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between gap-3">
+        <h2 className="text-sm font-bold text-gray-700">Duração média por modalidade</h2>
+        <div className="flex items-center gap-3 text-[10px] text-gray-500">
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ background: COR_SEM_EXTERNA }} /> sem trâmite externo</span>
+          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ background: COR_COM_EXTERNA }} /> com trâmite externo</span>
+        </div>
+      </div>
+      {linhas.length === 0 ? (
+        <p className="text-sm text-gray-400 p-5">Ainda não há amostra suficiente (mínimo 3 processos concluídos) em nenhuma modalidade.</p>
+      ) : (
+        <div style={{ width: '100%', height: Math.max(120, linhas.length * 38) }} className="py-3">
+          <ResponsiveContainer>
+            <BarChart data={linhas} layout="vertical" margin={{ left: 8, right: 24 }}>
+              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#F1F5F9" />
+              <XAxis type="number" tick={{ fontSize: 11, fill: '#94A3B8' }} unit="d" />
+              <YAxis type="category" dataKey="nome" width={190} tick={{ fontSize: 11, fill: '#475569' }} />
+              <Tooltip
+                formatter={(value) => [`${value}d`, 'Duração média']}
+                labelStyle={{ color: '#334155', fontWeight: 600 }}
+                contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E2E8F0' }}
+              />
+              <Bar dataKey="duracao_media" radius={[0, 4, 4, 0]} maxBarSize={20}>
+                {linhas.map((l, i) => <Cell key={i} fill={l.cor} />)}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+      <p className="text-xs text-gray-400 px-5 py-2 border-t border-gray-100">
+        Quando a modalidade tem amostra suficiente nos dois grupos, a média geral é substituída pelas
+        duas médias separadas — misturar as duas esconderia justamente o efeito do trâmite externo.
+        {semAmostra.length > 0 && ` Ainda sem amostra suficiente: ${semAmostra.join(', ')}.`}
+      </p>
+    </div>
+  )
+}
+
+function TabelaImpactoTramitacaoExterna({ dados }) {
+  const relevantes = dados.filter((g) => g.com_tramitacao_externa.amostra_suficiente || g.sem_tramitacao_externa.amostra_suficiente)
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
+        <h2 className="text-sm font-bold text-gray-700">Impacto de tramitação externa (Casa Civil, PGE, SEFAZ...)</h2>
+      </div>
+      {relevantes.length === 0 ? (
+        <p className="text-sm text-gray-400 p-5">Ainda não há amostra suficiente para comparar.</p>
+      ) : (
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-left text-gray-400">
+              <th className="py-2 px-5 font-medium">Modalidade</th>
+              <th className="py-2 px-5 font-medium text-right">Sem trâmite externo</th>
+              <th className="py-2 px-5 font-medium text-right">Com trâmite externo</th>
+              <th className="py-2 px-5 font-medium text-right">Impacto medido</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-50">
+            {relevantes.map((g) => (
+              <tr key={g.modalidade}>
+                <td className="py-2 px-5 text-gray-700">{g.modalidade_label}</td>
+                <td className="py-2 px-5 text-right text-gray-600 tabular-nums">
+                  {g.sem_tramitacao_externa.amostra_suficiente ? `${g.sem_tramitacao_externa.duracao_media}d` : '— sem amostra'}
+                </td>
+                <td className="py-2 px-5 text-right text-gray-600 tabular-nums">
+                  {g.com_tramitacao_externa.amostra_suficiente ? `${g.com_tramitacao_externa.duracao_media}d` : '— sem amostra'}
+                </td>
+                <td className="py-2 px-5 text-right tabular-nums">
+                  {g.impacto_dias != null ? (
+                    <span className={`font-semibold ${g.impacto_dias > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
+                      {g.impacto_dias > 0 ? '+' : ''}{g.impacto_dias}d
+                    </span>
+                  ) : '—'}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
       )}
     </div>
   )
@@ -300,6 +443,28 @@ export default function TramitacaoIndicadores() {
               </table>
             </div>
           </div>
+
+          <div className="mt-8 mb-4">
+            <h2 className="text-base font-bold text-gray-800">Duração de processos concluídos</h2>
+            <p className="text-xs text-gray-500 mt-0.5">
+              Diferente do restante desta página (que mede quanto tempo processos EM ANDAMENTO estão
+              parados na etapa atual), isto mede o ciclo completo — do início do Procedimento até a
+              assinatura do Contrato — de processos já concluídos. Segmentado por modalidade, natureza
+              do objeto e passagem por órgão externo, porque uma média única mistura processos de
+              complexidade muito diferente (ex.: compra de material de escritório vs. aquisição de
+              viaturas que tramita pela Casa Civil) e esconde exatamente o sinal que importa para
+              planejar. Amostra mínima de 3 processos concluídos por grupo — abaixo disso, nada é
+              estimado.
+            </p>
+          </div>
+          <div className="grid lg:grid-cols-2 gap-6 mb-6">
+            <GraficoDuracaoModalidadeSegmentado
+              duracaoPorModalidade={dados.duracao_por_modalidade}
+              impactoTramitacaoExterna={dados.impacto_tramitacao_externa}
+            />
+            <GraficoDuracaoPorGrupo titulo="Duração média por natureza do objeto (via TR)" dados={dados.duracao_por_tipo_objeto} chaveLabel="tipo_objeto_label" />
+          </div>
+          <TabelaImpactoTramitacaoExterna dados={dados.impacto_tramitacao_externa} />
         </>
       )}
     </div>

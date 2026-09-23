@@ -144,6 +144,13 @@ class IndicadoresTramitacaoView(APIView):
     de processos críticos/em atenção (limiares configuráveis via
     ParametroSistema: tramitacao_dias_atencao, tramitacao_dias_critico —
     default 15/30 dias) e lista dos processos mais parados.
+
+    Também traz `duracao_por_modalidade`: diferente do resto do endpoint (que
+    mede tempo NA ETAPA ATUAL de processos em andamento), isto mede o ciclo
+    completo — dias do início do Procedimento até a assinatura do Contrato —
+    de processos já CONCLUÍDOS, por modalidade (Pregão, Dispensa, etc.). Ver
+    core.cronograma_contratacoes.estatisticas_duracao_por_modalidade.
+
     Filtros opcionais: ?busca=<texto> (nº SEI ou objeto, mesmo do painel),
     ?setor=<setor exato>, ?etapa=<DFD|ETP|TR|Procedimento|manual>,
     ?data_inicio=/?data_fim=<YYYY-MM-DD> (sobre data_entrada_fase).

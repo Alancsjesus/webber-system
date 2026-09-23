@@ -128,6 +128,14 @@ def calcular_indicadores(request):
 
     top_criticos = sorted(com_dias, key=lambda i: -i['dias_na_fase'])[:10]
 
+    from core.cronograma_contratacoes import (
+        estatisticas_duracao_por_modalidade, estatisticas_duracao_por_tipo_objeto,
+        estatisticas_impacto_tramitacao_externa,
+    )
+    duracao_por_modalidade = estatisticas_duracao_por_modalidade(request.org_id)
+    duracao_por_tipo_objeto = estatisticas_duracao_por_tipo_objeto(request.org_id)
+    impacto_tramitacao_externa = estatisticas_impacto_tramitacao_externa(request.org_id)
+
     return {
         'total_processos': len(itens),
         'processos_criticos': sum(1 for i in itens if i['classificacao'] == 'critico'),
@@ -138,6 +146,9 @@ def calcular_indicadores(request):
         'limiar_dias_critico': critico,
         'por_setor': grupos_setor,
         'por_etapa': grupos_etapa,
+        'duracao_por_modalidade': duracao_por_modalidade,
+        'duracao_por_tipo_objeto': duracao_por_tipo_objeto,
+        'impacto_tramitacao_externa': impacto_tramitacao_externa,
         'top_criticos': [
             {
                 'numero_sei': i['numero_sei'],

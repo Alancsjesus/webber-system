@@ -181,8 +181,10 @@ class TestEndpointIndicadoresTramitacao:
         resp = api_client.get('/api/tramitacao/indicadores/')
         assert resp.status_code == 200
         for chave in ('total_processos', 'processos_criticos', 'processos_atencao',
-                      'tempo_medio_geral', 'por_setor', 'por_etapa', 'top_criticos'):
+                      'tempo_medio_geral', 'por_setor', 'por_etapa', 'top_criticos',
+                      'duracao_por_modalidade'):
             assert chave in resp.data
+        assert len(resp.data['duracao_por_modalidade']) == 5
 
     def test_endpoint_exige_autenticacao(self, api_client):
         resp = api_client.get('/api/tramitacao/indicadores/')
