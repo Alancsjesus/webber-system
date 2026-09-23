@@ -9,8 +9,8 @@ import CampoMoeda from '../components/CampoMoeda'
 const ANO = new Date().getFullYear()
 
 const FUNDAMENTOS_DISPENSA = [
-  { value: 'art75_i',   label: 'Art. 75, I — Bens/serviços (até R$ 57.277,08)' },
-  { value: 'art75_ii',  label: 'Art. 75, II — Obras/engenharia (até R$ 114.554,16)' },
+  { value: 'art75_i',   label: 'Art. 75, I — Obras/eng./manutenção de veículos (até R$ 114.554,16)' },
+  { value: 'art75_ii',  label: 'Art. 75, II — Compras e demais serviços (até R$ 57.277,08)' },
   { value: 'art75_iii', label: 'Art. 75, III — Licitação deserta' },
   { value: 'art75_iv',  label: 'Art. 75, IV — Licitação fracassada' },
   { value: 'art75_v',   label: 'Art. 75, V — Emergência/calamidade' },

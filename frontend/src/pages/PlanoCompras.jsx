@@ -14,6 +14,64 @@ const SUGESTAO_CLS = {
 
 const STATUS_OPTS = ['Rascunho', 'Submetida', 'Em Análise', 'Devolvida', 'Aprovada']
 
+const fmtData = (iso) => {
+  if (!iso) return '—'
+  const [ano, mes, dia] = iso.split('-')
+  return `${dia}/${mes}/${ano}`
+}
+
+function OpcaoModalidade({ op }) {
+  return (
+    <div className={`rounded-lg border px-2.5 py-1.5 text-[11px] ${op.sugerida ? 'border-emerald-300 bg-emerald-50' : 'border-gray-200 bg-gray-50'}`}>
+      <div className="flex items-center justify-between gap-2">
+        <span className={`font-semibold ${op.sugerida ? 'text-emerald-700' : 'text-gray-700'}`}>
+          {op.modalidade_label}{op.sugerida && ' ✓'}
+        </span>
+        <span className="text-gray-500 whitespace-nowrap">
+          {op.duracao_dias != null ? `~${op.duracao_dias}d` : 'sem amostra'}
+        </span>
+      </div>
+      {op.modalidade === 'adesao_arp' && (
+        <p className="text-gray-500 mt-0.5">
+          Ata {op.ata_numero} · {fmt(op.valor_unitario_ata)}/un.
+          {op.preco_compativel === true && <span className="text-emerald-600 font-medium"> · compatível c/ mercado</span>}
+          {op.preco_compativel === false && <span className="text-amber-600 font-medium"> · acima da referência de mercado</span>}
+        </p>
+      )}
+      {op.duracao_obs && <p className="text-gray-400 mt-0.5 italic">{op.duracao_obs}</p>}
+    </div>
+  )
+}
+
+function CardItemCronograma({ item }) {
+  return (
+    <div className="bg-white border border-gray-200 rounded-lg p-3 space-y-2">
+      <div>
+        <p className="text-xs font-semibold text-gray-800 leading-snug">{item.catalogo_nome}</p>
+        <p className="text-[10px] text-gray-400 font-mono mt-0.5">{item.catalogo_simpas || '—'}</p>
+      </div>
+      <div className="flex items-center justify-between text-[11px] text-gray-500">
+        <span>Prazo da necessidade: <b className="text-gray-700">{fmtData(item.prazo_necessidade)}</b></span>
+        <span className="font-semibold text-gray-700">{fmt(item.valor_total)}</span>
+      </div>
+      {item.data_inicio_sugerida && (
+        <p className={`text-[11px] rounded-md px-2 py-1 ${item.atrasado ? 'bg-red-50 text-red-700' : 'bg-emerald-50 text-emerald-700'}`}>
+          {item.atrasado ? '⚑ Deveria ter iniciado em ' : '→ Iniciar até '}
+          <b>{fmtData(item.data_inicio_sugerida)}</b> para cumprir o prazo de {fmtData(item.prazo_necessidade)}
+        </p>
+      )}
+      <div className="space-y-1">
+        {item.opcoes_modalidade.map(op => <OpcaoModalidade key={op.modalidade} op={op} />)}
+      </div>
+      <div className="flex flex-wrap gap-1 pt-1">
+        {(item.dfds || []).map(d => (
+          <span key={d} className="text-[9px] font-mono bg-gray-100 text-gray-500 px-1 py-0.5 rounded">{d}</span>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 // ─── Ajuda Contextual ─────────────────────────────────────────────────────────
 export const pageHelp = {
   titulo: 'Plano de Contratações Anual (PCA)',
@@ -39,6 +97,22 @@ export default function PlanoCompras() {
   })
   const [incluirExecutados, setIncluirExecutados] = useState(false)
   const [exportLoading, setExportLoading] = useState(false)
+  const [tab, setTab] = useState('familias')
+  const [cronograma, setCronograma] = useState(null)
+  const [loadingCronograma, setLoadingCronograma] = useState(false)
+
+  const loadCronograma = async () => {
+    setLoadingCronograma(true)
+    try {
+      const params = {}
+      if (filters.exercicio) params.exercicio = filters.exercicio
+      const { data } = await api.get('/indicadores/cronograma-contratacoes/', { params })
+      setCronograma(data)
+    } catch { setCronograma(null) }
+    finally { setLoadingCronograma(false) }
+  }
+
+  useEffect(() => { if (tab === 'cronograma') loadCronograma() }, [tab, filters.exercicio])
 
   const load = async () => {
     setLoading(true)
@@ -91,6 +165,22 @@ export default function PlanoCompras() {
         </button>
       </div>
 
+      {/* Abas */}
+      <div className="flex gap-1 border-b border-gray-200 mb-5">
+        {[
+          { key: 'familias',   label: 'Por Família SIMPAS' },
+          { key: 'cronograma', label: 'Cronograma de Início Sugerido' },
+        ].map(({ key, label }) => (
+          <button key={key} onClick={() => setTab(key)}
+            className={`px-4 py-2 text-sm font-medium border-b-2 -mb-px transition-colors ${
+              tab === key ? 'border-blue-600 text-blue-700' : 'border-transparent text-gray-500 hover:text-gray-700'
+            }`}>
+            {label}
+          </button>
+        ))}
+      </div>
+
+      {tab === 'familias' && (<>
       {/* Filtros */}
       <div className="bg-white border border-gray-200 rounded-xl p-4 mb-6 flex flex-wrap gap-3 items-end">
         <div>
@@ -181,10 +271,19 @@ export default function PlanoCompras() {
                 const aberta = expanded[fam.familia] !== false
                 return (
                   <div key={fam.familia} className={`bg-white border rounded-xl overflow-hidden ${cls.border}`}>
-                    {/* Cabeçalho da família */}
-                    <button
-                      className="w-full flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition-colors"
-                      onClick={() => setExpanded(p => ({ ...p, [fam.familia]: !aberta }))}>
+                    {/* Cabeçalho da família — div (não button) porque contém o botão
+                        "Iniciar Aquisição": button dentro de button é HTML inválido. */}
+                    <div
+                      role="button"
+                      tabIndex={0}
+                      className="w-full flex items-center justify-between px-5 py-3 hover:bg-gray-50 transition-colors cursor-pointer"
+                      onClick={() => setExpanded(p => ({ ...p, [fam.familia]: !aberta }))}
+                      onKeyDown={e => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          setExpanded(p => ({ ...p, [fam.familia]: !aberta }))
+                        }
+                      }}>
                       <div className="flex items-center gap-3">
                         <span className={`w-3 h-3 rounded-full shrink-0 ${cls.dot}`} />
                         <span className="font-mono text-base font-bold text-gray-800">{fam.familia}</span>
@@ -219,7 +318,7 @@ export default function PlanoCompras() {
                         </button>
                         <span className="text-gray-400 text-xs">{aberta ? '▲' : '▼'}</span>
                       </div>
-                    </button>
+                    </div>
 
                     {/* Tabela de itens consolidados */}
                     {aberta && (
@@ -271,6 +370,88 @@ export default function PlanoCompras() {
             </div>
           )}
         </>
+      )}
+      </>)}
+
+      {tab === 'cronograma' && (
+        <div>
+          <div className="bg-white border border-gray-200 rounded-xl p-4 mb-6 flex flex-wrap gap-3 items-end">
+            <div>
+              <label className="block text-xs font-medium text-gray-600 mb-1">Exercício</label>
+              <input type="number" min="2020" max="2050" value={filters.exercicio}
+                onChange={e => setFilters(p => ({ ...p, exercicio: e.target.value }))}
+                className="w-24 border border-gray-300 rounded-lg px-3 py-1.5 text-sm" />
+            </div>
+            <button onClick={loadCronograma}
+              className="bg-gray-800 hover:bg-gray-700 text-white text-sm font-medium px-4 py-1.5 rounded-lg">
+              Atualizar
+            </button>
+          </div>
+
+          {loadingCronograma ? <LoadingSpinner /> : !cronograma ? (
+            <p className="text-sm text-gray-400">Nenhum dado disponível.</p>
+          ) : (
+            <>
+              <div className="bg-blue-50 border border-blue-200 text-blue-800 text-xs rounded-lg px-4 py-2.5 mb-5">
+                ℹ {cronograma.aviso}
+              </div>
+
+              {cronograma.itens.length === 0 ? (
+                <div className="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center">
+                  <p className="text-sm font-semibold text-amber-800">Nenhum item pendente encontrado</p>
+                  <p className="text-xs text-amber-600 mt-1">Todos os itens do catálogo já foram contratados, ou não há necessidades com item de catálogo vinculado.</p>
+                </div>
+              ) : (
+                <>
+                  {(() => {
+                    const atrasado  = cronograma.periodos.find(p => p.periodo === 'atrasado')
+                    const semPrazo  = cronograma.periodos.find(p => p.periodo === 'sem_prazo')
+                    const trimestres = cronograma.periodos.filter(p => p.periodo !== 'atrasado' && p.periodo !== 'sem_prazo')
+                    // Colunas de trimestre são geradas a partir dos períodos reais que
+                    // aparecem nos dados (ano incluído) — nunca uma grade fixa de 4
+                    // trimestres, que confundiria itens de anos diferentes na mesma coluna.
+                    const colunas = [
+                      { ...atrasado, cls: 'border-red-300 bg-red-50', head: 'text-red-700' },
+                      ...trimestres.map(t => ({ ...t, cls: 'border-gray-200 bg-white', head: 'text-gray-600' })),
+                    ]
+                    return (
+                      <>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3 mb-6">
+                          {colunas.map(col => (
+                            <div key={col.periodo} className={`border rounded-xl p-3 ${col.cls}`}>
+                              <p className={`text-xs font-bold uppercase tracking-wide mb-3 ${col.head}`}>
+                                {col.label} <span className="font-normal normal-case text-gray-400">({col.itens.length})</span>
+                              </p>
+                              <div className="space-y-2">
+                                {col.itens.map(item => <CardItemCronograma key={item.item_catalogo_id} item={item} />)}
+                                {col.itens.length === 0 && <p className="text-[11px] text-gray-400 italic">Nenhum item</p>}
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+
+                        {semPrazo && semPrazo.itens.length > 0 && (
+                          <div>
+                            <p className="text-xs font-bold uppercase tracking-wide text-gray-500 mb-3">
+                              {semPrazo.label} ({semPrazo.itens.length})
+                            </p>
+                            <p className="text-[11px] text-gray-400 mb-3">
+                              Falta prazo de necessidade no DFD, ou nenhuma modalidade aplicável tem amostra histórica
+                              suficiente neste órgão para estimar a duração — nada aqui foi inventado.
+                            </p>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+                              {semPrazo.itens.map(item => <CardItemCronograma key={item.item_catalogo_id} item={item} />)}
+                            </div>
+                          </div>
+                        )}
+                      </>
+                    )
+                  })()}
+                </>
+              )}
+            </>
+          )}
+        </div>
       )}
     </div>
   )

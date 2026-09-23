@@ -139,6 +139,7 @@ class AtaViewSet(viewsets.ModelViewSet):
         individual já contratado.
         """
         from modulo_demanda.models import ItemDFD
+        from .services import atas_vigentes_com_saldo_por_catalogo
 
         org_id = request.org_id
         itens_pendentes = (
@@ -149,16 +150,7 @@ class AtaViewSet(viewsets.ModelViewSet):
             .select_related('dfd', 'item_catalogo')
         )
 
-        itens_ata_vigentes = (
-            ItemAta.objects
-            .filter(ata__org_id=org_id, ata__status='vigente', item_catalogo__isnull=False)
-            .select_related('ata', 'item_catalogo', 'fornecedor')
-        )
-        por_catalogo = {}
-        for item_ata in itens_ata_vigentes:
-            if item_ata.saldo_disponivel <= 0:
-                continue
-            por_catalogo.setdefault(item_ata.item_catalogo_id, []).append(item_ata)
+        por_catalogo = atas_vigentes_com_saldo_por_catalogo(org_id)
 
         resultado = []
         for item_dfd in itens_pendentes:

@@ -75,8 +75,12 @@ TRANSICOES_PERMITIDAS = {
 }
 
 FUNDAMENTO_DISPENSA_CHOICES = [
-    ('art75_i',   'Art. 75, I — Bens e serviços (até R$ 57.277,08)'),
-    ('art75_ii',  'Art. 75, II — Obras e serviços de eng. (até R$ 114.554,16)'),
+    # Inciso I cobre obras/serviços de engenharia e manutenção de veículos — teto
+    # maior; inciso II cobre compras e demais serviços — teto menor. Já foram
+    # corrigidas aqui uma vez, invertidas (correção de 23/09/2026): não trocar
+    # de volta sem reconferir contra o texto atual do Art. 75.
+    ('art75_i',   'Art. 75, I — Obras, serv. de engenharia ou manutenção de veículos (até R$ 114.554,16)'),
+    ('art75_ii',  'Art. 75, II — Compras e demais serviços (até R$ 57.277,08)'),
     ('art75_iii', 'Art. 75, III — Licitação deserta'),
     ('art75_iv',  'Art. 75, IV — Licitação fracassada'),
     ('art75_v',   'Art. 75, V — Emergência/calamidade'),

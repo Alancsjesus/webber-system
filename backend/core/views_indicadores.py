@@ -498,6 +498,8 @@ class PlanoComprasView(APIView):
             nome = f'PlanoCompras{"-" + str(exercicio) if exercicio else ""}.pdf'
             return resposta_pdf(pdf, nome)
 
+        return Response(dados)
+
 
 class IndicadoresReconciliacaoView(APIView):
     """

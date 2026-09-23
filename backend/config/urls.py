@@ -19,6 +19,7 @@ from core.views_calendario import CalendarioContratacaoView
 from core.views_rastreabilidade import RastreabilidadeListView, RastreabilidadeDetailView
 from core.views_busca_global import BuscaGlobalView
 from core.views_base_conhecimento import ProcessosSimilaresView
+from core.views_cronograma import CronogramaContratacoesView
 
 router = DefaultRouter()
 router.register(r'demanda/dfd', DFDViewSet, basename='dfd')
@@ -45,6 +46,7 @@ urlpatterns = [
     path('api/indicadores/agrupamento/',   IndicadoresAgrupamentoView.as_view(), name='indicadores-agrupamento'),
     path('api/indicadores/plano-compras/', PlanoComprasView.as_view(), name='plano-compras'),
     path('api/indicadores/reconciliacao/', IndicadoresReconciliacaoView.as_view(), name='indicadores-reconciliacao'),
+    path('api/indicadores/cronograma-contratacoes/', CronogramaContratacoesView.as_view(), name='indicadores-cronograma-contratacoes'),
     path('api/painel/', PainelOrgaoPaiView.as_view(), name='painel-orgao-pai'),
     path('api/verificar/<str:hash_code>/', VerificarDocumentoView.as_view(), name='verificar-documento'),
     path('api/core/users-list/', UserListView.as_view(), name='user-list'),
