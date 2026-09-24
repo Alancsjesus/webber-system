@@ -190,6 +190,7 @@ class DotacaoOrcamentariaSerializer(serializers.ModelSerializer):
             'fonte_recurso', 'fonte_codigo', 'fonte_nome', 'fonte_tipo',
             'subfonte_recurso', 'subfonte_codigo', 'subfonte_nome',
             'valor_dotado', 'valor_indicado', 'valor_descentralizado', 'valor_concedido',
+            'valor_empenhado', 'valor_liquidado', 'valor_pago',
             'status',
             'eixo',
             'objetivo_estrategico',
@@ -201,8 +202,12 @@ class DotacaoOrcamentariaSerializer(serializers.ModelSerializer):
             'updated_by', 'updated_by_username',
             'created_at', 'updated_at',
         ]
+        # Totais de execução são caches mantidos pelas ações da Indicação — gravá-los
+        # por aqui desalinhava o saldo usado nas travas de indicação/empenho.
         read_only_fields = [
             'id', 'org_id', 'created_by', 'updated_by', 'created_at', 'updated_at',
+            'valor_indicado', 'valor_descentralizado', 'valor_concedido',
+            'valor_empenhado', 'valor_liquidado', 'valor_pago',
         ]
 
     def validate(self, attrs):
@@ -580,11 +585,16 @@ class IndicacaoOrcamentariaSerializer(serializers.ModelSerializer):
         org_id  = request.org_id
         exercicio = validated_data.get('exercicio_fiscal', date.today().year)
 
-        # Gerar número sequencial: IND-2026-001
-        count = IndicacaoOrcamentaria.objects.filter(
-            org_id=org_id, exercicio_fiscal=exercicio
-        ).count()
-        numero = f'IND-{exercicio}-{str(count + 1).zfill(3)}'
+        # Número sequencial IND-2026-001: maior sequencial + 1 (count()+1 repetia
+        # número quando uma indicação do meio era excluída)
+        prefixo = f'IND-{exercicio}-'
+        seqs = [
+            int(n[len(prefixo):]) for n in IndicacaoOrcamentaria.objects.filter(
+                org_id=org_id, numero__startswith=prefixo).values_list('numero', flat=True)
+            if n[len(prefixo):].isdigit()
+        ]
+        total = IndicacaoOrcamentaria.objects.filter(org_id=org_id, exercicio_fiscal=exercicio).count()
+        numero = f'{prefixo}{str(max(seqs + [total]) + 1).zfill(3)}'
 
         validated_data['org_id_id'] = org_id
         validated_data['created_by'] = request.user

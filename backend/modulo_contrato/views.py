@@ -19,6 +19,92 @@ from .serializers import (
 PAPEIS_GESTORES = ['admin', 'gestor_contrato', 'analista', 'ordenador']
 
 
+def _dec(valor):
+    from decimal import Decimal
+    return Decimal(str(valor if valor not in (None, '') else '0'))
+
+
+def _validar_ateste(request, contrato, dados, medicao_atual=None):
+    """
+    Ateste (aprovar/rejeitar medição) é ato do fiscal designado no contrato
+    (Lei 14.133, art. 117) — também na criação, senão um POST já "aprovado"
+    pulava a exigência de parecer. Retorna campos a gravar junto.
+    """
+    from datetime import date
+    from django.db.models import Sum
+    from rest_framework.exceptions import PermissionDenied, ValidationError
+    novo = dados.get('status')
+    atual = medicao_atual.status if medicao_atual else 'pendente'
+    if novo not in ('aprovada', 'rejeitada') or novo == atual:
+        return {}
+    if contrato.fiscal_contrato_id is None:
+        raise ValidationError({'status': 'Designe o fiscal do contrato antes de atestar medições.'})
+    if request.user.pk != contrato.fiscal_contrato_id and getattr(request, 'papel', None) != 'admin':
+        raise PermissionDenied('Apenas o fiscal designado no contrato pode atestar (aprovar/rejeitar) a medição.')
+    parecer = dados.get('parecer_fiscal', medicao_atual.parecer_fiscal if medicao_atual else '')
+    if not (parecer or '').strip():
+        raise ValidationError({'parecer_fiscal': 'Parecer do fiscal é obrigatório para atestar a medição — atesto sem parecer é irregularidade recorrente em auditorias de execução contratual.'})
+    if novo == 'aprovada':
+        valor = _dec(dados.get('valor_medido', medicao_atual.valor_medido if medicao_atual else 0))
+        outras = contrato.medicoes.filter(status='aprovada')
+        if medicao_atual:
+            outras = outras.exclude(pk=medicao_atual.pk)
+        ja_medido = outras.aggregate(t=Sum('valor_medido'))['t'] or 0
+        if ja_medido + valor > contrato.valor_contrato:
+            raise ValidationError({'valor_medido': f'Medições aprovadas (R$ {ja_medido + valor:,.2f}) superariam o valor do contrato (R$ {contrato.valor_contrato:,.2f}).'})
+    return {'fiscal_responsavel': request.user, 'data_aprovacao': date.today()}
+
+
+def _validar_pagamento(contrato, dados, pagamento_atual=None):
+    """
+    Pagamento só após liquidação: medição vinculada e atestada, dentro do valor
+    medido; e, havendo DOD aprovada para o DFD do contrato, o nº de empenho
+    precisa existir (não cancelado) na execução orçamentária dessa DOD.
+    """
+    from datetime import date
+    from django.db.models import Sum
+    from rest_framework.exceptions import ValidationError
+
+    def campo(nome):
+        if nome in dados:
+            return dados[nome]
+        return getattr(pagamento_atual, nome, None) if pagamento_atual else None
+
+    status_novo = campo('status') or 'pendente'
+    if status_novo == 'cancelado':
+        return {}
+    medicao_id = dados.get('medicao', pagamento_atual.medicao_id if pagamento_atual else None)
+    medicao = contrato.medicoes.filter(pk=medicao_id).first() if medicao_id else None
+    extras = {}
+    if medicao is not None:
+        outros = medicao.pagamentos.exclude(status='cancelado')
+        if pagamento_atual:
+            outros = outros.exclude(pk=pagamento_atual.pk)
+        ja_pago = outros.aggregate(t=Sum('valor_pago'))['t'] or 0
+        valor = _dec(campo('valor_pago'))
+        if ja_pago + valor > medicao.valor_medido:
+            raise ValidationError({'valor_pago': f'Pagamentos da medição {medicao.numero} (R$ {ja_pago + valor:,.2f}) superariam o valor medido (R$ {medicao.valor_medido:,.2f}).'})
+    if status_novo != 'pago':
+        return extras
+    if medicao is None or medicao.status != 'aprovada':
+        raise ValidationError({'medicao': 'Pagamento só pode ser efetivado com medição vinculada e atestada pelo fiscal (liquidação da despesa — Lei 4.320/64, art. 63).'})
+    if not campo('numero_nota_fiscal'):
+        raise ValidationError({'numero_nota_fiscal': 'Informe a nota fiscal liquidada.'})
+    if contrato.dfd_id and contrato.dfd.indicacoes.filter(status='Aprovada').exists():
+        from modulo_orcamento.models import EmpenhoOrcamentario
+        numero = (campo('numero_empenho') or '').strip()
+        existe = EmpenhoOrcamentario.objects.filter(
+            indicacao_dotacao__indicacao__dfd_id=contrato.dfd_id,
+            indicacao_dotacao__indicacao__status='Aprovada',
+            cancelada=False, numero_doc=numero,
+        ).exists()
+        if not existe:
+            raise ValidationError({'numero_empenho': 'Nota de empenho não encontrada (ou cancelada) na execução orçamentária da DOD deste contrato — registre o empenho na Indicação Orçamentária antes de pagar.'})
+    if not campo('data_pagamento'):
+        extras['data_pagamento'] = date.today()
+    return extras
+
+
 class ContratoViewSet(viewsets.ModelViewSet):
     serializer_class   = ContratoSerializer
     permission_classes = [IsAuthenticated, IsMultiTenant]
@@ -133,9 +219,10 @@ class ContratoViewSet(viewsets.ModelViewSet):
         contrato = self.get_object()
         self._bloquear_se_encerrado(contrato)
         self._validar_aditivo_referencia(contrato, request.data)
+        extras = _validar_ateste(request, contrato, request.data)
         serializer = MedicaoSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
-        serializer.save(contrato=contrato)
+        serializer.save(contrato=contrato, **extras)
         return Response(ContratoSerializer(self._reload(contrato), context={'request': request}).data,
                         status=status.HTTP_201_CREATED)
 
@@ -163,16 +250,15 @@ class ContratoViewSet(viewsets.ModelViewSet):
         if request.method == 'DELETE':
             medicao.delete()
             return Response(status=status.HTTP_204_NO_CONTENT)
-        novo_status = request.data.get('status')
-        if novo_status == 'aprovada' and medicao.status != 'aprovada':
-            parecer = request.data.get('parecer_fiscal', medicao.parecer_fiscal)
-            if not parecer or not parecer.strip():
-                from rest_framework.exceptions import ValidationError
-                raise ValidationError({'parecer_fiscal': 'Parecer do fiscal é obrigatório para aprovar a medição — atesto sem parecer é irregularidade recorrente em auditorias de execução contratual.'})
+        if (medicao.status == 'aprovada' and request.data.get('status', 'aprovada') != 'aprovada'
+                and medicao.pagamentos.exclude(status='cancelado').exists()):
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({'status': 'Medição com pagamento registrado não pode perder o ateste — cancele o pagamento antes.'})
+        extras = _validar_ateste(request, contrato, request.data, medicao_atual=medicao)
         self._validar_aditivo_referencia(contrato, request.data, medicao_atual=medicao)
         serializer = MedicaoSerializer(medicao, data=request.data, partial=True, context={'request': request})
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+        serializer.save(**extras)
         return Response(ContratoSerializer(self._reload(contrato), context={'request': request}).data)
 
     # ── Pagamentos ─────────────────────────────────────────────────────────────
@@ -183,9 +269,10 @@ class ContratoViewSet(viewsets.ModelViewSet):
         medicao_id = request.data.get('medicao')
         if medicao_id and not contrato.medicoes.filter(pk=medicao_id).exists():
             return Response({'medicao': 'Medição não pertence a este contrato.'}, status=status.HTTP_400_BAD_REQUEST)
+        extras = _validar_pagamento(contrato, request.data)
         serializer = PagamentoSerializer(data=request.data, context={'request': request})
         serializer.is_valid(raise_exception=True)
-        serializer.save(contrato=contrato)
+        serializer.save(contrato=contrato, **extras)
         return Response(ContratoSerializer(self._reload(contrato), context={'request': request}).data,
                         status=status.HTTP_201_CREATED)
 
@@ -200,9 +287,10 @@ class ContratoViewSet(viewsets.ModelViewSet):
         medicao_id = request.data.get('medicao')
         if medicao_id and not contrato.medicoes.filter(pk=medicao_id).exists():
             return Response({'medicao': 'Medição não pertence a este contrato.'}, status=status.HTTP_400_BAD_REQUEST)
+        extras = _validar_pagamento(contrato, request.data, pagamento_atual=pagamento)
         serializer = PagamentoSerializer(pagamento, data=request.data, partial=True, context={'request': request})
         serializer.is_valid(raise_exception=True)
-        serializer.save()
+        serializer.save(**extras)
         return Response(ContratoSerializer(self._reload(contrato), context={'request': request}).data)
 
     # ── Notificações ───────────────────────────────────────────────────────────

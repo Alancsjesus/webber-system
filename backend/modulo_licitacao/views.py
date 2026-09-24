@@ -257,7 +257,7 @@ class ProcedimentoViewSet(viewsets.ModelViewSet):
     def resultados_list(self, request, pk=None):
         proc = self.get_object()
         if request.method == 'POST':
-            s = ResultadoLoteSerializer(data=request.data)
+            s = ResultadoLoteSerializer(data=request.data, context={'procedimento': proc})
             s.is_valid(raise_exception=True)
             s.save(procedimento=proc)
             return Response(self._serializar(proc), status=status.HTTP_201_CREATED)
@@ -300,15 +300,54 @@ class ProcedimentoViewSet(viewsets.ModelViewSet):
                 'contrato_numero': res.contrato_gerado.numero,
             })
 
+        tr = res.lote.tr if res.lote_id else proc.tr
+        if tr is not None and tr.sistema_registro_precos:
+            return Response(
+                {'detail': 'Procedimento de Registro de Preços gera Ata de Registro de Preços, não contrato — '
+                           'cadastre a Ata vinculada a este procedimento (módulo ARP); os contratos nascem '
+                           'dos saques/adesões à Ata.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Cláusulas definidas na minuta (TR): instrumento (art. 95) e garantia (art. 96)
+        minuta = {}
+        if tr is not None:
+            minuta['tipo_instrumento'] = tr.instrumento_inicio or 'contrato'
+            if tr.req_garantia_contratacao:
+                minuta.update(
+                    garantia_exigida=True,
+                    garantia_percentual=tr.req_garantia_percentual,
+                    garantia_tipo={'titulos': 'caucao_titulos'}.get(
+                        tr.req_garantia_modalidade, tr.req_garantia_modalidade),
+                )
+
+        valor_contrato = res.valor_final or res.valor_estimado or Decimal('0')
+        if proc.dfd_id:
+            from django.db.models import Sum
+            from modulo_contrato.models import Contrato as _C
+            coberto = proc.dfd.indicacoes.filter(status='Aprovada').aggregate(t=Sum('valor_total'))['t'] or Decimal('0')
+            ja_contratado = _C.objects.filter(dfd_id=proc.dfd_id).exclude(status='Rescindido') \
+                .aggregate(t=Sum('valor_contrato'))['t'] or Decimal('0')
+            if ja_contratado + valor_contrato > coberto:
+                return Response(
+                    {'detail': f'Sem cobertura orçamentária: DOD(s) aprovada(s) do DFD somam R$ {coberto:,.2f}, '
+                               f'contratos já firmados R$ {ja_contratado:,.2f} e este lote R$ {valor_contrato:,.2f} '
+                               '(Lei 14.133, art. 150) — reforce a Indicação Orçamentária antes de contratar.'},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
         from modulo_contrato.models import Contrato
         contrato = Contrato(
+            **minuta,
             exercicio=proc.exercicio,
             orgao_executor=proc.org_id,
             objeto=f'{proc.objeto} — {res.descricao_lote or (res.lote.descricao if res.lote else "")}',
-            tipo_origem='licitacao' if proc.eh_licitacao else 'dispensa',
+            tipo_origem='licitacao' if proc.eh_licitacao else (
+                'inexigibilidade' if proc.eh_inexigibilidade else 'dispensa'),
+            fornecedor=res.fornecedor,
             dfd=proc.dfd,
             numero_processo_sei=proc.numero_sei or '',
-            valor_contrato=res.valor_final or res.valor_estimado or Decimal('0'),
+            valor_contrato=valor_contrato,
             status='Vigente',
             observacoes=(
                 f'Gerado automaticamente via {proc.numero}. '

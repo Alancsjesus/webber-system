@@ -109,6 +109,9 @@ class ETPSerializer(serializers.ModelSerializer):
         ]
 
     def validate_dfd(self, dfd):
+        # Edição reenviando o mesmo vínculo (formulário completo) não é troca de DFD
+        if self.instance is not None and self.instance.dfd_id == dfd.pk:
+            return dfd
         if dfd.status != 'Aprovada':
             raise serializers.ValidationError(
                 'ETP só pode ser criado para DFDs com status "Aprovada".'

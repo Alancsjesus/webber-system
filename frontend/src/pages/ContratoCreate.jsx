@@ -19,6 +19,7 @@ const TIPOS_ORIGEM = [
 const TIPOS_INSTRUMENTO = [
   { value: 'contrato', label: 'Contrato' },
   { value: 'afm',      label: 'AFM — Autorização de Fornecimento de Material' },
+  { value: 'aps',      label: 'APS — Autorização de Prestação de Serviços' },
 ]
 
 const GARANTIA_TIPOS = [
@@ -93,7 +94,7 @@ export default function ContratoCreate() {
     if (!form.tipo_origem)    e.tipo_origem = 'Selecione a origem'
     if (!form.valor_contrato || isNaN(Number(form.valor_contrato))) e.valor_contrato = 'Valor inválido'
     if (!form.exercicio)      e.exercicio = 'Campo obrigatório'
-    if (form.tipo_instrumento === 'afm' && !form.numero_afm.trim())
+    if (['afm', 'aps'].includes(form.tipo_instrumento) && !form.numero_afm.trim())
       e.numero_afm = 'Informe o número da AFM recebido do SIMPAS'
     return e
   }
@@ -152,8 +153,8 @@ export default function ContratoCreate() {
               {TIPOS_INSTRUMENTO.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
             </select>
           </Field>
-          {form.tipo_instrumento === 'afm' && (
-            <Field label="Nº da AFM (SIMPAS) *" error={errors.numero_afm}>
+          {['afm', 'aps'].includes(form.tipo_instrumento) && (
+            <Field label="Nº da AFM/APS (SIMPAS) *" error={errors.numero_afm}>
               <input type="text" value={form.numero_afm} onChange={e => set('numero_afm', e.target.value)}
                 placeholder="Ex: 20.003.00049/2026" className={inp(errors.numero_afm)} />
             </Field>

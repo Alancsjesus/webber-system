@@ -285,12 +285,23 @@ class ContratoSerializer(serializers.ModelSerializer):
                 return attrs[campo]
             return getattr(self.instance, campo, default)
 
-        if _valor('tipo_instrumento', 'contrato') == 'afm':
+        if _valor('tipo_instrumento', 'contrato') in ('afm', 'aps'):
             numero_afm = _valor('numero_afm', '')
             if not (numero_afm or '').strip():
                 raise serializers.ValidationError({
-                    'numero_afm': 'Obrigatório quando o tipo de instrumento é AFM.',
+                    'numero_afm': 'Obrigatório quando o instrumento é AFM/APS.',
                 })
+
+        # Vigência: sem fim informado, calcula pelo prazo em meses da minuta (TR)
+        inicio = _valor('data_vigencia_inicio')
+        if inicio and not _valor('data_vigencia_fim') and self.instance is not None:
+            tr = self.instance.tr_origem
+            if tr is not None and tr.prazo_meses:
+                import calendar
+                m = inicio.month - 1 + tr.prazo_meses
+                ano, mes = inicio.year + m // 12, m % 12 + 1
+                attrs['data_vigencia_fim'] = inicio.replace(
+                    year=ano, month=mes, day=min(inicio.day, calendar.monthrange(ano, mes)[1]))
 
         garantia_percentual = _valor('garantia_percentual')
         if garantia_percentual is not None and garantia_percentual > 5:

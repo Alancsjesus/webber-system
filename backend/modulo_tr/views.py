@@ -1,3 +1,4 @@
+from django.db.models import Q
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated
@@ -94,7 +95,12 @@ class TRViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         oid = self.request.org_id
-        return TR.objects.filter(org_id=oid).prefetch_related(
+        # Mesmo alcance do ETP: órgão pai (gestor/licitante do DFD) conduz o TR de demanda de órgão filho
+        return TR.objects.filter(
+            Q(org_id=oid) |
+            Q(etp__dfd__org_gestor=oid) |
+            Q(etp__dfd__unidade_licitante__orgao_id=oid)
+        ).distinct().prefetch_related(
             'historico',
             'lotes__itens__item_dfd__item_catalogo',
         )

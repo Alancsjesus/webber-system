@@ -160,10 +160,13 @@ class DFDViewSet(viewsets.ModelViewSet):
                      'codigo': 'necessidade_nao_aprovada'},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            # Necessidade deve ter vínculo orçamentário (plano OU dotação)
+            # Necessidade deve ter vínculo orçamentário: PCA, dotação ou item de
+            # Plano de Aplicação (FESP/convênio/financiamento) que a originou —
+            # neste último a fonte do recurso é o próprio instrumento financeiro.
             tem_vinculo_orcamentario = (
                 necessidade.itens_plano.exists() or
-                necessidade.dotacoes.exists()
+                necessidade.dotacoes.exists() or
+                necessidade.itens_plano_aplicacao_fesp.exists()
             )
             if not tem_vinculo_orcamentario and not just:
                 return Response(
@@ -180,9 +183,11 @@ class DFDViewSet(viewsets.ModelViewSet):
             extrapola_valor = valor_planejado and valor_dfd > valor_planejado * Decimal('1.10')
 
             # Verificar áreas além do planejado
+            # Necessidade sem área planejada (ex.: gerada de Plano de Aplicação, que
+            # não tem área) não restringe — senão qualquer DFD "extrapolaria".
             areas_planejadas = set(necessidade.area_aplicacao or [])
             areas_dfd = set(dfd.area_aplicacao or [])
-            extrapola_area = not areas_dfd.issubset(areas_planejadas)
+            extrapola_area = bool(areas_planejadas) and not areas_dfd.issubset(areas_planejadas)
 
             if (extrapola_valor or extrapola_area) and not just:
                 motivos = []

@@ -33,6 +33,13 @@ class IsMultiTenant(permissions.BasePermission):
             unidade = getattr(obj, attr, None)
             if unidade and unidade.orgao_id == oid:
                 return True
+        # ETP/TR herdam do DFD de origem — é lá que ficam gestor e unidades
+        # licitante/contratante (o queryset já os lista por esse caminho).
+        dfd = getattr(obj, 'dfd', None) if hasattr(obj, 'dfd') else None
+        if dfd is None and getattr(obj, 'etp_id', None):
+            dfd = obj.etp.dfd
+        if dfd is not None and dfd is not obj:
+            return self.has_object_permission(request, view, dfd)
         return False
 
 

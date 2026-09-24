@@ -471,7 +471,7 @@ class Command(BaseCommand):
                 destinacao='Central Integrada de Videomonitoramento — CICOM',
                 base_legal='Lei 14.169/2019, Art. 7º, I, "a"', natureza='investimento', unidade_medida='UN',
                 quantidade=Decimal('80'), valor_unitario_estimado=Decimal('1850.00'), aprovado=True,
-                status='consolidado',
+                status='pendente',  # sem grupo: 'consolidado' deixava o item preso
                 org_id=ssp, created_by=plan_ssp, updated_by=plan_ssp,
             )
             ItemPlanoAplicacao.objects.create(
@@ -479,7 +479,7 @@ class Command(BaseCommand):
                 item_catalogo=cat_camera, bem_servico='Câmera de Videomonitoramento IP 4MP — Convênio MJSP',
                 natureza='investimento', unidade_medida='UN',
                 quantidade=Decimal('200'), valor_unitario_estimado=Decimal('1780.00'), aprovado=True,
-                status='consolidado',
+                status='pendente',  # sem grupo: 'consolidado' deixava o item preso
                 org_id=ssp, created_by=plan_ssp, updated_by=plan_ssp,
             )
             ItemPlanoAplicacao.objects.create(
@@ -488,7 +488,7 @@ class Command(BaseCommand):
                 bem_servico='Notebook Dell Latitude 5540 i5/16GB/512GB — estações de monitoramento',
                 natureza='investimento', unidade_medida='UN',
                 quantidade=Decimal('25'), valor_unitario_estimado=Decimal('4200.00'), aprovado=True,
-                status='consolidado',
+                status='pendente',  # sem grupo: 'consolidado' deixava o item preso
                 org_id=ssp, created_by=plan_ssp, updated_by=plan_ssp,
             )
             self.ok('6 Itens do Plano de Aplicação + 1 Grupo de Consolidação')

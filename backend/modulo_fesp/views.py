@@ -202,7 +202,12 @@ class GrupoConsolidacaoItemViewSet(viewsets.ModelViewSet):
         serializer.save()
 
     def perform_destroy(self, instance):
+        # Mesmo efeito de "desfazer": sem isto o FK virava NULL e os itens ficavam
+        # "consolidado" sem grupo — presos (nem individual, nem nova consolidação).
         _check_planejamento(self.request)
+        if instance.status == 'processado':
+            raise ValidationError('Grupo já processado — necessidades já foram geradas, não é possível excluir.')
+        instance.itens.update(grupo_consolidacao=None, status='pendente')
         instance.delete()
 
     @action(detail=True, methods=['post'], url_path='gerar_necessidades')

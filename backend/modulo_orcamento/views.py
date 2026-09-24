@@ -450,11 +450,10 @@ class IndicacaoOrcamentariaViewSet(viewsets.ModelViewSet):
         indicacao.ordenador       = request.user
         indicacao.data_aprovacao  = date.today()
         indicacao.save()
-        # Atualiza valor_indicado nas dotações vinculadas
+        # Recalcula valor_indicado das dotações (soma de todas as DODs aprovadas nelas)
+        from .models import recalcular_valor_indicado
         for item in indicacao.itens.select_related('dotacao'):
-            dot = item.dotacao
-            dot.valor_indicado = item.valor_indicado
-            dot.save(update_fields=['valor_indicado'])
+            recalcular_valor_indicado(item.dotacao)
         serializer = self._indicacao_serializer(indicacao)
         return Response({'detail': 'DOD emitida. Indicação aprovada com sucesso.', **serializer})
 
@@ -467,9 +466,17 @@ class IndicacaoOrcamentariaViewSet(viewsets.ModelViewSet):
                 {'detail': 'Motivo do cancelamento é obrigatório.'},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        from .models import EmpenhoOrcamentario, recalcular_valor_indicado
+        if EmpenhoOrcamentario.objects.filter(indicacao_dotacao__indicacao=indicacao, cancelada=False).exists():
+            return Response(
+                {'detail': 'Há empenhos ativos nesta indicação — cancele-os antes de cancelar a DOD.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
         self._transicao(indicacao, 'Cancelada', request.user, motivo)
         indicacao.motivo_cancelamento = motivo
         indicacao.save(update_fields=['motivo_cancelamento'])
+        for item in indicacao.itens.select_related('dotacao'):
+            recalcular_valor_indicado(item.dotacao)
         serializer = self._indicacao_serializer(indicacao)
         return Response({'detail': 'Indicação cancelada.', **serializer})
 
@@ -490,6 +497,18 @@ class IndicacaoOrcamentariaViewSet(viewsets.ModelViewSet):
         dotacao = get_object_or_404(
             DotacaoOrcamentaria, id=dotacao_id, org_id=request.org_id
         )
+
+        # Recurso vinculado: necessidade nascida de item de Plano de Aplicação cujo
+        # instrumento (FESP, convênio, financiamento...) tem fonte definida só pode
+        # ser indicada em dotação dessa fonte — senão o recurso "some" do instrumento.
+        fontes = _fontes_do_instrumento(indicacao)
+        if fontes and dotacao.fonte_recurso_id not in fontes:
+            return Response(
+                {'detail': 'A demanda é custeada por instrumento financeiro vinculado à(s) fonte(s) '
+                           f'{", ".join(str(f) for f in FonteRecurso.objects.filter(pk__in=fontes))} — '
+                           f'a dotação escolhida é da fonte {dotacao.fonte_recurso}.'},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
 
         # Soma de todas as indicações ativas já vinculadas a esta dotação
         # (exceto a própria linha, que será substituída por update_or_create)
@@ -599,6 +618,7 @@ class IndicacaoOrcamentariaViewSet(viewsets.ModelViewSet):
         Payload: { "npos": [{"indicacao_dotacao_id": X, "numero_npo": "...", "data_emissao": "YYYY-MM-DD", "valor": 1000.00, "observacoes": ""}, ...] }
         Ignora itens sem numero_npo ou valor.
         """
+        self._check_planejamento(request)
         from .models import DescentralizacaoOrcamentaria, IndicacaoDotacao
         from .serializers import DescentralizacaoSerializer
         from decimal import Decimal
@@ -639,6 +659,7 @@ class IndicacaoOrcamentariaViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], url_path=r'cancelar-npo/(?P<npo_pk>[^/.]+)')
     def cancelar_npo(self, request, pk=None, npo_pk=None):
+        self._check_planejamento(request)
         from .models import DescentralizacaoOrcamentaria
         from decimal import Decimal
         from django.shortcuts import get_object_or_404 as goo
@@ -676,6 +697,7 @@ class IndicacaoOrcamentariaViewSet(viewsets.ModelViewSet):
         Payload: { "concessoes": [{"indicacao_dotacao_id": X, "numero_doc": "...", "data_emissao": "...", "valor": ..., "observacoes": ""}, ...] }
         Valida: valor_concedido + novo_valor <= valor_descentralizado.
         """
+        self._check_planejamento(request)
         from .models import ConcessaoOrcamentaria, IndicacaoDotacao
         from decimal import Decimal
 
@@ -717,10 +739,13 @@ class IndicacaoOrcamentariaViewSet(viewsets.ModelViewSet):
         msg = f'{len(criados)} concessão(ões) registrada(s).'
         if erros:
             msg += ' Erros: ' + ' | '.join(erros)
+        if erros and not criados:
+            return Response({'detail': msg, **serializer}, status=status.HTTP_400_BAD_REQUEST)
         return Response({'detail': msg, **serializer}, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['post'], url_path=r'cancelar-concessao/(?P<conc_pk>[^/.]+)')
     def cancelar_concessao(self, request, pk=None, conc_pk=None):
+        self._check_planejamento(request)
         from .models import ConcessaoOrcamentaria
         from decimal import Decimal
         from django.shortcuts import get_object_or_404 as goo
@@ -751,6 +776,7 @@ class IndicacaoOrcamentariaViewSet(viewsets.ModelViewSet):
         "numero_doc": "...", "data_emissao": "...", "valor": ..., "observacoes": ""}, ...] }
         Valida: valor_empenhado + novo_valor <= valor_indicado da própria linha.
         """
+        self._check_planejamento(request)
         from .models import EmpenhoOrcamentario, IndicacaoDotacao
         from decimal import Decimal
 
@@ -773,7 +799,7 @@ class IndicacaoOrcamentariaViewSet(viewsets.ModelViewSet):
             ind_dot = get_object_or_404(IndicacaoDotacao, pk=ind_dot_id, indicacao=indicacao)
             dotacao = ind_dot.dotacao
             novo_valor = Decimal(str(valor))
-            if dotacao.valor_empenhado + novo_valor > ind_dot.valor_indicado:
+            if ind_dot.total_ativo('empenhos') + novo_valor > ind_dot.valor_indicado:
                 erros.append(f'Dotação {dotacao.id}: valor empenhado superaria o indicado.')
                 continue
             EmpenhoOrcamentario.objects.create(
@@ -792,10 +818,13 @@ class IndicacaoOrcamentariaViewSet(viewsets.ModelViewSet):
         msg = f'{len(criados)} empenho(s) registrado(s).'
         if erros:
             msg += ' Erros: ' + ' | '.join(erros)
+        if erros and not criados:
+            return Response({'detail': msg, **serializer}, status=status.HTTP_400_BAD_REQUEST)
         return Response({'detail': msg, **serializer}, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['post'], url_path=r'cancelar-empenho/(?P<emp_pk>[^/.]+)')
     def cancelar_empenho(self, request, pk=None, emp_pk=None):
+        self._check_planejamento(request)
         from .models import EmpenhoOrcamentario
         from django.shortcuts import get_object_or_404 as goo
         indicacao = self.get_object()
@@ -806,9 +835,8 @@ class IndicacaoOrcamentariaViewSet(viewsets.ModelViewSet):
             return Response({'detail': 'O motivo do cancelamento é obrigatório.'},
                             status=status.HTTP_400_BAD_REQUEST)
         dotacao = emp.indicacao_dotacao.dotacao
-        liquidado = dotacao.valor_liquidado
-        novo_emp = dotacao.valor_empenhado - emp.valor
-        if novo_emp < liquidado:
+        liquidado = emp.indicacao_dotacao.total_ativo('liquidacoes')
+        if emp.indicacao_dotacao.total_ativo('empenhos') - emp.valor < liquidado:
             return Response({
                 'detail': f'Não é possível cancelar: R$ {float(liquidado):,.2f} já foram liquidados contra este empenho.'
             }, status=status.HTTP_400_BAD_REQUEST)
@@ -818,7 +846,7 @@ class IndicacaoOrcamentariaViewSet(viewsets.ModelViewSet):
         emp.data_cancelamento = date.today()
         emp.motivo_cancelamento = motivo
         emp.save()
-        dotacao.valor_empenhado = novo_emp
+        dotacao.valor_empenhado = dotacao.valor_empenhado - emp.valor
         dotacao.save(update_fields=['valor_empenhado'])
         serializer = self._indicacao_serializer(indicacao)
         return Response({'detail': 'Empenho cancelado.', **serializer})
@@ -831,6 +859,7 @@ class IndicacaoOrcamentariaViewSet(viewsets.ModelViewSet):
         Registra liquidações em bloco.
         Valida: valor_liquidado + novo_valor <= valor_empenhado.
         """
+        self._check_planejamento(request)
         from .models import LiquidacaoOrcamentaria, IndicacaoDotacao
         from decimal import Decimal
 
@@ -853,7 +882,7 @@ class IndicacaoOrcamentariaViewSet(viewsets.ModelViewSet):
             ind_dot = get_object_or_404(IndicacaoDotacao, pk=ind_dot_id, indicacao=indicacao)
             dotacao = ind_dot.dotacao
             novo_valor = Decimal(str(valor))
-            if dotacao.valor_liquidado + novo_valor > dotacao.valor_empenhado:
+            if ind_dot.total_ativo('liquidacoes') + novo_valor > ind_dot.total_ativo('empenhos'):
                 erros.append(f'Dotação {dotacao.id}: valor liquidado superaria o empenhado.')
                 continue
             LiquidacaoOrcamentaria.objects.create(
@@ -872,10 +901,13 @@ class IndicacaoOrcamentariaViewSet(viewsets.ModelViewSet):
         msg = f'{len(criados)} liquidação(ões) registrada(s).'
         if erros:
             msg += ' Erros: ' + ' | '.join(erros)
+        if erros and not criados:
+            return Response({'detail': msg, **serializer}, status=status.HTTP_400_BAD_REQUEST)
         return Response({'detail': msg, **serializer}, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['post'], url_path=r'cancelar-liquidacao/(?P<liq_pk>[^/.]+)')
     def cancelar_liquidacao(self, request, pk=None, liq_pk=None):
+        self._check_planejamento(request)
         from .models import LiquidacaoOrcamentaria
         from django.shortcuts import get_object_or_404 as goo
         indicacao = self.get_object()
@@ -886,9 +918,8 @@ class IndicacaoOrcamentariaViewSet(viewsets.ModelViewSet):
             return Response({'detail': 'O motivo do cancelamento é obrigatório.'},
                             status=status.HTTP_400_BAD_REQUEST)
         dotacao = liq.indicacao_dotacao.dotacao
-        pago = dotacao.valor_pago
-        novo_liq = dotacao.valor_liquidado - liq.valor
-        if novo_liq < pago:
+        pago = liq.indicacao_dotacao.total_ativo('pagamentos')
+        if liq.indicacao_dotacao.total_ativo('liquidacoes') - liq.valor < pago:
             return Response({
                 'detail': f'Não é possível cancelar: R$ {float(pago):,.2f} já foram pagos contra esta liquidação.'
             }, status=status.HTTP_400_BAD_REQUEST)
@@ -898,7 +929,7 @@ class IndicacaoOrcamentariaViewSet(viewsets.ModelViewSet):
         liq.data_cancelamento = date.today()
         liq.motivo_cancelamento = motivo
         liq.save()
-        dotacao.valor_liquidado = novo_liq
+        dotacao.valor_liquidado = dotacao.valor_liquidado - liq.valor
         dotacao.save(update_fields=['valor_liquidado'])
         serializer = self._indicacao_serializer(indicacao)
         return Response({'detail': 'Liquidação cancelada.', **serializer})
@@ -911,6 +942,7 @@ class IndicacaoOrcamentariaViewSet(viewsets.ModelViewSet):
         Registra pagamentos em bloco.
         Valida: valor_pago + novo_valor <= valor_liquidado.
         """
+        self._check_planejamento(request)
         from .models import PagamentoOrcamentario, IndicacaoDotacao
         from decimal import Decimal
 
@@ -933,7 +965,7 @@ class IndicacaoOrcamentariaViewSet(viewsets.ModelViewSet):
             ind_dot = get_object_or_404(IndicacaoDotacao, pk=ind_dot_id, indicacao=indicacao)
             dotacao = ind_dot.dotacao
             novo_valor = Decimal(str(valor))
-            if dotacao.valor_pago + novo_valor > dotacao.valor_liquidado:
+            if ind_dot.total_ativo('pagamentos') + novo_valor > ind_dot.total_ativo('liquidacoes'):
                 erros.append(f'Dotação {dotacao.id}: valor pago superaria o liquidado.')
                 continue
             PagamentoOrcamentario.objects.create(
@@ -952,10 +984,13 @@ class IndicacaoOrcamentariaViewSet(viewsets.ModelViewSet):
         msg = f'{len(criados)} pagamento(s) registrado(s).'
         if erros:
             msg += ' Erros: ' + ' | '.join(erros)
+        if erros and not criados:
+            return Response({'detail': msg, **serializer}, status=status.HTTP_400_BAD_REQUEST)
         return Response({'detail': msg, **serializer}, status=status.HTTP_201_CREATED)
 
     @action(detail=True, methods=['post'], url_path=r'cancelar-pagamento/(?P<pag_pk>[^/.]+)')
     def cancelar_pagamento(self, request, pk=None, pag_pk=None):
+        self._check_planejamento(request)
         from .models import PagamentoOrcamentario
         from django.shortcuts import get_object_or_404 as goo
         indicacao = self.get_object()
@@ -986,6 +1021,18 @@ class IndicacaoOrcamentariaViewSet(viewsets.ModelViewSet):
             'historico', 'itens__dotacao', 'itens__itens_detalhados__item_dfd',
         ).get(pk=indicacao.pk)
         return IndicacaoOrcamentariaSerializer(ind, context={'request': self.request}).data
+
+
+def _fontes_do_instrumento(indicacao):
+    """Fontes exigidas pelos instrumentos financeiros de origem da demanda (pode ser vazio)."""
+    necessidade = indicacao.necessidade or getattr(indicacao.dfd, 'necessidade_origem', None)
+    if necessidade is None:
+        return set()
+    return set(
+        necessidade.itens_plano_aplicacao_fesp
+        .exclude(instrumento__fonte_recurso__isnull=True)
+        .values_list('instrumento__fonte_recurso_id', flat=True)
+    )
 
 
 def _itens_indicacao_queryset(org_id):

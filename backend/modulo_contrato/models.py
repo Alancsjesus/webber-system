@@ -17,6 +17,7 @@ class Contrato(BaseModel):
     TIPO_INSTRUMENTO_CHOICES = [
         ('contrato', 'Contrato'),
         ('afm',      'AFM — Autorização de Fornecimento de Material'),
+        ('aps',      'APS — Autorização de Prestação de Serviços'),
     ]
     STATUS_CHOICES = [
         ('Vigente',    'Vigente'),
@@ -74,6 +75,15 @@ class Contrato(BaseModel):
 
     def __str__(self):
         return f'{self.numero} — {self.objeto[:60]}'
+
+    @property
+    def tr_origem(self):
+        """TR (minuta) de onde o contrato nasceu — via lote vinculado ou resultado do procedimento."""
+        lote = self.lotes.select_related('tr').first()
+        if lote is not None:
+            return lote.tr
+        resultado = self.resultado_licitacao.select_related('procedimento__tr').first()
+        return resultado.procedimento.tr if resultado is not None else None
 
 
 class Apostila(BaseModel):

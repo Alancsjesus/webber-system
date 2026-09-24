@@ -459,6 +459,25 @@ class ResultadoLote(models.Model):
         return None
 
 
+# ── Vínculo Procedimento → DFD ──────────────────────────────────────────────
+
+def dfd_do_tr(tr):
+    """
+    DFD de origem de um TR (TR → ETP → DFD, ambos obrigatórios no modelo).
+
+    Procedimento aberto só a partir do TR ficava com `dfd` vazio, e todo
+    consumidor que parte do DFD (`dfd.procedimentos` — rastreabilidade,
+    Painel de Tramitação, contratos) perdia o procedimento de vista.
+    """
+    return tr.etp.dfd if tr is not None else None
+
+
+@receiver(pre_save, sender=Procedimento)
+def vincular_dfd_pelo_tr(sender, instance, **kwargs):
+    if instance.dfd_id is None and instance.tr_id is not None:
+        instance.dfd = dfd_do_tr(instance.tr)
+
+
 # ── Numeração automática ─────────────────────────────────────────────────────
 
 @receiver(pre_save, sender=Procedimento)

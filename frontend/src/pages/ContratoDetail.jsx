@@ -28,6 +28,7 @@ const GARANTIA_TIPOS = [
 const TIPOS_INSTRUMENTO = [
   { value: 'contrato', label: 'Contrato' },
   { value: 'afm',      label: 'AFM — Autorização de Fornecimento de Material' },
+  { value: 'aps',      label: 'APS — Autorização de Prestação de Serviços' },
 ]
 const TIPOS_ADITIVO = [
   { value: 'prazo',    label: 'Prorrogação de Prazo' },
@@ -95,7 +96,7 @@ export default function ContratoDetail() {
       await updateContrato(id, {
         objeto: form.objeto,
         tipo_instrumento: form.tipo_instrumento,
-        numero_afm: form.tipo_instrumento === 'afm' ? (form.numero_afm || '') : '',
+        numero_afm: ['afm', 'aps'].includes(form.tipo_instrumento) ? (form.numero_afm || '') : '',
         numero_processo_sei: form.numero_processo_sei || '',
         valor_contrato: Number(form.valor_contrato),
         data_assinatura: form.data_assinatura || null,
@@ -159,9 +160,9 @@ export default function ContratoDetail() {
           <span className={`mt-1 inline-block px-2 py-0.5 rounded-full text-xs font-medium ${STATUS_CLS[current.status]}`}>
             {current.status}
           </span>
-          {current.tipo_instrumento === 'afm' && (
+          {['afm', 'aps'].includes(current.tipo_instrumento) && (
             <span className="mt-1 ml-1.5 inline-block px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">
-              AFM {current.numero_afm && `— ${current.numero_afm}`}
+              {current.tipo_instrumento.toUpperCase()} {current.numero_afm && `— ${current.numero_afm}`}
             </span>
           )}
           <p className="text-xs text-gray-400 mt-1">{current.orgao_executor_sigla} · Ex. {current.exercicio} · {current.tipo_origem_display}</p>
@@ -221,8 +222,8 @@ export default function ContratoDetail() {
                 </select>
               : <p className="text-sm text-gray-700">{current.tipo_instrumento_display}</p>}
           </Section>
-          {(editing ? form.tipo_instrumento : current.tipo_instrumento) === 'afm' && (
-            <Section label="Nº da AFM (SIMPAS)">
+          {['afm', 'aps'].includes(editing ? form.tipo_instrumento : current.tipo_instrumento) && (
+            <Section label="Nº da AFM/APS (SIMPAS)">
               {editing
                 ? <input type="text" value={form.numero_afm || ''} onChange={e => set('numero_afm', e.target.value)}
                     placeholder="Ex: 20.003.00049/2026" className={inp()} />

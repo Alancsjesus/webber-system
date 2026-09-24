@@ -8,6 +8,7 @@ Diferente do AuditLog (trilha técnica de sistema), este módulo responde
 perguntas de negócio: onde está cada processo, quais documentos existem,
 quem é o responsável em cada etapa.
 """
+from decimal import Decimal
 from django.shortcuts import get_object_or_404
 from django.utils.timezone import now
 from rest_framework.permissions import IsAuthenticated
@@ -33,7 +34,7 @@ STATUS_CONCLUIDO = {
     'DFD':          ('Aprovada', 'Aprovado'),
     'ETP':          ('Aprovado',),
     'TR':           ('Aprovado',),
-    'Procedimento': ('Homologado', 'Adjudicado', 'Concluído', 'Dispensado', 'Encerrado'),
+    'Procedimento': ('Homologado', 'Contratado', 'Adjudicado', 'Concluído', 'Dispensado', 'Encerrado'),
     'Contrato':     ('Encerrado',),
 }
 
@@ -102,6 +103,8 @@ def _cadeia(nec):
         extras={
             'numero_sei': dfd.numero_sei or None,
             'valor': str(dfd.valor_estimado) if dfd.valor_estimado else None,
+            # DOD (Indicação Orçamentária aprovada) que dá cobertura ao DFD
+            'dods': [i.numero for i in dfd.indicacoes.all() if i.status == 'Aprovada'],
         },
     ))
 
@@ -151,6 +154,12 @@ def _cadeia(nec):
                 'numero': contrato.numero or None,
                 'valor': str(contrato.valor_contrato) if contrato.valor_contrato else None,
                 'vigencia_fim': _dt(contrato.data_vigencia_fim),
+                'tipo_instrumento': contrato.tipo_instrumento,
+                # Fiscalização e pagamento (lidos do prefetch — sem query extra)
+                'valor_atestado': str(sum(
+                    (m.valor_medido for m in contrato.medicoes.all() if m.status == 'aprovada'), Decimal('0'))),
+                'valor_pago': str(sum(
+                    (pg.valor_pago for pg in contrato.pagamentos.all() if pg.status == 'pago'), Decimal('0'))),
             },
         ))
 
@@ -224,6 +233,9 @@ def _qs_base():
             'dfd__procedimentos__created_by',
             'dfd__contratos',
             'dfd__contratos__created_by',
+            'dfd__contratos__medicoes',
+            'dfd__contratos__pagamentos',
+            'dfd__indicacoes',
             'itens_plano_aplicacao_fesp__instrumento',
         )
     )

@@ -64,6 +64,29 @@ class ResultadoLoteSerializer(serializers.ModelSerializer):
             'resultado_display', 'contrato_numero', 'contrato_gerado', 'criado_em',
         ]
 
+    def validate(self, attrs):
+        procedimento = self.context.get('procedimento') or getattr(self.instance, 'procedimento', None)
+        lote = attrs.get('lote')
+        if lote is not None and procedimento is not None and lote.tr_id != procedimento.tr_id:
+            raise serializers.ValidationError({'lote': 'O lote não pertence ao TR deste procedimento.'})
+        valor_final = attrs.get('valor_final', getattr(self.instance, 'valor_final', None))
+        valor_estimado = attrs.get('valor_estimado', getattr(self.instance, 'valor_estimado', None))
+        if valor_final and valor_estimado and valor_final > valor_estimado:
+            obs = attrs.get('observacoes', getattr(self.instance, 'observacoes', ''))
+            if not (obs or '').strip():
+                raise serializers.ValidationError({'valor_final': (
+                    f'Valor final (R$ {valor_final:,.2f}) acima do estimado (R$ {valor_estimado:,.2f}) — '
+                    'proposta com sobrepreço deve ser desclassificada (Lei 14.133, art. 59, III); '
+                    'se aceita, registre a justificativa em observações.')})
+        # Vencedor cadastrado: nome/CNPJ vêm do cadastro (evita divergência com o texto livre)
+        fornecedor = attrs.get('fornecedor')
+        if fornecedor is not None:
+            if not attrs.get('empresa_vencedora'):
+                attrs['empresa_vencedora'] = fornecedor.nome_razao_social
+            if not attrs.get('cnpj_vencedor'):
+                attrs['cnpj_vencedor'] = fornecedor.documento
+        return attrs
+
 
 class ProcedimentoSerializer(serializers.ModelSerializer):
     created_by_username      = serializers.CharField(source='created_by.username',          read_only=True)
@@ -212,6 +235,10 @@ class ProcedimentoSerializer(serializers.ModelSerializer):
         if self.instance is None:  # só valida na criação
             tr = attrs.get('tr')
             dfd = attrs.get('dfd')
+            if dfd is None and tr is not None:
+                # Aberto só pelo TR: herda o DFD, senão a exigência de DOD abaixo era pulada
+                from .models import dfd_do_tr
+                dfd = attrs['dfd'] = dfd_do_tr(tr)
             eh_formacao_arp = bool(tr and tr.sistema_registro_precos)
             if dfd is not None and not eh_formacao_arp:
                 if not dfd.indicacoes.filter(status='Aprovada').exists():

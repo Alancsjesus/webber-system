@@ -62,3 +62,7 @@ desktop.ini
 diagnostico.py
 limpar_importacao.py
 backend/check_fields.py
+
+# Estado local do teste ponta a ponta (scripts/e2e/cadeia.py)
+scripts/e2e/estado_*.json
+scripts/e2e/.tokens.json

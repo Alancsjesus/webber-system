@@ -163,8 +163,10 @@ class DFD(MesaAtualMixin, BaseModel):
         if not self.area_aplicacao or len(self.area_aplicacao) == 0:
             raise ValidationError({'area_aplicacao': 'Pelo menos uma área de aplicação é obrigatória'})
         
-        # Validate all areas are valid choices
-        valid_areas = [choice[0] for choice in self.AREA_CHOICES]
+        # Áreas válidas = cadastro configurável (AreaAtuacao); AREA_CHOICES só
+        # como fallback se o cadastro estiver vazio (banco recém-criado).
+        from core.models import AreaAtuacao
+        valid_areas = list(AreaAtuacao.objects.filter(ativa=True).values_list('codigo', flat=True))             or [choice[0] for choice in self.AREA_CHOICES]
         for area in self.area_aplicacao:
             if area not in valid_areas:
                 raise ValidationError({'area_aplicacao': f'Área inválida: {area}'})

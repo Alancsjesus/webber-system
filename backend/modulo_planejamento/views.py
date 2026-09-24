@@ -1,4 +1,5 @@
 import django_filters
+from django.db import transaction
 from django.db.models import Q
 from rest_framework import viewsets, filters, status
 from rest_framework.decorators import action
@@ -236,6 +237,7 @@ class NecessidadeViewSet(viewsets.ModelViewSet):
         return Response({'recusadas': updated})
 
     @action(detail=True, methods=['post'])
+    @transaction.atomic
     def iniciar_dfd(self, request, pk=None):
         """
         Cria um DFD a partir de uma NecessidadePlanejamento aprovada.
@@ -281,7 +283,22 @@ class NecessidadeViewSet(viewsets.ModelViewSet):
         valor_estimado_total = sum(
             Decimal(str(it.get('quantidade', 0))) * Decimal(str(it.get('valor_unitario_estimado', 0)))
             for it in itens_data
-        )
+        ).quantize(Decimal('0.01'))
+
+        # Execução externa: o DFD continua do órgão demandante (requisitante), mas as
+        # unidades licitante/contratante são do órgão executor — é por elas que o
+        # executor enxerga e conduz o DFD (mesmo padrão dos DFDs criados à mão).
+        org_dfd = nec.org_id
+        unidades_executor = {}
+        if nec.tipo_execucao == 'externa' and nec.orgao_executor_id:
+            from core.models import UnidadeOrganizacional
+            for campo, tipo in (('unidade_licitante', 'licitante'), ('unidade_contratante', 'contratante')):
+                escolhida = request.data.get(f'{campo}_id')
+                unidades_executor[campo] = (
+                    UnidadeOrganizacional.objects.filter(pk=escolhida, orgao_id=nec.orgao_executor_id).first()
+                    if escolhida else
+                    UnidadeOrganizacional.objects.filter(orgao_id=nec.orgao_executor_id, tipo=tipo).order_by('id').first()
+                )
 
         dfd = DFD.objects.create(
             numero_sei=numero_sei,
@@ -291,8 +308,9 @@ class NecessidadeViewSet(viewsets.ModelViewSet):
             modalidade_aquisicao=request.data.get('modalidade_aquisicao', 'licitacao'),
             observacoes=request.data.get('observacoes', ''),
             valor_estimado=valor_estimado_total,
-            org_id=nec.org_id,
+            org_id=org_dfd,
             unidade_demandante=nec.unidade_demandante,
+            **unidades_executor,
             created_by=request.user,
             updated_by=request.user,
         )
@@ -303,10 +321,10 @@ class NecessidadeViewSet(viewsets.ModelViewSet):
                 item_catalogo_id=item.get('item_catalogo_id') or None,
                 objeto=item.get('objeto', ''),
                 unidade_medida=item.get('unidade_medida', 'un'),
-                quantidade=item.get('quantidade', 1),
-                valor_unitario_estimado=item.get('valor_unitario_estimado', 0),
+                quantidade=Decimal(str(item.get('quantidade', 1))),
+                valor_unitario_estimado=Decimal(str(item.get('valor_unitario_estimado', 0))),
                 observacao=item.get('observacao', ''),
-                org_id=nec.org_id,
+                org_id=org_dfd,
                 created_by=request.user,
                 updated_by=request.user,
             )

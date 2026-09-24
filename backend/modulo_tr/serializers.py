@@ -235,6 +235,9 @@ class TRSerializer(serializers.ModelSerializer):
         return data
 
     def validate_etp(self, etp):
+        # Edição reenviando o mesmo vínculo (formulário completo) não é troca de ETP
+        if self.instance is not None and self.instance.etp_id == etp.pk:
+            return etp
         if etp.status not in ('Aprovado', 'Dispensado'):
             raise serializers.ValidationError(
                 'TR só pode ser criado para ETPs com status "Aprovado" ou "Dispensado".'
@@ -277,6 +280,7 @@ class TRSerializer(serializers.ModelSerializer):
             'requisitos_contratacao':  etp.requisitos_contratacao,
             'estimativa_valor':        etp.estimativa_valor,
             'local_entrega':           dfd.local_entrega,
+            'adequacao_orcamentaria':  self._adequacao_pela_dod(dfd),
         }
         for campo, valor in _herdar.items():
             if not validated_data.get(campo) and valor:
@@ -300,6 +304,23 @@ class TRSerializer(serializers.ModelSerializer):
         validated_data['updated_by'] = request.user
         return super().create(validated_data)
 
+    @staticmethod
+    def _adequacao_pela_dod(dfd):
+        """Cláusula de adequação orçamentária a partir das DODs aprovadas do DFD (vazio se não houver)."""
+        from modulo_orcamento.models import IndicacaoDotacao
+        linhas = (
+            IndicacaoDotacao.objects
+            .filter(indicacao__dfd=dfd, indicacao__status='Aprovada')
+            .select_related('indicacao', 'dotacao__acao', 'dotacao__elemento_despesa', 'dotacao__fonte_recurso')
+        )
+        partes = [
+            f'Ação {l.dotacao.acao}, Elemento {l.dotacao.elemento_despesa}, Fonte {l.dotacao.fonte_recurso} '
+            f'(DOD {l.indicacao.numero}, R$ {l.valor_indicado:,.2f})'.replace(',', '#').replace('.', ',').replace('#', '.')
+            for l in linhas
+        ]
+        if not partes:
+            return ''
+        return 'As despesas correrão à conta da(s) dotação(ões) orçamentária(s): ' + '; '.join(partes) + '.'
     def update(self, instance, validated_data):
         validated_data['updated_by'] = self.context['request'].user
         return super().update(instance, validated_data)

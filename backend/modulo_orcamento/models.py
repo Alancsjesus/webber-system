@@ -1,3 +1,4 @@
+from decimal import Decimal
 from django.db import models
 from django.contrib.auth.models import User
 from core.models import BaseModel
@@ -353,6 +354,14 @@ class IndicacaoOrcamentaria(BaseModel):
         return f'{self.numero} — {self.status} ({self.exercicio_fiscal})'
 
 
+def recalcular_valor_indicado(dotacao):
+    """valor_indicado da dotação = soma das linhas de indicações Aprovadas (DOD emitida)."""
+    dotacao.valor_indicado = IndicacaoDotacao.objects.filter(
+        dotacao=dotacao, indicacao__status='Aprovada',
+    ).aggregate(t=models.Sum('valor_indicado'))['t'] or Decimal('0')
+    dotacao.save(update_fields=['valor_indicado'])
+
+
 class IndicacaoDotacao(models.Model):
     """Vínculo entre Indicação e Dotação com o valor indicado para cada dotação."""
     indicacao      = models.ForeignKey(
@@ -376,6 +385,17 @@ class IndicacaoDotacao(models.Model):
 
     def __str__(self):
         return f'{self.indicacao.numero} ← {self.dotacao} = R$ {self.valor_indicado}'
+
+    def total_ativo(self, related_name):
+        """
+        Soma dos documentos não cancelados desta linha ('empenhos',
+        'liquidacoes' ou 'pagamentos'). As travas Empenhado ≤ Indicado ≤ ... são
+        por linha: os campos-cache da Dotação somam TODAS as indicações que a
+        usam, e compará-los com o valor de uma única linha bloqueava (ou
+        liberava) indevidamente quando duas indicações dividem a dotação.
+        """
+        return getattr(self, related_name).filter(cancelada=False).aggregate(
+            t=models.Sum('valor'))['t'] or Decimal('0')
 
 
 class ItemIndicacaoDotacao(models.Model):
