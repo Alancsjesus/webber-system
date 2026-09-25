@@ -62,9 +62,11 @@ def gerar_necessidades_de_grupo(grupo, request):
         nec = NecessidadePlanejamento.objects.create(
             titulo=f'{grupo.titulo} — {org_beneficiaria.sigla}',
             descricao=(
+                # o texto vira o objeto do DFD e dos documentos: descreve a contratação,
+                # a origem no plano fica como referência no final
                 grupo.descricao
-                or f'Necessidade consolidada a partir do Plano de Aplicação {plano.numero} '
-                   f'(grupo "{grupo.titulo}").'
+                or f'Aquisição de {grupo.titulo} — {org_beneficiaria.sigla}, '
+                   f'conforme Plano de Aplicação {plano.numero}.'
             ),
             valor_estimado=valor_total,
             departamento_solicitante=unidade_unica.nome if unidade_unica else org_beneficiaria.nome,

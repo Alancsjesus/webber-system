@@ -254,6 +254,8 @@ class DotacaoOrcamentariaViewSet(viewsets.ModelViewSet):
     filterset_class = DotacaoOrcamentariaFilter
     search_fields = [
         'eixo', 'objetivo_estrategico', 'observacoes', 'acao__nome', 'acao__codigo',
+        # código do elemento (52) e da natureza (449052) — o que o usuário digita
+        '=elemento_despesa__codigo', 'natureza_despesa__codigo',
         'elemento_despesa__descricao', 'fonte_recurso__nome', 'fonte_recurso__codigo',
     ]
     ordering_fields = ['exercicio_fiscal', 'valor_dotado', 'status', 'created_at']

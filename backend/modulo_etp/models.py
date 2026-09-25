@@ -1,5 +1,6 @@
 from django.db import models
 from django.contrib.auth.models import User
+from core.encerramento import MOTIVOS_ENCERRAMENTO
 from core.models import BaseModel, MesaAtualMixin
 
 
@@ -17,16 +18,18 @@ class ETP(MesaAtualMixin, BaseModel):
         ('Aprovado',   'Aprovado'),
         ('Cancelado',  'Cancelado'),
         ('Dispensado', 'Dispensado (ETP não obrigatório)'),
+        ('Encerrado',  'Encerrado sem prosseguimento'),
     ]
 
     TRANSICOES_PERMITIDAS = {
-        'Rascunho':   ['Submetido'],
-        'Submetido':  ['Em Análise'],
-        'Em Análise': ['Aprovado', 'Devolvido'],
-        'Devolvido':  ['Submetido'],
-        'Aprovado':   ['Cancelado'],
+        'Rascunho':   ['Submetido', 'Encerrado'],
+        'Submetido':  ['Em Análise', 'Encerrado'],
+        'Em Análise': ['Aprovado', 'Devolvido', 'Encerrado'],
+        'Devolvido':  ['Submetido', 'Encerrado'],
+        'Aprovado':   ['Cancelado', 'Encerrado'],
         'Cancelado':  [],
         'Dispensado': ['Cancelado'],
+        'Encerrado':  [],  # reabertura só pelo admin (ação reabrir)
     }
 
     dfd = models.OneToOneField(
@@ -167,7 +170,7 @@ class HistoricoETP(models.Model):
     status_novo      = models.CharField(max_length=15)
     usuario          = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     motivo           = models.TextField(blank=True, null=True)
-    categoria_motivo = models.CharField(max_length=40, choices=MOTIVOS_DEVOLUCAO_ETP, blank=True, default='', verbose_name='Categoria do motivo')
+    categoria_motivo = models.CharField(max_length=40, choices=MOTIVOS_DEVOLUCAO_ETP + MOTIVOS_ENCERRAMENTO, blank=True, default='', verbose_name='Categoria do motivo')
     criado_em        = models.DateTimeField(auto_now_add=True)
 
     class Meta:

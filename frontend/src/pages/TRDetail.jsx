@@ -2,6 +2,7 @@ import { useEffect, useState, Fragment } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import useTrStore from '../stores/trStore'
 import useAuthStore from '../stores/authStore'
+import EncerrarPeca from '../components/EncerrarPeca'
 import api, { downloadFile } from '../services/api'
 import DownloadButton from '../components/DownloadButton'
 import ModalDevolver, { MOTIVOS_TR } from '../components/ModalDevolver'
@@ -18,6 +19,7 @@ const STATUS_CLS = {
   Devolvido:   'bg-orange-100 text-orange-700',
   Aprovado:    'bg-green-100 text-green-700',
   Cancelado:   'bg-red-100 text-red-700',
+  Encerrado:   'bg-gray-200 text-gray-600',
 }
 
 const PAPEIS_ANALISTA  = ['analista', 'gestor_contrato', 'fiscal_contrato', 'ordenador', 'admin']
@@ -151,7 +153,7 @@ export default function TRDetail() {
   const podeAnalisar  = current.status === 'Submetido'  && isLicitante
   const podeAprovar   = current.status === 'Em Análise' && isLicitante
   const podeDevolver  = current.status === 'Em Análise' && isLicitante
-  const podeReabrir   = ['Aprovado', 'Cancelado'].includes(current.status) && papel === 'admin'
+  const podeReabrir   = ['Aprovado', 'Cancelado', 'Encerrado'].includes(current.status) && papel === 'admin'
 
   return (
     <div className="p-6 lg:p-8 max-w-3xl mx-auto">
@@ -208,6 +210,7 @@ export default function TRDetail() {
               Reabrir
             </button>
           )}
+          <EncerrarPeca tipo="TR" url={`/tr/tr/${id}`} status={current.status} onEncerrado={() => fetchTr(id)} />
           <span className="inline-flex items-center gap-1">
             <button onClick={() => setShowPreviewTexto(true)}
                 className="border border-gray-300 text-gray-600 hover:bg-gray-50 text-sm px-4 py-1.5 rounded-lg">

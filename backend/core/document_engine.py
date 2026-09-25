@@ -376,7 +376,13 @@ def renderizar_secao(tipo: str, secao, obj) -> str:
     contexto = contexto_fn(obj)
     if secao.template_texto:
         try:
-            texto = _ENV.from_string(secao.template_texto).render(**contexto)
+            # frase-molde sem nenhum dado ("O local de entrega será: .") não é texto do documento
+            from jinja2 import meta
+            campos = meta.find_undeclared_variables(_ENV.parse(secao.template_texto))
+            if campos and not any(contexto.get(c) for c in campos):
+                texto = ''
+            else:
+                texto = _ENV.from_string(secao.template_texto).render(**contexto)
         except jinja2.TemplateError:
             texto = ''
     else:

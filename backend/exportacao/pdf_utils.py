@@ -16,9 +16,41 @@ from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.lib.units import cm
 import os as _os
+import re as _re
+from reportlab.pdfbase.pdfmetrics import stringWidth
 from reportlab.platypus import (
-    HRFlowable, Image as RLImage, KeepTogether, Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+    HRFlowable, Image as RLImage, KeepTogether, Paragraph, SimpleDocTemplate, Spacer, TableStyle
 )
+from reportlab.platypus import Table as _RLTable
+from xml.sax.saxutils import escape as _xml_escape
+
+_CELULA = ParagraphStyle('celula', fontName='Helvetica', fontSize=8, leading=9.5)
+_PAD_CELULA = 12  # padding horizontal padrão do reportlab (6pt de cada lado)
+
+
+class Table(_RLTable):
+    """Table que quebra linha: célula de texto que não cabe na coluna vira
+    Paragraph (texto puro no reportlab não quebra e invade a coluna vizinha).
+    Textos que cabem ficam como estão — preservam o estilo da TableStyle
+    (cabeçalho em negrito branco, alinhamento à direita dos valores)."""
+
+    def __init__(self, data, colWidths=None, *args, cabecalho=True, **kwargs):
+        # cabecalho=True: a linha 0 é cabeçalho estilizado pela TableStyle e não é convertida
+        if colWidths:
+            inicio = 1 if cabecalho else 0
+            data = data[:inicio] + [
+                [self._quebrar(cel, colWidths[j] if j < len(colWidths) else None) for j, cel in enumerate(linha)]
+                for linha in data[inicio:]
+            ] if data else data
+        super().__init__(data, colWidths, *args, **kwargs)
+
+    @staticmethod
+    def _quebrar(cel, largura):
+        if not isinstance(cel, str) or not largura:
+            return cel
+        if stringWidth(cel, 'Helvetica-Bold', 8) <= largura - _PAD_CELULA:
+            return cel
+        return Paragraph(_xml_escape(cel), _CELULA)
 
 _LOGO_DIR = _os.path.join(_os.path.dirname(_os.path.dirname(__file__)), 'static', 'logos')
 _LOGOS_ORG = {
@@ -137,7 +169,7 @@ def _get_papel_org(usuario):
     if not usuario:
         return ('—', '—')
     try:
-        profile = usuario.userprofile
+        profile = usuario.profile
         papel = profile.get_papel_display() if hasattr(profile, 'get_papel_display') else (profile.papel or '—')
         org   = profile.org_id.nome if profile.org_id else '—'
         return (papel, org)
@@ -149,9 +181,9 @@ def _bloco_assinaturas(obj, estilos, hash_doc, aprovador_override=None, data_apr
     """Gera bloco de assinaturas com criador e aprovador."""
     elementos = []
     elementos.append(Spacer(1, 0.5 * cm))
-    elementos.append(_secao('Assinaturas', estilos))
-    elementos.append(Spacer(1, 0.3 * cm))
-    elementos.append(Paragraph(
+    cabeca = [_secao('Assinaturas', estilos)]
+    cabeca.append(Spacer(1, 0.3 * cm))
+    cabeca.append(Paragraph(
         'Este documento requer assinatura física ou digital (GOV.BR / SEI) para ter validade jurídica.',
         estilos['aviso'],
     ))
@@ -206,7 +238,7 @@ def _bloco_assinaturas(obj, estilos, hash_doc, aprovador_override=None, data_apr
         ('BOX',           (0, 0), (0, 0),   0.5, CINZA_BD),
         ('BOX',           (1, 0), (1, 0),   0.5, CINZA_BD),
     ]))
-    elementos.append(tabela)
+    elementos.append(KeepTogether(cabeca + [Spacer(1, 0.2 * cm), tabela]))
 
     elementos.append(Spacer(1, 0.4 * cm))
     elementos.append(Paragraph(
@@ -229,7 +261,10 @@ def _cabecalho(tipo_doc, numero_sei, org_nome, estilos, org_sigla=None):
     texto = [
         Paragraph(org_nome.upper() or 'WEBER-E', estilos['subtitulo']),
         Paragraph(tipo_doc, estilos['titulo_doc']),
-        Paragraph(f'Número SEI: {numero_sei}', estilos['subtitulo']),
+        # só é "Processo SEI" o que tem formato de SEI (020.16859.2026.0004494-22); o resto
+        # (nº da indicação, do mapa, nome de relatório) aparece como está
+        Paragraph(f'Processo SEI nº {numero_sei}' if _re.match(r'^\d{3}\.\d{4,5}\.\d{4}\.\d+-\d+$', str(numero_sei or ''))
+                  else str(numero_sei or ''), estilos['subtitulo']),
     ]
     elementos = []
     if logo:
@@ -245,6 +280,14 @@ def _cabecalho(tipo_doc, numero_sei, org_nome, estilos, org_sigla=None):
         elementos.extend(texto)
     elementos += [HRFlowable(width='100%', thickness=2, color=AZUL_GOV), Spacer(1, 0.4*cm)]
     return elementos
+
+
+def _fmt_qtd(q):
+    """200.0000 → '200'; 12.5 → '12,5' (Decimal com 4 casas lia como milhar)."""
+    try:
+        return f'{float(q):,.4f}'.rstrip('0').rstrip('.').replace(',', 'X').replace('.', ',').replace('X', '.')
+    except (TypeError, ValueError):
+        return '—'
 
 
 def _fmt_valor(v):
@@ -475,7 +518,7 @@ def _renderizar_secao_dfd(secao, dfd, estilos):
                     Paragraph(str(i), _ci_c),
                     Paragraph(item.objeto, _ci),
                     Paragraph(item.unidade_medida, _ci_c),
-                    Paragraph(str(item.quantidade), _ci_c),
+                    Paragraph(_fmt_qtd(item.quantidade), _ci_c),
                     Paragraph(_fmt_valor(item.valor_unitario_estimado), _ci_r),
                     Paragraph(_fmt_valor(item.valor_total_estimado),    _ci_r),
                 ])
@@ -542,7 +585,7 @@ def _renderizar_estimativa_tr(tr, estilos):
     dados.append([Paragraph('<b>VALOR TOTAL ESTIMADO</b>', cel_r), '', '', '', '', '', '',
                   Paragraph(f"<b>{_fmt_valor(Decimal(est['total']))}</b>", cel_r)])
     destaques.append(len(dados) - 1)
-    t = Table(dados, colWidths=[1.6*cm, 2.3*cm, 1.8*cm, 4.4*cm, 1.1*cm, 1.3*cm, 2.1*cm, 2.2*cm], repeatRows=1)
+    t = Table(dados, colWidths=[1.5*cm, 2.2*cm, 2.2*cm, 4.2*cm, 1.1*cm, 1.3*cm, 2.1*cm, 2.4*cm], repeatRows=1)
     estilo = [
         ('BACKGROUND', (0, 0), (-1, 0), AZUL_CLARO),
         ('GRID', (0, 0), (-1, -1), 0.5, CINZA_BD),
@@ -590,12 +633,12 @@ def _renderizar_lotes_tr(tr, estilos):
                 dados.append([
                     Paragraph(obj, _cel),
                     Paragraph(un,   _cel_c),
-                    Paragraph(str(item.quantidade), _cel_c),
+                    Paragraph(f'{item.quantidade:,.4f}'.rstrip('0').rstrip('.').replace(',', 'X').replace('.', ',').replace('X', '.'), _cel_r),
                     Paragraph(vlu,  _cel_r),
                     Paragraph(tot,  _cel_r),
                     Paragraph(orig, _cel_c),
                 ])
-            t = Table(dados, colWidths=[5.5*cm, 1.2*cm, 1.5*cm, 2.5*cm, 2.5*cm, 1.3*cm])
+            t = Table(dados, colWidths=[7.2*cm, 1.3*cm, 1.6*cm, 2.5*cm, 2.8*cm, 1.6*cm], repeatRows=1)
             t.setStyle(TableStyle([
                 ('BACKGROUND', (0, 0), (-1, 0), AZUL_CLARO),
                 ('FONTNAME',   (0, 0), (-1, 0), 'Helvetica-Bold'),
@@ -947,13 +990,13 @@ def gerar_pdf_plano_compras(dados: dict, org_nome: str, org_sigla: str = None) -
             for it in itens:
                 linhas.append([
                     it.get('catalogo_codigo', '—'),
-                    (it.get('catalogo_nome', '—'))[:45],
-                    (it.get('catalogo_simpas', '—'))[:20],
+                    (it.get('catalogo_nome', '—')),
+                    (it.get('catalogo_simpas', '—')),
                     it.get('unidade_medida', '—'),
                     str(round(it.get('quantidade_total', 0), 2)),
                     _fmt_valor(it.get('valor_unitario', 0)),
                     _fmt_valor(it.get('valor_total_consolidado', 0)),
-                    ', '.join(it.get('dfds', []))[:25],
+                    ', '.join(it.get('dfds', [])),
                 ])
             # Linha de total da família
             linhas.append([
@@ -1112,7 +1155,7 @@ def gerar_pdf_mapa(mapa) -> bytes:
     org_nome = mapa.org_id.nome if mapa.org_id else ''
     hash_doc = _hash_documento({
         'tipo': 'MAPA', 'id': str(mapa.pk),
-        'objeto': mapa.objeto[:50],
+        'objeto': mapa.objeto,
         'valor': str(mapa.valor_estimado_total),
         **_dados_hash_usuario(mapa),
     })
@@ -1144,8 +1187,8 @@ def gerar_pdf_mapa(mapa) -> bytes:
             resultado = 'Infrutífera' if f.infrutífera else 'Coletada'
             dados_f.append([
                 f.tipo,
-                f.descricao[:35],
-                f.referencia[:30] or '—',
+                f.descricao,
+                f.referencia or '—',
                 f.data_consulta.strftime('%d/%m/%Y') if f.data_consulta else '—',
                 resultado,
             ])
@@ -1165,10 +1208,10 @@ def gerar_pdf_mapa(mapa) -> bytes:
 
     # Itens e preços coletados
     for item in mapa.itens.select_related().prefetch_related('precos__fonte').all():
-        e.append(_secao(f'Item {item.ordem}: {item.descricao[:60]}', estilos))
+        e.append(_secao(f'Item {item.ordem}: {item.descricao}', estilos))
         if item.codigo_simpas:
             e += _campo('Código SIMPAS', item.codigo_simpas, estilos)
-        e += _campo('Quantidade', f'{item.quantidade} {item.unidade_medida}', estilos)
+        e += _campo('Quantidade', f'{_fmt_qtd(item.quantidade)} {item.unidade_medida}', estilos)
 
         # Tabela de preços coletados
         precos = item.precos.all()
@@ -1178,14 +1221,14 @@ def gerar_pdf_mapa(mapa) -> bytes:
                 status_txt = '✓ Válido' if p.valido else f'✗ {p.get_motivo_exclusao_display() or "Excluído"}'
                 sugestao = f' ⚠ {p.sugestao_exclusao}' if p.sugestao_exclusao and p.valido else ''
                 dados_p.append([
-                    p.fonte.descricao[:25],
+                    p.fonte.descricao,
                     p.fonte.tipo,
-                    p.origem_orgao_empresa[:25] or '—',
+                    p.origem_orgao_empresa or '—',
                     p.data_referencia.strftime('%d/%m/%Y') if p.data_referencia else '—',
                     fmt(p.valor_unitario),
                     status_txt + sugestao,
                 ])
-            tp = Table(dados_p, colWidths=[3.5*cm, 1.5*cm, 3.5*cm, 2*cm, 2.5*cm, 4*cm])
+            tp = Table(dados_p, colWidths=[3.4*cm, 1.9*cm, 4.2*cm, 2*cm, 2.5*cm, 3*cm])
             tp.setStyle(TableStyle([
                 ('BACKGROUND',    (0, 0), (-1, 0),  AZUL_GOV),
                 ('TEXTCOLOR',     (0, 0), (-1, 0),  BRANCO),
@@ -1208,10 +1251,10 @@ def gerar_pdf_mapa(mapa) -> bytes:
                 ['Método utilizado', item.get_metodo_aplicado_display() or item.metodo_aplicado,
                  'Nº preços válidos', str(item.qtd_precos_validos),
                  'Valor unit. calculado', fmt(item.valor_unitario_calculado)],
-                ['', '', 'Quantidade', str(item.quantidade),
+                ['', '', 'Quantidade', _fmt_qtd(item.quantidade),
                  'VALOR TOTAL DO ITEM', fmt(item.valor_total_calculado or 0)],
             ]
-            tr_item = Table(resultado_dados, colWidths=[3*cm, 3.5*cm, 2.5*cm, 1.5*cm, 3.5*cm, 3*cm])
+            tr_item = Table(resultado_dados, colWidths=[3*cm, 3.5*cm, 2.5*cm, 1.5*cm, 3.5*cm, 3*cm], cabecalho=False)
             tr_item.setStyle(TableStyle([
                 ('BACKGROUND', (4, 1), (5, 1), AZUL_CLARO),
                 ('FONTNAME',   (4, 1), (5, 1), 'Helvetica-Bold'),
@@ -1233,8 +1276,8 @@ def gerar_pdf_mapa(mapa) -> bytes:
     for item in mapa.itens.all():
         resumo.append([
             str(item.ordem),
-            item.descricao[:40],
-            str(item.quantidade),
+            item.descricao,
+            _fmt_qtd(item.quantidade),
             item.unidade_medida,
             fmt(item.valor_unitario_calculado) if item.valor_unitario_calculado else '—',
             fmt(item.valor_total_calculado) if item.valor_total_calculado else '—',
@@ -1242,7 +1285,7 @@ def gerar_pdf_mapa(mapa) -> bytes:
             item.metodo_aplicado or '—',
         ])
     resumo.append(['', '', '', '', '', fmt(mapa.valor_estimado_total), '', ''])
-    tr_resumo = Table(resumo, colWidths=[0.8*cm, 5*cm, 1*cm, 1.2*cm, 2.5*cm, 2.5*cm, 1.2*cm, 2.8*cm])
+    tr_resumo = Table(resumo, colWidths=[1.1*cm, 5*cm, 1.3*cm, 1.2*cm, 2.4*cm, 2.6*cm, 1.4*cm, 2*cm])
     tr_resumo.setStyle(TableStyle([
         ('BACKGROUND',    (0, 0), (-1, 0),   AZUL_GOV),
         ('TEXTCOLOR',     (0, 0), (-1, 0),   BRANCO),
@@ -1353,7 +1396,7 @@ def gerar_pdf_historico(
         ['Criado em', created_at.strftime('%d/%m/%Y às %H:%M') if created_at else '—'],
         ['Emitido em', datetime.now().strftime('%d/%m/%Y às %H:%M')],
     ]
-    t_id = Table(id_dados, colWidths=[4.5*cm, 13*cm])
+    t_id = Table(id_dados, colWidths=[4.5*cm, 13*cm], cabecalho=False)
     t_id.setStyle(TableStyle([
         ('FONTNAME',      (0, 0), (0, -1), 'Helvetica-Bold'),
         ('FONTSIZE',      (0, 0), (-1, -1), 8),
@@ -1445,7 +1488,7 @@ def gerar_pdf_historico(
             ['Total de tramitações', str(len(entradas_ord)),
              'Status atual', _badge_status(ultimo.status_novo or '—', font_size=8)],
         ]
-        t_res = Table(resumo_dados, colWidths=[4*cm, 2*cm, 4*cm, 7.5*cm])
+        t_res = Table(resumo_dados, colWidths=[4*cm, 2*cm, 4*cm, 7.5*cm], cabecalho=False)
         t_res.setStyle(TableStyle([
             ('FONTNAME',      (0, 0), (0, -1), 'Helvetica-Bold'),
             ('FONTNAME',      (2, 0), (2, -1), 'Helvetica-Bold'),
@@ -1505,7 +1548,7 @@ def gerar_pdf_indicacao(indicacao) -> bytes:
     })
 
     # Cabeçalho
-    e += _cabecalho('DECLARAÇÃO DO ORDENADOR DE DESPESA', indicacao.numero, org_nome, estilos,
+    e += _cabecalho('DECLARAÇÃO DO ORDENADOR DE DESPESA', f'{indicacao.numero}' + (f' — Processo SEI nº {indicacao.numero_sei}' if indicacao.numero_sei else ''), org_nome, estilos,
                     org_sigla=indicacao.org_id.sigla if indicacao.org_id else None)
 
     # Identificação
@@ -1524,7 +1567,30 @@ def gerar_pdf_indicacao(indicacao) -> bytes:
     if indicacao.dfd_id:
         e += _campo('DFD', indicacao.dfd.numero_sei, estilos)
         if indicacao.dfd.descricao:
-            e += _campo('Descrição', indicacao.dfd.descricao, estilos)
+            e += _campo('Objeto', indicacao.dfd.descricao, estilos)
+        itens_dfd = list(indicacao.dfd.itens.all())
+        if itens_dfd:
+            fmt_q = lambda q: f'{q:,.4f}'.rstrip('0').rstrip('.').replace(',', 'X').replace('.', ',').replace('X', '.')
+            dados_it = [['Item', 'Qtd.', 'Un.', 'Valor unit.', 'Valor total']] + [
+                [it.objeto, fmt_q(it.quantidade), it.unidade_medida, fmt(it.valor_unitario_estimado), fmt(it.valor_total_estimado)]
+                for it in itens_dfd
+            ] + [['', '', '', 'TOTAL', fmt(sum(it.valor_total_estimado for it in itens_dfd))]]
+            ti = Table(dados_it, colWidths=[8.2*cm, 1.6*cm, 1.4*cm, 2.8*cm, 3*cm], repeatRows=1)
+            ti.setStyle(TableStyle([
+                ('BACKGROUND',    (0, 0), (-1, 0),  AZUL_CLARO),
+                ('FONTNAME',      (0, 0), (-1, 0),  'Helvetica-Bold'),
+                ('FONTSIZE',      (0, 0), (-1, -1), 8),
+                ('FONTNAME',      (3, -1),(-1, -1), 'Helvetica-Bold'),
+                ('GRID',          (0, 0), (-1, -1), 0.5, CINZA_BD),
+                ('ALIGN',         (1, 0), (-1, -1), 'RIGHT'),
+                ('VALIGN',        (0, 0), (-1, -1), 'MIDDLE'),
+                ('TOPPADDING',    (0, 0), (-1, -1), 3),
+                ('BOTTOMPADDING', (0, 0), (-1, -1), 3),
+            ]))
+            e.append(Spacer(1, 0.15 * cm))
+            e.append(Paragraph('Itens a serem atendidos', estilos['label']))
+            e.append(ti)
+            e.append(Spacer(1, 0.3 * cm))
     elif indicacao.necessidade_id:
         e += _campo('Necessidade', indicacao.necessidade.titulo, estilos)
         e += _campo('Exercício da Necessidade', str(indicacao.necessidade.exercicio_fiscal), estilos)
@@ -1548,16 +1614,16 @@ def gerar_pdf_indicacao(indicacao) -> bytes:
             d = item.dotacao
             nd = d.natureza_despesa
             dados_tab.append([
-                f'{d.acao.codigo} — {d.acao.nome}'[:40],
-                f'{d.elemento_despesa.codigo:02d} — {d.elemento_despesa.descricao}'[:30],
+                f'{d.acao.codigo} — {d.acao.nome}',
+                f'{d.elemento_despesa.codigo:02d} — {d.elemento_despesa.descricao}',
                 f'{nd.formato}' if nd else '—',
-                f'{d.fonte_recurso.codigo} — {d.fonte_recurso.nome}'[:25],
+                f'{d.fonte_recurso.codigo} — {d.fonte_recurso.nome}',
                 fmt(item.valor_indicado),
             ])
         # Linha de total
         dados_tab.append(['', '', '', 'TOTAL', fmt(indicacao.valor_total)])
 
-        t = Table(dados_tab, colWidths=[4.5*cm, 3.5*cm, 2*cm, 3*cm, 2.5*cm])
+        t = Table(dados_tab, colWidths=[4.8*cm, 3.8*cm, 2*cm, 3.8*cm, 2.6*cm], repeatRows=1)
         t.setStyle(TableStyle([
             ('BACKGROUND',    (0, 0), (-1, 0),  AZUL_GOV),
             ('TEXTCOLOR',     (0, 0), (-1, 0),  BRANCO),
@@ -1574,8 +1640,8 @@ def gerar_pdf_indicacao(indicacao) -> bytes:
         ]))
         e.append(t)
 
-    # Bloco de assinaturas com ordenador como aprovador
-    aprov_override = indicacao.ordenador
+    # Bloco de assinaturas: o ordenador só figura como aprovador depois da aprovação
+    aprov_override = indicacao.ordenador if indicacao.status == 'Aprovada' else None
     data_aprov_str = (
         indicacao.data_aprovacao.strftime('%d/%m/%Y') if indicacao.data_aprovacao else None
     )

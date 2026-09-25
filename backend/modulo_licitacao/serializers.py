@@ -251,6 +251,10 @@ class ProcedimentoSerializer(serializers.ModelSerializer):
                 raise serializers.ValidationError({'ata': 'Ata só se vincula a procedimento de Saque de Ata.'})
             elif not (attrs.get('objeto') or '').strip():
                 raise serializers.ValidationError({'objeto': 'Este campo é obrigatório.'})
+            if attrs.get('modalidade') in ('pregao_eletronico', 'concorrencia') and tr is None:
+                raise serializers.ValidationError({'tr': (
+                    'Licitação exige Termo de Referência ou Projeto Básico (Lei 14.133/2021, art. 18, II) — '
+                    'abra o procedimento a partir do TR.')})
             if dfd is None and tr is not None:
                 # Aberto só pelo TR: herda o DFD, senão a exigência de DOD abaixo era pulada
                 from .models import dfd_do_tr

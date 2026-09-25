@@ -71,7 +71,7 @@ class Command(BaseCommand):
             Apostila.objects.create(
                 contrato=c2, objeto='Apostilamento para atualização da dotação orçamentária vinculada, '
                 'sem alteração de valor ou objeto contratual (Art. 136, Lei 14.133/2021).',
-                data=date(2026, 1, 20), numero_processo_sei='001.2026/00410-2',
+                data=date(2026, 1, 20), numero_processo_sei='020.1685.2026.0100410-02',
                 org_id=ssp, created_by=admin, updated_by=admin,
             )
             self.ok('1 Apostila (Contrato SSP-001/2025)')
@@ -80,21 +80,21 @@ class Command(BaseCommand):
                 contrato=c4, tipo='valor', valor_acrescimo=Decimal('18000.00'),
                 objeto='Acréscimo de 15% do valor contratual para ampliação do escopo de suporte, '
                 'incluindo módulo de folha de pagamento não previsto originalmente (Art. 125, §1º, I).',
-                data=date(2026, 8, 10), numero_processo_sei='001.2026/00500-1',
+                data=date(2026, 8, 10), numero_processo_sei='020.1685.2026.0100500-01',
                 org_id=ssp, created_by=admin, updated_by=admin,
             )
             Aditivo.objects.create(
                 contrato=c3, tipo='prazo', nova_vigencia=date(2026, 10, 1),
                 objeto='Prorrogação de prazo em decorrência de atraso na entrega, sem prejuízo das '
                 'medidas de notificação em curso.',
-                data=date(2026, 9, 5), numero_processo_sei='001.2026/00512-9',
+                data=date(2026, 9, 5), numero_processo_sei='020.1685.2026.0100512-09',
                 org_id=ssp, created_by=admin, updated_by=admin,
             )
             adt_c1 = Aditivo.objects.create(
                 contrato=c1, tipo='objeto',
                 objeto='Inclusão de posto adicional de vigilância no turno noturno, sem alteração '
                 'do valor mensal, mediante compensação de escopo.',
-                data=date(2026, 7, 15), numero_processo_sei='001.2026/00470-5',
+                data=date(2026, 7, 15), numero_processo_sei='020.1685.2026.0100470-05',
                 org_id=ssp, created_by=admin, updated_by=admin,
             )
             self.ok('3 Aditivos (valor/Contrato4, prazo/Contrato3, objeto/Contrato1)')
@@ -123,7 +123,7 @@ class Command(BaseCommand):
                 data_medicao=date(2026, 5, 5), percentual_executado=Decimal('100.00'),
                 valor_medido=Decimal('28000.00'), fiscal_responsavel=c1.fiscal_contrato,
                 status='aprovada', parecer_fiscal='Serviço executado integralmente no período, sem intercorrências.',
-                data_aprovacao=date(2026, 5, 8), numero_processo_sei='001.2026/00430-8',
+                data_aprovacao=date(2026, 5, 8), numero_processo_sei='020.1685.2026.0100430-08',
                 org_id=ssp, created_by=analista, updated_by=analista,
             )
             m2 = Medicao.objects.create(
@@ -131,14 +131,14 @@ class Command(BaseCommand):
                 data_medicao=date(2026, 6, 5), percentual_executado=Decimal('100.00'),
                 valor_medido=Decimal('28000.00'), fiscal_responsavel=c1.fiscal_contrato,
                 status='aprovada', parecer_fiscal='Serviço executado integralmente no período, sem intercorrências.',
-                data_aprovacao=date(2026, 6, 8), numero_processo_sei='001.2026/00445-1',
+                data_aprovacao=date(2026, 6, 8), numero_processo_sei='020.1685.2026.0100445-01',
                 org_id=ssp, created_by=analista, updated_by=analista,
             )
             m3 = Medicao.objects.create(
                 contrato=c1, competencia_inicio=date(2026, 8, 1), competencia_fim=date(2026, 8, 31),
                 data_medicao=date(2026, 9, 5), percentual_executado=Decimal('100.00'),
                 valor_medido=Decimal('28000.00'), fiscal_responsavel=c1.fiscal_contrato,
-                status='pendente', numero_processo_sei='001.2026/00480-3',
+                status='pendente', numero_processo_sei='020.1685.2026.0100480-03',
                 org_id=ssp, created_by=analista, updated_by=analista,
             )
             m4 = Medicao.objects.create(
@@ -146,7 +146,7 @@ class Command(BaseCommand):
                 data_medicao=date(2026, 8, 5), percentual_executado=Decimal('100.00'),
                 valor_medido=Decimal('10000.00'), fiscal_responsavel=c4.fiscal_contrato,
                 status='aprovada', parecer_fiscal='Suporte prestado dentro do SLA contratado.',
-                data_aprovacao=date(2026, 8, 8), numero_processo_sei='001.2026/00481-1',
+                data_aprovacao=date(2026, 8, 8), numero_processo_sei='020.1685.2026.0100481-01',
                 org_id=ssp, created_by=analista, updated_by=analista,
             )
             m5 = Medicao.objects.create(
@@ -156,7 +156,7 @@ class Command(BaseCommand):
                 status='rejeitada',
                 parecer_fiscal='Indisponibilidade do suporte acima do SLA contratado no período — '
                 'medição rejeitada, glosa aplicada.',
-                numero_processo_sei='001.2026/00495-6',
+                numero_processo_sei='020.1685.2026.0100495-06',
                 org_id=ssp, created_by=analista, updated_by=analista,
             )
             self.ok('5 Medições (2 aprovadas + 1 pendente/Contrato1, 1 aprovada + 1 rejeitada/Contrato4)')
@@ -165,25 +165,25 @@ class Command(BaseCommand):
                 contrato=c1, medicao=m1, numero_empenho='2026NE000112', numero_nota_fiscal='NF-4501',
                 valor_pago=Decimal('28000.00'), data_vencimento=date(2026, 5, 20),
                 data_pagamento=date(2026, 5, 20), status='pago',
-                numero_processo_sei='001.2026/00430-8', org_id=ssp, created_by=analista, updated_by=analista,
+                numero_processo_sei='020.1685.2026.0100430-08', org_id=ssp, created_by=analista, updated_by=analista,
             )
             Pagamento.objects.create(
                 contrato=c1, medicao=m2, numero_empenho='2026NE000138', numero_nota_fiscal='NF-4602',
                 valor_pago=Decimal('28000.00'), data_vencimento=date(2026, 6, 20),
                 data_pagamento=date(2026, 6, 21), status='pago',
-                numero_processo_sei='001.2026/00445-1', org_id=ssp, created_by=analista, updated_by=analista,
+                numero_processo_sei='020.1685.2026.0100445-01', org_id=ssp, created_by=analista, updated_by=analista,
             )
             Pagamento.objects.create(
                 contrato=c1, medicao=m3, numero_empenho='2026NE000201', numero_nota_fiscal='NF-4788',
                 valor_pago=Decimal('28000.00'), data_vencimento=date(2026, 9, 25),
                 data_pagamento=None, status='pendente',
-                numero_processo_sei='001.2026/00480-3', org_id=ssp, created_by=analista, updated_by=analista,
+                numero_processo_sei='020.1685.2026.0100480-03', org_id=ssp, created_by=analista, updated_by=analista,
             )
             Pagamento.objects.create(
                 contrato=c4, medicao=m4, numero_empenho='2026NE000155', numero_nota_fiscal='NF-3390',
                 valor_pago=Decimal('10000.00'), data_vencimento=date(2026, 8, 20),
                 data_pagamento=date(2026, 8, 20), status='pago',
-                numero_processo_sei='001.2026/00481-1', org_id=ssp, created_by=analista, updated_by=analista,
+                numero_processo_sei='020.1685.2026.0100481-01', org_id=ssp, created_by=analista, updated_by=analista,
             )
             Pagamento.objects.create(
                 contrato=c3, medicao=None, numero_empenho='2026NE000098', numero_nota_fiscal='NF-2210',
@@ -196,8 +196,8 @@ class Command(BaseCommand):
 
             Notificacao.objects.create(
                 contrato=c3, exercicio=2026, tipo_acao='notificacao', categoria_objeto='aquisicao',
-                fornecedor=forn2, numero_processo_sei='001.2026/00512-9',
-                numero_sei_comunicacao='001.2026/00505-4', numero_sei_notificacao='001.2026/00509-7',
+                fornecedor=forn2, numero_processo_sei='020.1685.2026.0100512-09',
+                numero_sei_comunicacao='020.1685.2026.0100505-04', numero_sei_notificacao='020.1685.2026.0100509-07',
                 data_notificacao=date(2026, 6, 10),
                 resumo_fato='Fornecedor não entregou o material de limpeza na data prevista (01/06/2026), '
                 'configurando atraso injustificado na execução contratual.',
@@ -249,7 +249,7 @@ class Command(BaseCommand):
         else:
             etp4 = ETP.objects.get(pk=4)
             HistoricoNumeroSEI.objects.create(
-                etp=etp4, numero_anterior='001.2026/00120-0', numero_novo=etp4.numero_sei,
+                etp=etp4, numero_anterior='020.1685.2026.0100120-00', numero_novo=etp4.numero_sei,
                 usuario=analista,
                 motivo='Correção do número de processo SEI — autuação inicial com numeração de outro órgão.',
             )
@@ -269,7 +269,7 @@ class Command(BaseCommand):
                 orgao_concedente_nome='Secretaria de Segurança Pública do Estado da Bahia',
                 valor_total_pactuado=Decimal('8000000.00'), valor_contrapartida=Decimal('0.00'),
                 data_assinatura=date(2026, 1, 15), vigencia_inicio=date(2026, 1, 1), vigencia_fim=date(2026, 12, 31),
-                numero_processo_sei='020.16859.2026.0000001-10', status='vigente',
+                numero_processo_sei='020.1685.2026.0000001-10', status='vigente',
                 org_id=ssp, created_by=admin, updated_by=admin,
             )
             if2 = InstrumentoFinanceiro.objects.create(

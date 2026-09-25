@@ -36,6 +36,9 @@ def _buscar_preco_referencia(item_dfd):
     return valor, origem
 
 
+
+from core.encerramento import PAPEIS_ENCERRAR
+
 class TRViewSet(viewsets.ModelViewSet):
     serializer_class   = TRSerializer
     permission_classes = [IsAuthenticated, IsMultiTenant]
@@ -209,14 +212,32 @@ class TRViewSet(viewsets.ModelViewSet):
                                              'categoria_motivo': categoria})
 
     @action(detail=True, methods=['post'])
+    def encerrar(self, request, pk=None):
+        """Encerra sem prosseguimento (demanda desistida, sem orçamento, peça
+        aproveitada em outra contratação...). Para o relógio da peça; motivo e
+        data ficam no histórico. Reabertura só pelo admin (ação reabrir)."""
+        from core.encerramento import validar_pedido, impedimento_tr
+        if getattr(request, 'papel', None) not in PAPEIS_ENCERRAR:
+            return Response({'detail': 'Seu papel não permite encerrar a peça.'}, status=status.HTTP_403_FORBIDDEN)
+        obj = self.get_object()
+        try:
+            categoria, motivo = validar_pedido(request.data)
+        except ValueError as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        impedimento = impedimento_tr(obj)
+        if impedimento:
+            return Response({'detail': impedimento}, status=status.HTTP_400_BAD_REQUEST)
+        return self._transicao(request, 'Encerrado', {'motivo': motivo, 'categoria_motivo': categoria})
+
+    @action(detail=True, methods=['post'])
     def reabrir(self, request, pk=None):
         """Derruba a aprovação e retorna o TR para Devolvido (somente admin)."""
         if getattr(request, 'papel', None) != 'admin':
             return Response({'detail': 'Apenas administradores podem reabrir TRs aprovados.'},
                             status=status.HTTP_403_FORBIDDEN)
         tr = self.get_object()
-        if tr.status not in ('Aprovado', 'Cancelado'):
-            return Response({'detail': 'Apenas TRs com status Aprovado ou Cancelado podem ser reabertos.'},
+        if tr.status not in ('Aprovado', 'Cancelado', 'Encerrado'):
+            return Response({'detail': 'Apenas TRs Aprovados, Cancelados ou Encerrados podem ser reabertos.'},
                             status=status.HTTP_400_BAD_REQUEST)
         motivo = request.data.get('motivo', '').strip()
         if not motivo:

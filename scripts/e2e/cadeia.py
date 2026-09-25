@@ -146,7 +146,7 @@ def criar_instrumento_financiamento(e):
         'data_assinatura': str(HOJE - timedelta(days=30)),
         'vigencia_inicio': str(HOJE - timedelta(days=30)),
         'vigencia_fim': str(HOJE + timedelta(days=1095)),
-        'numero_processo_sei': '020.16859.2026.0009001-21',
+        'numero_processo_sei': '020.1685.2026.0009001-21',
         'dados_especificos': {'agente_financeiro': 'BID',
                               'numero_contrato_financiamento': '5210/OC-BR'},
     })
@@ -240,7 +240,7 @@ def plano_fesp(e):
                     {'numero_ato': 'x', 'data_ato': str(HOJE)}, 403)
         api(ORDENADOR, 'POST', f'fesp/plano-aplicacao/{plano["id"]}/homologar/', {
             'numero_ato': f'Decreto nº 23.{HOJE.year % 100}1/{HOJE.year}', 'data_ato': str(HOJE),
-            'numero_processo_sei_ato': '020.16859.2026.0008800-21',
+            'numero_processo_sei_ato': '020.1685.2026.0008800-21',
         })
         plano = api(PLANEJ, 'POST', f'fesp/plano-aplicacao/{plano["id"]}/publicar/', {})
     assert plano['status'] == 'publicado', plano['status']
@@ -278,7 +278,7 @@ def iniciar_dfd(e):
     nec = api(PLANEJ, 'GET', f'planejamento/necessidade/{e["necessidade"]}/')
     item = api(PLANEJ, 'GET', f'fesp/item-plano/{e["item_plano"]}/')
     dfd = api(PLANEJ, 'POST', f'planejamento/necessidade/{nec["id"]}/iniciar_dfd/', {
-        'numero_sei': f'020.16859.{HOJE.year}.00{9100 + nec["id"]}-21',
+        'numero_sei': f'020.1685.{HOJE.year}.{9100 + nec["id"]:07d}-21',
         'prazo_necessidade': str(HOJE + timedelta(days=120)),
         'area_aplicacao': ['Ops'],
         'modalidade_aquisicao': 'licitacao',
@@ -316,10 +316,11 @@ def criar_dotacao(e):
 @etapa('indicacao')
 def emitir_dod(e):
     dfd = api(PLANEJ, 'GET', f'demanda/dfd/{e["dfd"]}/')
+    inst = api(PLANEJ, 'GET', f'fesp/instrumento/{e["instrumento"]}/')
     ind = api(PLANEJ, 'POST', 'orcamento/indicacao/', {
         'exercicio_fiscal': HOJE.year, 'numero_sei': dfd['numero_sei'],
         'dfd': e['dfd'], 'necessidade': e['necessidade'],
-        'observacoes': 'Recurso do financiamento BID 5210/OC-BR.',
+        'observacoes': f'Recurso do instrumento {inst["numero_instrumento"]} — {inst["orgao_concedente_nome"]}.',
     })
     dotacoes = api(PLANEJ, 'GET', f'orcamento/dotacao/?exercicio_fiscal={HOJE.year}&page_size=200').get('results', [])
     minha = next(d for d in dotacoes if d['id'] == e['dotacao'])

@@ -3,6 +3,7 @@ import ModalDevolver, { MOTIVOS_ETP } from '../components/ModalDevolver'
 import { useNavigate, useParams } from 'react-router-dom'
 import useEtpStore from '../stores/etpStore'
 import useAuthStore from '../stores/authStore'
+import EncerrarPeca from '../components/EncerrarPeca'
 import api, { downloadFile } from '../services/api'
 import DownloadButton from '../components/DownloadButton'
 import ChecklistBadge from '../components/ChecklistBadge'
@@ -19,6 +20,7 @@ const STATUS_CLS = {
   Devolvido:    'bg-orange-100 text-orange-700',
   Aprovado:     'bg-green-100 text-green-700',
   Cancelado:    'bg-red-100 text-red-700',
+  Encerrado:    'bg-gray-200 text-gray-600',
   Dispensado:   'bg-purple-100 text-purple-700',
 }
 
@@ -51,6 +53,7 @@ export const pageHelp = {
     { status: 'Aprovado',    descricao: 'Aprovado. Responsável técnico pode iniciar o TR.' },
     { status: 'Dispensado',  descricao: 'ETP dispensado legalmente. Contratação prossegue diretamente para TR.' },
     { status: 'Cancelado',   descricao: 'Contratação cancelada. ETP arquivado.' },
+    { status: 'Encerrado',   descricao: 'Encerrado sem prosseguimento (desistência, sem orçamento, aproveitado em outra contratação). Não conta mais tempo.' },
   ],
   baseLegal: 'Lei 14.133/2021 — Art. 18 e IN SEGES nº 58/2022 (ETP Digital).',
 }
@@ -178,7 +181,8 @@ export default function ETPDetail() {
   const podeAprovar    = current.status === 'Em Análise'  && isLicitante
   const podeDevolver   = current.status === 'Em Análise'  && isLicitante
   const podeCriarTR    = ['Aprovado', 'Dispensado'].includes(current.status) && !current.tr_id && isLicitante
-  const podeReabrir    = ['Aprovado', 'Cancelado'].includes(current.status) && papel === 'admin'
+  const podeReabrir    = ['Aprovado', 'Cancelado', 'Encerrado'].includes(current.status) && papel === 'admin'
+  const podeEncerrar   = !['Encerrado', 'Cancelado', 'Dispensado'].includes(current.status)
   const temTR          = !!current.tr_id
 
   return (
@@ -310,7 +314,7 @@ export default function ETPDetail() {
       )}
 
       {/* Workflow buttons */}
-      {(podeSubmeter || podeAnalisar || podeAprovar || podeDevolver || podeReabrir) && (
+      {(podeSubmeter || podeAnalisar || podeAprovar || podeDevolver || podeReabrir || podeEncerrar) && (
         <div className="mb-6 flex flex-wrap gap-2">
           {podeReabrir && (
             <button onClick={() => setShowReabrirModal(true)} disabled={actionLoading}
@@ -318,6 +322,7 @@ export default function ETPDetail() {
               ↺ Reabrir ETP{temTR ? ' (e TR)' : ''}
             </button>
           )}
+          <EncerrarPeca tipo="ETP" url={`/etp/etp/${id}`} status={current.status} onEncerrado={() => fetchEtp(id)} />
           {podeSubmeter && (
             <button onClick={() => runAction(() => submeterEtp(id))} disabled={actionLoading}
               className="bg-blue-600 hover:bg-blue-700 disabled:opacity-50 text-white text-sm font-medium px-4 py-2 rounded-lg">

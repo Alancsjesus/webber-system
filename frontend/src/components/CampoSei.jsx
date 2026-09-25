@@ -39,7 +39,9 @@ export default function CampoSei({ value, onChange, seiBaseUrl, placeholder, cla
 /** Exibição somente-leitura: texto formatado + link "Abrir no SEI" quando disponível. */
 export function NumeroSeiTexto({ valor, seiBaseUrl, className = 'font-mono text-blue-700' }) {
   if (!valor) return null
-  const formatado = formatarNumeroSei(valor)
+  // só formata dígitos puros; número já pontuado aparece como está (reformatar
+  // um padrão diferente embaralhava os grupos: 020.16859.… → 020.1685.9…)
+  const formatado = /^\d+$/.test(String(valor)) ? formatarNumeroSei(valor) : valor
   const url = seiBaseUrl ? `${seiBaseUrl}${encodeURIComponent(valor)}` : null
 
   return (

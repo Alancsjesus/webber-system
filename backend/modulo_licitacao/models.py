@@ -258,6 +258,39 @@ class Procedimento(MesaAtualMixin, BaseModel):
     def eh_saque(self):
         return self.modalidade == 'saque_arp'
 
+    def pendencias_instrucao(self):
+        """
+        O que falta na fase preparatória para o procedimento sair de "Em Instrução".
+
+        Lei 14.133/2021: art. 18 (licitação — DFD, ETP, TR/projeto básico) e
+        art. 72, I (contratação direta — DFD e, "se for o caso", ETP e TR: se
+        vinculados, precisam estar aprovados). Saque de Ata usa as peças da
+        formação da Ata — exige a própria Ata vigente e o DFD aprovado.
+        """
+        p = []
+        dfd = self.dfd
+        if dfd is None:
+            p.append('DFD não vinculado (art. 72, I / art. 18, I).')
+        elif dfd.status != 'Aprovada':
+            p.append(f'DFD {dfd.numero_sei} não está aprovado (situação: {dfd.status}).')
+        if self.eh_saque:
+            if self.ata_id is None or self.ata.status != 'vigente':
+                p.append('Ata de Registro de Preços vigente não vinculada.')
+            return p
+        tr = self.tr
+        if tr is None:
+            if self.eh_licitacao:
+                p.append('Termo de Referência ou Projeto Básico não vinculado (art. 18, II).')
+            return p
+        etp = tr.etp
+        if etp is not None and etp.status not in ('Aprovado', 'Dispensado'):
+            p.append(f'ETP {etp.numero_sei} não está aprovado nem dispensado (situação: {etp.status}).')
+        elif etp is None and self.eh_licitacao:
+            p.append('ETP não elaborado nem dispensado (art. 18, I).')
+        if tr.status != 'Aprovado':
+            p.append(f'TR {tr.numero_sei} não está aprovado (situação: {tr.status}).')
+        return p
+
     @property
     def transicoes_disponiveis(self):
         permitidas = TRANSICOES_PERMITIDAS.get(self.status, [])

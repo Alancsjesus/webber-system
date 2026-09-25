@@ -78,6 +78,13 @@ class ProcedimentoViewSet(viewsets.ModelViewSet):
             raise ValidationError(
                 f'Transição "{procedimento.status}" → "{novo_status}" não permitida.'
             )
+        # Avançar o procedimento exige a fase preparatória concluída (art. 18 / art. 72, I).
+        if novo_status not in ('Em Instrução', 'Anulado', 'Revogado', 'Deserto', 'Fracassado'):
+            pendencias = procedimento.pendencias_instrucao()
+            if pendencias:
+                from rest_framework.exceptions import ValidationError
+                raise ValidationError({'detail': 'Instrução incompleta — conclua a fase preparatória antes de avançar: '
+                                                 + ' '.join(pendencias), 'pendencias': pendencias})
         anterior = procedimento.status
         procedimento.status = novo_status
         procedimento.updated_by = usuario

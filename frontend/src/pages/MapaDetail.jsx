@@ -4,6 +4,7 @@ import ModalDevolver, { MOTIVOS_MAPA } from '../components/ModalDevolver'
 import { useNavigate, useParams } from 'react-router-dom'
 import useMapaStore from '../stores/mapaStore'
 import useAuthStore from '../stores/authStore'
+import EncerrarPeca from '../components/EncerrarPeca'
 import LoadingSpinner from '../components/LoadingSpinner'
 import PNCPImport from '../components/PNCPImport'
 import SugestoesItensDfd from '../components/SugestoesItensDfd'
@@ -155,6 +156,7 @@ export default function MapaDetail() {
             <span className={`px-2 py-0.5 rounded-full text-xs font-medium ${
               current.status === 'Finalizado' ? 'bg-green-100 text-green-700'
               : current.status === 'Cancelado' ? 'bg-red-100 text-red-600'
+              : current.status === 'Encerrado' ? 'bg-gray-200 text-gray-600'
               : 'bg-gray-100 text-gray-600'
             }`}>{current.status}</span>
             <span className="text-xs text-gray-400">Exercício {current.exercicio_fiscal}</span>
@@ -225,6 +227,7 @@ export default function MapaDetail() {
               Cancelar
             </button>
           )}
+          <EncerrarPeca tipo="Mapa de Preços" url={`/pesquisa/mapa/${id}`} status={current.status} onEncerrado={() => fetchMapa(id)} />
         </div>
       </div>
 

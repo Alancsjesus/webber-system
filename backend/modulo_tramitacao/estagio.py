@@ -14,7 +14,8 @@ from core.views_rastreabilidade import STATUS_CONCLUIDO, _rel
 # o processo sai do Painel de Tramitação e passa a ser coberto pelo Painel
 # de Contratos. Revogado/Anulado/Deserto/Fracassado continuam visíveis aqui
 # (processo "parado", ainda é informação de gestão relevante).
-PROCEDIMENTO_SAI_DO_PAINEL = ('Contratado',)
+# Desfechos: nova tentativa abre outro procedimento — não é processo "parado"
+PROCEDIMENTO_SAI_DO_PAINEL = ('Contratado', 'Deserto', 'Fracassado', 'Revogado', 'Anulado')
 
 
 def _passos_dfd(dfd):
@@ -178,6 +179,10 @@ def listar_itens_painel(request):
 
     itens = []
     for dfd in dfds:
+        # ETP/TR encerrado sem prosseguimento: a demanda parou — não é processo "parado"
+        etp = getattr(dfd, 'etp', None)
+        if etp and (etp.status == 'Encerrado' or getattr(getattr(etp, 'tr', None), 'status', '') == 'Encerrado'):
+            continue
         item = resolver_item_painel(dfd, request.org_id)
         if item:
             itens.append(item)

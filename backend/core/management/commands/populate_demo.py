@@ -5,7 +5,7 @@ Cobre o fluxo completo:
   Necessidade → DFD → Mapa de Preços → ETP → TR (com lotes) →
   Orçamento (dotação → indicação → NPO → concessão) → Contrato
 
-Formato SEI SSP-BA: 020.16859.AAAA.NNNNNNN-VD
+Formato SEI SSP-BA: 020.1685.AAAA.NNNNNNN-VD
 
 Uso:
     python manage.py populate_demo
@@ -37,12 +37,12 @@ from modulo_contrato.models import Contrato
 _seq = [4491]
 
 def sei(ano=2026):
-    """Formato oficial SSP-BA: 020.16859.AAAA.NNNNNNN-VD"""
+    """Formato oficial SSP-BA: 020.1685.AAAA.NNNNNNN-VD"""
     _seq[0] += 1
     n = _seq[0]
     base = int(f'0201685900{ano}{n:07d}') % 97
     dv = (base % 89) + 10   # dígito entre 10-98
-    return f'020.16859.{ano}.{n:07d}-{dv:02d}'
+    return f'020.1685.{ano}.{n:07d}-{dv:02d}'
 
 
 class Command(BaseCommand):

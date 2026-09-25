@@ -319,8 +319,10 @@ class TRSerializer(serializers.ModelSerializer):
             .select_related('indicacao', 'dotacao__acao', 'dotacao__elemento_despesa', 'dotacao__fonte_recurso')
         )
         partes = [
+            # só o valor vai para o formato brasileiro — trocar pontos no texto todo
+            # corrompia códigos ("Ação INST.7.20" virava "INST,7,20")
             f'Ação {l.dotacao.acao}, Elemento {l.dotacao.elemento_despesa}, Fonte {l.dotacao.fonte_recurso} '
-            f'(DOD {l.indicacao.numero}, R$ {l.valor_indicado:,.2f})'.replace(',', '#').replace('.', ',').replace('#', '.')
+            f'(DOD {l.indicacao.numero}, R$ ' + f'{l.valor_indicado:,.2f}'.replace(',', '#').replace('.', ',').replace('#', '.') + ')'
             for l in linhas
         ]
         if not partes:

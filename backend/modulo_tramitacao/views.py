@@ -160,3 +160,17 @@ class IndicadoresTramitacaoView(APIView):
     def get(self, request):
         from .indicadores import calcular_indicadores
         return Response(calcular_indicadores(request))
+
+
+class TemposPorAnoView(APIView):
+    """
+    GET /api/tramitacao/tempos-por-ano/
+    Tempo de construção das peças (DFD, ETP, TR, Mapa) e das fases do
+    procedimento, agregado por ano — mediana, média, n, devoluções e peças
+    encerradas sem prosseguimento. Definições em modulo_tramitacao.tempos.
+    """
+    permission_classes = [IsAuthenticated, IsMultiTenant]
+
+    def get(self, request):
+        from .tempos import calcular_tempos_por_ano
+        return Response(calcular_tempos_por_ano(request.org_id))

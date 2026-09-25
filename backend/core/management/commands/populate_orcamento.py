@@ -16,19 +16,19 @@ from modulo_demanda.models import DFD
 from modulo_etp.models import ETP
 
 
-ELEMENTOS_DESPESA = [
-    (33901,  'Locação de Mão de Obra'),
-    (33903,  'Passagens e Despesas com Locomoção'),
-    (33904,  'Contratação por Tempo Determinado'),
-    (33913,  'Obrigações Patronais'),
-    (33914,  'Diárias – Civil'),
-    (33930,  'Material de Consumo'),
-    (33931,  'Premiações Culturais, Artísticas, Científicas, Desportivas e Outras'),
-    (33936,  'Outros Serviços de Terceiros – Pessoa Física'),
-    (33939,  'Outros Serviços de Terceiros – Pessoa Jurídica'),
-    (44905,  'Equipamentos e Material Permanente'),
-    (44906,  'Equipamentos e Material Permanente – Leasing'),
-    (44909,  'Software'),
+ELEMENTOS_DESPESA = [  # elemento (2 dígitos, Portaria STN/SOF 163/2001) — não a natureza
+    (37, 'Locação de Mão-de-Obra'),
+    (33, 'Passagens e Despesas com Locomoção'),
+    (4,  'Contratação por Tempo Determinado'),
+    (13, 'Obrigações Patronais'),
+    (14, 'Diárias - Civil'),
+    (30, 'Material de Consumo'),
+    (31, 'Premiações Culturais, Artísticas, Científicas, Desportivas e Outras'),
+    (36, 'Outros Serviços de Terceiros - Pessoa Física'),
+    (39, 'Outros Serviços de Terceiros - Pessoa Jurídica'),
+    (52, 'Equipamento e Material Permanente'),
+    (38, 'Arrendamento Mercantil'),
+    (40, 'Serviços de Tecnologia da Informação e Comunicação - Pessoa Jurídica'),
 ]
 
 ACOES = {
@@ -126,16 +126,16 @@ class Command(BaseCommand):
         dotacoes = {}
         dotacao_specs = [
             # (sigla_org, codigo_acao, cod_elem, cod_fonte, valor, status)
-            ('SSP',   '2024.001', 33939, 100, 1_500_000.00, 'Aprovada'),
-            ('SSP',   '2024.002', 33930, 100,   800_000.00, 'Aprovada'),
-            ('SSP',   '2024.003', 33939, 110,   300_000.00, 'Em Análise'),
-            ('SSP',   '2024.004', 44905, 100, 2_000_000.00, 'Aprovada'),
-            ('CBMBA', '2024.101', 44905, 100,   600_000.00, 'Aprovada'),
-            ('CBMBA', '2024.102', 33930, 200,   250_000.00, 'Aprovada'),
-            ('CBMBA', '2024.103', 33939, 100,   150_000.00, 'Proposta'),
-            ('PMBA',  '2024.201', 44905, 100, 1_200_000.00, 'Aprovada'),
-            ('PMBA',  '2024.202', 33930, 100,   400_000.00, 'Aprovada'),
-            ('PMBA',  '2024.203', 33939, 300,   500_000.00, 'Aprovada'),
+            ('SSP',   '2024.001', 39, 100, 1_500_000.00, 'Aprovada'),
+            ('SSP',   '2024.002', 30, 100,   800_000.00, 'Aprovada'),
+            ('SSP',   '2024.003', 39, 110,   300_000.00, 'Em Análise'),
+            ('SSP',   '2024.004', 52, 100, 2_000_000.00, 'Aprovada'),
+            ('CBMBA', '2024.101', 52, 100,   600_000.00, 'Aprovada'),
+            ('CBMBA', '2024.102', 30, 200,   250_000.00, 'Aprovada'),
+            ('CBMBA', '2024.103', 39, 100,   150_000.00, 'Proposta'),
+            ('PMBA',  '2024.201', 52, 100, 1_200_000.00, 'Aprovada'),
+            ('PMBA',  '2024.202', 30, 100,   400_000.00, 'Aprovada'),
+            ('PMBA',  '2024.203', 39, 300,   500_000.00, 'Aprovada'),
         ]
         for sigla, cod_acao, cod_elem, cod_fonte, valor, status in dotacao_specs:
             orgao = orgaos.get(sigla)

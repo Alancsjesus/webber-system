@@ -5,6 +5,7 @@ import api from '../services/api'
 import LoadingSpinner from '../components/LoadingSpinner'
 import StatTile from '../components/viz/StatTile'
 import DistribuicaoBar from '../components/viz/DistribuicaoBar'
+import TemposPorAno from '../components/viz/TemposPorAno'
 import { CHROME, EIXO_PROPS, SERIE, STATUS, TOOLTIP_PROPS } from '../components/viz/tokens'
 
 export const pageHelp = {
@@ -15,6 +16,7 @@ export const pageHelp = {
     { label: 'Cards de topo', texto: 'Visão geral: total de processos, quantos estão críticos/em atenção, tempo médio geral e qual etapa concentra o maior tempo médio.' },
     { label: 'Gráficos por setor/etapa', texto: 'Comparação visual do tempo médio — a barra mais alta é onde vale investigar primeiro. Cor segue o mesmo limiar dos cards (verde/âmbar/vermelho).' },
     { label: 'Processos mais parados', texto: 'Os 10 processos com mais dias na fase atual, com link direto para abrir o registro (quando não é um item manual).' },
+    { label: 'Tempo de instrução por ano', texto: 'Compara dois anos: mediana de dias para construir cada peça (DFD, ETP, TR, Mapa — da criação à aprovação) e para cada fase do procedimento. Peças encerradas sem prosseguimento saem da mediana e são contadas à parte; o estoque em andamento mostra quantas ainda estão abertas e há quanto tempo.' },
     { label: 'Duração de processos concluídos', texto: 'Mede o ciclo completo (início do Procedimento até assinatura do Contrato) de processos já concluídos, não o tempo parado dos que estão em andamento. Segmentado por modalidade, natureza do objeto e passagem por órgão externo (Casa Civil, PGE, SEFAZ) — uma média única esconderia a diferença entre uma compra simples e uma que exige mais trâmite.' },
   ],
 }
@@ -444,6 +446,10 @@ export default function TramitacaoIndicadores() {
             <GraficoDuracaoPorGrupo titulo="Duração média por natureza do objeto (via TR)" dados={dados.duracao_por_tipo_objeto} chaveLabel="tipo_objeto_label" />
           </div>
           <TabelaImpactoTramitacaoExterna dados={dados.impacto_tramitacao_externa} />
+
+          <div className="mt-8">
+            <TemposPorAno />
+          </div>
         </>
       )}
     </div>

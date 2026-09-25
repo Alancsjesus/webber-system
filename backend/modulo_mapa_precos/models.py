@@ -8,6 +8,7 @@ from decimal import Decimal
 
 from django.db import models
 from django.contrib.auth.models import User
+from core.encerramento import MOTIVOS_ENCERRAMENTO
 from core.models import BaseModel
 
 
@@ -36,15 +37,17 @@ STATUS_MAPA_CHOICES = [
     ('Aprovado',   'Aprovado'),
     ('Devolvido',  'Devolvido para correção'),
     ('Cancelado',  'Cancelado'),
+    ('Encerrado',  'Encerrado sem prosseguimento'),
 ]
 
 TRANSICOES_MAPA = {
-    'Rascunho':   ['Submetido', 'Cancelado'],
-    'Submetido':  ['Em Análise', 'Rascunho', 'Cancelado'],
-    'Em Análise': ['Aprovado', 'Devolvido', 'Cancelado'],
-    'Devolvido':  ['Submetido', 'Cancelado'],
-    'Aprovado':   ['Cancelado'],
+    'Rascunho':   ['Submetido', 'Cancelado', 'Encerrado'],
+    'Submetido':  ['Em Análise', 'Rascunho', 'Cancelado', 'Encerrado'],
+    'Em Análise': ['Aprovado', 'Devolvido', 'Cancelado', 'Encerrado'],
+    'Devolvido':  ['Submetido', 'Cancelado', 'Encerrado'],
+    'Aprovado':   ['Cancelado', 'Encerrado'],
     'Cancelado':  [],
+    'Encerrado':  [],
 }
 
 # Mapeamento tipo_fonte → chave do parâmetro de prazo (meses)
@@ -187,7 +190,7 @@ class HistoricoMapa(models.Model):
     status_novo      = models.CharField(max_length=15)
     usuario          = models.ForeignKey(User, on_delete=models.SET_NULL, null=True)
     motivo           = models.TextField(blank=True, null=True)
-    categoria_motivo = models.CharField(max_length=40, choices=MOTIVOS_DEVOLUCAO_MAPA, blank=True, default='', verbose_name='Categoria do motivo')
+    categoria_motivo = models.CharField(max_length=40, choices=MOTIVOS_DEVOLUCAO_MAPA + MOTIVOS_ENCERRAMENTO, blank=True, default='', verbose_name='Categoria do motivo')
     criado_em        = models.DateTimeField(auto_now_add=True)
 
     class Meta:

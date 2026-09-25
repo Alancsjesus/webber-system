@@ -12,7 +12,7 @@ Sempre recria do zero (apaga o que esta simulação criou antes de inserir de
 novo) — é dado de demonstração, não histórico real; rodar de novo depois de
 mudar o script deve refletir a mudança, não pular por já existir.
 
-Os registros são identificados pelos processos SEI reservados 020.9999x (e
+Os registros são identificados pelos processos SEI reservados 020.999x (e
 pelas Atas/códigos de catálogo listados abaixo), não por um prefixo no texto:
 na tela, precisam ler como contratações reais da SSP.
 
@@ -37,7 +37,7 @@ from modulo_arp.models import Ata, ItemAta, HistoricoAta
 from modulo_mapa_precos.models import MapaComparativoPrecos, ItemMapa
 
 MARCADOR = '[Simulação Cronograma]'  # versões antigas marcavam o texto; limpo por compatibilidade
-SEI_SIMULACAO = ('020.99991.', '020.99992.', '020.99993.', '020.99999.')
+SEI_SIMULACAO = ('020.9991.', '020.9992.', '020.9993.', '020.9999.')
 ATAS_SIMULACAO = ('ARP-SSP-031/2026', 'ARP-SSP-032/2026', 'ARP-SIM-001/2026', 'ARP-SIM-002/2026')
 CATALOGO_SIMULACAO = ('42.60.10.90001-1', '42.60.20.90002-2', '42.60.30.90003-3', '25.10.10.90004-4',
                       '42.50.40.90005-5', '42.50.50.90006-6')
@@ -68,30 +68,47 @@ class Command(BaseCommand):
             Q(objeto__startswith=MARCADOR) | Q(itens__codigo_simpas__in=CATALOGO_SIMULACAO)).delete()
         ItemCatalogo.objects.filter(Q(nome__startswith=MARCADOR) | Q(codigo_simpas__in=CATALOGO_SIMULACAO)).delete()
 
-    def _dfd_etp_tr(self, org, autor, numero_base, objeto, tipo_objeto, valor, exercicio=2026):
+    def _trilha(self, Hist, fk, obj, passos, autor, inicial):
+        """Histórico de status com datas reais (a medição de tempos lê daqui).
+        passos: [(status_novo, datetime)]; também fixa created_at do registro."""
+        type(obj).objects.filter(pk=obj.pk).update(created_at=passos[0][1] - timedelta(days=1))
+        anterior = inicial
+        for status_novo, quando in passos:
+            h = Hist.objects.create(**{fk: obj}, status_anterior=anterior, status_novo=status_novo, usuario=autor)
+            Hist.objects.filter(pk=h.pk).update(criado_em=quando)
+            anterior = status_novo
+
+    def _dfd_etp_tr(self, org, autor, numero_base, objeto, tipo_objeto, valor, abertura, exercicio=2026):
         """Cadeia mínima DFD→ETP→TR para o Procedimento poder carregar um
         tipo_objeto real — sem isso não há como segmentar a medição por
         natureza da contratação."""
         dfd = DFD.objects.create(
-            org_id=org, numero_sei=f'{numero_base}-DFD', descricao=objeto,
+            org_id=org, numero_sei=f'{numero_base}-10', descricao=objeto,
             valor_estimado=Decimal(valor), area_aplicacao=['Ops'],
             prazo_necessidade=date.today() + timedelta(days=180), status='Aprovada',
             created_by=autor, updated_by=autor,
         )
         etp = ETP.objects.create(
-            dfd=dfd, numero_sei=f'{numero_base}-ETP',
+            dfd=dfd, numero_sei=f'{numero_base}-10',
             necessidade_contratacao=objeto, status='Aprovado',
             org_id=org, created_by=autor, updated_by=autor,
         )
         tr = TR.objects.create(
-            etp=etp, numero_sei=f'{numero_base}-TR', objeto_contratacao=objeto,
+            etp=etp, numero_sei=f'{numero_base}-10', objeto_contratacao=objeto,
             tipo_objeto=tipo_objeto, status='Aprovado',
             org_id=org, created_by=autor, updated_by=autor,
         )
+        from modulo_demanda.models import HistoricoTramitacao
+        from modulo_etp.models import HistoricoETP
+        from modulo_tr.models import HistoricoTR
+        d = lambda dias: abertura - timedelta(days=dias)
+        self._trilha(HistoricoTramitacao, 'dfd', dfd, [('Submetida', d(62)), ('Em Análise', d(60)), ('Aprovada', d(52))], autor, 'Rascunho')
+        self._trilha(HistoricoETP, 'etp', etp, [('Submetido', d(40)), ('Em Análise', d(38)), ('Aprovado', d(30))], autor, 'Rascunho')
+        self._trilha(HistoricoTR, 'tr', tr, [('Submetido', d(20)), ('Em Análise', d(18)), ('Aprovado', d(8))], autor, 'Rascunho')
         return tr
 
     def _procedimento_concluido(self, org, modalidade, dias_ate_assinatura, autor, objeto, numero_sei, valor,
-                                 exercicio=2026, tr=None, tramitacoes_externas=None):
+                                 exercicio=2026, tr=None, tramitacoes_externas=None, dfd=None):
         """Cria Procedimento → ResultadoLote(homologado) → Contrato assinado
         HOJE, com o Procedimento aberto `dias_ate_assinatura` dias antes —
         amostra cronologicamente consistente. `tramitacoes_externas` é uma
@@ -100,10 +117,18 @@ class Command(BaseCommand):
         arbitrário aplicado por categoria."""
         proc = Procedimento.objects.create(
             org_id=org, exercicio=exercicio, modalidade=modalidade,
-            objeto=objeto, tr=tr, numero_sei=numero_sei, valor_estimado=Decimal(valor),
-            created_by=autor, updated_by=autor,
+            objeto=objeto, tr=tr, dfd=dfd, numero_sei=numero_sei, valor_estimado=Decimal(valor),
+            status='Contratado', created_by=autor, updated_by=autor,
         )
         abertura = timezone.now() - timedelta(days=dias_ate_assinatura)
+        Procedimento.objects.filter(pk=proc.pk).update(created_at=abertura)
+        from modulo_licitacao.models import HistoricoProcedimento
+        f = lambda frac: abertura + timedelta(days=round(dias_ate_assinatura * frac))
+        passos = [('Aguardando Aprovação', f(.05)), ('Aprovado', f(.12))]
+        if modalidade == 'pregao_eletronico':
+            passos += [('Publicado', f(.15)), ('Em Sessão', f(.3)), ('Homologado', f(.9))]
+        passos += [('Contratado', f(1))]
+        self._trilha(HistoricoProcedimento, 'procedimento', proc, passos, autor, 'Em Instrução')
         Procedimento.objects.filter(pk=proc.pk).update(created_at=abertura)
 
         for orgao_externo, dias_tramite, offset_envio in (tramitacoes_externas or []):
@@ -117,7 +142,7 @@ class Command(BaseCommand):
 
         contrato = Contrato.objects.create(
             org_id=org, exercicio=exercicio, orgao_executor=org,
-            objeto=objeto, numero_processo_sei=numero_sei,
+            objeto=objeto, numero_processo_sei=numero_sei, dfd=tr.etp.dfd if tr else dfd,
             tipo_origem='licitacao' if modalidade == 'pregao_eletronico' else 'dispensa',
             valor_contrato=Decimal(valor) * Decimal('0.94'), data_assinatura=date.today(),
             created_by=autor, updated_by=autor,
@@ -198,9 +223,9 @@ class Command(BaseCommand):
             ('Aquisição de microcomputadores para as unidades administrativas da SSP', 100, '420000.00'),
         ]
         for i, (objeto, dias, valor) in enumerate(objetos_comuns, start=1):
-            base = f'020.99991.2026.{i:07d}'
-            tr = self._dfd_etp_tr(ssp, autor, base, objeto, 'bens', valor)
-            self._procedimento_concluido(ssp, 'pregao_eletronico', dias, autor, objeto, f'{base}-PE', valor, tr=tr)
+            base = f'020.9991.2026.{i:07d}'
+            tr = self._dfd_etp_tr(ssp, autor, base, objeto, 'bens', valor, timezone.now() - timedelta(days=dias))
+            self._procedimento_concluido(ssp, 'pregao_eletronico', dias, autor, objeto, f'{base}-10', valor, tr=tr)
         self.ok('3 Pregões de bens comuns concluídos (80, 90, 100 dias) — sem tramitação externa')
 
         # ═══════════════════════════════════════════════════════════════════
@@ -211,13 +236,13 @@ class Command(BaseCommand):
             ('Aquisição de viaturas para transporte de custodiados', 180, '1450000.00'),
         ]
         for i, (objeto, dias, valor) in enumerate(objetos_viaturas, start=1):
-            base = f'020.99992.2026.{i:07d}'
-            tr = self._dfd_etp_tr(ssp, autor, base, objeto, 'bens', valor)
+            base = f'020.9992.2026.{i:07d}'
+            tr = self._dfd_etp_tr(ssp, autor, base, objeto, 'bens', valor, timezone.now() - timedelta(days=dias))
             # Casa Civil (anuência prévia, ~30 dias) e PGE (aprovação jurídica, ~20 dias),
             # enviados logo após a abertura — é isso que empurra a duração total pra cima,
             # não uma categoria "veículo" tratada como número mágico.
             self._procedimento_concluido(
-                ssp, 'pregao_eletronico', dias, autor, objeto, f'{base}-PE', valor, tr=tr,
+                ssp, 'pregao_eletronico', dias, autor, objeto, f'{base}-10', valor, tr=tr,
                 tramitacoes_externas=[('CasaCivil', 30, 10), ('PGE', 20, 45)],
             )
         self.ok('3 Pregões de viaturas concluídos (150, 165, 180 dias) — com Casa Civil + PGE')
@@ -230,8 +255,17 @@ class Command(BaseCommand):
             ('Aquisição de material elétrico para manutenção predial', '29500.00'),
         ]
         for i, (dias, (objeto, valor)) in enumerate(zip((22, 25, 28), dispensas), start=1):
+            dfd = DFD.objects.create(
+                org_id=ssp, numero_sei=f'020.9993.2026.{i:07d}-10', descricao=objeto, valor_estimado=Decimal(valor),
+                area_aplicacao=['Ops'], prazo_necessidade=date.today(), status='Aprovada',
+                modalidade_aquisicao='dispensa_valor', created_by=autor, updated_by=autor,
+            )
+            from modulo_demanda.models import HistoricoTramitacao
+            abertura = timezone.now() - timedelta(days=dias)
+            self._trilha(HistoricoTramitacao, 'dfd', dfd, [('Submetida', abertura - timedelta(days=12)),
+                         ('Em Análise', abertura - timedelta(days=11)), ('Aprovada', abertura - timedelta(days=6))], autor, 'Rascunho')
             self._procedimento_concluido(ssp, 'dispensa_eletronica', dias, autor, objeto,
-                                         f'020.99993.2026.{i:07d}-DE', valor)
+                                         f'020.9993.2026.{i:07d}-10', valor, dfd=dfd)
         self.ok('3 processos de Dispensa Eletrônica concluídos (22, 25, 28 dias)')
 
         # ═══════════════════════════════════════════════════════════════════
@@ -243,19 +277,19 @@ class Command(BaseCommand):
         cat_c = self._item_catalogo_simulado('Ar-condicionado split 24.000 BTUs, inverter', '42.60.30.90003-3')
         cat_d = self._item_catalogo_simulado('Viatura policial caracterizada 4x4, cabine dupla', '25.10.10.90004-4')
 
-        dfd_a = self._dfd_pendente(ssp, '020.99999.2026.0000001-01', hoje + timedelta(days=73), autor,
+        dfd_a = self._dfd_pendente(ssp, '020.9999.2026.0000001-01', hoje + timedelta(days=73), autor,
                                    'Aquisição de bebedouros industriais para as unidades operacionais da SSP')
         self._item_dfd(dfd_a, cat_a, '2300.00', 12, autor)
 
-        dfd_b = self._dfd_pendente(ssp, '020.99999.2026.0000002-02', hoje + timedelta(days=32), autor,
+        dfd_b = self._dfd_pendente(ssp, '020.9999.2026.0000002-02', hoje + timedelta(days=32), autor,
                                    'Aquisição de cadeiras ergonômicas para a Central de Operações (CICOM)')
         self._item_dfd(dfd_b, cat_b, '1250.00', 40, autor)
 
-        dfd_c = self._dfd_pendente(ssp, '020.99999.2026.0000003-03', hoje + timedelta(days=7), autor,
+        dfd_c = self._dfd_pendente(ssp, '020.9999.2026.0000003-03', hoje + timedelta(days=7), autor,
                                    'Aquisição de aparelhos de ar-condicionado para a sala de servidores')
         self._item_dfd(dfd_c, cat_c, '4200.00', 6, autor)
 
-        dfd_d = self._dfd_pendente(ssp, '020.99999.2027.0000004-04', date(2027, 3, 15), autor,
+        dfd_d = self._dfd_pendente(ssp, '020.9999.2027.0000004-04', date(2027, 3, 15), autor,
                                    'Recomposição da frota de viaturas 4x4 para o policiamento no interior')
         self._item_dfd(dfd_d, cat_d, '185000.00', 6, autor)
 
@@ -267,14 +301,14 @@ class Command(BaseCommand):
         cat_colete = self._item_catalogo_simulado('Colete balístico nível III-A, com capa, masculino e feminino', '42.50.40.90005-5')
         self._ata_com_item(ssp, 'ARP-SSP-031/2026', cat_colete, '2450.00', autor)
         self._referencia_mercado(ssp, cat_colete, '2600.00', autor)
-        dfd_e = self._dfd_pendente(ssp, '020.99999.2026.0000005-05', hoje + timedelta(days=55), autor,
+        dfd_e = self._dfd_pendente(ssp, '020.9999.2026.0000005-05', hoje + timedelta(days=55), autor,
                                    'Substituição de coletes balísticos com validade vencida')
         self._item_dfd(dfd_e, cat_colete, '2450.00', 150, autor)
 
         cat_radio = self._item_catalogo_simulado('Rádio transceptor digital portátil padrão P25', '42.50.50.90006-6')
         self._ata_com_item(ssp, 'ARP-SSP-032/2026', cat_radio, '8900.00', autor)
         self._referencia_mercado(ssp, cat_radio, '6200.00', autor)
-        dfd_f = self._dfd_pendente(ssp, '020.99999.2026.0000006-06', hoje + timedelta(days=83), autor,
+        dfd_f = self._dfd_pendente(ssp, '020.9999.2026.0000006-06', hoje + timedelta(days=83), autor,
                                    'Aquisição de rádios digitais portáteis para as equipes de rua')
         self._item_dfd(dfd_f, cat_radio, '8900.00', 30, autor)
 

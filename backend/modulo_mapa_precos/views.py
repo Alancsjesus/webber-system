@@ -156,6 +156,23 @@ class MapaComparativoPrecosViewSet(viewsets.ModelViewSet):
         return Response({'detail': 'Mapa cancelado.'})
 
     @action(detail=True, methods=['post'])
+    def encerrar(self, request, pk=None):
+        """Encerra sem prosseguimento (ver core.encerramento)."""
+        from core.encerramento import validar_pedido, impedimento_mapa, PAPEIS_ENCERRAR
+        if getattr(request, 'papel', None) not in PAPEIS_ENCERRAR:
+            return Response({'detail': 'Seu papel não permite encerrar a peça.'}, status=status.HTTP_403_FORBIDDEN)
+        mapa = self.get_object()
+        try:
+            categoria, motivo = validar_pedido(request.data)
+        except ValueError as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        impedimento = impedimento_mapa(mapa)
+        if impedimento:
+            return Response({'detail': impedimento}, status=status.HTTP_400_BAD_REQUEST)
+        self._transicao(mapa, 'Encerrado', request.user, motivo, categoria)
+        return Response({'detail': 'Mapa encerrado sem prosseguimento.'})
+
+    @action(detail=True, methods=['post'])
     def validar_prazos(self, request, pk=None):
         """Executa validação de prazos manualmente em todas as cotações."""
         mapa = self.get_object()

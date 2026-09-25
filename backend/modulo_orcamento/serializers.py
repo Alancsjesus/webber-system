@@ -561,6 +561,7 @@ class IndicacaoOrcamentariaSerializer(serializers.ModelSerializer):
     ordenador_nome      = serializers.SerializerMethodField()
     dfd_numero_sei      = serializers.CharField(source='dfd.numero_sei',      read_only=True)
     necessidade_titulo  = serializers.CharField(source='necessidade.titulo',  read_only=True)
+    demanda             = serializers.SerializerMethodField()
     itens               = IndicacaoDotacaoSerializer(many=True, read_only=True)
     historico           = HistoricoIndicacaoSerializer(many=True, read_only=True)
 
@@ -569,7 +570,7 @@ class IndicacaoOrcamentariaSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'numero', 'exercicio_fiscal', 'numero_sei',
             'dfd', 'dfd_numero_sei',
-            'necessidade', 'necessidade_titulo',
+            'necessidade', 'necessidade_titulo', 'demanda',
             'valor_total', 'status', 'observacoes',
             'ordenador', 'ordenador_nome', 'data_aprovacao', 'motivo_cancelamento',
             'itens', 'historico',
@@ -582,6 +583,21 @@ class IndicacaoOrcamentariaSerializer(serializers.ModelSerializer):
             'ordenador', 'data_aprovacao', 'motivo_cancelamento',
             'org_id', 'created_by', 'created_at', 'updated_at',
         ]
+
+    def get_demanda(self, obj):
+        """Objeto e itens a serem atendidos pela indicação (do DFD; sem DFD, da Necessidade)."""
+        if obj.dfd_id:
+            d = obj.dfd
+            return {
+                'objeto': d.descricao, 'valor_estimado': d.valor_estimado,
+                'itens': [{'objeto': i.objeto, 'quantidade': i.quantidade, 'unidade_medida': i.unidade_medida,
+                           'valor_unitario': i.valor_unitario_estimado, 'valor_total': i.valor_total_estimado}
+                          for i in d.itens.all()],
+            }
+        if obj.necessidade_id:
+            n = obj.necessidade
+            return {'objeto': n.descricao or n.titulo, 'valor_estimado': n.valor_estimado, 'itens': []}
+        return None
 
     def get_ordenador_nome(self, obj):
         if obj.ordenador:

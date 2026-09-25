@@ -268,6 +268,37 @@ export default function IndicacaoDetail() {
             : current.necessidade
             ? <p className="text-sm text-gray-700">Necessidade: <span className="font-semibold">{current.necessidade_titulo}</span></p>
             : <p className="text-sm text-gray-400">Sem vínculo</p>}
+          {current.demanda && (
+            <div className="mt-2">
+              <p className="text-sm text-gray-800">{current.demanda.objeto}</p>
+              {current.demanda.itens.length > 0 && (
+                <div className="mt-2 border border-gray-200 rounded-lg overflow-x-auto">
+                  <table className="w-full text-xs">
+                    <thead className="bg-gray-50 text-gray-500">
+                      <tr>
+                        <th className="text-left px-3 py-1.5 font-medium">Item a ser atendido</th>
+                        <th className="text-right px-3 py-1.5 font-medium">Qtd.</th>
+                        <th className="text-left px-3 py-1.5 font-medium">Un.</th>
+                        <th className="text-right px-3 py-1.5 font-medium">Valor unit.</th>
+                        <th className="text-right px-3 py-1.5 font-medium">Valor total</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-100">
+                      {current.demanda.itens.map((it, i) => (
+                        <tr key={i}>
+                          <td className="px-3 py-1.5 text-gray-700">{it.objeto}</td>
+                          <td className="px-3 py-1.5 text-right tabular-nums">{Number(it.quantidade).toLocaleString('pt-BR')}</td>
+                          <td className="px-3 py-1.5 text-gray-500">{it.unidade_medida}</td>
+                          <td className="px-3 py-1.5 text-right tabular-nums">{fmt(it.valor_unitario)}</td>
+                          <td className="px-3 py-1.5 text-right tabular-nums font-semibold">{fmt(it.valor_total)}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              )}
+            </div>
+          )}
         </Section>
 
         {/* Processo SEI */}

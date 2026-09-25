@@ -7,6 +7,8 @@ from django_filters.rest_framework import DjangoFilterBackend
 from core.permissions import IsMultiTenant, PAPEIS_ANALISTA, check_licitante
 from core.checklist_engine import ChecklistEngine
 from .models import ETP, HistoricoETP
+
+from core.encerramento import PAPEIS_ENCERRAR
 from .serializers import ETPSerializer
 from exportacao.pdf_utils import gerar_pdf_etp, gerar_html, resposta_pdf, resposta_html
 
@@ -198,6 +200,24 @@ class ETPViewSet(viewsets.ModelViewSet):
                                              'categoria_motivo': categoria})
 
     @action(detail=True, methods=['post'])
+    def encerrar(self, request, pk=None):
+        """Encerra sem prosseguimento (demanda desistida, sem orçamento, peça
+        aproveitada em outra contratação...). Para o relógio da peça; motivo e
+        data ficam no histórico. Reabertura só pelo admin (ação reabrir)."""
+        from core.encerramento import validar_pedido, impedimento_etp
+        if getattr(request, 'papel', None) not in PAPEIS_ENCERRAR:
+            return Response({'detail': 'Seu papel não permite encerrar a peça.'}, status=status.HTTP_403_FORBIDDEN)
+        obj = self.get_object()
+        try:
+            categoria, motivo = validar_pedido(request.data)
+        except ValueError as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        impedimento = impedimento_etp(obj)
+        if impedimento:
+            return Response({'detail': impedimento}, status=status.HTTP_400_BAD_REQUEST)
+        return self._transicao(request, 'Encerrado', {'motivo': motivo, 'categoria_motivo': categoria})
+
+    @action(detail=True, methods=['post'])
     def reabrir(self, request, pk=None):
         """Derruba a aprovação do ETP e retorna para Devolvido (somente admin).
         Se existir TR Aprovado vinculado, também o devolve automaticamente."""
@@ -205,8 +225,8 @@ class ETPViewSet(viewsets.ModelViewSet):
             return Response({'detail': 'Apenas administradores podem reabrir ETPs aprovados.'},
                             status=status.HTTP_403_FORBIDDEN)
         etp = self.get_object()
-        if etp.status not in ('Aprovado', 'Cancelado'):
-            return Response({'detail': 'Apenas ETPs Aprovados ou Cancelados podem ser reabertos.'},
+        if etp.status not in ('Aprovado', 'Cancelado', 'Encerrado'):
+            return Response({'detail': 'Apenas ETPs Aprovados, Cancelados ou Encerrados podem ser reabertos.'},
                             status=status.HTTP_400_BAD_REQUEST)
         motivo = request.data.get('motivo', '').strip()
         if not motivo:
