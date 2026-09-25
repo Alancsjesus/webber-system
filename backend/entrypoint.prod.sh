@@ -17,10 +17,11 @@ if [ "$RUN_SETUP_DEV" = "True" ]; then
 fi
 
 # Carga de demonstração ponta a ponta (core/fixtures/demo_webber.json.gz).
-#   True      — só carrega com o banco vazio (sem DFD)
+#   True      — só carrega com o banco vazio (sem DFD). PADRÃO: preserva os dados
+#               de produção, inclusive correções manuais, em todo deploy.
 #   Atualizar — recarrega quando uma carga nova é publicada (APAGA o que foi
-#               lançado no ambiente desde a carga anterior); reinícios sem carga
-#               nova não mexem em nada
+#               lançado no ambiente desde a carga anterior). Uso pontual: ligar,
+#               fazer um deploy e voltar para True.
 if [ "$RUN_CARGA_DEMO" = "True" ] || [ "$RUN_CARGA_DEMO" = "Atualizar" ]; then
     FLAG=""
     [ "$RUN_CARGA_DEMO" = "Atualizar" ] && FLAG="--atualizar"
