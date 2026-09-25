@@ -14,6 +14,7 @@ env/
 # Django
 backend/.env
 backend/db.sqlite3
+backend/db.sqlite3.bak-*
 backend/staticfiles/
 backend/media/
 backend/logs/

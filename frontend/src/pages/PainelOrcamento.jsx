@@ -2,45 +2,24 @@ import { Fragment, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import api from '../services/api'
 import LoadingSpinner from '../components/LoadingSpinner'
+import StatTile from '../components/viz/StatTile'
+import EtapasBar, { EtapasLegenda } from '../components/viz/EtapasBar'
+import { fmtBRL as fmt, fmtPct } from '../components/viz/tokens'
 
-function fmt(v) {
-  return Number(v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-}
-
-function CountCard({ label, value, sub, color }) {
-  const bg = { blue: 'bg-blue-600', green: 'bg-green-600', amber: 'bg-amber-500', purple: 'bg-purple-600', teal: 'bg-teal-600', red: 'bg-red-500' }
-  return (
-    <div className={`rounded-xl p-5 text-white ${bg[color]}`}>
-      <p className="text-xs font-semibold uppercase opacity-80 mb-1">{label}</p>
-      <p className="text-2xl font-bold">{value}</p>
-      {sub && <p className="text-xs opacity-70 mt-1">{sub}</p>}
-    </div>
-  )
-}
-
-function BarraExecucao({ indicado, empenhado, liquidado, pago }) {
-  const total = Number(indicado) || 0
-  if (total === 0) return <p className="text-xs text-gray-400">Sem indicação.</p>
-  const pctPago = Math.min(100, (Number(pago) / total) * 100)
-  const pctLiq  = Math.min(100 - pctPago, (Number(liquidado) / total) * 100)
-  const pctEmp  = Math.min(100 - pctPago - pctLiq, (Number(empenhado) / total) * 100)
-  return (
-    <div className="min-w-[160px]">
-      <div className="flex h-2 rounded-full overflow-hidden bg-gray-100">
-        <div style={{ width: `${pctPago}%` }} className="bg-teal-500" title={`Pago: ${fmt(pago)}`} />
-        <div style={{ width: `${pctLiq}%` }} className="bg-purple-500" title={`Liquidado: ${fmt(liquidado)}`} />
-        <div style={{ width: `${pctEmp}%` }} className="bg-blue-500" title={`Empenhado: ${fmt(empenhado)}`} />
-      </div>
-    </div>
-  )
-}
+// Etapas acumulativas da despesa (Lei 4.320/64): cada uma contém a seguinte.
+const etapasDespesa = (g) => [
+  { label: 'Pago', valor: g.pago },
+  { label: 'Liquidado, a pagar', valor: g.liquidado },
+  { label: 'Empenhado, a liquidar', valor: g.empenhado },
+]
+const RESTO_DESPESA = 'Indicado, a empenhar'
 
 // ─── Ajuda Contextual ─────────────────────────────────────────────────────────
 export const pageHelp = {
   titulo: 'Painel de Orçamento',
   descricao: 'Visão de gerenciamento do recurso orçamentário: quanto já foi aplicado (por Fonte, com o estágio de execução) e quanto ainda falta indicar para as Necessidades já aprovadas (por Área de Aplicação e Órgão Executor).',
   acoes: [
-    { label: 'Aplicação de Recursos', texto: 'Cards de totais e tabela por Fonte de Recurso, mostrando Indicado/Empenhado/Liquidado/Pago/Saldo de todas as Indicações Orçamentárias do órgão.' },
+    { label: 'Aplicação de Recursos', texto: 'Totais e tabela por Fonte de Recurso. A barra de execução mostra, dentro do valor indicado, quanto já foi pago, quanto está liquidado aguardando pagamento, quanto está empenhado aguardando liquidação e quanto ainda falta empenhar — os quatro trechos somam o indicado. O percentual ao lado é o executado (pago ÷ indicado).' },
     { label: 'Necessidades Pendentes de Indicação', texto: 'Necessidades já aprovadas (ou com DFD criado) cujo valor estimado ainda não está totalmente coberto por indicações ativas — agrupadas por Área de Aplicação.' },
     { label: 'Expandir área', texto: 'Clique numa área para ver a lista de necessidades individuais daquele grupo, com valor pendente de cada uma.' },
   ],
@@ -80,40 +59,51 @@ export default function PainelOrcamento() {
 
       {/* ── Aplicação de Recursos ── */}
       <section>
-        <p className="text-xs font-semibold text-gray-400 uppercase mb-3">Aplicação de Recursos</p>
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-4 mb-5">
-          <CountCard label="Indicado" value={fmt(aplicacao.totais.indicado)} color="blue" />
-          <CountCard label="Empenhado" value={fmt(aplicacao.totais.empenhado)} color="blue" />
-          <CountCard label="Liquidado" value={fmt(aplicacao.totais.liquidado)} color="purple" />
-          <CountCard label="Pago" value={fmt(aplicacao.totais.pago)} color="teal" />
-          <CountCard label="Saldo" value={fmt(aplicacao.totais.saldo)} color="amber" />
+        <h2 className="text-sm font-semibold text-gray-700 mb-3">Aplicação de recursos</h2>
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-3 mb-4">
+          <StatTile label="Indicado" value={fmt(aplicacao.totais.indicado)} sub="base da execução" />
+          <StatTile label="Empenhado" value={fmt(aplicacao.totais.empenhado)} sub={`${fmtPct(aplicacao.totais.empenhado, aplicacao.totais.indicado)} do indicado`} />
+          <StatTile label="Liquidado" value={fmt(aplicacao.totais.liquidado)} sub={`${fmtPct(aplicacao.totais.liquidado, aplicacao.totais.indicado)} do indicado`} />
+          <StatTile label="Pago" value={fmt(aplicacao.totais.pago)} sub={`${fmtPct(aplicacao.totais.pago, aplicacao.totais.indicado)} do indicado`} />
+          <StatTile label="Saldo a pagar" value={fmt(aplicacao.totais.saldo)} sub="indicado − pago" />
         </div>
+
+        {Number(aplicacao.totais.indicado) > 0 && (
+          <div className="bg-white border border-gray-200 rounded-xl p-5 mb-4">
+            <p className="text-xs font-medium text-gray-500 mb-3">Execução do total indicado</p>
+            <EtapasBar base={aplicacao.totais.indicado} etapas={etapasDespesa(aplicacao.totais)} resto={RESTO_DESPESA} />
+          </div>
+        )}
 
         {aplicacao.por_fonte.length === 0 ? (
           <p className="text-sm text-gray-400">Nenhuma indicação ativa encontrada.</p>
         ) : (
           <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
+            <div className="flex items-center justify-between flex-wrap gap-2 px-4 py-3 border-b border-gray-100">
+              <p className="text-sm font-medium text-gray-700">Por fonte de recurso</p>
+              <EtapasLegenda etapas={etapasDespesa({})} resto={RESTO_DESPESA} />
+            </div>
             <div className="overflow-x-auto">
               <table className="w-full text-sm min-w-[820px]">
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
                     <th className="text-left px-4 py-2 font-medium text-gray-500">Fonte de Recurso</th>
                     <th className="text-right px-4 py-2 font-medium text-gray-500">Itens</th>
-                    <th className="text-left px-4 py-2 font-medium text-gray-500">Execução</th>
+                    <th className="text-left px-4 py-2 font-medium text-gray-500">Execução <span className="font-normal text-gray-400">(% pago)</span></th>
                     <th className="text-right px-4 py-2 font-medium text-gray-500">Indicado</th>
                     <th className="text-right px-4 py-2 font-medium text-gray-500">Pago</th>
-                    <th className="text-right px-4 py-2 font-medium text-gray-500">Saldo</th>
+                    <th className="text-right px-4 py-2 font-medium text-gray-500">Saldo a pagar</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
-                  {aplicacao.por_fonte.map((g, i) => (
+                  {[...aplicacao.por_fonte].sort((a, b) => Number(b.indicado) - Number(a.indicado)).map((g, i) => (
                     <tr key={i} className="hover:bg-gray-50">
-                      <td className="px-4 py-2 text-gray-700">{g.fonte_codigo} — {g.fonte_nome}</td>
-                      <td className="px-4 py-2 text-right text-gray-500">{g.qtd_itens}</td>
-                      <td className="px-4 py-2"><BarraExecucao {...g} /></td>
-                      <td className="px-4 py-2 text-right font-semibold text-gray-800">{fmt(g.indicado)}</td>
-                      <td className="px-4 py-2 text-right font-semibold text-teal-700">{fmt(g.pago)}</td>
-                      <td className="px-4 py-2 text-right font-semibold text-amber-700">{fmt(g.saldo)}</td>
+                      <td className="px-4 py-2.5 text-gray-700">{g.fonte_codigo} — {g.fonte_nome}</td>
+                      <td className="px-4 py-2.5 text-right text-gray-500 tabular-nums">{g.qtd_itens}</td>
+                      <td className="px-4 py-2.5"><EtapasBar compacto base={g.indicado} etapas={etapasDespesa(g)} resto={RESTO_DESPESA} /></td>
+                      <td className="px-4 py-2.5 text-right font-semibold text-gray-800 tabular-nums">{fmt(g.indicado)}</td>
+                      <td className="px-4 py-2.5 text-right text-gray-700 tabular-nums">{fmt(g.pago)}</td>
+                      <td className="px-4 py-2.5 text-right text-gray-700 tabular-nums">{fmt(g.saldo)}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -125,11 +115,15 @@ export default function PainelOrcamento() {
 
       {/* ── Necessidades Pendentes de Indicação ── */}
       <section>
-        <p className="text-xs font-semibold text-gray-400 uppercase mb-3">Necessidades Pendentes de Indicação</p>
-        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-5">
-          <CountCard label="Necessidades" value={pendentes.totais.qtd} sub="ainda sem cobertura total" color="red" />
-          <CountCard label="Valor Estimado" value={fmt(pendentes.totais.valor_estimado)} color="amber" />
-          <CountCard label="Sem Cobertura" value={fmt(pendentes.totais.valor_pendente)} color="red" />
+        <h2 className="text-sm font-semibold text-gray-700 mb-3">Necessidades pendentes de indicação</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
+          <StatTile label="Necessidades sem cobertura total" value={pendentes.totais.qtd}
+            tom={pendentes.totais.qtd > 0 ? 'atencao' : 'bom'}
+            sub={pendentes.totais.qtd > 0 ? 'aprovadas, aguardando indicação' : 'todas cobertas'} />
+          <StatTile label="Valor estimado" value={fmt(pendentes.totais.valor_estimado)} sub="dessas necessidades" />
+          <StatTile label="Sem cobertura orçamentária" value={fmt(pendentes.totais.valor_pendente)}
+            tom={Number(pendentes.totais.valor_pendente) > 0 ? 'critico' : 'bom'}
+            sub={`${fmtPct(pendentes.totais.valor_pendente, pendentes.totais.valor_estimado)} do estimado`} />
         </div>
 
         {pendentes.por_area.length === 0 ? (
@@ -141,6 +135,7 @@ export default function PainelOrcamento() {
                 <tr>
                   <th className="text-left px-4 py-2 font-medium text-gray-500">Área de Aplicação</th>
                   <th className="text-right px-4 py-2 font-medium text-gray-500">Necessidades</th>
+                  <th className="text-left px-4 py-2 font-medium text-gray-500">Cobertura <span className="font-normal text-gray-400">(% indicado)</span></th>
                   <th className="text-right px-4 py-2 font-medium text-gray-500">Valor Estimado</th>
                   <th className="text-right px-4 py-2 font-medium text-gray-500">Indicado</th>
                   <th className="text-right px-4 py-2 font-medium text-gray-500">Sem Cobertura</th>
@@ -154,14 +149,17 @@ export default function PainelOrcamento() {
                         <span className="text-gray-400 mr-1">{expandedArea === g.area ? '▾' : '▸'}</span>
                         {g.area_label}
                       </td>
-                      <td className="px-4 py-2 text-right text-gray-500">{g.qtd}</td>
+                      <td className="px-4 py-2 text-right text-gray-500 tabular-nums">{g.qtd}</td>
+                      <td className="px-4 py-2 w-56">
+                        <EtapasBar compacto base={g.valor_estimado} etapas={[{ label: 'Indicado', valor: g.valor_indicado }]} resto="Sem cobertura" />
+                      </td>
                       <td className="px-4 py-2 text-right text-gray-700">{fmt(g.valor_estimado)}</td>
                       <td className="px-4 py-2 text-right text-gray-500">{fmt(g.valor_indicado)}</td>
-                      <td className="px-4 py-2 text-right font-semibold text-red-600">{fmt(g.valor_pendente)}</td>
+                      <td className="px-4 py-2 text-right font-semibold text-gray-900 tabular-nums">{fmt(g.valor_pendente)}</td>
                     </tr>
                     {expandedArea === g.area && (
                       <tr>
-                        <td colSpan={5} className="px-4 py-0 bg-gray-50">
+                        <td colSpan={6} className="px-4 py-0 bg-gray-50">
                           <table className="w-full text-xs my-2">
                             <thead>
                               <tr className="text-gray-400">
@@ -182,7 +180,7 @@ export default function PainelOrcamento() {
                                   <td className="py-1.5 text-gray-500">{n.orgao_executor_sigla || '—'}</td>
                                   <td className="py-1.5 text-right text-gray-600">{fmt(n.valor_estimado)}</td>
                                   <td className="py-1.5 text-right text-gray-500">{fmt(n.valor_indicado)}</td>
-                                  <td className="py-1.5 text-right font-semibold text-red-600">{fmt(n.valor_pendente)}</td>
+                                  <td className="py-1.5 text-right font-semibold text-gray-900">{fmt(n.valor_pendente)}</td>
                                 </tr>
                               ))}
                             </tbody>

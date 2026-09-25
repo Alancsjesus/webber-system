@@ -368,6 +368,7 @@ class IndicacaoDotacaoSerializer(serializers.ModelSerializer):
     subfonte_codigo    = serializers.SerializerMethodField()
     subfonte_nome      = serializers.SerializerMethodField()
     beneficiada        = serializers.SerializerMethodField()
+    orgao_beneficiado_sigla = serializers.SerializerMethodField()
     objeto             = serializers.SerializerMethodField()
     itens_dfd          = serializers.SerializerMethodField()
     area_aplicacao     = serializers.SerializerMethodField()
@@ -392,7 +393,7 @@ class IndicacaoDotacaoSerializer(serializers.ModelSerializer):
         model  = IndicacaoDotacao
         fields = [
             'id', 'dotacao_id', 'valor_indicado',
-            'indicacao_id', 'indicacao_numero', 'indicacao_numero_sei', 'exercicio_fiscal', 'beneficiada',
+            'indicacao_id', 'indicacao_numero', 'indicacao_numero_sei', 'exercicio_fiscal', 'beneficiada', 'orgao_beneficiado_sigla',
             'objeto', 'itens_dfd', 'area_aplicacao',
             'orgao_executor_id', 'orgao_executor_sigla',
             'instrumento_financeiro_id', 'instrumento_financeiro_nome',
@@ -429,6 +430,14 @@ class IndicacaoDotacaoSerializer(serializers.ModelSerializer):
         if not nec:
             return None
         return 'Sim' if nec.tipo_execucao == 'externa' else 'Não'
+
+    def get_orgao_beneficiado_sigla(self, obj):
+        """Na execução externa, o beneficiado é o órgão de origem da demanda
+        (ex.: PMBA), enquanto o executor é o órgão pai (ex.: SSP)."""
+        nec = self._necessidade_origem(obj)
+        if not nec or nec.tipo_execucao != 'externa':
+            return None
+        return nec.org_id.sigla if nec.org_id_id else None
 
     def get_objeto(self, obj):
         """

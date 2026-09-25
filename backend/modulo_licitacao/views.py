@@ -18,6 +18,18 @@ from .serializers import (
 )
 
 
+def _objeto_contrato(proc, res):
+    """Objeto do contrato = objeto do procedimento + o lote, só quando o lote
+    acrescenta informação. No saque, o procedimento já nomeia a Ata e o item —
+    repetir a descrição do lote duplicava o texto ("Saque da Ata X — … — Saque
+    da Ata X — 1 item(ns)")."""
+    objeto = (proc.objeto or '').rstrip(' .')
+    lote = res.descricao_lote or (res.lote.descricao if res.lote else '')
+    if proc.eh_saque or not lote or lote.lower() in objeto.lower():
+        return objeto
+    return f'{objeto} — {lote}'[:500]
+
+
 class ProcedimentoViewSet(viewsets.ModelViewSet):
     """
     CRUD de Procedimentos licitatórios e contratações diretas.
@@ -383,7 +395,7 @@ class ProcedimentoViewSet(viewsets.ModelViewSet):
             **minuta,
             exercicio=proc.exercicio,
             orgao_executor=proc.org_id,
-            objeto=f'{proc.objeto} — {res.descricao_lote or (res.lote.descricao if res.lote else "")}',
+            objeto=_objeto_contrato(proc, res),
             tipo_origem='saque_arp' if proc.eh_saque else 'licitacao' if proc.eh_licitacao else (
                 'inexigibilidade' if proc.eh_inexigibilidade else 'dispensa'),
             fornecedor=res.fornecedor,

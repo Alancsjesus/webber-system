@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import api from '../services/api'
 import LoadingSpinner from '../components/LoadingSpinner'
+import HelpTip from '../components/HelpTip'
 
 const fmt = (v) => Number(v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 
@@ -25,9 +26,29 @@ const AREA_OPTS = [
 
 const BENEFICIADA_OPTS = [
   { value: '', label: 'Todas' },
-  { value: 'Sim', label: 'Sim' },
-  { value: 'Não', label: 'Não' },
+  { value: 'Sim', label: 'Sim — demanda de outro órgão' },
+  { value: 'Não', label: 'Não — demanda do próprio órgão' },
 ]
+
+// Orientação de cada filtro/coluna (ícone "?" ao lado do rótulo).
+const AJUDA = {
+  fonte_recurso: 'Fonte de Recurso da dotação que financia a linha (ex.: 100 Tesouro, 128 FESP).',
+  subfonte_recurso: 'Detalhamento da fonte, quando a dotação usa subfonte.',
+  acao: 'Ação orçamentária (projeto/atividade) da dotação.',
+  natureza_despesa: 'Natureza da despesa da dotação (ex.: 339030 — material de consumo).',
+  elemento_despesa: 'Elemento de despesa da dotação (ex.: 30 — material de consumo; 52 — equipamentos).',
+  exercicio_fiscal: 'Ano da Indicação Orçamentária (DOD).',
+  numero_sei: 'Parte do número do processo SEI da Indicação — aceita trecho.',
+  area_aplicacao: 'Área de aplicação informada na Necessidade/DFD de origem.',
+  orgao_executor: 'Órgão que conduz a contratação (licita e contrata). Na execução externa é o órgão pai (ex.: SSP).',
+  beneficiada: 'Indica se a demanda veio de OUTRO órgão (execução externa): um órgão filho (ex.: PMBA, CBMBA) demanda e se beneficia, e o órgão pai executa a contratação e a despesa. "Não" = o próprio órgão demandou e executa. Vazio = indicação sem Necessidade/DFD vinculado.',
+  instrumento_financeiro: 'Instrumento de repasse (FESP, convênio, financiamento) vinculado à Necessidade de origem.',
+  status_execucao: 'Estágio atual da linha: Indicado → Empenhado → Liquidado → Pago. "Em Diligência" = indicação devolvida para ajuste; "Sem Execução" = nada indicado.',
+  item_planejado: 'Item do DFD atendido por esta dotação (quando a indicação foi detalhada por item).',
+  diligencia: 'Valor indicado que está em diligência (devolvido para ajuste) — não entra em Indicado.',
+  saldo: 'Indicado menos pago.',
+}
+
 
 const STATUS_EXECUCAO_CLS = {
   'Pago':          'bg-teal-100 text-teal-700',
@@ -45,6 +66,8 @@ export const pageHelp = {
   acoes: [
     { label: 'Filtros clássicos', texto: 'Fonte, Subfonte, Ação, Natureza e Elemento de Despesa filtram diretamente a dotação; Exercício e Processo SEI filtram a Indicação.' },
     { label: 'Filtros de negócio', texto: 'Área de Aplicação, Órgão Executor, Beneficiada e Instrumento Financeiro (FESP) filtram pela Necessidade/demanda de origem — vazio quando a indicação não tem demanda vinculada.' },
+    { label: 'Beneficiada', texto: 'Execução externa: "Sim" quando a demanda veio de outro órgão (ex.: PMBA ou CBMBA demanda, SSP executa) — a coluna mostra qual órgão é o beneficiado. "Não" quando o próprio órgão demandou e executa. Use para prestar contas do que foi aplicado em favor de cada força.' },
+    { label: 'Ícones "?"', texto: 'Cada filtro e as colunas menos óbvias têm uma explicação curta no "?" ao lado do nome.' },
     { label: 'Status',           texto: 'Filtra pelo estágio de execução atual de cada linha (Pago, Liquidado, Empenhado, Em Diligência, Indicado ou Sem Execução).' },
   ],
   dica: 'As colunas "Objeto" e "Itens" mostram sempre a demanda (DFD) como um todo, não só o item eventualmente rateado na linha — a coluna "Item Planejado" continua mostrando o item específico dessa dotação, e valores marcados com "≈" são rateados proporcionalmente, já que empenho/liquidação/pagamento são sempre registrados por dotação, não por item.',
@@ -114,23 +137,23 @@ export default function RelatorioIndicacoes() {
 
       <div className="bg-white border border-gray-200 rounded-xl p-4 mb-6 space-y-3">
         <div className="flex flex-wrap gap-3 items-end">
-          <Select label="Fonte de Recurso" value={filters.fonte_recurso} onChange={(v) => set('fonte_recurso', v)}
+          <Select label="Fonte de Recurso" value={filters.fonte_recurso} ajuda={AJUDA.fonte_recurso} onChange={(v) => set('fonte_recurso', v)}
             options={[{ value: '', label: 'Todas as fontes' }, ...fontes.map((f) => ({ value: f.id, label: `${f.codigo} — ${f.nome}` }))]} />
-          <Select label="Subfonte" value={filters.subfonte_recurso} onChange={(v) => set('subfonte_recurso', v)}
+          <Select label="Subfonte" value={filters.subfonte_recurso} ajuda={AJUDA.subfonte_recurso} onChange={(v) => set('subfonte_recurso', v)}
             options={[{ value: '', label: 'Todas' }, ...subfontes.map((f) => ({ value: f.id, label: `${f.codigo} — ${f.nome}` }))]} />
-          <Select label="Ação Orçamentária" value={filters.acao} onChange={(v) => set('acao', v)}
+          <Select label="Ação Orçamentária" value={filters.acao} ajuda={AJUDA.acao} onChange={(v) => set('acao', v)}
             options={[{ value: '', label: 'Todas' }, ...acoes.map((a) => ({ value: a.id, label: `${a.codigo} — ${a.nome}` }))]} />
-          <Select label="Natureza de Despesa" value={filters.natureza_despesa} onChange={(v) => set('natureza_despesa', v)}
+          <Select label="Natureza de Despesa" value={filters.natureza_despesa} ajuda={AJUDA.natureza_despesa} onChange={(v) => set('natureza_despesa', v)}
             options={[{ value: '', label: 'Todas' }, ...naturezas.map((n) => ({ value: n.id, label: n.descricao }))]} />
-          <Select label="Elemento de Despesa" value={filters.elemento_despesa} onChange={(v) => set('elemento_despesa', v)}
+          <Select label="Elemento de Despesa" value={filters.elemento_despesa} ajuda={AJUDA.elemento_despesa} onChange={(v) => set('elemento_despesa', v)}
             options={[{ value: '', label: 'Todos' }, ...elementos.map((e) => ({ value: e.id, label: `${e.codigo} — ${e.descricao}` }))]} />
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Exercício</label>
+            <label className="flex items-center gap-1 text-xs font-medium text-gray-600 mb-1">Exercício<HelpTip text={AJUDA.exercicio_fiscal} position="bottom" /></label>
             <input type="number" value={filters.exercicio_fiscal} onChange={(e) => set('exercicio_fiscal', e.target.value)}
               className="w-24 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
           <div>
-            <label className="block text-xs font-medium text-gray-600 mb-1">Processo SEI</label>
+            <label className="flex items-center gap-1 text-xs font-medium text-gray-600 mb-1">Processo SEI<HelpTip text={AJUDA.numero_sei} position="bottom" /></label>
             <input type="text" value={filters.numero_sei} onChange={(e) => set('numero_sei', e.target.value)}
               placeholder="busca parcial"
               className="w-36 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
@@ -138,15 +161,15 @@ export default function RelatorioIndicacoes() {
         </div>
 
         <div className="flex flex-wrap gap-3 items-end pt-3 border-t border-gray-100">
-          <Select label="Área de Aplicação" value={filters.area_aplicacao} onChange={(v) => set('area_aplicacao', v)}
+          <Select label="Área de Aplicação" value={filters.area_aplicacao} ajuda={AJUDA.area_aplicacao} onChange={(v) => set('area_aplicacao', v)}
             options={[{ value: '', label: 'Todas' }, ...AREA_OPTS]} />
-          <Select label="Órgão Executor" value={filters.orgao_executor} onChange={(v) => set('orgao_executor', v)}
+          <Select label="Órgão Executor" value={filters.orgao_executor} ajuda={AJUDA.orgao_executor} onChange={(v) => set('orgao_executor', v)}
             options={[{ value: '', label: 'Todos' }, ...orgaos.map((o) => ({ value: o.id, label: o.sigla }))]} />
-          <Select label="Beneficiada" value={filters.beneficiada} onChange={(v) => set('beneficiada', v)}
+          <Select label="Beneficiada (execução externa)" value={filters.beneficiada} ajuda={AJUDA.beneficiada} onChange={(v) => set('beneficiada', v)}
             options={BENEFICIADA_OPTS} />
-          <Select label="Instrumento (FESP)" value={filters.instrumento_financeiro} onChange={(v) => set('instrumento_financeiro', v)}
+          <Select label="Instrumento (FESP)" value={filters.instrumento_financeiro} ajuda={AJUDA.instrumento_financeiro} onChange={(v) => set('instrumento_financeiro', v)}
             options={[{ value: '', label: 'Todos' }, ...instrumentos.map((i) => ({ value: i.id, label: `${i.tipo_instrumento_display || i.tipo_instrumento} — ${i.numero_instrumento}` }))]} />
-          <Select label="Status" value={filters.status_execucao} onChange={(v) => set('status_execucao', v)}
+          <Select label="Status" value={filters.status_execucao} ajuda={AJUDA.status_execucao} onChange={(v) => set('status_execucao', v)}
             options={STATUS_OPTS} />
           <button onClick={load}
             className="bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg">
@@ -169,18 +192,18 @@ export default function RelatorioIndicacoes() {
                     <th className="text-left px-3 py-2 font-medium text-gray-500">Objeto</th>
                     <th className="text-left px-3 py-2 font-medium text-gray-500">Itens</th>
                     <th className="text-left px-3 py-2 font-medium text-gray-500">Área</th>
-                    <th className="text-left px-3 py-2 font-medium text-gray-500">Órgão Executor</th>
+                    <th className="text-left px-3 py-2 font-medium text-gray-500"><span className="inline-flex items-center gap-1">Órgão Executor<HelpTip text={AJUDA.orgao_executor} position="bottom" /></span></th>
                     <th className="text-left px-3 py-2 font-medium text-gray-500">Fonte</th>
-                    <th className="text-left px-3 py-2 font-medium text-gray-500">Beneficiada</th>
-                    <th className="text-left px-3 py-2 font-medium text-gray-500">Item Planejado</th>
+                    <th className="text-left px-3 py-2 font-medium text-gray-500"><span className="inline-flex items-center gap-1">Beneficiada<HelpTip text={AJUDA.beneficiada} position="bottom" /></span></th>
+                    <th className="text-left px-3 py-2 font-medium text-gray-500"><span className="inline-flex items-center gap-1">Item Planejado<HelpTip text={AJUDA.item_planejado} position="bottom" /></span></th>
                     <th className="text-left px-3 py-2 font-medium text-gray-500">Indicação</th>
-                    <th className="text-left px-3 py-2 font-medium text-gray-500">Status</th>
-                    <th className="text-right px-3 py-2 font-medium text-gray-500">Diligência</th>
+                    <th className="text-left px-3 py-2 font-medium text-gray-500"><span className="inline-flex items-center gap-1">Status<HelpTip text={AJUDA.status_execucao} position="bottom" /></span></th>
+                    <th className="text-right px-3 py-2 font-medium text-gray-500"><span className="inline-flex items-center gap-1">Diligência<HelpTip text={AJUDA.diligencia} position="bottom" /></span></th>
                     <th className="text-right px-3 py-2 font-medium text-gray-500">Indicado</th>
                     <th className="text-right px-3 py-2 font-medium text-gray-500">Empenhado</th>
                     <th className="text-right px-3 py-2 font-medium text-gray-500">Liquidado</th>
                     <th className="text-right px-3 py-2 font-medium text-gray-500">Pago</th>
-                    <th className="text-right px-3 py-2 font-medium text-gray-500">Saldo</th>
+                    <th className="text-right px-3 py-2 font-medium text-gray-500"><span className="inline-flex items-center gap-1">Saldo<HelpTip text={AJUDA.saldo} position="bottom" /></span></th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-gray-100">
@@ -206,7 +229,13 @@ export default function RelatorioIndicacoes() {
                       </td>
                       <td className="px-3 py-2 text-gray-600">{it.orgao_executor_sigla || <span className="text-gray-300">—</span>}</td>
                       <td className="px-3 py-2 text-gray-700">{it.fonte_codigo} — {it.fonte_nome}</td>
-                      <td className="px-3 py-2 text-gray-600">{it.beneficiada || '—'}</td>
+                      <td className="px-3 py-2 text-gray-600 whitespace-nowrap">
+                        {it.beneficiada === 'Sim'
+                          ? <span title={`Demanda de ${it.orgao_beneficiado_sigla || 'outro órgão'}, executada por ${it.orgao_executor_sigla || 'órgão pai'}`}>
+                              Sim{it.orgao_beneficiado_sigla && <span className="ml-1 px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 font-medium">{it.orgao_beneficiado_sigla}</span>}
+                            </span>
+                          : it.beneficiada || <span className="text-gray-300">—</span>}
+                      </td>
                       <td className="px-3 py-2 text-gray-700">{it.item_dfd_objeto || <span className="text-gray-300">—</span>}</td>
                       <td className="px-3 py-2 font-mono text-xs text-gray-500">{it.indicacao_numero} <span className="text-gray-400">({it.exercicio_fiscal})</span></td>
                       <td className="px-3 py-2">
@@ -236,10 +265,12 @@ export default function RelatorioIndicacoes() {
   )
 }
 
-function Select({ label, value, onChange, options }) {
+function Select({ label, value, onChange, options, ajuda }) {
   return (
     <div>
-      <label className="block text-xs font-medium text-gray-600 mb-1">{label}</label>
+      <label className="flex items-center gap-1 text-xs font-medium text-gray-600 mb-1">
+        {label}{ajuda && <HelpTip text={ajuda} position="bottom" />}
+      </label>
       <select value={value} onChange={(e) => onChange(e.target.value)}
         className="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[180px]">
         {options.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}

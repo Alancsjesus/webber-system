@@ -11,6 +11,7 @@ from decimal import Decimal
 from django.db import models
 from django.contrib.auth.models import User
 from django.db.models.signals import pre_save
+from core.numeracao import numero_livre
 from django.dispatch import receiver
 from core.models import BaseModel, MesaAtualMixin
 
@@ -520,6 +521,5 @@ def gerar_numero_procedimento(sender, instance, **kwargs):
         .exclude(pk=instance.pk if instance.pk else 0)
         .count()
     )
-    seq = ultimo + 1
-    instance.numero = f'{prefixo}-{sigla}-{seq:03d}/{exercicio}'
+    instance.numero = numero_livre(Procedimento, lambda n: f'{prefixo}-{sigla}-{n:03d}/{exercicio}', ultimo + 1)
     instance.prazo_minimo_dias_uteis = PRAZO_LEGAL_DIAS_UTEIS.get(instance.modalidade, 0)

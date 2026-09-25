@@ -76,8 +76,10 @@ services:
       # catálogo, orçamento, FESP/Financiamento e as cadeias DFD→Pagamento. Só
       # carrega com o banco vazio, então é seguro manter ligada entre deploys.
       # Substitui o RUN_SETUP_DEV (os usuários já vêm na carga).
+      # "Atualizar": recarrega sozinho quando uma carga nova é publicada (apaga o
+      # que foi lançado no ambiente desde a anterior); "True": só com banco vazio.
       - key: RUN_CARGA_DEMO
-        value: "True"
+        value: "Atualizar"
 
   # ── Frontend React (build estático, sem servidor próprio) ──────────────────────
   - type: web

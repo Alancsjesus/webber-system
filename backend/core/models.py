@@ -291,8 +291,9 @@ class ItemCatalogo(models.Model):
             self.familia = self.extrair_familia(self.codigo_simpas)
         # Gera código interno sequencial
         if not self.codigo_interno:
-            ultimo = ItemCatalogo.objects.count() + 1
-            self.codigo_interno = f'WBR-{ultimo:05d}'
+            from core.numeracao import numero_livre
+            self.codigo_interno = numero_livre(
+                ItemCatalogo, lambda n: f'WBR-{n:05d}', ItemCatalogo.objects.count() + 1, campo='codigo_interno')
         super().save(*args, **kwargs)
 
 

@@ -2,6 +2,10 @@ import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import api from '../services/api'
 import LoadingSpinner from '../components/LoadingSpinner'
+import StatTile from '../components/viz/StatTile'
+import EtapasBar from '../components/viz/EtapasBar'
+import DistribuicaoBar, { corStatusDoc } from '../components/viz/DistribuicaoBar'
+import { ETAPA, STATUS, fmtPct } from '../components/viz/tokens'
 
 const STATUS_CONTRATO_OPTS = [
   { value: 'Vigente',    label: 'Vigente' },
@@ -27,17 +31,6 @@ const ACAO_CLS = {
 
 const fmt = (v) => Number(v ?? 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 const fmtDate = (v) => v ? new Date(v + 'T00:00').toLocaleDateString('pt-BR') : '—'
-
-function CountCard({ label, value, sub, color }) {
-  const bg = { blue: 'bg-blue-600', green: 'bg-green-600', amber: 'bg-amber-500', red: 'bg-red-500', gray: 'bg-gray-600', slate: 'bg-slate-500' }
-  return (
-    <div className={`rounded-xl p-4 text-white ${bg[color]}`}>
-      <p className="text-[11px] font-semibold uppercase opacity-80 mb-1">{label}</p>
-      <p className="text-2xl font-bold">{value}</p>
-      {sub && <p className="text-xs opacity-70 mt-1">{sub}</p>}
-    </div>
-  )
-}
 
 // ─── Ajuda Contextual ─────────────────────────────────────────────────────────
 export const pageHelp = {
@@ -114,21 +107,28 @@ export default function PainelContratos() {
 
       {!loading && tc && (
         <>
-          {/* Contratos por status */}
-          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mb-4">
-            <CountCard label="Total de Contratos" value={tc.total} color="slate" />
-            <CountCard label="Vigentes" value={tc.Vigente || 0} color="green" />
-            <CountCard label="Suspensos" value={tc.Suspenso || 0} color="amber" />
-            <CountCard label="Encerrados" value={tc.Encerrado || 0} color="gray" />
-            <CountCard label="Rescindidos" value={tc.Rescindido || 0} color="red" />
+          {/* Contratos por status + financeiro (Contratado ⊇ Medido ⊇ Pago) */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-3 mb-4">
+            <StatTile label="Contratos" value={tc.total} sub={`${tc.Vigente || 0} vigente(s)`}>
+              <DistribuicaoBar itens={['Vigente', 'Suspenso', 'Encerrado', 'Rescindido'].map((st) => ({
+                label: st, valor: tc[st] || 0, cor: corStatusDoc(st),
+              }))} />
+            </StatTile>
+            <div className="lg:col-span-2 bg-white border border-gray-200 rounded-xl p-4">
+              <div className="flex items-baseline justify-between flex-wrap gap-2 mb-3">
+                <p className="text-xs font-medium text-gray-500">Execução financeira do valor contratado</p>
+                <p className="text-xs text-gray-500">Contratado <b className="text-gray-900">{fmt(tc.valor_total_contratado)}</b></p>
+              </div>
+              <EtapasBar base={tc.valor_total_contratado}
+                etapas={[{ label: 'Pago', valor: tc.valor_pago_total }, { label: 'Medido, a pagar', valor: tc.valor_medido_total }]}
+                resto="A medir" />
+            </div>
           </div>
-
-          {/* Financeiro */}
           <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-8">
-            <CountCard label="Valor Contratado" value={fmt(tc.valor_total_contratado)} color="blue" />
-            <CountCard label="Valor Medido" value={fmt(tc.valor_medido_total)} color="slate" />
-            <CountCard label="Valor Pago" value={fmt(tc.valor_pago_total)} color="green" />
-            <CountCard label="Saldo a Pagar" value={fmt(tc.saldo_a_pagar_total)} color="amber" />
+            <StatTile label="Valor contratado" value={fmt(tc.valor_total_contratado)} />
+            <StatTile label="Valor medido" value={fmt(tc.valor_medido_total)} sub={`${fmtPct(tc.valor_medido_total, tc.valor_total_contratado)} do contratado`} />
+            <StatTile label="Valor pago" value={fmt(tc.valor_pago_total)} sub={`${fmtPct(tc.valor_pago_total, tc.valor_total_contratado)} do contratado`} />
+            <StatTile label="Medido, a pagar" value={fmt(tc.saldo_a_pagar_total)} sub="medido − pago (aguardando pagamento)" />
           </div>
 
           <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 mb-8">
@@ -162,10 +162,12 @@ export default function PainelContratos() {
             {/* Notificações — resumo */}
             <div>
               <h2 className="text-sm font-semibold text-gray-700 mb-3">Notificações Contratuais</h2>
-              <div className="grid grid-cols-3 gap-2 mb-3">
-                <CountCard label="Em Andamento" value={tn?.andamento || 0} color="blue" />
-                <CountCard label="Em CPA" value={tn?.cpa || 0} color="amber" />
-                <CountCard label="Concluído" value={tn?.concluido || 0} color="green" />
+              <div className="bg-white border border-gray-200 rounded-xl p-4 mb-3">
+                <DistribuicaoBar vazio="Nenhuma notificação no recorte." itens={[
+                  { label: 'Em andamento', valor: tn?.andamento || 0, cor: ETAPA[1] },
+                  { label: 'Em CPA', valor: tn?.cpa || 0, cor: STATUS.atencao },
+                  { label: 'Concluído', valor: tn?.concluido || 0, cor: STATUS.bom },
+                ]} />
               </div>
               <p className="text-xs text-gray-500">
                 {tn?.total || 0} lançamento(s) no total ({tn?.notificacoes || 0} notificações, {tn?.rescisoes || 0} rescisões),
@@ -188,7 +190,7 @@ export default function PainelContratos() {
                         <tr>
                           <th className="text-left px-3 py-2 font-medium text-gray-500">Contrato</th>
                           <th className="text-left px-3 py-2 font-medium text-gray-500">Status</th>
-                          <th className="text-right px-3 py-2 font-medium text-gray-500">Saldo a Pagar</th>
+                          <th className="text-right px-3 py-2 font-medium text-gray-500" title="Medido − pago">Medido, a pagar</th>
                           <th className="text-left px-3 py-2 font-medium text-gray-500">Notificações</th>
                         </tr>
                       </thead>

@@ -1,9 +1,9 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import {
-  Bar, BarChart, Cell, Funnel, FunnelChart, LabelList, Pie, PieChart,
-  ResponsiveContainer, Tooltip, XAxis, YAxis,
-} from 'recharts'
+import StatTile from '../components/viz/StatTile'
+import DistribuicaoBar, { corStatusDoc } from '../components/viz/DistribuicaoBar'
+import BarrasEtapas from '../components/viz/BarrasEtapas'
+import { STATUS } from '../components/viz/tokens'
 
 // ── Status color maps ──────────────────────────────────────────────────────────
 const CLS_NEC = {
@@ -35,143 +35,39 @@ const CLS_DOT = {
   Concluída:     'bg-purple-100 text-purple-700',
   Cancelada:     'bg-red-100 text-red-700',
 }
-const BAR_NEC = {
-  Identificada: 'bg-gray-400',
-  'Em Análise': 'bg-yellow-400',
-  Aprovada:     'bg-green-500',
-  'DFD Criado': 'bg-blue-500',
-  Cancelada:    'bg-red-400',
-}
-const BAR_DFD = {
-  Rascunho:           'bg-gray-400',
-  Submetida:          'bg-blue-400',
-  'Em Análise':       'bg-yellow-400',
-  Aprovada:           'bg-green-500',
-  'Em Análise (DFD)': 'bg-indigo-400',
-  Rejeitada:          'bg-red-400',
-}
-const BAR_ETP = {
-  Rascunho:     'bg-gray-400',
-  Submetido:    'bg-blue-400',
-  'Em Análise': 'bg-yellow-400',
-  Devolvido:    'bg-orange-400',
-  Aprovado:     'bg-green-500',
-  Cancelado:    'bg-red-400',
-}
-const BAR_DOT = {
-  Proposta:      'bg-gray-400',
-  'Em Análise':  'bg-yellow-400',
-  Aprovada:      'bg-green-500',
-  'Em Execução': 'bg-blue-500',
-  Concluída:     'bg-purple-500',
-  Cancelada:     'bg-red-400',
-}
-
 function fmt(valor) {
   return Number(valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
 
-// Hex real por classe Tailwind — recharts precisa de cor, não de className.
-const HEX = {
-  'bg-gray-400': '#9CA3AF', 'bg-gray-300': '#D1D5DB',
-  'bg-yellow-400': '#FBBF24', 'bg-yellow-500': '#F59E0B',
-  'bg-green-500': '#22C55E', 'bg-green-400': '#4ADE80',
-  'bg-blue-500': '#3B82F6', 'bg-blue-400': '#60A5FA',
-  'bg-indigo-400': '#818CF8', 'bg-indigo-500': '#6366F1',
-  'bg-red-400': '#F87171', 'bg-red-500': '#EF4444',
-  'bg-orange-400': '#FB923C', 'bg-orange-500': '#F97316',
-  'bg-purple-500': '#A855F7', 'bg-purple-400': '#C084FC',
-  'bg-teal-500': '#14B8A6', 'bg-violet-500': '#8B5CF6', 'bg-amber-500': '#F59E0B',
-}
-const hex = (cls) => HEX[cls] || '#CBD5E1'
-
 // ── Sub-componentes internos ───────────────────────────────────────────────────
 
-function StatusBar({ porStatus, colorMap }) {
-  const total = Object.values(porStatus).reduce((a, b) => a + b, 0)
-  if (total === 0) return <p className="text-xs text-gray-400 mt-2">Sem dados.</p>
-  const dados = Object.entries(porStatus).filter(([, c]) => c > 0).map(([s, c]) => ({ nome: s, valor: c }))
+function StatusBar({ porStatus }) {
+  const itens = Object.entries(porStatus).map(([s, c]) => ({ label: s, valor: c, cor: corStatusDoc(s) }))
+  return <div className="mt-3"><DistribuicaoBar itens={itens} /></div>
+}
+
+// Taxa de devolução por tipo de documento: é a taxa que importa (não o total
+// bruto) — medidor 0–100% com a faixa de qualidade como estado + rótulo.
+function faixaDevolucao(taxa) {
+  if (taxa === 0) return { cor: STATUS.bom, label: 'ótimo', texto: 'text-green-700' }
+  if (taxa < 20) return { cor: STATUS.atencao, label: 'aceitável', texto: 'text-amber-700' }
+  return { cor: STATUS.critico, label: 'requer atenção', texto: 'text-red-700' }
+}
+
+function TaxaDevolucao({ tipo, d, onClick }) {
+  const f = faixaDevolucao(d.taxa_devolucao)
   return (
-    <div className="mt-2 flex items-center gap-4">
-      <div style={{ width: 72, height: 72 }} className="shrink-0">
-        <ResponsiveContainer>
-          <PieChart>
-            <Pie data={dados} dataKey="valor" nameKey="nome" innerRadius={20} outerRadius={34} paddingAngle={2}>
-              {dados.map((d, i) => <Cell key={i} fill={hex(colorMap[d.nome])} />)}
-            </Pie>
-            <Tooltip formatter={(value, name) => [`${value}`, name]} contentStyle={{ fontSize: 11, borderRadius: 8 }} />
-          </PieChart>
-        </ResponsiveContainer>
+    <li className="grid grid-cols-[2.75rem_1fr_auto] items-center gap-3">
+      <button onClick={onClick} className="text-xs font-semibold text-gray-600 hover:text-blue-600 text-left">{tipo}</button>
+      <div className="h-2.5 rounded-r bg-gray-100" title={`${d.devolvidos} de ${d.total} devolvidos`}>
+        <div className="h-full rounded-r" style={{ width: `${Math.min(100, d.taxa_devolucao)}%`, minWidth: d.taxa_devolucao > 0 ? 2 : 0, background: f.cor }} />
       </div>
-      <div className="flex flex-wrap gap-x-3 gap-y-1">
-        {Object.entries(porStatus).map(([s, c]) => (
-          <span key={s} className="flex items-center gap-1 text-xs text-gray-500">
-            <span className={`inline-block w-2 h-2 rounded-full ${colorMap[s] || 'bg-gray-300'}`} />
-            {s}: {c}
-          </span>
-        ))}
-      </div>
-    </div>
-  )
-}
-
-function FunilExecucao({ etapas }) {
-  // Funnel do recharts lê a cor do próprio campo "fill" de cada item de dados
-  // (diferente de Pie/Bar, onde <Cell> por índice é o idiomático) — sem isso,
-  // as faixas maiores renderizam sem preenchimento.
-  const dados = etapas.filter((e) => e.valor > 0).map((e) => ({ ...e, fill: e.cor }))
-  if (dados.length === 0) return <p className="text-xs text-gray-400">Sem execução no período.</p>
-  return (
-    <div style={{ width: '100%', height: 220 }}>
-      <ResponsiveContainer>
-        <FunnelChart>
-          <Tooltip formatter={(value, _n, item) => [fmt(value), item?.payload?.nome]} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-          <Funnel dataKey="valor" data={dados} isAnimationActive={false}>
-            <LabelList position="right" dataKey="nome" fill="#475569" stroke="none" fontSize={11} />
-          </Funnel>
-        </FunnelChart>
-      </ResponsiveContainer>
-    </div>
-  )
-}
-
-// Contagens (não valores monetários) — DFD/ETP/TR/Mapa por total vs. devolvidos.
-function BarraComparativa({ dados, corA, corB, labelA, labelB }) {
-  const max = Math.max(1, ...dados.map((d) => d.total))
-  return (
-    <div style={{ width: '100%', height: Math.max(120, dados.length * 48) }}>
-      <ResponsiveContainer>
-        <BarChart data={dados} layout="vertical" margin={{ left: 8, right: 16 }}>
-          <XAxis type="number" allowDecimals={false} domain={[0, max]} tick={{ fontSize: 10, fill: '#94A3B8' }} />
-          <YAxis type="category" dataKey="nome" width={44} tick={{ fontSize: 11, fill: '#475569' }} />
-          <Tooltip formatter={(value) => `${value} documento${value === 1 ? '' : 's'}`} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-          <Bar dataKey="total" name={labelA} fill={corA} radius={[0, 3, 3, 0]} maxBarSize={14} />
-          <Bar dataKey="devolvidos" name={labelB} fill={corB} radius={[0, 3, 3, 0]} maxBarSize={14} />
-        </BarChart>
-      </ResponsiveContainer>
-    </div>
-  )
-}
-
-function CountCard({ label, value, sub, color, onClick }) {
-  const bg = { blue: 'bg-blue-600', green: 'bg-green-600', amber: 'bg-amber-500', indigo: 'bg-indigo-600', purple: 'bg-purple-600' }
-  return (
-    <div onClick={onClick}
-      className={`rounded-xl p-5 text-white ${bg[color]} ${onClick ? 'cursor-pointer hover:opacity-90 transition-opacity' : ''}`}>
-      <p className="text-xs font-semibold uppercase opacity-80 mb-1">{label}</p>
-      <p className="text-3xl font-bold">{value}</p>
-      {sub && <p className="text-xs opacity-70 mt-1">{sub}</p>}
-    </div>
-  )
-}
-
-function ValueCard({ label, value, sub, highlight }) {
-  return (
-    <div className={`rounded-xl p-5 border ${highlight ? 'bg-purple-50 border-purple-200' : 'bg-gray-50 border-gray-200'}`}>
-      <p className="text-xs font-semibold uppercase text-gray-500 mb-1">{label}</p>
-      <p className={`text-xl font-bold ${highlight ? 'text-purple-700' : 'text-gray-800'}`}>{value}</p>
-      {sub && <p className="text-xs text-gray-400 mt-1">{sub}</p>}
-    </div>
+      <span className="text-xs tabular-nums whitespace-nowrap text-right w-44">
+        <b className="text-gray-800">{d.taxa_devolucao}%</b>
+        <span className="text-gray-400"> · {d.devolvidos} de {d.total}</span>
+        <span className={`ml-1.5 ${f.texto}`}>{f.label}</span>
+      </span>
+    </li>
   )
 }
 
@@ -227,49 +123,49 @@ export default function DashboardAnalytics({ stats, indOrc, indDev, indAgrup }) 
     <div className="flex-1 overflow-y-auto">
       <div className="p-6 space-y-6">
 
-        {/* Cards de contagem */}
-        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-4">
-          <CountCard label="Necessidades" value={nec.total ?? 0}
-            sub={`${nec_pendentes} pendente(s)`} color="blue"
+        {/* Contagens — mesma ordem do fluxo da contratação */}
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+          <StatTile label="Necessidades" value={nec.total ?? 0}
+            sub={`${nec_pendentes} pendente(s)`}
             onClick={() => navigate('/planejamento/necessidades')} />
-          <CountCard label="DFDs" value={dfds.total ?? 0}
-            sub={`${dfd_pendentes} pendente(s)`} color="green"
+          <StatTile label="DFDs" value={dfds.total ?? 0}
+            sub={`${dfd_pendentes} pendente(s)`}
             onClick={() => navigate('/demanda/dfd')} />
-          <CountCard label="ETPs" value={etps.total ?? 0}
-            sub={`${etp_aprovados} aprovado(s)`} color="amber"
+          <StatTile label="ETPs" value={etps.total ?? 0}
+            sub={`${etp_aprovados} aprovado(s)`}
             onClick={() => navigate('/etp/etps')} />
-          <CountCard label="Termos de Ref." value={trs.total ?? 0}
-            sub={`${tr_aprovados} aprovado(s)`} color="indigo"
+          <StatTile label="Termos de Referência" value={trs.total ?? 0}
+            sub={`${tr_aprovados} aprovado(s)`}
             onClick={() => navigate('/analise-tecnica/trs')} />
-          <CountCard label="Dotações" value={dot.total ?? 0}
-            sub={`${dot.por_status?.['Em Execução'] ?? 0} em execução`} color="purple"
+          <StatTile label="Dotações" value={dot.total ?? 0}
+            sub={`${dot.por_status?.['Em Execução'] ?? 0} em execução`}
             onClick={() => navigate('/orcamento/dotacoes')} />
         </div>
 
-        {/* Cards de valor */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-          <ValueCard label="Valor planejado"  value={fmt(nec.valor_total ?? 0)} sub="total de necessidades" />
-          <ValueCard label="Valor em demanda" value={fmt(dfds.valor_total ?? 0)} sub="total de DFDs" />
-          <ValueCard label="Total dotado"     value={fmt(dot.valor_total ?? 0)} sub="dotações orçamentárias" highlight />
+        {/* Valores */}
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <StatTile label="Valor planejado"  value={fmt(nec.valor_total ?? 0)} sub="total de necessidades" />
+          <StatTile label="Valor em demanda" value={fmt(dfds.valor_total ?? 0)} sub="total de DFDs" />
+          <StatTile label="Total dotado"     value={fmt(dot.valor_total ?? 0)} sub="dotações orçamentárias" />
         </div>
 
         {/* Distribuição por status */}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <section className="bg-white rounded-xl border border-gray-200 p-5">
             <h2 className="text-sm font-semibold text-gray-700">Necessidades por status</h2>
-            <StatusBar porStatus={nec.por_status ?? {}} colorMap={BAR_NEC} />
+            <StatusBar porStatus={nec.por_status ?? {}} />
           </section>
           <section className="bg-white rounded-xl border border-gray-200 p-5">
             <h2 className="text-sm font-semibold text-gray-700">DFDs por status</h2>
-            <StatusBar porStatus={dfds.por_status ?? {}} colorMap={BAR_DFD} />
+            <StatusBar porStatus={dfds.por_status ?? {}} />
           </section>
           <section className="bg-white rounded-xl border border-gray-200 p-5">
             <h2 className="text-sm font-semibold text-gray-700">ETPs por status</h2>
-            <StatusBar porStatus={etps.por_status ?? {}} colorMap={BAR_ETP} />
+            <StatusBar porStatus={etps.por_status ?? {}} />
           </section>
           <section className="bg-white rounded-xl border border-gray-200 p-5">
             <h2 className="text-sm font-semibold text-gray-700">Dotações por status</h2>
-            <StatusBar porStatus={dot.por_status ?? {}} colorMap={BAR_DOT} />
+            <StatusBar porStatus={dot.por_status ?? {}} />
           </section>
         </div>
 
@@ -405,17 +301,13 @@ export default function DashboardAnalytics({ stats, indOrc, indDev, indAgrup }) 
                 </div>
                 <button onClick={() => navigate('/orcamento/dotacoes')} className="text-xs text-blue-600 hover:underline">Ver dotações</button>
               </div>
-              <FunilExecucao etapas={[
-                { nome: 'Dotado', valor: indOrc.totais.dotado, cor: hex('bg-blue-500') },
-                { nome: 'Indicado', valor: indOrc.totais.indicado, cor: hex('bg-yellow-500') },
-                { nome: 'Descentralizado', valor: indOrc.totais.descentralizado, cor: hex('bg-orange-500') },
-                { nome: 'Concedido', valor: indOrc.totais.concedido, cor: hex('bg-green-500') },
+              <BarrasEtapas etapas={[
+                { nome: 'Dotado', valor: indOrc.totais.dotado },
+                { nome: 'Indicado', valor: indOrc.totais.indicado },
+                { nome: 'Descentralizado', valor: indOrc.totais.descentralizado },
+                { nome: 'Concedido', valor: indOrc.totais.concedido },
               ]} />
-              <div className="flex flex-wrap gap-x-4 gap-y-1 mb-4 mt-1 text-xs text-gray-500">
-                <span>Indicado: <b className="text-gray-700">{indOrc.totais.pct_indicado}%</b></span>
-                <span>Descentralizado: <b className="text-gray-700">{indOrc.totais.pct_descentralizado}%</b></span>
-                <span>Concedido: <b className="text-gray-700">{indOrc.totais.pct_concedido}%</b></span>
-              </div>
+              <p className="text-[11px] text-gray-400 mt-2 mb-4">Percentuais em relação ao dotado.</p>
               {indOrc.por_elemento.length > 0 && (
                 <div>
                   <p className="text-xs font-semibold text-gray-400 uppercase mb-2">Por elemento de despesa</p>
@@ -428,9 +320,10 @@ export default function DashboardAnalytics({ stats, indOrc, indDev, indAgrup }) 
                         </span>
                         <div className="flex items-center gap-2 ml-2 shrink-0">
                           <span className="text-gray-400">{fmt(el.dotado)}</span>
-                          <span className={`px-1.5 py-0.5 rounded text-[10px] font-medium ${el.pct_indicado > 0 ? 'bg-yellow-100 text-yellow-700' : 'bg-gray-100 text-gray-400'}`}>
-                            {el.pct_indicado}%
+                          <span className="w-16 h-1.5 rounded-r bg-gray-100" title={`${el.pct_indicado}% indicado`}>
+                            <span className="block h-full rounded-r" style={{ width: `${Math.min(100, el.pct_indicado)}%`, background: '#1c5cab' }} />
                           </span>
+                          <span className="w-9 text-right tabular-nums text-gray-600">{el.pct_indicado}%</span>
                         </div>
                       </div>
                     ))}
@@ -448,51 +341,33 @@ export default function DashboardAnalytics({ stats, indOrc, indDev, indAgrup }) 
                   <p className="text-xs text-gray-400 mt-0.5">Taxa de devoluções por tipo de documento</p>
                 </div>
               </div>
-              <BarraComparativa
-                dados={['DFD', 'ETP', 'TR', 'Mapa'].map((tipo) => ({
-                  nome: tipo,
-                  total: (indDev[tipo] || {}).total || 0,
-                  devolvidos: (indDev[tipo] || {}).devolvidos || 0,
-                }))}
-                corA={hex('bg-blue-400')} corB={hex('bg-red-400')}
-                labelA="Total" labelB="Devolvidos"
-              />
-              <div className="space-y-2 mt-3">
+              <ul className="space-y-3">
                 {[
                   { tipo: 'DFD',  navTo: '/demanda/dfd' },
                   { tipo: 'ETP',  navTo: '/etp/etps' },
                   { tipo: 'TR',   navTo: '/analise-tecnica/trs' },
                   { tipo: 'Mapa', navTo: '/pesquisa/mapa' },
-                ].map(({ tipo, navTo }) => {
-                  const d    = indDev[tipo] || { total: 0, devolvidos: 0, taxa_devolucao: 0 }
-                  const taxa = d.taxa_devolucao
-                  const taxaCor = taxa === 0
-                    ? 'text-green-600 bg-green-50'
-                    : taxa < 20 ? 'text-yellow-700 bg-yellow-50' : 'text-red-600 bg-red-50'
-                  return (
-                    <div key={tipo} className="flex items-center gap-2 text-xs">
-                      <button onClick={() => navigate(navTo)} className="font-semibold text-gray-600 hover:text-blue-600 w-9 text-left shrink-0">{tipo}</button>
-                      <span className={`font-semibold px-1.5 py-0.5 rounded ${taxaCor}`}>{taxa}%</span>
-                      {d.por_categoria && Object.keys(d.por_categoria).length > 0 && (
-                        <div className="flex flex-wrap gap-1">
-                          {Object.entries(d.por_categoria).map(([cat, count]) => (
-                            <span key={cat} className="text-[10px] bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full">
-                              {cat.replace(/_/g, ' ')}: {count}
-                            </span>
-                          ))}
-                        </div>
-                      )}
+                ].map(({ tipo, navTo }) => (
+                  <TaxaDevolucao key={tipo} tipo={tipo} d={indDev[tipo] || { total: 0, devolvidos: 0, taxa_devolucao: 0 }}
+                    onClick={() => navigate(navTo)} />
+                ))}
+              </ul>
+              {['DFD', 'ETP', 'TR', 'Mapa'].some((t) => Object.keys(indDev[t]?.por_categoria || {}).length) && (
+                <div className="mt-4 space-y-1">
+                  <p className="text-xs font-medium text-gray-500">Motivos das devoluções</p>
+                  {['DFD', 'ETP', 'TR', 'Mapa'].filter((t) => Object.keys(indDev[t]?.por_categoria || {}).length).map((t) => (
+                    <div key={t} className="flex flex-wrap items-center gap-1 text-[11px]">
+                      <span className="font-semibold text-gray-500 w-9">{t}</span>
+                      {Object.entries(indDev[t].por_categoria).map(([cat, count]) => (
+                        <span key={cat} className="bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded-full">{cat.replace(/_/g, ' ')}: {count}</span>
+                      ))}
                     </div>
-                  )
-                })}
-              </div>
-              <div className="mt-4 pt-3 border-t border-gray-100">
-                <p className="text-xs text-gray-400">
-                  <span className="text-green-600 font-medium">0%</span> ótimo ·
-                  <span className="text-yellow-600 font-medium"> &lt;20%</span> aceitável ·
-                  <span className="text-red-600 font-medium"> ≥20%</span> requer atenção
-                </p>
-              </div>
+                  ))}
+                </div>
+              )}
+              <p className="mt-4 pt-3 border-t border-gray-100 text-xs text-gray-400">
+                Faixas: 0% ótimo · abaixo de 20% aceitável · 20% ou mais requer atenção.
+              </p>
             </section>
           )}
         </div>

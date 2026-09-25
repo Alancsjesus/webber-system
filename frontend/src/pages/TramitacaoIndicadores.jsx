@@ -1,8 +1,11 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { Bar, BarChart, CartesianGrid, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
+import { Bar, BarChart, CartesianGrid, Cell, LabelList, ReferenceLine, ResponsiveContainer, Tooltip, XAxis, YAxis } from 'recharts'
 import api from '../services/api'
 import LoadingSpinner from '../components/LoadingSpinner'
+import StatTile from '../components/viz/StatTile'
+import DistribuicaoBar from '../components/viz/DistribuicaoBar'
+import { CHROME, EIXO_PROPS, SERIE, STATUS, TOOLTIP_PROPS } from '../components/viz/tokens'
 
 export const pageHelp = {
   titulo: 'Indicadores de Tramitação',
@@ -32,26 +35,16 @@ const ETAPA_OPCOES = [
   { value: 'manual', label: 'Manual (sem DFD)' },
 ]
 
-const COR_NORMAL = '#22C55E'
-const COR_ATENCAO = '#F59E0B'
-const COR_CRITICO = '#DC2626'
+// Estado (não identidade): cor reservada + legenda com o limiar em dias.
+const COR_NORMAL = STATUS.neutro
+const COR_ATENCAO = STATUS.atencao
+const COR_CRITICO = STATUS.critico
 
 function corPorTempo(tempoMedio, limiarAtencao, limiarCritico) {
   if (tempoMedio == null) return '#CBD5E1'
   if (tempoMedio >= limiarCritico) return COR_CRITICO
   if (tempoMedio >= limiarAtencao) return COR_ATENCAO
   return COR_NORMAL
-}
-
-function CountCard({ label, value, sub, color }) {
-  const bg = { blue: 'bg-blue-600', red: 'bg-red-600', amber: 'bg-amber-500', slate: 'bg-slate-600' }
-  return (
-    <div className={`rounded-xl p-5 text-white ${bg[color]}`}>
-      <p className="text-xs font-semibold uppercase opacity-80 mb-1">{label}</p>
-      <p className="text-3xl font-bold">{value}</p>
-      {sub && <p className="text-xs opacity-70 mt-1">{sub}</p>}
-    </div>
-  )
 }
 
 function Selo({ classificacao }) {
@@ -70,25 +63,26 @@ function GraficoTempoMedio({ titulo, dados, chaveLabel, limiarAtencao, limiarCri
     <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
       <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
         <h2 className="text-sm font-bold text-gray-700">{titulo}</h2>
+        <LegendaLimiares atencao={limiarAtencao} critico={limiarCritico} />
       </div>
       {linhas.length === 0 ? (
         <p className="text-sm text-gray-400 p-5">Nenhum processo em tramitação.</p>
       ) : (
         <div style={{ width: '100%', height: Math.max(160, linhas.length * 40) }} className="py-3">
           <ResponsiveContainer>
-            <BarChart data={linhas} layout="vertical" margin={{ left: 8, right: 24 }}>
-              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#F1F5F9" />
-              <XAxis type="number" tick={{ fontSize: 11, fill: '#94A3B8' }} unit="d" />
-              <YAxis type="category" dataKey="nome" width={110} tick={{ fontSize: 11, fill: '#475569' }} />
-              <Tooltip
-                formatter={(value, name) => [name === 'tempo_medio' ? `${value} dias` : value, name === 'tempo_medio' ? 'Tempo médio' : name]}
-                labelStyle={{ color: '#334155', fontWeight: 600 }}
-                contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E2E8F0' }}
-              />
-              <Bar dataKey="tempo_medio" radius={[0, 4, 4, 0]} maxBarSize={22}>
+            <BarChart data={linhas} layout="vertical" margin={{ left: 8, right: 40 }}>
+              <CartesianGrid horizontal={false} stroke={CHROME.grade} />
+              <XAxis type="number" unit="d" {...EIXO_PROPS} domain={[0, (max) => Math.max(max, limiarCritico)]} />
+              <YAxis type="category" dataKey="nome" width={110} {...EIXO_PROPS} tick={{ fontSize: 11, fill: CHROME.texto }} />
+              <Tooltip {...TOOLTIP_PROPS}
+                formatter={(value, name) => [name === 'tempo_medio' ? `${value} dias` : value, name === 'tempo_medio' ? 'Tempo médio' : name]} />
+              <ReferenceLine x={limiarAtencao} stroke={COR_ATENCAO} strokeWidth={1} />
+              <ReferenceLine x={limiarCritico} stroke={COR_CRITICO} strokeWidth={1} />
+              <Bar dataKey="tempo_medio" radius={[0, 4, 4, 0]} maxBarSize={20} isAnimationActive={false}>
                 {linhas.map((l, i) => (
                   <Cell key={i} fill={corPorTempo(l.tempo_medio, limiarAtencao, limiarCritico)} />
                 ))}
+                <LabelList dataKey="tempo_medio" position="right" formatter={(v) => `${v}d`} style={{ fontSize: 11, fill: CHROME.texto }} />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
@@ -111,48 +105,36 @@ function GraficoTempoMedio({ titulo, dados, chaveLabel, limiarAtencao, limiarCri
   )
 }
 
-function DonutClassificacao({ total, criticos, atencao }) {
-  const normal = Math.max(0, total - criticos - atencao)
-  const dados = [
-    { nome: 'Normal', valor: normal, cor: COR_NORMAL },
-    { nome: 'Em atenção', valor: atencao, cor: COR_ATENCAO },
-    { nome: 'Crítico', valor: criticos, cor: COR_CRITICO },
-  ].filter((d) => d.valor > 0)
-
+function LegendaLimiares({ atencao, critico }) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-      <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
-        <h2 className="text-sm font-bold text-gray-700">Distribuição por situação</h2>
-      </div>
-      {total === 0 ? (
-        <p className="text-sm text-gray-400 p-5">Nenhum processo em tramitação.</p>
-      ) : (
-        <div className="flex items-center gap-4 p-4">
-          <div style={{ width: 120, height: 120 }} className="shrink-0">
-            <ResponsiveContainer>
-              <PieChart>
-                <Pie data={dados} dataKey="valor" nameKey="nome" innerRadius={34} outerRadius={56} paddingAngle={2}>
-                  {dados.map((d, i) => <Cell key={i} fill={d.cor} />)}
-                </Pie>
-                <Tooltip formatter={(value, name) => [`${value} processos`, name]} contentStyle={{ fontSize: 12, borderRadius: 8 }} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="flex flex-col gap-1.5 text-sm">
-            {dados.map((d) => (
-              <span key={d.nome} className="flex items-center gap-2 text-gray-600">
-                <span className="inline-block w-2.5 h-2.5 rounded-full" style={{ background: d.cor }} />
-                {d.nome}: <b className="text-gray-800">{d.valor}</b>
-              </span>
-            ))}
-          </div>
-        </div>
-      )}
+    <div className="flex flex-wrap gap-x-3 gap-y-1 mt-1 text-[11px] text-gray-500">
+      <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: COR_NORMAL }} />normal</span>
+      <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: COR_ATENCAO }} />atenção ≥ {atencao}d</span>
+      <span className="inline-flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: COR_CRITICO }} />crítico ≥ {critico}d</span>
+      <span className="text-gray-400">linhas verticais = limiares</span>
     </div>
   )
 }
 
-const COR_DURACAO = '#6366F1'
+function DistribuicaoClassificacao({ total, criticos, atencao, limiarAtencao, limiarCritico }) {
+  const normal = Math.max(0, total - criticos - atencao)
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 overflow-hidden h-full">
+      <div className="px-5 py-3 border-b border-gray-100 bg-gray-50">
+        <h2 className="text-sm font-bold text-gray-700">Distribuição por situação</h2>
+      </div>
+      <div className="p-5">
+        <DistribuicaoBar unidade=" processos" vazio="Nenhum processo em tramitação." itens={[
+          { label: 'Normal', valor: normal, cor: COR_NORMAL },
+          { label: `Em atenção (≥ ${limiarAtencao}d)`, valor: atencao, cor: COR_ATENCAO },
+          { label: `Crítico (≥ ${limiarCritico}d)`, valor: criticos, cor: COR_CRITICO },
+        ]} />
+      </div>
+    </div>
+  )
+}
+
+const COR_DURACAO = SERIE[0]
 
 function GraficoDuracaoPorGrupo({ titulo, dados, chaveLabel }) {
   const comAmostra = dados.filter((g) => g.amostra_suficiente)
@@ -168,16 +150,15 @@ function GraficoDuracaoPorGrupo({ titulo, dados, chaveLabel }) {
       ) : (
         <div style={{ width: '100%', height: Math.max(120, linhas.length * 42) }} className="py-3">
           <ResponsiveContainer>
-            <BarChart data={linhas} layout="vertical" margin={{ left: 8, right: 24 }}>
-              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#F1F5F9" />
-              <XAxis type="number" tick={{ fontSize: 11, fill: '#94A3B8' }} unit="d" />
-              <YAxis type="category" dataKey="nome" width={130} tick={{ fontSize: 11, fill: '#475569' }} />
-              <Tooltip
-                formatter={(value, _name, item) => [`${value}d (mín. ${item.payload.min} · máx. ${item.payload.max} · n=${item.payload.n})`, 'Duração média']}
-                labelStyle={{ color: '#334155', fontWeight: 600 }}
-                contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E2E8F0' }}
-              />
-              <Bar dataKey="duracao_media" radius={[0, 4, 4, 0]} maxBarSize={22} fill={COR_DURACAO} />
+            <BarChart data={linhas} layout="vertical" margin={{ left: 8, right: 40 }}>
+              <CartesianGrid horizontal={false} stroke={CHROME.grade} />
+              <XAxis type="number" unit="d" {...EIXO_PROPS} />
+              <YAxis type="category" dataKey="nome" width={200} {...EIXO_PROPS} tick={{ fontSize: 11, fill: CHROME.texto }} />
+              <Tooltip {...TOOLTIP_PROPS}
+                formatter={(value, _name, item) => [`${value}d (mín. ${item.payload.min} · máx. ${item.payload.max} · n=${item.payload.n})`, 'Duração média']} />
+              <Bar dataKey="duracao_media" radius={[0, 4, 4, 0]} maxBarSize={20} fill={COR_DURACAO} isAnimationActive={false}>
+                <LabelList dataKey="duracao_media" position="right" formatter={(v) => `${v}d`} style={{ fontSize: 11, fill: CHROME.texto }} />
+              </Bar>
             </BarChart>
           </ResponsiveContainer>
         </div>
@@ -191,8 +172,8 @@ function GraficoDuracaoPorGrupo({ titulo, dados, chaveLabel }) {
   )
 }
 
-const COR_SEM_EXTERNA = '#6366F1'
-const COR_COM_EXTERNA = '#C026D3'
+const COR_SEM_EXTERNA = SERIE[0]
+const COR_COM_EXTERNA = SERIE[1]
 
 function GraficoDuracaoModalidadeSegmentado({ duracaoPorModalidade, impactoTramitacaoExterna }) {
   const impactoPorModalidade = Object.fromEntries(impactoTramitacaoExterna.map((g) => [g.modalidade, g]))
@@ -215,8 +196,8 @@ function GraficoDuracaoModalidadeSegmentado({ duracaoPorModalidade, impactoTrami
       <div className="px-5 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between gap-3">
         <h2 className="text-sm font-bold text-gray-700">Duração média por modalidade</h2>
         <div className="flex items-center gap-3 text-[10px] text-gray-500">
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ background: COR_SEM_EXTERNA }} /> sem trâmite externo</span>
-          <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full" style={{ background: COR_COM_EXTERNA }} /> com trâmite externo</span>
+          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: COR_SEM_EXTERNA }} /> sem trâmite externo</span>
+          <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm" style={{ background: COR_COM_EXTERNA }} /> com trâmite externo</span>
         </div>
       </div>
       {linhas.length === 0 ? (
@@ -224,17 +205,14 @@ function GraficoDuracaoModalidadeSegmentado({ duracaoPorModalidade, impactoTrami
       ) : (
         <div style={{ width: '100%', height: Math.max(120, linhas.length * 38) }} className="py-3">
           <ResponsiveContainer>
-            <BarChart data={linhas} layout="vertical" margin={{ left: 8, right: 24 }}>
-              <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#F1F5F9" />
-              <XAxis type="number" tick={{ fontSize: 11, fill: '#94A3B8' }} unit="d" />
-              <YAxis type="category" dataKey="nome" width={190} tick={{ fontSize: 11, fill: '#475569' }} />
-              <Tooltip
-                formatter={(value) => [`${value}d`, 'Duração média']}
-                labelStyle={{ color: '#334155', fontWeight: 600 }}
-                contentStyle={{ fontSize: 12, borderRadius: 8, border: '1px solid #E2E8F0' }}
-              />
-              <Bar dataKey="duracao_media" radius={[0, 4, 4, 0]} maxBarSize={20}>
+            <BarChart data={linhas} layout="vertical" margin={{ left: 8, right: 40 }}>
+              <CartesianGrid horizontal={false} stroke={CHROME.grade} />
+              <XAxis type="number" unit="d" {...EIXO_PROPS} />
+              <YAxis type="category" dataKey="nome" width={250} {...EIXO_PROPS} tick={{ fontSize: 11, fill: CHROME.texto }} />
+              <Tooltip {...TOOLTIP_PROPS} formatter={(value) => [`${value}d`, 'Duração média']} />
+              <Bar dataKey="duracao_media" radius={[0, 4, 4, 0]} maxBarSize={20} isAnimationActive={false}>
                 {linhas.map((l, i) => <Cell key={i} fill={l.cor} />)}
+                <LabelList dataKey="duracao_media" position="right" formatter={(v) => `${v}d`} style={{ fontSize: 11, fill: CHROME.texto }} />
               </Bar>
             </BarChart>
           </ResponsiveContainer>
@@ -280,8 +258,8 @@ function TabelaImpactoTramitacaoExterna({ dados }) {
                 </td>
                 <td className="py-2 px-5 text-right tabular-nums">
                   {g.impacto_dias != null ? (
-                    <span className={`font-semibold ${g.impacto_dias > 0 ? 'text-amber-600' : 'text-emerald-600'}`}>
-                      {g.impacto_dias > 0 ? '+' : ''}{g.impacto_dias}d
+                    <span className={`font-semibold ${g.impacto_dias > 0 ? 'text-red-700' : 'text-green-700'}`}>
+                      {g.impacto_dias > 0 ? '▲ +' : '▼ '}{g.impacto_dias}d
                     </span>
                   ) : '—'}
                 </td>
@@ -377,21 +355,22 @@ export default function TramitacaoIndicadores() {
 
       {!loading && dados && (
         <>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-6">
-            <CountCard label="Processos abertos" value={dados.total_processos} color="blue" />
-            <CountCard label="Críticos" value={dados.processos_criticos}
-              sub={`≥ ${dados.limiar_dias_critico} dias parado`} color="red" />
-            <CountCard label="Em atenção" value={dados.processos_atencao}
-              sub={`≥ ${dados.limiar_dias_atencao} dias parado`} color="amber" />
-            <CountCard label="Tempo médio geral" value={dados.tempo_medio_geral != null ? `${dados.tempo_medio_geral}d` : '—'}
-              sub={dados.etapa_maior_tempo_medio ? `Maior em: ${dados.etapa_maior_tempo_medio}` : undefined} color="slate" />
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
+            <StatTile label="Processos abertos" value={dados.total_processos} sub="em tramitação" />
+            <StatTile label="Críticos" value={dados.processos_criticos} tom={dados.processos_criticos > 0 ? 'critico' : 'neutro'}
+              sub={`≥ ${dados.limiar_dias_critico} dias parados`} />
+            <StatTile label="Em atenção" value={dados.processos_atencao} tom={dados.processos_atencao > 0 ? 'atencao' : 'neutro'}
+              sub={`≥ ${dados.limiar_dias_atencao} dias parados`} />
+            <StatTile label="Tempo médio geral" value={dados.tempo_medio_geral != null ? `${dados.tempo_medio_geral} dias` : '—'}
+              sub={dados.etapa_maior_tempo_medio ? `Maior em: ${dados.etapa_maior_tempo_medio}` : undefined} />
           </div>
 
-          <div className="grid lg:grid-cols-3 gap-6 mb-6">
-            <div className="lg:col-span-1">
-              <DonutClassificacao total={dados.total_processos} criticos={dados.processos_criticos} atencao={dados.processos_atencao} />
-            </div>
-            <div className="lg:col-span-2 grid sm:grid-cols-2 gap-6">
+          <div className="mb-6">
+            <DistribuicaoClassificacao total={dados.total_processos} criticos={dados.processos_criticos} atencao={dados.processos_atencao}
+              limiarAtencao={dados.limiar_dias_atencao} limiarCritico={dados.limiar_dias_critico} />
+          </div>
+          <div className="grid lg:grid-cols-2 gap-6 mb-6">
+            <div className="contents">
               <GraficoTempoMedio titulo="Tempo médio por setor" dados={dados.por_setor} chaveLabel="setor"
                 limiarAtencao={dados.limiar_dias_atencao} limiarCritico={dados.limiar_dias_critico} />
               <GraficoTempoMedio titulo="Tempo médio por etapa" dados={dados.por_etapa} chaveLabel="etapa"

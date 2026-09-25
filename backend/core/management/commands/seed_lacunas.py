@@ -400,8 +400,8 @@ class Command(BaseCommand):
                 descricao_meta='Equipar policiais e bombeiros militares que atuam em policiamento '
                 'motorizado com itens de proteção individual.',
                 status='em_execucao',
-                descricao_indicador='Percentual de policiais motociclistas equipados com EPI completo',
-                formula_indicador='(Qtde equipada / Qtde total do efetivo motociclista) × 100',
+                descricao_indicador='Percentual do efetivo de motopatrulhamento/moto-resgate com EPI completo e dentro da validade',
+                formula_indicador='(efetivo equipado ÷ efetivo total de motopatrulhamento e moto-resgate) × 100',
                 valor_referencia='62%', periodo_referencia='2026',
                 fonte_indicador='Levantamento interno PMBA/CBMBA', periodicidade='semestral',
                 org_id=ssp, created_by=plan_ssp, updated_by=plan_ssp,
@@ -441,7 +441,7 @@ class Command(BaseCommand):
 
             ItemPlanoAplicacao.objects.create(
                 meta_especifica=me1, instrumento=if1, org_beneficiaria=pm, unidade_beneficiaria=dem_pm,
-                item_catalogo=cat_colete_pm, bem_servico='Colete de sinalização para mototaxista/motociclista',
+                item_catalogo=cat_colete_pm, bem_servico='Colete refletivo de alta visibilidade — motopatrulhamento (ROCAM)',
                 descricao=cat_colete_pm.descricao[:255] if cat_colete_pm.descricao else '',
                 base_legal='Lei 14.169/2019, Art. 7º, I, "b"', natureza='custeio', unidade_medida='UN',
                 quantidade=Decimal('200'), valor_unitario_estimado=Decimal('98.00'), aprovado=True,
@@ -450,7 +450,7 @@ class Command(BaseCommand):
             )
             ItemPlanoAplicacao.objects.create(
                 meta_especifica=me1, instrumento=if1, org_beneficiaria=cbm, unidade_beneficiaria=dem_cbm,
-                item_catalogo=cat_colete_cbm, bem_servico='Colete de sinalização para motofrentista',
+                item_catalogo=cat_colete_cbm, bem_servico='Colete refletivo de alta visibilidade — moto-resgate',
                 descricao=cat_colete_cbm.descricao[:255] if cat_colete_cbm.descricao else '',
                 base_legal='Lei 14.169/2019, Art. 7º, I, "b"', natureza='custeio', unidade_medida='UN',
                 quantidade=Decimal('120'), valor_unitario_estimado=Decimal('95.00'), aprovado=True,
@@ -459,7 +459,7 @@ class Command(BaseCommand):
             )
             ItemPlanoAplicacao.objects.create(
                 meta_especifica=me1, instrumento=if1, org_beneficiaria=pm,
-                item_catalogo=cat_capacete, bem_servico='Capacete motofrentista modelo fechado',
+                item_catalogo=cat_capacete, bem_servico='Capacete fechado para motopatrulhamento',
                 base_legal='Lei 14.169/2019, Art. 7º, I, "b"', natureza='investimento', unidade_medida='UN',
                 quantidade=Decimal('150'), valor_unitario_estimado=Decimal('310.00'), aprovado=None,
                 status='pendente',
@@ -527,7 +527,7 @@ class Command(BaseCommand):
                 orgao_gerenciador_cnpj='13.937.130/0001-70', orgao_gerenciador_uf='BA',
                 status='vigente',
                 objeto='Registro de preços para aquisição de coletes e equipamentos de sinalização '
-                'para motociclistas — adesão como não participante (carona).',
+                'para motopatrulhamento — adesão como órgão não participante (carona), art. 86, § 2º, da Lei 14.133/2021.',
                 data_vigencia_inicio=date(2026, 1, 1), data_vigencia_fim=date(2026, 12, 31),
                 org_id=pm, created_by=plan_ssp, updated_by=plan_ssp,
             )
@@ -535,7 +535,7 @@ class Command(BaseCommand):
                                          usuario=plan_ssp, motivo='Adesão formalizada e ata vigente.')
             ItemAta.objects.create(
                 ata=ata2, item_catalogo=ItemCatalogo.objects.get(pk=304),
-                objeto='Colete de sinalização para motociclista', unidade_medida='UN',
+                objeto='Colete refletivo de alta visibilidade — motopatrulhamento', unidade_medida='UN',
                 fornecedor=forn1, quantidade_registrada=Decimal('500'),
                 valor_unitario_registrado=Decimal('98.00'), quantidade_consumida=Decimal('120'),
             )

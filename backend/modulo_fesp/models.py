@@ -3,6 +3,7 @@ from django.contrib.auth.models import User
 from django.db.models.signals import pre_save, post_save, post_delete
 from django.dispatch import receiver
 from core.models import BaseModel
+from core.numeracao import numero_livre
 
 
 class InstrumentoFinanceiro(BaseModel):
@@ -373,9 +374,9 @@ class MetaEspecifica(BaseModel):
 def gerar_numero_meta_especifica(sender, instance, **kwargs):
     if instance.numero:
         return
-    instance.numero = (
-        MetaEspecifica.objects.filter(plano=instance.plano).exclude(pk=instance.pk).count() + 1
-    )
+    from django.db.models import Max
+    ultimo = MetaEspecifica.objects.filter(plano=instance.plano).exclude(pk=instance.pk).aggregate(m=Max('numero'))['m']
+    instance.numero = (ultimo or 0) + 1
 
 
 class GrupoConsolidacaoItem(BaseModel):
@@ -582,4 +583,4 @@ def gerar_numero_plano_aplicacao(sender, instance, **kwargs):
         .exclude(pk=instance.pk)
         .count() + 1
     )
-    instance.numero = f'{prefixo}-{sigla}-{seq:03d}/{instance.exercicio_fiscal}'
+    instance.numero = numero_livre(PlanoAplicacao, lambda n: f'{prefixo}-{sigla}-{n:03d}/{instance.exercicio_fiscal}', seq)

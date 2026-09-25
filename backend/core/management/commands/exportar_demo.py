@@ -57,7 +57,9 @@ class Command(BaseCommand):
     def handle(self, *args, **options):
         buf = io.StringIO()
         call_command('dumpdata', '--natural-foreign', *[f'--exclude={e}' for e in EXCLUIR], stdout=buf)
-        objetos = json.loads(buf.getvalue())
+        # a versão instalada é estado do ambiente de destino, não dado da carga
+        objetos = [o for o in json.loads(buf.getvalue())
+                   if not (o['model'] == 'core.parametrosistema' and o['fields'].get('chave') == 'carga_demo_versao')]
 
         corrigidos, erros = 0, []
         for obj in objetos:
@@ -88,7 +90,8 @@ class Command(BaseCommand):
                                + '\n  '.join(erros))
 
         ARQUIVO.parent.mkdir(exist_ok=True)
-        with gzip.open(ARQUIVO, 'wt', encoding='utf-8') as fp:
-            json.dump(objetos, fp, ensure_ascii=False)
+        # mtime=0: mesmo conteúdo → mesmo arquivo (a versão da carga é o hash dele)
+        with open(ARQUIVO, 'wb') as bruto, gzip.GzipFile(filename='', mode='wb', fileobj=bruto, mtime=0) as gz:
+            gz.write(json.dumps(objetos, ensure_ascii=False).encode('utf-8'))
         self.stdout.write(self.style.SUCCESS(
             f'{len(objetos)} objetos exportados ({corrigidos} valores normalizados) → {ARQUIVO}'))

@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import User
 from django.db.models.signals import pre_save
+from core.numeracao import numero_livre
 from django.dispatch import receiver
 from django.utils import timezone
 from core.models import BaseModel
@@ -294,48 +295,47 @@ def gerar_numero_contrato(sender, instance, **kwargs):
         .exclude(pk=instance.pk)
         .count()
     )
-    seq = ultimo + 1
-    instance.numero = f'{sigla}-{seq:03d}/{exercicio}'
+    instance.numero = numero_livre(Contrato, lambda n: f'{sigla}-{n:03d}/{exercicio}', ultimo + 1)
 
 
 @receiver(pre_save, sender=Apostila)
 def gerar_numero_apostila(sender, instance, **kwargs):
     if instance.numero:
         return
-    seq = instance.contrato.apostilas.count() + 1
-    instance.numero = f'{instance.contrato.numero}-APO-{seq:03d}'
+    instance.numero = numero_livre(
+        Apostila, lambda n: f'{instance.contrato.numero}-APO-{n:03d}', instance.contrato.apostilas.count() + 1)
 
 
 @receiver(pre_save, sender=Aditivo)
 def gerar_numero_aditivo(sender, instance, **kwargs):
     if instance.numero:
         return
-    seq = instance.contrato.aditivos.count() + 1
-    instance.numero = f'{instance.contrato.numero}-ADT-{seq:03d}'
+    instance.numero = numero_livre(
+        Aditivo, lambda n: f'{instance.contrato.numero}-ADT-{n:03d}', instance.contrato.aditivos.count() + 1)
 
 
 @receiver(pre_save, sender=CronogramaEntrega)
 def gerar_numero_cronograma(sender, instance, **kwargs):
     if instance.numero:
         return
-    seq = instance.contrato.cronograma.count() + 1
-    instance.numero = f'{instance.contrato.numero}-CRG-{seq:03d}'
+    instance.numero = numero_livre(
+        CronogramaEntrega, lambda n: f'{instance.contrato.numero}-CRG-{n:03d}', instance.contrato.cronograma.count() + 1)
 
 
 @receiver(pre_save, sender=Medicao)
 def gerar_numero_medicao(sender, instance, **kwargs):
     if instance.numero:
         return
-    seq = instance.contrato.medicoes.count() + 1
-    instance.numero = f'{instance.contrato.numero}-MED-{seq:03d}'
+    instance.numero = numero_livre(
+        Medicao, lambda n: f'{instance.contrato.numero}-MED-{n:03d}', instance.contrato.medicoes.count() + 1)
 
 
 @receiver(pre_save, sender=Pagamento)
 def gerar_numero_pagamento(sender, instance, **kwargs):
     if instance.numero:
         return
-    seq = instance.contrato.pagamentos.count() + 1
-    instance.numero = f'{instance.contrato.numero}-PAG-{seq:03d}'
+    instance.numero = numero_livre(
+        Pagamento, lambda n: f'{instance.contrato.numero}-PAG-{n:03d}', instance.contrato.pagamentos.count() + 1)
 
 
 @receiver(pre_save, sender=Notificacao)
@@ -350,5 +350,4 @@ def gerar_numero_notificacao(sender, instance, **kwargs):
         .exclude(pk=instance.pk)
         .count()
     )
-    seq = ultimo + 1
-    instance.numero = f'NOT-{sigla}-{seq:03d}/{exercicio}'
+    instance.numero = numero_livre(Notificacao, lambda n: f'NOT-{sigla}-{n:03d}/{exercicio}', ultimo + 1)

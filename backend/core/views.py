@@ -305,7 +305,7 @@ class DashboardStatsView(APIView):
         necessidades = (nec_proprias | nec_externas).distinct()
 
         nec_stats      = necessidades.aggregate(total=Count('id'), valor_total=Sum('valor_estimado'))
-        nec_por_status = {i['status']: i['count'] for i in necessidades.values('status').annotate(count=Count('id'))}
+        nec_por_status = {i['status']: i['count'] for i in necessidades.order_by().values('status').annotate(count=Count('id'))}
         recentes_nec   = list(
             necessidades.order_by('-created_at')[:5].values(
                 'id', 'titulo', 'status', 'prioridade', 'valor_estimado', 'created_at', 'org_id__sigla',
@@ -318,7 +318,7 @@ class DashboardStatsView(APIView):
         ).distinct()
 
         dfd_stats      = dfds.aggregate(total=Count('id'), valor_total=Sum('valor_estimado'))
-        dfd_por_status = {i['status']: i['count'] for i in dfds.values('status').annotate(count=Count('id'))}
+        dfd_por_status = {i['status']: i['count'] for i in dfds.order_by().values('status').annotate(count=Count('id'))}
         recentes_dfds  = list(
             dfds.order_by('-created_at')[:5].values(
                 'id', 'numero_sei', 'descricao', 'status', 'valor_estimado', 'created_at', 'org_id__sigla',
@@ -328,7 +328,7 @@ class DashboardStatsView(APIView):
         # ── Dotações ─────────────────────────────────────────────────────────
         dotacoes       = DotacaoOrcamentaria.objects.filter(org_id=org_id)
         dot_stats      = dotacoes.aggregate(total=Count('id'), valor_total=Sum('valor_dotado'))
-        dot_por_status = {i['status']: i['count'] for i in dotacoes.values('status').annotate(count=Count('id'))}
+        dot_por_status = {i['status']: i['count'] for i in dotacoes.order_by().values('status').annotate(count=Count('id'))}
         recentes_dot   = list(
             dotacoes.order_by('-created_at')[:5].values(
                 'id', 'exercicio_fiscal', 'status', 'valor_dotado',
@@ -341,7 +341,7 @@ class DashboardStatsView(APIView):
             Q(org_id=org_id) | Q(dfd__org_gestor=org_id) | Q(dfd__unidade_licitante__orgao_id=org_id)
         ).distinct()
         etp_stats      = etps.aggregate(total=Count('id'))
-        etp_por_status = {i['status']: i['count'] for i in etps.values('status').annotate(count=Count('id'))}
+        etp_por_status = {i['status']: i['count'] for i in etps.order_by().values('status').annotate(count=Count('id'))}
         recentes_etps  = list(
             etps.order_by('-created_at')[:5].values(
                 'id', 'numero_sei', 'status', 'estimativa_valor', 'created_at',
@@ -356,7 +356,7 @@ class DashboardStatsView(APIView):
             Q(etp__dfd__unidade_licitante__orgao_id=org_id)
         ).distinct()
         tr_stats      = trs.aggregate(total=Count('id'))
-        tr_por_status = {i['status']: i['count'] for i in trs.values('status').annotate(count=Count('id'))}
+        tr_por_status = {i['status']: i['count'] for i in trs.order_by().values('status').annotate(count=Count('id'))}
 
         # ── Aceites pendentes (necessidades de filhos aguardando aceite) ─────
         aceites_pendentes = (
