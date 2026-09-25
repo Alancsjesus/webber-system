@@ -62,6 +62,10 @@ def login(user):
 def api(user, metodo, caminho, dados=None, esperado=(200, 201)):
     r = requests.request(metodo, f'{BASE}/{caminho.lstrip("/")}', json=dados,
                          headers={'Authorization': f'Bearer {login(user)}'}, timeout=120)
+    if r.status_code == 401 and 'token_not_valid' in r.text:  # token do cache expirou: novo login
+        _tokens.pop(user, None)
+        r = requests.request(metodo, f'{BASE}/{caminho.lstrip("/")}', json=dados,
+                             headers={'Authorization': f'Bearer {login(user)}'}, timeout=120)
     if r.status_code not in esperado:
         raise Falha(f'{user} {metodo} {caminho} -> {r.status_code}\n{r.text[:1500]}')
     return r.json() if r.content and 'json' in r.headers.get('content-type', '') else {}

@@ -1,12 +1,14 @@
 {% extends "exportacao/base.html" %}
 {% block title %}TR {{ tr.numero_sei }}{% endblock %}
 {% block content %}
+{# Estrutura igual à do PDF: seções de exportacao.pdf_utils.secoes_documento_tr, #}
+{# já numeradas em sequência. Valores no formato brasileiro (floatformat "g").    #}
 
 <div class="header">
   <div class="header-org">{{ tr.org_id.nome }}</div>
   <div class="header-tipo">Minuta do Termo de Referência</div>
   <div class="header-ref">
-    Nº SEI: {{ tr.numero_sei }}
+    Processo SEI nº {{ tr.numero_sei }}
     | ETP: {{ tr.etp.numero_sei|default:"—" }}
     | DFD: {{ tr.etp.dfd.numero_sei|default:"—" }}
   </div>
@@ -26,195 +28,76 @@
   </div>
 </div>
 
-<div class="section-title">Estimativa do Valor da Contratação</div>
-{% if estimativa.lotes %}
-<p style="font-size:9pt;color:#555;margin:4px 0 8px;">
-  {% if estimativa.mapa %}Consolidação do Mapa Comparativo de Preços nº {{ estimativa.mapa.id }}{% if estimativa.mapa.data_aprovacao %}, aprovado em {{ estimativa.mapa.data_aprovacao }}{% endif %} — {{ estimativa.mapa.metodo }}.
-  {% else %}Sem Mapa de Preços aprovado — valores estimados no DFD.{% endif %}
-  {% if estimativa.itens_sem_mapa %}<strong>{{ estimativa.itens_sem_mapa }} item(ns) sem preço do Mapa.</strong>{% endif %}
-</p>
-<table>
-  <thead><tr><th>Lote</th><th>Cód. SIMPAS</th><th>Cód. interno</th><th>Item</th><th>Unid.</th>
-    <th style="text-align:right">Qtd.</th><th style="text-align:right">Vl. unitário</th><th style="text-align:right">Vl. total</th></tr></thead>
-  <tbody>
-  {% for lote in estimativa.lotes %}
-    {% for item in lote.itens %}
-    <tr>
-      <td>{{ lote.numero }}{% if lote.cota %} (cota){% endif %}</td>
-      <td>{{ item.codigo_simpas|default:"—" }}</td>
-      <td>{{ item.codigo_interno|default:"—" }}</td>
-      <td>{{ item.descricao }}{% if item.origem != 'mapa' %} <em>(estimativa DFD)</em>{% endif %}</td>
-      <td>{{ item.unidade }}</td>
-      <td style="text-align:right">{{ item.quantidade }}</td>
-      <td style="text-align:right">R$ {{ item.valor_unitario }}</td>
-      <td style="text-align:right">R$ {{ item.valor_total }}</td>
-    </tr>
-    {% endfor %}
-    <tr><td colspan="7" style="text-align:right"><strong>Subtotal {{ lote.numero }}{% if lote.cota %} (recorte do lote de origem — não soma ao total){% endif %}</strong></td>
-      <td style="text-align:right"><strong>R$ {{ lote.subtotal }}</strong></td></tr>
-  {% endfor %}
-  <tr><td colspan="7" style="text-align:right"><strong>VALOR TOTAL ESTIMADO</strong></td>
-    <td style="text-align:right"><strong>R$ {{ estimativa.total }}</strong></td></tr>
-  </tbody>
-</table>
-{% else %}
-<div class="field"><div class="field-value">— (lotes ainda não montados)</div></div>
-{% endif %}
+{% for s in secoes %}
+<div class="section-title">{{ s.titulo }}</div>
 
-{% if tr.objeto_contratacao %}
-<div class="section-title">Objeto da Contratação</div>
-<div class="field"><div class="field-value" style="white-space:pre-wrap">{{ tr.objeto_contratacao }}</div></div>
-{% endif %}
-{% if tr.justificativa %}
-<div class="section-title">Justificativa da Contratação</div>
-<div class="field"><div class="field-value" style="white-space:pre-wrap">{{ tr.justificativa }}</div></div>
-{% endif %}
-{% if tr.requisitos_contratacao %}
-<div class="section-title">Requisitos da Contratação</div>
-<div class="field"><div class="field-value" style="white-space:pre-wrap">{{ tr.requisitos_contratacao }}</div></div>
-{% endif %}
-{% if tr.obrigacoes_contratada %}
-<div class="section-title">Obrigações da Contratada</div>
-<div class="field"><div class="field-value" style="white-space:pre-wrap">{{ tr.obrigacoes_contratada }}</div></div>
-{% endif %}
-{% if tr.obrigacoes_contratante %}
-<div class="section-title">Obrigações da Contratante</div>
-<div class="field"><div class="field-value" style="white-space:pre-wrap">{{ tr.obrigacoes_contratante }}</div></div>
-{% endif %}
-{% if tr.criterios_selecao %}
-<div class="section-title">Critérios de Seleção do Fornecedor</div>
-<div class="field"><div class="field-value" style="white-space:pre-wrap">{{ tr.criterios_selecao }}</div></div>
-{% endif %}
-{% if tr.criterios_medicao %}
-<div class="section-title">Critérios de Medição e Pagamento</div>
-<div class="field"><div class="field-value" style="white-space:pre-wrap">{{ tr.criterios_medicao }}</div></div>
-{% endif %}
-{% if tr.prazo_observacao %}
-<div class="section-title">Prazo e Forma de Execução</div>
-<div class="field"><div class="field-value" style="white-space:pre-wrap">{{ tr.prazo_observacao }}</div></div>
-{% endif %}
-{% if tr.local_entrega %}
-<div class="section-title">Local de Entrega / Execução</div>
-<div class="field"><div class="field-value">{{ tr.local_entrega }}</div></div>
-{% endif %}
-{% if tr.garantia_contrato %}
-<div class="section-title">Garantia Contratual</div>
-<div class="field"><div class="field-value" style="white-space:pre-wrap">{{ tr.garantia_contrato }}</div></div>
-{% endif %}
-
-{% if tr.lotes.exists %}
-<div class="section-title">Formação de Lotes da Licitação</div>
-{% for lote in tr.lotes.all %}
-<div style="margin-bottom:16px;border:1px solid #ddd;border-radius:6px;overflow:hidden;">
-  <div style="background:{% if lote.modalidade == 'ampla' %}#DBEAFE{% elif lote.modalidade == 'cota_me_epp' %}#FEF3C7{% else %}#D1FAE5{% endif %};padding:8px 12px;font-weight:bold;font-size:10pt;">
-    {{ lote.numero }} —
-    {% if lote.modalidade == 'ampla' %}Ampla Concorrência
-    {% elif lote.modalidade == 'cota_me_epp' %}Reserva de Cota ME/EPP (25%)
-    {% else %}Licitação Exclusiva ME/EPP{% endif %}
-    {% if lote.valor_total_lote %} | R$ {{ lote.valor_total_lote|floatformat:2 }}{% endif %}
-  </div>
-  {% if lote.descricao %}<div style="padding:6px 12px;font-size:9pt;color:#555;">{{ lote.descricao }}</div>{% endif %}
-  {% if lote.itens.exists %}
-  <table style="margin:0;">
-    <thead><tr><th>Item</th><th>Unid.</th><th style="text-align:right">Qtd.</th><th style="text-align:right">Vl. Unit.</th><th style="text-align:right">Total</th></tr></thead>
+{% if s.codigo == 'estimativa_valor' %}
+  {% if estimativa.lotes %}
+  <p style="font-size:9pt;color:#555;margin:4px 0 8px;">
+    {% if estimativa.mapa %}Consolidação do Mapa Comparativo de Preços nº {{ estimativa.mapa.id }}{% if estimativa.mapa.data_aprovacao %}, aprovado em {{ estimativa.mapa.data_aprovacao }}{% endif %} — {{ estimativa.mapa.metodo }}.
+    {% else %}Sem Mapa de Preços aprovado — valores estimados no DFD.{% endif %}
+    {% if estimativa.itens_sem_mapa %}<strong>{{ estimativa.itens_sem_mapa }} item(ns) com valor estimado no DFD (sem preço do Mapa).</strong>{% endif %}
+  </p>
+  <table>
+    <thead><tr><th>Lote</th><th>Cód. SIMPAS</th><th>Cód. interno</th><th>Item</th><th>Unid.</th>
+      <th style="text-align:right">Qtd.</th><th style="text-align:right">Vl. unitário</th><th style="text-align:right">Vl. total</th></tr></thead>
     <tbody>
-      {% for item in lote.itens.all %}
+    {% for lote in estimativa.lotes %}
+      {% for item in lote.itens %}
       <tr>
-        <td>{{ item.item_dfd.objeto|default:"—" }}</td>
-        <td>{{ item.item_dfd.unidade_medida|default:"—" }}</td>
-        <td style="text-align:right">{{ item.quantidade }}</td>
-        <td style="text-align:right">R$ {{ item.valor_unitario_efetivo|floatformat:2 }}</td>
-        <td style="text-align:right"><strong>R$ {{ item.valor_total|floatformat:2 }}</strong></td>
+        <td>{{ lote.numero }}</td>
+        <td>{{ item.codigo_simpas|default:"—" }}</td>
+        <td>{{ item.codigo_interno|default:"—" }}</td>
+        <td>{{ item.descricao }}{% if item.origem != 'mapa' %} <em>(estimativa DFD)</em>{% endif %}</td>
+        <td>{{ item.unidade }}</td>
+        <td style="text-align:right">{{ item.quantidade|floatformat:"-4g" }}</td>
+        <td style="text-align:right">R$ {{ item.valor_unitario|floatformat:"2g" }}</td>
+        <td style="text-align:right">R$ {{ item.valor_total|floatformat:"2g" }}</td>
       </tr>
       {% endfor %}
+      <tr><td colspan="7" style="text-align:right"><strong>Subtotal {{ lote.numero }}{% if lote.cota %} (recorte do lote de origem — não soma ao total){% endif %}</strong></td>
+        <td style="text-align:right"><strong>R$ {{ lote.subtotal|floatformat:"2g" }}</strong></td></tr>
+    {% endfor %}
+    <tr><td colspan="7" style="text-align:right"><strong>VALOR TOTAL ESTIMADO</strong></td>
+      <td style="text-align:right"><strong>R$ {{ estimativa.total|floatformat:"2g" }}</strong></td></tr>
     </tbody>
   </table>
+  {% else %}
+  <div class="field"><div class="field-value">— (lotes ainda não montados)</div></div>
   {% endif %}
-</div>
-{% endfor %}
-{% endif %}
 
-{% if tr.adequacao_orcamentaria %}
-<div class="section-title">Adequação Orçamentária e Financeira</div>
-<div class="field"><div class="field-value" style="white-space:pre-wrap">{{ tr.adequacao_orcamentaria }}</div></div>
-{% endif %}
-{% if tr.permite_consorcio %}
-<div class="section-title">Admissibilidade de Consórcio</div>
-<div class="field">
-  <div class="field-label">Consórcio</div>
-  <div class="field-value">
-    {% if tr.permite_consorcio == 'sim' %}<span class="badge badge-green">Permite consórcio</span>
-    {% elif tr.permite_consorcio == 'nao' %}<span class="badge badge-red">Veda consórcio</span>
-    {% else %}Não respondido{% endif %}
+{% elif s.codigo == 'lotes' %}
+  {% for lote in tr.lotes.all %}
+  <div style="margin-bottom:16px;border:1px solid #ddd;border-radius:6px;overflow:hidden;">
+    <div style="background:{% if lote.modalidade == 'ampla' %}#DBEAFE{% elif lote.modalidade == 'cota_me_epp' %}#FEF3C7{% else %}#D1FAE5{% endif %};padding:8px 12px;font-weight:bold;font-size:10pt;">
+      {{ lote.numero }} —
+      {% if lote.modalidade == 'ampla' %}Ampla Concorrência
+      {% elif lote.modalidade == 'cota_me_epp' %}Reserva de Cota ME/EPP ({{ lote.percentual_cota|default:25 }}% de {{ lote.lote_origem.numero }} — art. 48, III, LC 123/2006)
+      {% else %}Participação Exclusiva ME/EPP (art. 48, I, LC 123/2006){% endif %}
+      {% if lote.valor_total_lote %} | R$ {{ lote.valor_total_lote|floatformat:"2g" }}{% endif %}
+    </div>
+    {% if lote.descricao %}<div style="padding:6px 12px;font-size:9pt;color:#555;">{{ lote.descricao }}</div>{% endif %}
+    {% if lote.itens.exists %}
+    <table style="margin:0;">
+      <thead><tr><th>Item</th><th>Unid.</th><th style="text-align:right">Qtd.</th><th style="text-align:right">Vl. Unit.</th><th style="text-align:right">Total</th></tr></thead>
+      <tbody>
+        {% for item in lote.itens.all %}
+        <tr>
+          <td>{{ item.item_dfd.objeto|default:"—" }}</td>
+          <td>{{ item.item_dfd.unidade_medida|default:"—" }}</td>
+          <td style="text-align:right">{{ item.quantidade|floatformat:"-4g" }}</td>
+          <td style="text-align:right">R$ {{ item.valor_unitario_efetivo|floatformat:"2g" }}</td>
+          <td style="text-align:right"><strong>R$ {{ item.valor_total|floatformat:"2g" }}</strong></td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% endif %}
   </div>
-</div>
-{% if tr.permite_consorcio_justificativa %}
-<div class="field">
-  <div class="field-label">Justificativa</div>
-  <div class="field-value">{{ tr.permite_consorcio_justificativa|linebreaksbr }}</div>
-</div>
-{% endif %}
-{% endif %}
-{% if tr.qualificacao_juridica or tr.qualificacao_juridica_suprimida %}
-<div class="section-title">Qualificação Jurídica</div>
-{% if tr.qualificacao_juridica_suprimida %}
-<div class="field"><div class="field-value"><span class="badge badge-orange">Suprimida</span>{% if tr.qualificacao_juridica_justificativa %} — {{ tr.qualificacao_juridica_justificativa }}{% endif %}</div></div>
-{% else %}
-<div class="field"><div class="field-value" style="white-space:pre-wrap">{{ tr.qualificacao_juridica }}</div></div>
-{% endif %}
-{% endif %}
-{% if tr.qualificacao_economica or tr.qualificacao_economica_dispensada %}
-<div class="section-title">Qualificação Econômico-Financeira</div>
-{% if tr.qualificacao_economica_dispensada %}
-<div class="field"><div class="field-value"><span class="badge badge-orange">Dispensada</span></div></div>
-{% else %}
-<div class="field"><div class="field-value" style="white-space:pre-wrap">{{ tr.qualificacao_economica }}</div></div>
-{% endif %}
-{% endif %}
-{% with p1=tr.prazo_recebimento_provisorio_dias p2=tr.prazo_recebimento_definitivo_dias p3=tr.prazo_liquidacao_dias p4=tr.prazo_pagamento_dias p5=tr.prazo_providencia_irregularidade_dias %}
-{% if p1 or p2 or p3 or p4 or p5 %}
-<div class="section-title">Prazos de Execução e Pagamento</div>
-<div class="grid-2">
-  {% if p1 %}<div class="field"><div class="field-label">Recebimento Provisório</div><div class="field-value">{{ p1 }} dia(s)</div></div>{% endif %}
-  {% if p2 %}<div class="field"><div class="field-label">Recebimento Definitivo</div><div class="field-value">{{ p2 }} dia(s)</div></div>{% endif %}
-  {% if p3 %}<div class="field"><div class="field-label">Liquidação</div><div class="field-value">{{ p3 }} dia(s)</div></div>{% endif %}
-  {% if p4 %}<div class="field"><div class="field-label">Pagamento</div><div class="field-value">{{ p4 }} dia(s)</div></div>{% endif %}
-  {% if p5 %}<div class="field"><div class="field-label">Providência por Irregularidade</div><div class="field-value">{{ p5 }} dia(s)</div></div>{% endif %}
-</div>
-{% endif %}
-{% endwith %}
-{% if tr.degrau_lances %}
-<div class="section-title">Degrau de Lances / Percentual Mínimo de Desconto</div>
-<div class="field"><div class="field-value">{{ tr.degrau_lances }}</div></div>
-{% endif %}
+  {% endfor %}
 
-{% if tr.observacoes %}
-<div class="section-title">Observações</div>
-<div class="field"><div class="field-value" style="white-space:pre-wrap">{{ tr.observacoes }}</div></div>
-{% endif %}
-
-{% if tr.historico.exists %}
-<div class="section-title">Histórico de Tramitação</div>
-<table>
-  <thead><tr><th>Data</th><th>Usuário</th><th>De</th><th>Para</th><th>Motivo</th></tr></thead>
-  <tbody>
-    {% for h in tr.historico.all %}
-    <tr>
-      <td style="white-space:nowrap">{{ h.criado_em|date:"d/m/Y H:i" }}</td>
-      <td>{{ h.usuario.username|default:"—" }}</td>
-      <td>{{ h.status_anterior }}</td>
-      <td><strong>{{ h.status_novo }}</strong></td>
-      <td>{{ h.motivo|default:"—" }}</td>
-    </tr>
-    {% endfor %}
-  </tbody>
-</table>
-{% endif %}
-
-{% for s in secoes_geradas %}
-{% if s.codigo not in codigos_estaticos %}
-<div class="section-title">{{ s.titulo }}</div>
-<div class="field"><div class="field-value">{{ s.texto|linebreaksbr }}</div></div>
+{% elif s.texto %}
+<div class="field"><div class="field-value" style="white-space:pre-wrap">{{ s.texto }}</div></div>
 {% endif %}
 {% endfor %}
 
@@ -226,13 +109,36 @@
   <div class="sig-block">
     <div class="sig-line"></div>
     <div class="sig-name">{{ tr.created_by.get_full_name|default:tr.created_by.username }}</div>
-    <div class="sig-role">Elaborado por</div>
+    <div class="sig-role">{{ tr.created_by.profile.get_papel_display|default:"" }}<br>Elaborado por</div>
   </div>
   <div class="sig-block">
     <div class="sig-line"></div>
+    {% if aprovacao %}
+    <div class="sig-name">{{ aprovacao.usuario.get_full_name|default:aprovacao.usuario.username }}</div>
+    <div class="sig-role">{{ aprovacao.usuario.profile.get_papel_display|default:"" }}<br>Aprovado em {{ aprovacao.criado_em|date:"d/m/Y" }}</div>
+    {% else %}
     <div class="sig-name">Pendente de aprovação</div>
     <div class="sig-role">Aprovado por</div>
+    {% endif %}
   </div>
 </div>
+
+{% if tr.historico.exists %}
+<div class="section-title">Anexo — Histórico de Tramitação</div>
+<table>
+  <thead><tr><th>Data</th><th>Responsável</th><th>De</th><th>Para</th><th>Motivo</th></tr></thead>
+  <tbody>
+    {% for h in tr.historico.all %}
+    <tr>
+      <td style="white-space:nowrap">{{ h.criado_em|date:"d/m/Y H:i" }}</td>
+      <td>{{ h.usuario.get_full_name|default:h.usuario.username|default:"—" }}</td>
+      <td>{{ h.status_anterior }}</td>
+      <td><strong>{{ h.status_novo }}</strong></td>
+      <td>{{ h.motivo|default:"—" }}</td>
+    </tr>
+    {% endfor %}
+  </tbody>
+</table>
+{% endif %}
 
 {% endblock %}

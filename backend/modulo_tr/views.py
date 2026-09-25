@@ -13,22 +13,6 @@ from exportacao.pdf_utils import gerar_pdf_tr, gerar_html, resposta_pdf, respost
 
 PAPEIS_SOLICITANTE = ('solicitante', 'demandante', 'responsavel_tecnico', 'admin')
 
-# Códigos de SecaoArtefato já exibidos estaticamente em templates/exportacao/tr.html —
-# usado para não duplicar conteúdo ao acrescentar seções custom (ver core/document_engine.py)
-CODIGOS_ESTATICOS_TR = [
-    'numero_sei', 'objeto', 'justificativa', 'requisitos', 'obrigacoes_contratada',
-    'obrigacoes_contratante', 'criterios_selecao', 'criterios_medicao', 'prazo_vigencia',
-    'local_entrega', 'garantia', 'lotes', 'adequacao_orcamentaria', 'permite_consorcio',
-    'qualificacao_juridica', 'qualificacao_economica', 'prazos_execucao', 'degrau_lances',
-    'estimativa_valor', 'observacoes',
-    # hab_juridica/hab_economica são o mesmo conteúdo de qualificacao_juridica/
-    # qualificacao_economica sob os códigos oficiais do checklist (14.1/14.3) —
-    # o bloco fixo acima já cobre supressão/dispensa com justificativa; excluir
-    # do loop genérico para não duplicar a seção com título diferente.
-    'hab_juridica', 'hab_economica',
-]
-
-
 def _buscar_preco_referencia(item_dfd):
     """(valor_unitario, origem) — Mapa de Preços aprovado do DFD, senão estimativa do ItemDFD."""
     from .precos import preco_referencia
@@ -141,15 +125,14 @@ class TRViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['get'], url_path='export/html')
     def export_html(self, request, pk=None):
-        from core.document_engine import DocumentEngine
+        from exportacao.pdf_utils import secoes_documento_tr
         from .precos import consolidar
         tr = self.get_object()
-        modalidade = getattr(tr, 'modalidade_aquisicao', None)
         html = gerar_html('tr', {
             'tr': tr,
             'estimativa': consolidar(tr),
-            'secoes_geradas': DocumentEngine.gerar('TR', tr, modalidade=modalidade),
-            'codigos_estaticos': CODIGOS_ESTATICOS_TR,
+            'secoes': secoes_documento_tr(tr),  # mesma lista numerada do PDF
+            'aprovacao': tr.historico.filter(status_novo='Aprovado').select_related('usuario__profile').order_by('-criado_em').first(),
         })
         return resposta_html(html, f'TR_{tr.numero_sei}.html')
 

@@ -307,8 +307,12 @@ class LoteTR(BaseModel):
         return f'{self.numero} ({self.get_modalidade_display()}) — TR {self.tr_id}'
 
     def save(self, *args, **kwargs):
+        if not self.numero and self.modalidade == 'cota_me_epp' and self.lote_origem_id:
+            # a cota é um recorte do lote de origem: "Lote 01-Cota", sem consumir número
+            # (antes virava "Lote 02-Cota" e empurrava o lote seguinte para "Lote 03")
+            self.numero = f'{self.lote_origem.numero}-Cota'
         if not self.numero:
-            seq = LoteTR.objects.filter(tr=self.tr).count() + 1
+            seq = LoteTR.objects.filter(tr=self.tr).exclude(modalidade='cota_me_epp').count() + 1
             if self.modalidade == 'cota_me_epp':
                 sufixo = '-Cota'
             elif self.modalidade == 'exclusiva_me_epp':

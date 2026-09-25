@@ -250,6 +250,10 @@ def _contexto_tr(tr) -> dict:
                 if tr.bens_nao_luxo else 'Objeto pode se enquadrar como bem de luxo — avaliar enquadramento.')
 
     def _bens_reserva_cota_texto():
+        # Com lotes formados, a cota está no próprio lote (Lote NN-Cota): repetir aqui
+        # era redundante e, com o campo desmarcado, contraditório ("sem reserva").
+        if tr.pk and tr.lotes.exists():
+            return ''
         if not tr.bens_reserva_cota:
             return 'Sem reserva de cota para ME/EPP.'
         return f'Reserva de cota de {tr.bens_reserva_cota_percentual}% para ME/EPP (art. 48, III, LC 123/2006).'
@@ -417,3 +421,32 @@ class DocumentEngine:
                 'texto':       texto,
             })
         return resultado
+
+
+_NUMERO_TITULO = __import__('re').compile(r'^(\d+)(?:\.(\d+(?:\.\d+)*))?\.?\s+(.*)$')
+
+
+def numerar_titulos(titulos):
+    """
+    Renumera, em sequência, os títulos das seções que de fato entram no documento.
+
+    Os títulos do catálogo trazem o número do modelo completo ("5.1 Critérios…",
+    "14.2 Habilitação…"); quando uma seção não se aplica ao objeto, o número some e
+    o documento ficava com buracos (1, 3, 4, 5.1, 14.2, 17). Aqui a hierarquia do
+    modelo é mantida (subseções continuam sob o mesmo grupo), mas a numeração é
+    recontada: grupo = 1, 2, 3…; subseção = grupo.1, grupo.2… Títulos sem número
+    ("Bens — …") viram um grupo próprio.
+    """
+    saida, topo, grupo, sub = [], 0, None, 0
+    for t in titulos:
+        m = _NUMERO_TITULO.match(t or '')
+        if m and m.group(2):
+            if m.group(1) != grupo:
+                topo, grupo, sub = topo + 1, m.group(1), 0
+            sub += 1
+            saida.append(f'{topo}.{sub} {m.group(3)}')
+        else:
+            topo, sub = topo + 1, 0
+            grupo = m.group(1) if m else None
+            saida.append(f'{topo}. {m.group(3) if m else t}')
+    return saida

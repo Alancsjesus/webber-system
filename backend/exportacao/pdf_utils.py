@@ -122,7 +122,8 @@ def _campo(label, valor, estilos):
     """Retorna dois parágrafos: label em cinza + valor em preto."""
     return [
         Paragraph(label.upper(), estilos['label']),
-        Paragraph(str(valor) if valor else '—', estilos['valor']),
+        # texto do usuário: escapa &/< (quebravam o PDF) e preserva as quebras de linha
+        Paragraph(_xml_escape(str(valor)).replace(chr(10), '<br/>') if valor else '—', estilos['valor']),
     ]
 
 
@@ -323,9 +324,11 @@ def _valor_secao_tr(codigo, tr):
 
     def _permite_consorcio_texto():
         val = getattr(tr, 'permite_consorcio', None)
-        if not val:
+        if val is None or val == '':  # não respondido — False (veda) também é resposta
             return None
-        partes = [{'sim': 'Permite consórcio', 'nao': 'Veda consórcio'}.get(val, val)]
+        permite = val in (True, 'sim')
+        partes = ['Admite a participação de empresas em consórcio (art. 15, Lei 14.133/2021).' if permite
+                  else 'Veda a participação de empresas em consórcio (art. 15, Lei 14.133/2021).']
         just = getattr(tr, 'permite_consorcio_justificativa', None)
         if just:
             partes.append(f'Justificativa: {just}')
@@ -379,6 +382,65 @@ def _valor_secao_tr(codigo, tr):
         'degrau_lances':           getattr(tr, 'degrau_lances', None),
     }
     return mapa.get(codigo) or None
+
+
+# Conteúdo do TR que não tem seção própria no catálogo: entra logo depois da
+# seção âncora, com número do mesmo grupo (a numeração final é recontada).
+_EXTRAS_TR = {
+    'solucao':           [('requisitos', '5. Requisitos da Contratação')],  # texto do campo vira o corpo do grupo 5
+    'criterios_selecao': [('permite_consorcio', '13.9 Admissibilidade de Consórcio'),
+                          ('degrau_lances', '13.9 Intervalo Mínimo entre Lances')],
+    'criterios_medicao': [('prazos_execucao', '13.9 Prazos de Recebimento e Pagamento')],
+}
+
+
+_GRUPOS_TR = {
+    '5': 'Requisitos da Contratação',
+    '13': 'Critérios de Medição, Pagamento e Seleção do Fornecedor',
+    '14': 'Habilitação',
+}
+
+
+def secoes_documento_tr(tr):
+    """
+    Lista única e numerada das seções do TR — usada pelo PDF e pelo HTML, para os
+    dois documentos terem a mesma estrutura (antes o HTML repetia Objeto/Justificativa
+    em um bloco fixo e não seguia a numeração do PDF).
+    Itens: {'codigo', 'titulo', 'texto'}; 'lotes' e 'estimativa_valor' são tabelas.
+    """
+    from core.document_engine import DocumentEngine, numerar_titulos
+    geradas = DocumentEngine.gerar('TR', tr, modalidade=getattr(tr, 'modalidade_aquisicao', None))
+    presentes = {g['codigo'] for g in geradas}
+    lista = []
+    for g in geradas:
+        lista.append({'codigo': g['codigo'], 'titulo': g['titulo'], 'texto': g['texto']})
+        for codigo, titulo in _EXTRAS_TR.get(g['codigo'], []):
+            if codigo in presentes:
+                continue
+            valor = _valor_secao_tr(codigo, tr)
+            if codigo == 'degrau_lances' and valor is not None:
+                valor = f'{_fmt_valor(valor)} (art. 57, Lei 14.133/2021)'
+            if valor:
+                lista.append({'codigo': codigo, 'titulo': titulo, 'texto': str(valor)})
+    # Subseções cujo título de grupo não está no catálogo (5.x, 13.x, 14.x) ganham
+    # o título do grupo do modelo, para o documento não ter "12.1" sem "12."
+    import re as _r
+    com_grupo, vistos = [], set()
+    for item in lista:
+        m = _r.match(r'^(\d+)\.(\d+)', item['titulo'])
+        topo = _r.match(r'^(\d+)\.?\s', item['titulo'])
+        if topo and not m:
+            vistos.add(topo.group(1))
+        if m and m.group(1) not in vistos and m.group(1) in _GRUPOS_TR:
+            com_grupo.append({'codigo': f'_grupo_{m.group(1)}', 'titulo': f'{m.group(1)}. {_GRUPOS_TR[m.group(1)]}', 'texto': ''})
+            vistos.add(m.group(1))
+        com_grupo.append(item)
+    lista = com_grupo
+    if 'observacoes' not in presentes and (tr.observacoes or '').strip():
+        lista.append({'codigo': 'observacoes', 'titulo': 'Observações', 'texto': tr.observacoes})
+    for item, titulo in zip(lista, numerar_titulos([i['titulo'] for i in lista])):
+        item['titulo'] = titulo
+    return lista
 
 
 def _valor_secao_etp(codigo, etp):
@@ -551,7 +613,7 @@ def _renderizar_estimativa_tr(tr, estilos):
     from decimal import Decimal
     from modulo_tr.precos import consolidar
     est = consolidar(tr)
-    e = [_secao('Estimativa do Valor da Contratação', estilos)]
+    e = []  # título numerado vem da seção (secoes_documento_tr)
     if not est['lotes']:
         return e + _campo('', '— (lotes ainda não montados)', estilos)
     if est['mapa']:
@@ -572,7 +634,7 @@ def _renderizar_estimativa_tr(tr, estilos):
     for lote in est['lotes']:
         for it in lote['itens']:
             desc = it['descricao'] + ('' if it['origem'] == 'mapa' else ' (estimativa DFD)')
-            dados.append([Paragraph(lote['numero'] + (' (cota)' if lote['cota'] else ''), cel),
+            dados.append([Paragraph(lote['numero'], cel),
                           Paragraph(it['codigo_simpas'] or '—', cel), Paragraph(it['codigo_interno'] or '—', cel),
                           Paragraph(desc, cel), Paragraph(it['unidade'], cel),
                           Paragraph(it['quantidade'], cel_r),
@@ -585,7 +647,7 @@ def _renderizar_estimativa_tr(tr, estilos):
     dados.append([Paragraph('<b>VALOR TOTAL ESTIMADO</b>', cel_r), '', '', '', '', '', '',
                   Paragraph(f"<b>{_fmt_valor(Decimal(est['total']))}</b>", cel_r)])
     destaques.append(len(dados) - 1)
-    t = Table(dados, colWidths=[1.5*cm, 2.2*cm, 2.2*cm, 4.2*cm, 1.1*cm, 1.3*cm, 2.1*cm, 2.4*cm], repeatRows=1)
+    t = Table(dados, colWidths=[1.7*cm, 3.0*cm, 1.9*cm, 3.3*cm, 1.3*cm, 1.1*cm, 2.1*cm, 2.4*cm], repeatRows=1)
     estilo = [
         ('BACKGROUND', (0, 0), (-1, 0), AZUL_CLARO),
         ('GRID', (0, 0), (-1, -1), 0.5, CINZA_BD),
@@ -675,32 +737,30 @@ def _valor_parcelamento_etp(tr):
 
 
 def _renderizar_secoes_tr(tr, estilos):
-    """Itera seções configuradas de TR e gera flowables."""
+    """Seções do TR (lista única e numerada — ver secoes_documento_tr)."""
     modalidade = getattr(tr, 'modalidade_aquisicao', None)
     secoes = _get_secoes('TR', modalidade, tipo_objeto=getattr(tr, 'tipo_objeto', None))
     e = []
 
-    # Códigos que retornam flowables diretos (não texto)
-    FLOWABLE_CODES = {'lotes'}
-
     if secoes:
-        from core.document_engine import renderizar_secao
-        for secao in secoes:
-            if secao.codigo in FLOWABLE_CODES:
+        descricoes = dict(secoes.values_list('codigo', 'descricao')) if hasattr(secoes, 'values_list') else {}
+        for s in secoes_documento_tr(tr):
+            if s['codigo'] == 'lotes':
                 flowables = _renderizar_lotes_tr(tr, estilos)
-                if flowables:
-                    e.append(_secao(secao.titulo, estilos))
-                    e += flowables
+            elif s['codigo'] == 'estimativa_valor':
+                flowables = _renderizar_estimativa_tr(tr, estilos)
             else:
-                valor = renderizar_secao('TR', secao, tr)
-                if valor and str(valor).strip():
-                    e.append(_secao(secao.titulo, estilos))
-                    if secao.descricao:
-                        e.append(Paragraph(secao.descricao, ParagraphStyle(
-                            'orientacao', fontSize=8, textColor=CINZA_TXT,
-                            fontName='Helvetica-Oblique', spaceAfter=4,
-                        )))
-                    e += _campo('', valor, estilos)
+                flowables = None
+            e.append(_secao(s['titulo'], estilos))
+            if descricoes.get(s['codigo']):
+                e.append(Paragraph(descricoes[s['codigo']], ParagraphStyle(
+                    'orientacao', fontSize=8, textColor=CINZA_TXT,
+                    fontName='Helvetica-Oblique', spaceAfter=4,
+                )))
+            if flowables:
+                e += flowables
+            elif s['texto']:
+                e += _campo('', s['texto'], estilos)
     else:
         # Fallback hardcoded (deploy sem setup_dev)
         fallback = [
@@ -921,7 +981,6 @@ def gerar_pdf_tr(tr) -> bytes:
     e.append(_secao('Identificação', estilos))
     e += _campo('Status', tr.status, estilos)
     e += _campo('ETP de Origem', tr.etp.numero_sei if tr.etp_id else '—', estilos)
-    e += _renderizar_estimativa_tr(tr, estilos)
 
     # As seções 5.1-5.6 (requisitos parametrizáveis) e as seções específicas de
     # Bens/Serviços (14.4/14.5 e correlatas) já são geradas pelo loop genérico
