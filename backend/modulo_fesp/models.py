@@ -537,6 +537,8 @@ def _recalcular_totais(meta_especifica_id):
 
 @receiver(post_save, sender=ItemPlanoAplicacao)
 def _item_plano_aplicacao_post_save(sender, instance, **kwargs):
+    if kwargs.get('raw'):  # loaddata: os totais já vêm gravados na carga
+        return
     _recalcular_totais(instance.meta_especifica_id)
 
 

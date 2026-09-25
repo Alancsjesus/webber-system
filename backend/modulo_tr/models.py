@@ -377,6 +377,8 @@ def atualizar_quantidade_comprometida_item_dfd(sender, instance, **kwargs):
     LoteTR.gerar_cota), não uma demanda adicional — contá-los duplicaria o
     comprometimento do mesmo item.
     """
+    if kwargs.get('raw'):  # loaddata: os totais já vêm gravados na carga
+        return
     item_dfd = instance.item_dfd
     if item_dfd is None:
         return
@@ -390,6 +392,8 @@ def atualizar_quantidade_comprometida_item_dfd(sender, instance, **kwargs):
 @receiver([post_save, post_delete], sender=ItemLoteTR)
 def atualizar_estimativa_tr(sender, instance, **kwargs):
     """Estimativa do TR acompanha os lotes (consolidação do Mapa de Preços)."""
+    if kwargs.get('raw'):  # loaddata: os totais já vêm gravados na carga
+        return
     lote = LoteTR.objects.filter(pk=instance.lote_id).select_related('tr').first()
     if lote is not None:
         from .precos import recalcular_estimativa

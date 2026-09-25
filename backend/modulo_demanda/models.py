@@ -300,6 +300,8 @@ class HistoricoTramitacao(models.Model):
 @receiver([post_save, post_delete], sender='modulo_demanda.ItemDFD')
 def atualizar_valor_estimado_dfd(sender, instance, **kwargs):
     """Recalcula valor_estimado do DFD sempre que um item é salvo ou removido."""
+    if kwargs.get('raw'):  # loaddata: os totais já vêm gravados na carga
+        return
     dfd = instance.dfd
     total = dfd.itens.aggregate(total=Sum('valor_total_estimado'))['total'] or 0
     DFD.objects.filter(pk=dfd.pk).update(valor_estimado=total)
