@@ -503,6 +503,59 @@ def _renderizar_secao_dfd(secao, dfd, estilos):
     return e
 
 
+def _renderizar_estimativa_tr(tr, estilos):
+    """Quadro da estimativa do TR: consolidação do Mapa de Preços por lote e item."""
+    from decimal import Decimal
+    from modulo_tr.precos import consolidar
+    est = consolidar(tr)
+    e = [_secao('Estimativa do Valor da Contratação', estilos)]
+    if not est['lotes']:
+        return e + _campo('', '— (lotes ainda não montados)', estilos)
+    if est['mapa']:
+        fonte = (f"Consolidação do Mapa Comparativo de Preços nº {est['mapa']['id']}"
+                 f"{', aprovado em ' + est['mapa']['data_aprovacao'] if est['mapa']['data_aprovacao'] else ''}"
+                 f" — {est['mapa']['metodo']}.")
+    else:
+        fonte = 'Sem Mapa de Preços aprovado — valores estimados no DFD.'
+    if est['itens_sem_mapa']:
+        fonte += f" {est['itens_sem_mapa']} item(ns) sem preço do Mapa."
+    e += _campo('', fonte, estilos)
+    cel = ParagraphStyle('_cel_est', fontSize=7.5, leading=9, wordWrap='LTR')
+    cel_r = ParagraphStyle('_cel_est_r', fontSize=7.5, leading=9, alignment=TA_RIGHT)
+    hdr = ParagraphStyle('_hdr_est', fontSize=7.5, leading=9, fontName='Helvetica-Bold', alignment=TA_CENTER)
+    dados = [[Paragraph(h, hdr) for h in
+              ['Lote', 'Cód. SIMPAS', 'Cód. interno', 'Item', 'Unid.', 'Qtd.', 'Vl. unit.', 'Vl. total']]]
+    destaques = []
+    for lote in est['lotes']:
+        for it in lote['itens']:
+            desc = it['descricao'] + ('' if it['origem'] == 'mapa' else ' (estimativa DFD)')
+            dados.append([Paragraph(lote['numero'] + (' (cota)' if lote['cota'] else ''), cel),
+                          Paragraph(it['codigo_simpas'] or '—', cel), Paragraph(it['codigo_interno'] or '—', cel),
+                          Paragraph(desc, cel), Paragraph(it['unidade'], cel),
+                          Paragraph(it['quantidade'], cel_r),
+                          Paragraph(_fmt_valor(Decimal(it['valor_unitario'])), cel_r),
+                          Paragraph(_fmt_valor(Decimal(it['valor_total'])), cel_r)])
+        rotulo = f"Subtotal {lote['numero']}" + (' (recorte do lote de origem — não soma ao total)' if lote['cota'] else '')
+        dados.append([Paragraph(f'<b>{rotulo}</b>', cel_r), '', '', '', '', '', '',
+                      Paragraph(f"<b>{_fmt_valor(Decimal(lote['subtotal']))}</b>", cel_r)])
+        destaques.append(len(dados) - 1)
+    dados.append([Paragraph('<b>VALOR TOTAL ESTIMADO</b>', cel_r), '', '', '', '', '', '',
+                  Paragraph(f"<b>{_fmt_valor(Decimal(est['total']))}</b>", cel_r)])
+    destaques.append(len(dados) - 1)
+    t = Table(dados, colWidths=[1.6*cm, 2.3*cm, 1.8*cm, 4.4*cm, 1.1*cm, 1.3*cm, 2.1*cm, 2.2*cm], repeatRows=1)
+    estilo = [
+        ('BACKGROUND', (0, 0), (-1, 0), AZUL_CLARO),
+        ('GRID', (0, 0), (-1, -1), 0.5, CINZA_BD),
+        ('VALIGN', (0, 0), (-1, -1), 'TOP'),
+        ('TOPPADDING', (0, 0), (-1, -1), 2), ('BOTTOMPADDING', (0, 0), (-1, -1), 2),
+    ]
+    for linha in destaques:
+        estilo += [('SPAN', (0, linha), (6, linha)), ('BACKGROUND', (0, linha), (-1, linha), AZUL_CLARO)]
+    t.setStyle(TableStyle(estilo))
+    e.append(t)
+    return e
+
+
 def _renderizar_lotes_tr(tr, estilos):
     """Gera flowables com a tabela de lotes do TR e seus itens."""
     e = []
@@ -825,8 +878,7 @@ def gerar_pdf_tr(tr) -> bytes:
     e.append(_secao('Identificação', estilos))
     e += _campo('Status', tr.status, estilos)
     e += _campo('ETP de Origem', tr.etp.numero_sei if tr.etp_id else '—', estilos)
-    if tr.estimativa_valor:
-        e += _campo('Estimativa de Valor', _fmt_valor(tr.estimativa_valor), estilos)
+    e += _renderizar_estimativa_tr(tr, estilos)
 
     # As seções 5.1-5.6 (requisitos parametrizáveis) e as seções específicas de
     # Bens/Serviços (14.4/14.5 e correlatas) já são geradas pelo loop genérico

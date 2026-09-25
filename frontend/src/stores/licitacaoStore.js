@@ -93,6 +93,12 @@ const useLicitacaoStore = create((set, get) => ({
     const { data } = await api.delete(`/licitacao/procedimento/${id}/resultados/${resId}/`)
     set({ current: data })
   },
+  registrarSaque: async (id) => {
+    const { data } = await api.post(`/licitacao/procedimento/${id}/registrar-saque/`)
+    set({ current: data })
+    return data
+  },
+
   gerarContrato: async (id, resId) => {
     const { data } = await api.post(`/licitacao/procedimento/${id}/resultados/${resId}/gerar-contrato/`)
     set({ current: data })

@@ -28,6 +28,8 @@ def serialize_model(instance):
 @receiver(post_save)
 def capture_audit_log_on_save(sender, instance, created, **kwargs):
     """Capture AuditLog on model save"""
+    if kwargs.get('raw'):  # loaddata: o AuditLog original vem na fixture
+        return
     if not issubclass(sender, BaseModel) or sender == BaseModel:
         return
     

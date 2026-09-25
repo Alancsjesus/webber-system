@@ -21,17 +21,20 @@ def _passos_dfd(dfd):
     """Lista (etapa, registro, concluida) andando a cadeia a partir do DFD."""
     passos = [('DFD', dfd, dfd.status in STATUS_CONCLUIDO['DFD'])]
 
-    etp = _rel(dfd, 'etp')
-    if not etp:
-        return passos
-    passos.append(('ETP', etp, etp.status in STATUS_CONCLUIDO['ETP']))
-
-    tr = _rel(etp, 'tr')
-    if not tr:
-        return passos
-    passos.append(('TR', tr, tr.status in STATUS_CONCLUIDO['TR']))
-
+    # Sem ETP/TR próprios (Saque de Ata, contratação direta) a cadeia segue até o procedimento
     procs = list(dfd.procedimentos.all().order_by('-created_at'))
+    etp = _rel(dfd, 'etp')
+    if not etp and not procs:
+        return passos
+    if etp:
+        passos.append(('ETP', etp, etp.status in STATUS_CONCLUIDO['ETP']))
+
+    tr = _rel(etp, 'tr') if etp else None
+    if etp and not tr and not procs:
+        return passos
+    if tr:
+        passos.append(('TR', tr, tr.status in STATUS_CONCLUIDO['TR']))
+
     if not procs:
         return passos
     proc = procs[0]

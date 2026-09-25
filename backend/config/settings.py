@@ -100,7 +100,8 @@ else:
     DATABASES = {
         'default': {
             'ENGINE': 'django.db.backends.sqlite3',
-            'NAME': BASE_DIR / 'db.sqlite3',
+            # SQLITE_PATH: banco alternativo (ex: testar seeds num banco limpo)
+            'NAME': os.getenv('SQLITE_PATH') or BASE_DIR / 'db.sqlite3',
         }
     }
 

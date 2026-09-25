@@ -114,6 +114,7 @@ class LoteTRSerializer(serializers.ModelSerializer):
 
 
 class TRSerializer(serializers.ModelSerializer):
+    estimativa_consolidada = serializers.SerializerMethodField()
     created_by_username = serializers.CharField(source='created_by.username', read_only=True)
     updated_by_username = serializers.CharField(source='updated_by.username', read_only=True)
     etp_numero_sei              = serializers.CharField(source='etp.numero_sei',                   read_only=True)
@@ -152,7 +153,7 @@ class TRSerializer(serializers.ModelSerializer):
             'criterios_selecao', 'criterios_medicao',
             # Prazo / execução
             'tipo_prazo_vigencia', 'prazo_meses', 'instrumento_inicio', 'prazo_observacao',
-            'local_entrega', 'garantia_contrato', 'estimativa_valor',
+            'local_entrega', 'garantia_contrato', 'estimativa_valor', 'estimativa_consolidada',
             # Requisitos parametrizáveis (seção 4)
             'req_sustentabilidade', 'req_sustentabilidade_criterios',
             'req_indicacao_marca', 'req_indicacao_marca_justific',
@@ -192,6 +193,7 @@ class TRSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = [
             'id', 'org_id', 'org_sigla',
+            'estimativa_valor', 'estimativa_consolidada',  # derivada dos lotes (Mapa de Preços)
             'created_by', 'created_by_username',
             'updated_by', 'updated_by_username',
             'created_at', 'updated_at',
@@ -278,7 +280,6 @@ class TRSerializer(serializers.ModelSerializer):
             'objeto_contratacao':      dfd.descricao,
             'justificativa':           etp.justificativa_solucao,
             'requisitos_contratacao':  etp.requisitos_contratacao,
-            'estimativa_valor':        etp.estimativa_valor,
             'local_entrega':           dfd.local_entrega,
             'adequacao_orcamentaria':  self._adequacao_pela_dod(dfd),
         }
@@ -303,6 +304,10 @@ class TRSerializer(serializers.ModelSerializer):
         validated_data['created_by'] = request.user
         validated_data['updated_by'] = request.user
         return super().create(validated_data)
+
+    def get_estimativa_consolidada(self, obj):
+        from .precos import consolidar
+        return consolidar(obj)
 
     @staticmethod
     def _adequacao_pela_dod(dfd):

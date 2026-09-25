@@ -61,6 +61,7 @@ export default function ProcedimentoCreate() {
   const seiBaseUrl = useAuthStore((s) => s.seiBaseUrl)
   const [dfds, setDfds]           = useState([])
   const [trs, setTrs]             = useState([])
+  const [atas, setAtas]           = useState([])
   const [unidades, setUnidades]   = useState([])
   const [saving, setSaving]       = useState(false)
   const [errors, setErrors]       = useState({})
@@ -72,6 +73,7 @@ export default function ProcedimentoCreate() {
     unidade_gestora:            '',
     dfd:                        '',
     tr:                         '',
+    ata:                        '',
     objeto:                     '',
     valor_estimado:             '',
     numero_sei:                 '',
@@ -94,6 +96,9 @@ export default function ProcedimentoCreate() {
        .catch(() => {})
     api.get('/core/unidades/', { params: { page_size: 200 } })
        .then(({ data }) => setUnidades(data.results ?? data))
+       .catch(() => {})
+    api.get('/arp/', { params: { page_size: 200 } })
+       .then(({ data }) => setAtas((data.results ?? data).filter(a => a.status === 'vigente')))
        .catch(() => {})
   }, [])
 
@@ -124,6 +129,7 @@ export default function ProcedimentoCreate() {
   const ehDispensa    = ['dispensa_eletronica', 'dispensa_tradicional'].includes(form.modalidade)
   const ehInexig      = form.modalidade === 'inexigibilidade'
   const ehLicitacao   = ['pregao_eletronico', 'concorrencia'].includes(form.modalidade)
+  const ehSaque       = form.modalidade === 'saque_arp'
 
   const submeter = async (confirmarTetoExcedido = false) => {
     setSaving(true)
@@ -137,7 +143,8 @@ export default function ProcedimentoCreate() {
         observacoes:     form.observacoes || '',
       }
       if (form.dfd)   payload.dfd = Number(form.dfd)
-      if (form.tr)    payload.tr  = Number(form.tr)
+      if (form.tr && !ehSaque) payload.tr = Number(form.tr)
+      if (ehSaque && form.ata) payload.ata = Number(form.ata)
       if (form.valor_estimado) payload.valor_estimado = Number(form.valor_estimado)
       if (form.data_publicacao) payload.data_publicacao = form.data_publicacao
       if (form.data_abertura)   payload.data_abertura   = form.data_abertura
@@ -167,7 +174,9 @@ export default function ProcedimentoCreate() {
     e.preventDefault()
     const errs = {}
     if (!form.modalidade)         errs.modalidade = 'Selecione a modalidade'
-    if (!form.objeto.trim())      errs.objeto = 'Objeto é obrigatório'
+    if (!form.objeto.trim() && !ehSaque) errs.objeto = 'Objeto é obrigatório'
+    if (ehSaque && !form.ata)     errs.ata = 'Selecione a Ata de Registro de Preços'
+    if (ehSaque && !form.dfd)     errs.dfd = 'Selecione o DFD do saque'
     if (!form.exercicio)          errs.exercicio = 'Informe o exercício'
     if (!form.unidade_gestora)    errs.unidade_gestora = 'Informe a unidade gestora (compõe o número do procedimento)'
     if (ehDispensa && !form.fundamento_dispensa) errs.fundamento_dispensa = 'Selecione o fundamento legal'
@@ -201,6 +210,9 @@ export default function ProcedimentoCreate() {
                 <option value="dispensa_tradicional">Dispensa Tradicional</option>
                 <option value="inexigibilidade">Inexigibilidade</option>
               </optgroup>
+              <optgroup label="Registro de Preços">
+                <option value="saque_arp">Saque de Ata de Registro de Preços</option>
+              </optgroup>
             </select>
           </Field>
           <Field label="Exercício *" error={errors.exercicio}>
@@ -228,7 +240,7 @@ export default function ProcedimentoCreate() {
           <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-2 text-sm text-blue-700">
             Número gerado automaticamente:&nbsp;
             <strong>
-              {{ pregao_eletronico: 'PE', concorrencia: 'CC', dispensa_eletronica: 'DE', dispensa_tradicional: 'DT', inexigibilidade: 'INEX' }[form.modalidade]}
+              {{ pregao_eletronico: 'PE', concorrencia: 'CC', dispensa_eletronica: 'DE', dispensa_tradicional: 'DT', inexigibilidade: 'INEX', saque_arp: 'SAQ' }[form.modalidade]}
               -{unidades.find(u => String(u.id) === String(form.unidade_gestora))?.sigla ?? '???'}-
               NNN/{form.exercicio}
             </strong>
@@ -245,7 +257,19 @@ export default function ProcedimentoCreate() {
           </select>
         </Field>
 
-        {form.dfd && (
+        {ehSaque && (
+          <Field label="Ata de Registro de Preços *" error={errors.ata}
+            hint="Saque não tem TR, ETP nem Mapa próprios — usa as peças da formação da Ata. Exige DFD aprovado com DOD e saldo na Ata para todos os itens.">
+            <select value={form.ata} onChange={e => set('ata', e.target.value)} className={inp(errors.ata)}>
+              <option value="">— Selecione uma Ata vigente —</option>
+              {atas.map(a => (
+                <option key={a.id} value={a.id}>{a.numero_ata} — {a.objeto?.slice(0, 60)}</option>
+              ))}
+            </select>
+          </Field>
+        )}
+
+        {form.dfd && !ehSaque && (
           <Field label="TR de origem" error={errors.tr}
             hint={trs.length === 0 ? 'Nenhum TR aprovado encontrado para este DFD' : ''}>
             <select value={form.tr} onChange={e => set('tr', e.target.value)} className={inp(errors.tr)}>

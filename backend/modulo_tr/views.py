@@ -30,58 +30,10 @@ CODIGOS_ESTATICOS_TR = [
 
 
 def _buscar_preco_referencia(item_dfd):
-    """
-    Retorna (valor_unitario, origem) para um ItemDFD.
-    Prioriza o Mapa de Preços aprovado vinculado ao DFD:
-    1. Match por código SIMPAS (mais preciso)
-    2. Match por descrição (icontains)
-    3. Match posicional — se DFD e Mapa têm o mesmo número de itens,
-       correlaciona ItemDFD[i] com ItemMapa[i] por ordem de criação
-    Fallback: estimativa do próprio ItemDFD.
-    """
-    if not item_dfd:
-        return None, 'dfd'
-    try:
-        from modulo_mapa_precos.models import MapaComparativoPrecos, ItemMapa
-        mapa = (
-            MapaComparativoPrecos.objects
-            .filter(dfd=item_dfd.dfd, status='Aprovado')
-            .order_by('-created_at')
-            .first()
-        )
-        if mapa:
-            item_mapa = None
-
-            # 1. Match por código SIMPAS do catálogo
-            if item_dfd.item_catalogo and item_dfd.item_catalogo.codigo_simpas:
-                item_mapa = ItemMapa.objects.filter(
-                    mapa=mapa,
-                    codigo_simpas=item_dfd.item_catalogo.codigo_simpas,
-                ).first()
-
-            # 2. Match por descrição (primeiros 20 chars, case-insensitive)
-            if not item_mapa and item_dfd.objeto:
-                item_mapa = ItemMapa.objects.filter(
-                    mapa=mapa,
-                    descricao__icontains=item_dfd.objeto[:20],
-                ).first()
-
-            # 3. Match posicional — correlaciona por índice quando contagens batem
-            if not item_mapa:
-                dfd_itens  = list(item_dfd.dfd.itens.order_by('id'))
-                mapa_itens = list(ItemMapa.objects.filter(mapa=mapa).order_by('ordem', 'id'))
-                if dfd_itens and mapa_itens and len(dfd_itens) == len(mapa_itens):
-                    try:
-                        idx = dfd_itens.index(item_dfd)
-                        item_mapa = mapa_itens[idx]
-                    except (ValueError, IndexError):
-                        pass
-
-            if item_mapa and item_mapa.valor_unitario_calculado:
-                return item_mapa.valor_unitario_calculado, 'mapa'
-    except Exception:
-        pass
-    return item_dfd.valor_unitario_estimado, 'dfd'
+    """(valor_unitario, origem) — Mapa de Preços aprovado do DFD, senão estimativa do ItemDFD."""
+    from .precos import preco_referencia
+    valor, origem, _ = preco_referencia(item_dfd)
+    return valor, origem
 
 
 class TRViewSet(viewsets.ModelViewSet):
@@ -187,10 +139,12 @@ class TRViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['get'], url_path='export/html')
     def export_html(self, request, pk=None):
         from core.document_engine import DocumentEngine
+        from .precos import consolidar
         tr = self.get_object()
         modalidade = getattr(tr, 'modalidade_aquisicao', None)
         html = gerar_html('tr', {
             'tr': tr,
+            'estimativa': consolidar(tr),
             'secoes_geradas': DocumentEngine.gerar('TR', tr, modalidade=modalidade),
             'codigos_estaticos': CODIGOS_ESTATICOS_TR,
         })
@@ -209,6 +163,9 @@ class TRViewSet(viewsets.ModelViewSet):
         if papel not in PAPEIS_SOLICITANTE:
             return Response({'detail': 'Apenas o demandante pode submeter o TR.'},
                             status=status.HTTP_403_FORBIDDEN)
+        # Estimativa = consolidação do Mapa aprovado vigente (reprecifica antes do checklist)
+        from .precos import atualizar_precos
+        atualizar_precos(self.get_object())
         tr = self.get_object()
         resultado = ChecklistEngine.avaliar_tr(tr)
         if not resultado.pode_submeter:

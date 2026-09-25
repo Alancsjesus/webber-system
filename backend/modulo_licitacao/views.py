@@ -11,7 +11,6 @@ from django_filters.rest_framework import DjangoFilterBackend
 from core.permissions import IsMultiTenant, check_licitante, PAPEIS_ANALISTA
 from .models import (
     Procedimento, HistoricoProcedimento, TramitacaoExterna, ResultadoLote,
-    TRANSICOES_PERMITIDAS,
 )
 from .serializers import (
     ProcedimentoSerializer, ProcedimentoListSerializer,
@@ -61,7 +60,7 @@ class ProcedimentoViewSet(viewsets.ModelViewSet):
     # ── Helpers ──────────────────────────────────────────────────────────────
 
     def _transicao(self, procedimento, novo_status, usuario, motivo=''):
-        permitidos = TRANSICOES_PERMITIDAS.get(procedimento.status, [])
+        permitidos = procedimento.transicoes_disponiveis
         if novo_status not in permitidos:
             from rest_framework.exceptions import ValidationError
             raise ValidationError(
@@ -278,6 +277,39 @@ class ProcedimentoViewSet(viewsets.ModelViewSet):
 
     # ── Gerar Contrato a partir de resultado ──────────────────────────────────
 
+    @action(detail=True, methods=['post'], url_path='registrar-saque')
+    def registrar_saque(self, request, pk=None):
+        """
+        Saque de Ata aprovado: confere Ata/saldo e registra um resultado por
+        fornecedor registrado na Ata (valor = quantidade × preço registrado).
+        O contrato sai de cada resultado, como nos demais procedimentos.
+        """
+        err = self._check_licitante(request)
+        if err: return err
+        proc = self.get_object()
+        if not proc.eh_saque:
+            return Response({'detail': 'Ação exclusiva de Saque de Ata.'}, status=status.HTTP_400_BAD_REQUEST)
+        if proc.status != 'Aprovado':
+            return Response({'detail': 'Aprove o procedimento antes de registrar o saque.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        if proc.resultados.exists():
+            return Response({'detail': 'Saque já registrado.'}, status=status.HTTP_400_BAD_REQUEST)
+        from .saque import SaqueInvalido, itens_do_saque, por_fornecedor, validar_ata, valor
+        try:
+            validar_ata(proc.ata, date.today())
+            pares = itens_do_saque(proc.dfd, proc.ata)
+        except SaqueInvalido as e:
+            return Response({'detail': ' '.join(e.args[0])}, status=status.HTTP_400_BAD_REQUEST)
+        for fornecedor, itens in por_fornecedor(pares).items():
+            total = valor(itens)
+            ResultadoLote.objects.create(
+                procedimento=proc, resultado='homologado', fornecedor=fornecedor,
+                empresa_vencedora=fornecedor.nome_razao_social, cnpj_vencedor=fornecedor.documento,
+                descricao_lote=f'Saque da Ata {proc.ata.numero_ata} — {len(itens)} item(ns)',
+                valor_estimado=total, valor_final=total,
+            )
+        return Response(self._serializar(proc), status=status.HTTP_201_CREATED)
+
     @action(detail=True, methods=['post'], url_path=r'resultados/(?P<res_pk>[^/.]+)/gerar-contrato')
     def gerar_contrato(self, request, pk=None, res_pk=None):
         """
@@ -301,7 +333,17 @@ class ProcedimentoViewSet(viewsets.ModelViewSet):
             })
 
         tr = res.lote.tr if res.lote_id else proc.tr
-        if tr is not None and tr.sistema_registro_precos:
+        pares_saque = None
+        if proc.eh_saque:
+            # Minuta do saque = TR da formação da Ata; saldo reconferido e consumido aqui
+            from .saque import SaqueInvalido, itens_do_saque, validar_ata
+            tr = proc.ata.procedimento.tr if proc.ata.procedimento_id else None
+            try:
+                validar_ata(proc.ata, date.today())
+                pares_saque = [p for p in itens_do_saque(proc.dfd, proc.ata) if p[1].fornecedor_id == res.fornecedor_id]
+            except SaqueInvalido as e:
+                return Response({'detail': ' '.join(e.args[0])}, status=status.HTTP_400_BAD_REQUEST)
+        elif tr is not None and tr.sistema_registro_precos:
             return Response(
                 {'detail': 'Procedimento de Registro de Preços gera Ata de Registro de Preços, não contrato — '
                            'cadastre a Ata vinculada a este procedimento (módulo ARP); os contratos nascem '
@@ -342,7 +384,7 @@ class ProcedimentoViewSet(viewsets.ModelViewSet):
             exercicio=proc.exercicio,
             orgao_executor=proc.org_id,
             objeto=f'{proc.objeto} — {res.descricao_lote or (res.lote.descricao if res.lote else "")}',
-            tipo_origem='licitacao' if proc.eh_licitacao else (
+            tipo_origem='saque_arp' if proc.eh_saque else 'licitacao' if proc.eh_licitacao else (
                 'inexigibilidade' if proc.eh_inexigibilidade else 'dispensa'),
             fornecedor=res.fornecedor,
             dfd=proc.dfd,
@@ -366,11 +408,14 @@ class ProcedimentoViewSet(viewsets.ModelViewSet):
         # Registrar resultado
         res.contrato_gerado = contrato
         res.save(update_fields=['contrato_gerado'])
+        if pares_saque:
+            from .saque import consumir_saldo
+            consumir_saldo(pares_saque)
 
         # Se todos os lotes tiverem contrato, marcar procedimento como Contratado
         todos_homologados = proc.resultados.filter(resultado='homologado')
         todos_com_contrato = all(r.contrato_gerado_id for r in todos_homologados)
-        if todos_com_contrato and proc.status == 'Homologado':
+        if todos_com_contrato and (proc.status == 'Homologado' or (proc.eh_saque and proc.status == 'Aprovado')):
             self._transicao(proc, 'Contratado', request.user,
                             f'Contrato {contrato.numero} gerado.')
 

@@ -25,7 +25,7 @@ def _notificar(destinatario, tipo, titulo, mensagem, url):
 # ── ETP ───────────────────────────────────────────────────────────────────────
 
 def _on_historico_etp(sender, instance, created, **kwargs):
-    if not created:
+    if not created or kwargs.get('raw'):  # raw: loaddata
         return
     from modulo_etp.models import ETP
     etp = instance.etp
@@ -64,7 +64,7 @@ def _on_historico_etp(sender, instance, created, **kwargs):
 # ── TR ────────────────────────────────────────────────────────────────────────
 
 def _on_historico_tr(sender, instance, created, **kwargs):
-    if not created:
+    if not created or kwargs.get('raw'):  # raw: loaddata
         return
     from modulo_tr.models import TR
     tr = instance.tr
@@ -101,7 +101,7 @@ def _on_historico_tr(sender, instance, created, **kwargs):
 # ── Mapa de Preços ────────────────────────────────────────────────────────────
 
 def _on_historico_mapa(sender, instance, created, **kwargs):
-    if not created:
+    if not created or kwargs.get('raw'):  # raw: loaddata
         return
     mapa = instance.mapa
 
@@ -137,7 +137,7 @@ def _on_historico_mapa(sender, instance, created, **kwargs):
 # ── Procedimento (licitação) ──────────────────────────────────────────────────
 
 def _on_historico_procedimento(sender, instance, created, **kwargs):
-    if not created:
+    if not created or kwargs.get('raw'):  # raw: loaddata
         return
     proc = instance.procedimento
 

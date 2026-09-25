@@ -95,6 +95,8 @@ class ProcedimentoSerializer(serializers.ModelSerializer):
     status_display           = serializers.CharField(source='get_status_display',           read_only=True)
     dfd_numero_sei           = serializers.CharField(source='dfd.numero_sei',               read_only=True)
     tr_numero_sei            = serializers.CharField(source='tr.numero_sei',                read_only=True)
+    ata_numero               = serializers.CharField(source='ata.numero_ata', read_only=True, default=None)
+    objeto                   = serializers.CharField(required=False, allow_blank=True)
     org_sigla                = serializers.CharField(source='org_id.sigla',                 read_only=True)
     unidade_gestora_sigla    = serializers.CharField(source='unidade_gestora.sigla', read_only=True, allow_null=True, default=None)
     unidade_gestora_nome     = serializers.CharField(source='unidade_gestora.nome',  read_only=True, allow_null=True, default=None)
@@ -118,7 +120,7 @@ class ProcedimentoSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'numero', 'exercicio', 'modalidade', 'modalidade_display',
             'status', 'status_display', 'transicoes_disponiveis',
-            'dfd', 'dfd_numero_sei', 'tr', 'tr_numero_sei',
+            'dfd', 'dfd_numero_sei', 'tr', 'tr_numero_sei', 'ata', 'ata_numero',
             'objeto', 'valor_estimado',
             'fundamento_dispensa', 'fundamento_inexigibilidade', 'justificativa',
             'numero_sei',
@@ -229,12 +231,26 @@ class ProcedimentoSerializer(serializers.ModelSerializer):
                         'pode_devolver': mapa.status in ACOES['Mapa de Preços'][1],
                         'url': f'/pesquisa/mapa/{mapa.pk}',
                     })
+        if obj.ata_id:
+            ata = obj.ata
+            pecas.append({
+                'tipo': 'Ata de Registro de Preços', 'pk': ata.pk,
+                'numero_sei': ata.numero_ata, 'status': ata.get_status_display(),
+                'ok': ata.status == 'vigente', 'pode_aprovar': False, 'pode_devolver': False,
+                'url': f'/arp/{ata.pk}',
+            })
         return pecas
 
     def validate(self, attrs):
         if self.instance is None:  # só valida na criação
             tr = attrs.get('tr')
             dfd = attrs.get('dfd')
+            if attrs.get('modalidade') == 'saque_arp':
+                self._validar_saque(attrs)
+            elif attrs.get('ata') is not None:
+                raise serializers.ValidationError({'ata': 'Ata só se vincula a procedimento de Saque de Ata.'})
+            elif not (attrs.get('objeto') or '').strip():
+                raise serializers.ValidationError({'objeto': 'Este campo é obrigatório.'})
             if dfd is None and tr is not None:
                 # Aberto só pelo TR: herda o DFD, senão a exigência de DOD abaixo era pulada
                 from .models import dfd_do_tr
@@ -275,6 +291,37 @@ class ProcedimentoSerializer(serializers.ModelSerializer):
                 attrs['observacoes'] = (attrs.get('observacoes') or '').rstrip()
                 attrs['observacoes'] = (attrs['observacoes'] + '\n' + nota).strip() if attrs['observacoes'] else nota
         return attrs
+
+    def _validar_saque(self, attrs):
+        """
+        Saque de Ata dispensa TR/ETP/Mapa próprios (peças da formação da Ata),
+        mas exige Ata vigente, DFD aprovado (com DOD — conferida adiante) e
+        saldo na Ata para todos os itens do DFD.
+        """
+        from .saque import SaqueInvalido, itens_do_saque, validar_ata, valor
+        ata, dfd = attrs.get('ata'), attrs.get('dfd')
+        erros = {}
+        if ata is None:
+            erros['ata'] = 'Informe a Ata de Registro de Preços do saque.'
+        if dfd is None:
+            erros['dfd'] = 'Informe o DFD do saque (sem TR, o DFD não é herdado).'
+        elif dfd.status != 'Aprovada':
+            erros['dfd'] = 'O DFD do saque precisa estar aprovado.'
+        if attrs.get('tr') is not None:
+            erros['tr'] = 'Saque de Ata não tem TR próprio — a minuta é o TR da formação da Ata.'
+        if erros:
+            raise serializers.ValidationError(erros)
+        if str(ata.org_id_id) != str(self.context['request'].org_id):
+            raise serializers.ValidationError({'ata': 'Ata não pertence à organização.'})
+        try:
+            validar_ata(ata, date.today())
+            pares = itens_do_saque(dfd, ata)
+        except SaqueInvalido as e:
+            raise serializers.ValidationError({'ata': e.args[0]})
+        if not attrs.get('valor_estimado'):
+            attrs['valor_estimado'] = valor(pares)
+        if not attrs.get('objeto'):
+            attrs['objeto'] = f'Saque da Ata {ata.numero_ata} — {ata.objeto}'[:500]
 
     def create(self, validated_data):
         request = self.context['request']

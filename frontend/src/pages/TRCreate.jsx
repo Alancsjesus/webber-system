@@ -2,7 +2,6 @@ import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import useTrStore from '../stores/trStore'
 import FormErrors from '../components/FormErrors'
-import CampoMoeda from '../components/CampoMoeda'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -177,7 +176,6 @@ export default function TRCreate() {
     prazo_observacao:    '',
     local_entrega:       etp?.dfd_local_entrega || '',
     garantia_contrato:   '',
-    estimativa_valor:    etp?.estimativa_valor  || '',
 
     req_sustentabilidade:           false,
     req_sustentabilidade_criterios: etp?.sustentabilidade || '',
@@ -262,7 +260,6 @@ export default function TRCreate() {
         prazo_observacao: form.prazo_observacao,
         local_entrega: form.local_entrega,
         garantia_contrato: form.garantia_contrato,
-        estimativa_valor: form.estimativa_valor ? Number(form.estimativa_valor) : null,
         req_sustentabilidade: form.req_sustentabilidade,
         req_sustentabilidade_criterios: form.req_sustentabilidade_criterios,
         req_indicacao_marca: form.req_indicacao_marca,
@@ -561,9 +558,11 @@ export default function TRCreate() {
             </div>
           )}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <F label="Estimativa de valor (R$)">
-              <CampoMoeda value={form.estimativa_valor}
-                onChange={v => set('estimativa_valor', v)} className={inp()} />
+            <F label="Estimativa de valor">
+              <p className="text-xs text-gray-500 leading-relaxed">
+                Calculada automaticamente: consolidação dos lotes precificados pelo Mapa de Preços aprovado do DFD
+                (itens, códigos, quantidades e valores) — monte os lotes após criar o TR.
+              </p>
             </F>
             <F label={isServico ? 'Local de execução' : 'Local de entrega'}>
               <input value={form.local_entrega} onChange={e => set('local_entrega', e.target.value)} className={inp()} />

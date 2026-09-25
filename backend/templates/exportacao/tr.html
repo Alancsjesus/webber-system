@@ -24,11 +24,42 @@
       {% else %}<span class="badge badge-gray">{{ tr.status }}</span>{% endif %}
     </div>
   </div>
-  <div class="field">
-    <div class="field-label">Estimativa de valor</div>
-    <div class="field-value">{% if tr.estimativa_valor %}R$ {{ tr.estimativa_valor|floatformat:2 }}{% else %}—{% endif %}</div>
-  </div>
 </div>
+
+<div class="section-title">Estimativa do Valor da Contratação</div>
+{% if estimativa.lotes %}
+<p style="font-size:9pt;color:#555;margin:4px 0 8px;">
+  {% if estimativa.mapa %}Consolidação do Mapa Comparativo de Preços nº {{ estimativa.mapa.id }}{% if estimativa.mapa.data_aprovacao %}, aprovado em {{ estimativa.mapa.data_aprovacao }}{% endif %} — {{ estimativa.mapa.metodo }}.
+  {% else %}Sem Mapa de Preços aprovado — valores estimados no DFD.{% endif %}
+  {% if estimativa.itens_sem_mapa %}<strong>{{ estimativa.itens_sem_mapa }} item(ns) sem preço do Mapa.</strong>{% endif %}
+</p>
+<table>
+  <thead><tr><th>Lote</th><th>Cód. SIMPAS</th><th>Cód. interno</th><th>Item</th><th>Unid.</th>
+    <th style="text-align:right">Qtd.</th><th style="text-align:right">Vl. unitário</th><th style="text-align:right">Vl. total</th></tr></thead>
+  <tbody>
+  {% for lote in estimativa.lotes %}
+    {% for item in lote.itens %}
+    <tr>
+      <td>{{ lote.numero }}{% if lote.cota %} (cota){% endif %}</td>
+      <td>{{ item.codigo_simpas|default:"—" }}</td>
+      <td>{{ item.codigo_interno|default:"—" }}</td>
+      <td>{{ item.descricao }}{% if item.origem != 'mapa' %} <em>(estimativa DFD)</em>{% endif %}</td>
+      <td>{{ item.unidade }}</td>
+      <td style="text-align:right">{{ item.quantidade }}</td>
+      <td style="text-align:right">R$ {{ item.valor_unitario }}</td>
+      <td style="text-align:right">R$ {{ item.valor_total }}</td>
+    </tr>
+    {% endfor %}
+    <tr><td colspan="7" style="text-align:right"><strong>Subtotal {{ lote.numero }}{% if lote.cota %} (recorte do lote de origem — não soma ao total){% endif %}</strong></td>
+      <td style="text-align:right"><strong>R$ {{ lote.subtotal }}</strong></td></tr>
+  {% endfor %}
+  <tr><td colspan="7" style="text-align:right"><strong>VALOR TOTAL ESTIMADO</strong></td>
+    <td style="text-align:right"><strong>R$ {{ estimativa.total }}</strong></td></tr>
+  </tbody>
+</table>
+{% else %}
+<div class="field"><div class="field-value">— (lotes ainda não montados)</div></div>
+{% endif %}
 
 {% if tr.objeto_contratacao %}
 <div class="section-title">Objeto da Contratação</div>

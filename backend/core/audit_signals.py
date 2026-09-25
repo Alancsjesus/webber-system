@@ -74,7 +74,7 @@ _PRE_SAVE_STATE = {}   # {(model_label, pk): {campos: valores}}
 def _connect_pre_save(sender, label, campo_sei, campo_valor):
     @receiver(pre_save, sender=sender, weak=False)
     def _pre(sender, instance, **kw):
-        if not instance.pk:
+        if not instance.pk or kw.get('raw'):
             return   # criação — não há estado anterior
         try:
             old = sender.objects.get(pk=instance.pk)
@@ -93,6 +93,8 @@ def _connect_pre_save(sender, label, campo_sei, campo_valor):
 def _connect_post_save(sender, label, campo_sei, campo_valor):
     @receiver(post_save, sender=sender, weak=False)
     def _post(sender, instance, created, **kw):
+        if kw.get('raw'):  # loaddata
+            return
         nome = _label(instance)
         org  = _org(instance)
 

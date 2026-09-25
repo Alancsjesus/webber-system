@@ -23,6 +23,7 @@ MODALIDADE_CHOICES = [
     ('dispensa_eletronica',  'Dispensa Eletrônica (por Valor — Art. 75 I/II)'),
     ('dispensa_tradicional', 'Dispensa Tradicional'),
     ('inexigibilidade',      'Inexigibilidade'),
+    ('saque_arp',            'Saque de Ata de Registro de Preços'),
 ]
 
 PREFIXO_MODALIDADE = {
@@ -31,6 +32,7 @@ PREFIXO_MODALIDADE = {
     'dispensa_eletronica':  'DE',
     'dispensa_tradicional': 'DT',
     'inexigibilidade':      'INEX',
+    'saque_arp':            'SAQ',
 }
 
 # Prazo mínimo legal entre publicação e abertura (dias úteis)
@@ -40,6 +42,7 @@ PRAZO_LEGAL_DIAS_UTEIS = {
     'dispensa_eletronica':  3,   # Lei 14.133, art. 75, §3°
     'dispensa_tradicional': 0,
     'inexigibilidade':      0,
+    'saque_arp':            0,
 }
 
 # Tetos de dispensa por exercício (atualizados pelo Decreto 11.871/2023)
@@ -154,6 +157,13 @@ class Procedimento(MesaAtualMixin, BaseModel):
         on_delete=models.SET_NULL, related_name='procedimentos',
         verbose_name='TR de origem',
     )
+    # Saque de Ata: a Ata de Registro de Preços de onde sai a contratação
+    # (sem TR/ETP/Mapa próprios — produzidos na formação da Ata).
+    ata = models.ForeignKey(
+        'modulo_arp.Ata', null=True, blank=True,
+        on_delete=models.PROTECT, related_name='saques',
+        verbose_name='Ata de Registro de Preços (saque)',
+    )
 
     # Objeto e valores
     objeto        = models.TextField(verbose_name='Objeto do procedimento')
@@ -244,8 +254,16 @@ class Procedimento(MesaAtualMixin, BaseModel):
         return self.modalidade == 'inexigibilidade'
 
     @property
+    def eh_saque(self):
+        return self.modalidade == 'saque_arp'
+
+    @property
     def transicoes_disponiveis(self):
-        return TRANSICOES_PERMITIDAS.get(self.status, [])
+        permitidas = TRANSICOES_PERMITIDAS.get(self.status, [])
+        if self.eh_saque:
+            # Saque não tem edital/sessão: aprovado → contratado (via registrar saque + gerar contrato)
+            return [t for t in permitidas if t not in ('Publicado', 'Em Sessão', 'Homologado', 'Deserto', 'Fracassado')]
+        return permitidas
 
     def calcular_prazo_legal(self):
         """Retorna o prazo mínimo legal em dias úteis."""

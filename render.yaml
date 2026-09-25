@@ -71,6 +71,13 @@ services:
         value: "True"
       - key: HCAPTCHA_SECRET
         sync: false
+      # Carga de demonstração ponta a ponta (core/fixtures/demo_webber.json.gz,
+      # gerada por `manage.py exportar_demo`): usuários de teste (senha admin123),
+      # catálogo, orçamento, FESP/Financiamento e as cadeias DFD→Pagamento. Só
+      # carrega com o banco vazio, então é seguro manter ligada entre deploys.
+      # Substitui o RUN_SETUP_DEV (os usuários já vêm na carga).
+      - key: RUN_CARGA_DEMO
+        value: "True"
 
   # ── Frontend React (build estático, sem servidor próprio) ──────────────────────
   - type: web

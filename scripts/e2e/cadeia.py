@@ -5,18 +5,26 @@ Plano de Aplicação (FESP ou Financiamento) → Necessidade → DFD → Indica�
 Orçamentária (DOD) → ETP → TR → Procedimento → Resultado → Contrato →
 Fiscalização (medição atestada) → Pagamento (contrato + execução orçamentária).
 
-Uso:  python scripts/e2e/cadeia.py fesp|financiamento
-Estado de cada cadeia fica em scripts/e2e/estado_<cadeia>.json, então o script
-pode ser rodado de novo e retoma da etapa em que parou.
+Uso:  python scripts/e2e/cadeia.py fesp|financiamento|saque [--api URL] [--conferir]
+      --api (ou WEBBER_API): backend alvo, ex. https://webber-backend.onrender.com/api
+      (padrão: http://localhost:9000/api)
+      --conferir: só leitura — confere no backend alvo a cadeia já registrada no
+      estado local (ex.: produção carregada com `carregar_demo`, que preserva os ids).
+Estado de cada cadeia fica em scripts/e2e/estado_<cadeia>.json (ou
+estado_<cadeia>@<host>.json fora do localhost), então o script pode ser rodado
+de novo e retoma da etapa em que parou.
 """
 import json
+import os
 import sys
+import time
 from datetime import date, timedelta
 from pathlib import Path
+from urllib.parse import urlparse
 
 import requests
 
-BASE = 'http://localhost:9000/api'
+BASE = os.getenv('WEBBER_API', 'http://localhost:9000/api')
 HOJE = date.today()
 _tokens = {}
 
@@ -25,25 +33,35 @@ class Falha(Exception):
     pass
 
 
-_CACHE_TOKENS = Path(__file__).with_name('.tokens.json')
+def _sufixo():
+    """'' no localhost:9000 (arquivos de sempre); '@host' em outro backend, para não misturar estados."""
+    host = urlparse(BASE).netloc
+    return '' if host == 'localhost:9000' else f'@{host.replace(":", "_")}'
 
 
 def login(user):
     # Cache em disco: o endpoint de login tem throttle de 5/min.
-    if not _tokens and _CACHE_TOKENS.exists():
-        _tokens.update(json.loads(_CACHE_TOKENS.read_text()))
+    cache = Path(__file__).with_name(f'.tokens{_sufixo()}.json')
+    if not _tokens and cache.exists():
+        _tokens.update(json.loads(cache.read_text()))
     if user not in _tokens:
-        r = requests.post(f'{BASE}/token/', json={'username': user, 'password': 'admin123'})
+        while True:
+            r = requests.post(f'{BASE}/token/', json={'username': user, 'password': 'admin123'}, timeout=120)
+            if r.status_code != 429:
+                break
+            espera = int(r.headers.get('Retry-After', 60)) + 1
+            print(f'  … limite de login atingido, aguardando {espera}s')
+            time.sleep(espera)
         if r.status_code != 200:
             raise Falha(f'login {user}: {r.status_code} {r.text[:300]}')
         _tokens[user] = r.json()['access']
-        _CACHE_TOKENS.write_text(json.dumps(_tokens))
+        cache.write_text(json.dumps(_tokens))
     return _tokens[user]
 
 
 def api(user, metodo, caminho, dados=None, esperado=(200, 201)):
     r = requests.request(metodo, f'{BASE}/{caminho.lstrip("/")}', json=dados,
-                         headers={'Authorization': f'Bearer {login(user)}'})
+                         headers={'Authorization': f'Bearer {login(user)}'}, timeout=120)
     if r.status_code not in esperado:
         raise Falha(f'{user} {metodo} {caminho} -> {r.status_code}\n{r.text[:1500]}')
     return r.json() if r.content and 'json' in r.headers.get('content-type', '') else {}
@@ -51,7 +69,7 @@ def api(user, metodo, caminho, dados=None, esperado=(200, 201)):
 
 class Estado(dict):
     def __init__(self, cadeia):
-        self.arquivo = Path(__file__).with_name(f'estado_{cadeia}.json')
+        self.arquivo = Path(__file__).with_name(f'estado_{cadeia}{_sufixo()}.json')
         super().__init__(json.loads(self.arquivo.read_text(encoding='utf-8')) if self.arquivo.exists() else {})
 
     def salvar(self):
@@ -89,6 +107,7 @@ def etapa(nome):
             e.salvar()
             print(f'  + {nome}: {e[nome]}')
         run.nome = nome
+        run.fn = fn
         return run
     return deco
 
@@ -237,6 +256,7 @@ def item_fesp(e):
 
 FASE_ORIGEM = {
     'fesp': [instrumento_fesp, plano_fesp, item_fesp, gerar_necessidade],
+    'saque': [instrumento_fesp, plano_fesp, item_fesp, gerar_necessidade],
     'financiamento': [criar_fonte_financiamento, criar_instrumento_financiamento,
                       criar_plano_financiamento, criar_meta, criar_item_plano,
                       aprovar_plano, gerar_necessidade],
@@ -246,6 +266,8 @@ FASE_ORIGEM = {
 # ── Fase 2: execução (Necessidade → DFD → ... → Pagamento) ───────────────────
 SOLICITANTE = 'dem_ssp'
 INSTRUMENTO_TR = 'contrato'
+GARANTIA = True
+SAQUE = False
 ANALISTA = 'analista_ssp'
 GESTOR = 'gestor'
 FISCAL = 'fiscal'
@@ -282,7 +304,7 @@ def aprovar_dfd(e):
 def criar_dotacao(e):
     inst = api(PLANEJ, 'GET', f'fesp/instrumento/{e["instrumento"]}/')
     acao = api(PLANEJ, 'POST', 'orcamento/acao/', {
-        'codigo': f'INST.{e["instrumento"]}', 'nome': f'Execução — {inst["numero_instrumento"]}', 'tipo': 4,
+        'codigo': f'INST.{e["instrumento"]}.{e["necessidade"]}', 'nome': f'Execução — {inst["numero_instrumento"]}', 'tipo': 4,
     })
     dot = api(PLANEJ, 'POST', 'orcamento/dotacao/', {
         'exercicio_fiscal': HOJE.year, 'acao': acao['id'], 'elemento_despesa': 12,
@@ -350,6 +372,36 @@ def aprovar_etp(e):
     ])
 
 
+@etapa('mapa')
+def pesquisar_precos(e):
+    """Mapa Comparativo de Preços do DFD: fonte institucional + 3 cotações, aprovado pela licitante."""
+    dfd = api(ANALISTA, 'GET', f'demanda/dfd/{e["dfd"]}/')
+    item = dfd['itens'][0]
+    cat = api(ANALISTA, 'GET', f'core/catalogo/{item["item_catalogo"]}/') if item.get('item_catalogo') else {}
+    mapa = api(ANALISTA, 'POST', 'pesquisa/mapa/', {
+        'dfd': e['dfd'], 'exercicio_fiscal': HOJE.year, 'objeto': item['objeto'],
+        'metodo_calculo': 'mediana',
+    })
+    base = f'pesquisa/mapa/{mapa["id"]}'
+    fonte = api(ANALISTA, 'POST', f'{base}/fontes/', {
+        'tipo': 'I', 'descricao': 'Painel de Preços / SIMPAS', 'referencia': 'Consulta por código',
+        'data_consulta': str(HOJE),
+    })
+    im = api(ANALISTA, 'POST', f'{base}/itens/', {
+        'ordem': 1, 'descricao': item['objeto'], 'codigo_simpas': cat.get('codigo_simpas', ''),
+        'unidade_medida': item['unidade_medida'], 'quantidade': item['quantidade'],
+    })
+    unit = float(item['valor_unitario_estimado'])
+    for fator in (0.95, 0.98, 1.02):
+        api(ANALISTA, 'POST', f'{base}/itens/{im["id"]}/precos/', {
+            'fonte': fonte['id'], 'valor_unitario': f'{unit * fator:.2f}',
+            'origem_orgao_empresa': 'Contratação pública similar', 'data_referencia': str(HOJE),
+        })
+    for acao in ('submeter', 'iniciar_analise', 'aprovar'):
+        api(ANALISTA, 'POST', f'{base}/{acao}/', {})
+    return mapa['id']
+
+
 @etapa('tr')
 def elaborar_tr(e):
     etp = api(SOLICITANTE, 'GET', f'etp/etp/{e["etp"]}/')
@@ -381,6 +433,11 @@ def montar_lote(e):
     })
     dfd = api(ANALISTA, 'GET', f'demanda/dfd/{e["dfd"]}/')
     assert dfd['itens'][0]['status_execucao'] == 'comprometido_total', dfd['itens'][0]
+    # Estimativa do TR = consolidação do Mapa aprovado
+    est = api(ANALISTA, 'GET', f'tr/tr/{e["tr"]}/')['estimativa_consolidada']
+    linha = est['lotes'][0]['itens'][0]
+    assert est['mapa'] and est['mapa']['id'] == e['mapa'] and est['itens_sem_mapa'] == 0, est
+    assert linha['origem'] == 'mapa' and linha['codigo_interno'], linha
     return lote['id']
 
 
@@ -430,12 +487,16 @@ def gerar_contrato(e):
             'valor_final': f'{float(res["valor_estimado"]) * 0.924:.2f}', 'observacoes': ''})
     r = api(ANALISTA, 'POST', f'{p}/resultados/{res["id"]}/gerar-contrato/', {})
     c = api(GESTOR, 'GET', f'contratos/contrato/{r["contrato_id"]}/')
-    assert c['fornecedor'] == 1, 'Contrato sem fornecedor vencedor'
+    assert c['fornecedor'] == res['fornecedor'], 'Contrato sem fornecedor vencedor'
     assert c['dfd'] == e['dfd'], 'Contrato sem DFD de origem'
     assert r['status'] == 'Contratado', r['status']
     # Contrato nasce da minuta (TR): instrumento e garantia
     assert c['tipo_instrumento'] == INSTRUMENTO_TR, c['tipo_instrumento']
-    assert c['garantia_exigida'] == (INSTRUMENTO_TR == 'contrato'), c['garantia_exigida']
+    assert c['garantia_exigida'] == GARANTIA, c['garantia_exigida']
+    if SAQUE:
+        assert c['tipo_origem'] == 'saque_arp', c['tipo_origem']
+        ata = api(ANALISTA, 'GET', f'arp/{e["ata"]}/')
+        assert all(float(i['quantidade_consumida']) > 0 for i in ata['itens']), 'Saldo da Ata não consumido'
     return r['contrato_id']
 
 
@@ -456,8 +517,10 @@ def designar_contrato(e):
     if INSTRUMENTO_TR == 'afm':
         deve_falhar(GESTOR, 'PATCH', url, dados, 400, 'numero_afm')
         dados['numero_afm'] = f'AFM-{HOJE.year}-{e["contrato"]:06d}'
-    c = api(GESTOR, 'PATCH', url, dados)
     fim = HOJE.replace(year=HOJE.year + 1)  # prazo de 12 meses na minuta
+    if SAQUE:  # Ata avulsa (sem procedimento de formação): sem minuta, vigência informada
+        dados['data_vigencia_fim'] = str(fim)
+    c = api(GESTOR, 'PATCH', url, dados)
     assert c['data_vigencia_fim'] == str(fim), c['data_vigencia_fim']
     return c['numero']
 
@@ -542,25 +605,95 @@ def conferir_cadeia(e):
     assert dot['valor_empenhado'] == v and dot['valor_liquidado'] == v and dot['valor_pago'] == v, dot
     rast = api(PLANEJ, 'GET', f'rastreabilidade/{e["necessidade"]}/')
     etapas = [p['etapa'] for p in rast['cadeia']]
-    for esperada in ('Necessidade', 'DFD', 'ETP', 'TR', 'Procedimento', 'Contrato'):
+    for esperada in (('Necessidade', 'DFD', 'Procedimento', 'Contrato') if SAQUE else
+                     ('Necessidade', 'DFD', 'ETP', 'TR', 'Procedimento', 'Contrato')):
         assert esperada in etapas, (esperada, etapas)
     return ' → '.join(etapas)
 
 
 FASE_EXECUCAO = [iniciar_dfd, aprovar_dfd, criar_dotacao, emitir_dod, elaborar_etp, aprovar_etp,
-                 elaborar_tr, montar_lote, aprovar_tr, abrir_procedimento, licitar, gerar_contrato,
+                 pesquisar_precos, elaborar_tr, montar_lote, aprovar_tr, abrir_procedimento, licitar, gerar_contrato,
                  designar_contrato, empenhar, medir_e_atestar, liquidar, pagar, conferir_cadeia]
 
 
+# ── Saque de Ata: sem ETP/TR/Mapa próprios ────────────────────────────────────
+
+@etapa('ata')
+def registrar_ata(e):
+    """Ata vigente com o item do DFD, fornecedor registrado e saldo."""
+    item = api(ANALISTA, 'GET', f'demanda/dfd/{e["dfd"]}/')['itens'][0]
+    ata = api(ANALISTA, 'POST', 'arp/', {
+        'tipo_origem': 'gerenciador', 'numero_ata': f'ARP-{HOJE.year}-{e["dfd"]:04d}',
+        'objeto': f'Registro de preços — {item["objeto"]}',
+        'data_assinatura': str(HOJE), 'data_vigencia_inicio': str(HOJE),
+        'data_vigencia_fim': str(HOJE + timedelta(days=365)),
+    })
+    api(ANALISTA, 'POST', f'arp/{ata["id"]}/itens/', {
+        'item_catalogo': item['item_catalogo'], 'objeto': item['objeto'], 'unidade_medida': item['unidade_medida'],
+        'fornecedor': 2, 'quantidade_registrada': str(float(item['quantidade']) * 3),
+        'valor_unitario_registrado': f'{float(item["valor_unitario_estimado"]) * 0.9:.2f}',
+    })
+    api(ANALISTA, 'POST', f'arp/{ata["id"]}/ativar/', {})
+    return ata['id']
+
+
+@etapa('procedimento')
+def abrir_saque(e):
+    base = {'exercicio': HOJE.year, 'modalidade': 'saque_arp', 'dfd': e['dfd'],
+            'numero_sei': api(ANALISTA, 'GET', f'demanda/dfd/{e["dfd"]}/')['numero_sei']}
+    deve_falhar(ANALISTA, 'POST', 'licitacao/procedimento/', base, 400, 'ata')
+    outro_tr = next(iter(api(ANALISTA, 'GET', 'tr/tr/').get('results', [])), None)
+    if outro_tr:
+        deve_falhar(ANALISTA, 'POST', 'licitacao/procedimento/', {**base, 'ata': e['ata'], 'tr': outro_tr['id']}, 400, 'tr')
+    proc = api(ANALISTA, 'POST', 'licitacao/procedimento/', {**base, 'ata': e['ata']})
+    assert proc['tr'] is None and proc['numero'].startswith('SAQ-'), proc['numero']
+    tipos = [p['tipo'] for p in proc['pecas_instutorias']]
+    assert 'Ata de Registro de Preços' in tipos and 'TR' not in tipos, tipos
+    return proc['id']
+
+
+@etapa('homologado')
+def efetivar_saque(e):
+    p = f'licitacao/procedimento/{e["procedimento"]}'
+    fluxo(p, [('Em Instrução', ANALISTA, 'submeter', {}), ('Aguardando Aprovação', ANALISTA, 'aprovar', {})])
+    r = api(ANALISTA, 'POST', f'{p}/registrar-saque/', {})
+    assert r['resultados'] and r['resultados'][0]['resultado'] == 'homologado', r['resultados']
+    return r['status']
+
+
+FASE_SAQUE = [iniciar_dfd, aprovar_dfd, criar_dotacao, emitir_dod, registrar_ata, abrir_saque, efetivar_saque,
+              gerar_contrato, designar_contrato, empenhar, medir_e_atestar, liquidar, pagar, conferir_cadeia]
+
+
 def main():
-    global SOLICITANTE, INSTRUMENTO_TR
-    cadeia = sys.argv[1] if len(sys.argv) > 1 else 'financiamento'
+    global SOLICITANTE, INSTRUMENTO_TR, GARANTIA, SAQUE, BASE
+    args = sys.argv[1:]
+    conferir = '--conferir' in args
+    if conferir:
+        args.remove('--conferir')
+    if '--api' in args:
+        i = args.index('--api')
+        BASE = args[i + 1].rstrip('/')
+        del args[i:i + 2]
+    cadeia = args[0] if args else 'financiamento'
     # FESP: demanda da PMBA (requisitante), licitada/contratada pela SSP (órgão pai)
     SOLICITANTE = {'fesp': 'solicitante_pm'}.get(cadeia, 'dem_ssp')
     INSTRUMENTO_TR = {'fesp': 'afm'}.get(cadeia, 'contrato')
+    GARANTIA = cadeia == 'financiamento'
+    SAQUE = cadeia == 'saque'
+    if conferir:
+        # Estado local (ids da carga de demonstração), conferido no backend alvo
+        e = dict(json.loads(Path(__file__).with_name(f'estado_{cadeia}.json').read_text(encoding='utf-8')))
+        print(f'== Conferindo cadeia {cadeia} em {BASE}')
+        try:
+            print(f'  ok {conferir_cadeia.fn(e)}')
+        except (Falha, AssertionError, KeyError) as f:
+            print(f'  X conferencia\n{f!r}')
+            sys.exit(1)
+        return
     e = Estado(cadeia)
-    print(f'== Cadeia {cadeia}')
-    for passo in FASE_ORIGEM[cadeia] + FASE_EXECUCAO:
+    print(f'== Cadeia {cadeia} em {BASE}')
+    for passo in FASE_ORIGEM[cadeia] + (FASE_SAQUE if SAQUE else FASE_EXECUCAO):
         try:
             passo(e)
         except Falha as f:

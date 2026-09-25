@@ -177,6 +177,19 @@ def _avaliador_estimativa_etp(obj: Any, _: str) -> tuple[bool, str]:
     return True, ''
 
 
+def _avaliador_estimativa_tr(obj: Any, _: str) -> tuple[bool, str]:
+    """TR: estimativa = consolidação dos lotes, todos precificados pelo Mapa de Preços aprovado."""
+    from modulo_tr.models import ItemLoteTR
+    itens = ItemLoteTR.objects.filter(lote__tr=obj)
+    if not itens.exists():
+        return False, 'Nenhum item nos lotes — a estimativa é a consolidação dos lotes.'
+    sem_mapa = itens.exclude(preco_origem='mapa').count()
+    if sem_mapa:
+        return False, (f'{sem_mapa} item(ns) sem preço do Mapa de Preços aprovado — aprove a pesquisa '
+                       'de preços do DFD (Lei 14.133, art. 23).')
+    return True, ''
+
+
 def _avaliador_prazo_vigencia_tr(obj: Any, _: str) -> tuple[bool, str]:
     """TR: tipo de prazo de vigência deve ser selecionado."""
     val = getattr(obj, 'tipo_prazo_vigencia', '')
@@ -305,6 +318,13 @@ REGRAS_TR: list[RegraChecklist] = [
         base_legal='Lei 14.133, art. 6º, XXIII, a',
         obrigatorio=True,
         avaliador=lambda obj, c: _nao_vazio(obj, 'objeto_contratacao'),
+    ),
+    RegraChecklist(
+        campo='estimativa_valor',
+        descricao='Estimativa de valor consolidada do Mapa de Preços',
+        base_legal='Lei 14.133, art. 6º, XXIII, i, e art. 23',
+        obrigatorio=True,
+        avaliador=_avaliador_estimativa_tr,
     ),
     RegraChecklist(
         campo='tipo_prazo_vigencia',

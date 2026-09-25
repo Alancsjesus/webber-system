@@ -50,6 +50,20 @@ class PrecoColetadoSerializer(serializers.ModelSerializer):
 class ItemMapaSerializer(serializers.ModelSerializer):
     precos = PrecoColetadoSerializer(many=True, read_only=True)
 
+    def to_internal_value(self, data):
+        # Quantidade copiada do DFD vem com 4 casas ("200.0000"); aceita quando cabe
+        # em 3 casas sem perda — senão o limite de casas recusava um valor inteiro.
+        from decimal import Decimal, InvalidOperation
+        qtd = data.get('quantidade') if hasattr(data, 'get') else None
+        if qtd not in (None, ''):
+            try:
+                d = Decimal(str(qtd))
+                if d == d.quantize(Decimal('0.001')):
+                    data = {**data, 'quantidade': str(d.quantize(Decimal('0.001')))}
+            except (InvalidOperation, ValueError):
+                pass
+        return super().to_internal_value(data)
+
     class Meta:
         model  = ItemMapa
         fields = [

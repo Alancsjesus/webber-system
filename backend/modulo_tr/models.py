@@ -319,11 +319,9 @@ class LoteTR(BaseModel):
 
     @property
     def valor_total(self):
-        total = Decimal('0')
-        for item in self.itens.select_related('item_dfd'):
-            if item.item_dfd:
-                total += item.quantidade * item.item_dfd.valor_unitario_estimado
-        return total
+        # Preço efetivo do item (Mapa aprovado, senão DFD) — antes somava sempre a
+        # estimativa do DFD e o total do lote divergia da pesquisa de preços.
+        return sum((item.valor_total for item in self.itens.select_related('item_dfd')), Decimal('0'))
 
 
 class ItemLoteTR(models.Model):
@@ -387,6 +385,15 @@ def atualizar_quantidade_comprometida_item_dfd(sender, instance, **kwargs):
         total=models.Sum('quantidade')
     )['total'] or Decimal('0')
     ItemDFD.objects.filter(pk=item_dfd.pk).update(quantidade_comprometida=total)
+
+
+@receiver([post_save, post_delete], sender=ItemLoteTR)
+def atualizar_estimativa_tr(sender, instance, **kwargs):
+    """Estimativa do TR acompanha os lotes (consolidação do Mapa de Preços)."""
+    lote = LoteTR.objects.filter(pk=instance.lote_id).select_related('tr').first()
+    if lote is not None:
+        from .precos import recalcular_estimativa
+        recalcular_estimativa(lote.tr)
 
 
 MOTIVOS_DEVOLUCAO_TR = [

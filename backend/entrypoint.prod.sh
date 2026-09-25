@@ -16,6 +16,13 @@ if [ "$RUN_SETUP_DEV" = "True" ]; then
     python manage.py setup_dev || echo "==> setup_dev falhou (ver log acima), seguindo mesmo assim."
 fi
 
+# Carga de demonstração ponta a ponta (core/fixtures/demo_webber.json.gz). Só
+# age com o banco vazio (sem DFD), então pode ficar ligada entre deploys.
+if [ "$RUN_CARGA_DEMO" = "True" ]; then
+    echo "==> RUN_CARGA_DEMO=True — carregando dados de demonstração..."
+    python manage.py carregar_demo || echo "==> carregar_demo falhou (ver log acima), seguindo mesmo assim."
+fi
+
 echo "==> Iniciando Gunicorn..."
 exec gunicorn config.wsgi:application \
     --bind 0.0.0.0:${PORT:-8000} \

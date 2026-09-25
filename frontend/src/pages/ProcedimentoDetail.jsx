@@ -103,7 +103,7 @@ export default function ProcedimentoDetail() {
     submeter, aprovar, devolver, publicar, iniciarSessao,
     homologar, declararDeserto, declararFracassado, revogar, anular,
     addTramitacao, updateTramitacao, deleteTramitacao,
-    addResultado, updateResultado, deleteResultado, gerarContrato,
+    addResultado, updateResultado, deleteResultado, gerarContrato, registrarSaque,
     aprovarPeca, devolverPeca,
   } = useLicitacaoStore()
 
@@ -288,6 +288,14 @@ export default function ProcedimentoDetail() {
               Devolver
             </button>
             <HelpTip text="Retorna para ajustes com justificativa obrigatória. O responsável receberá notificação." />
+          </>)}
+          {current.modalidade === 'saque_arp' && current.status === 'Aprovado' && isLicitante
+            && !(current.resultados || []).length && (<>
+            <button onClick={() => act(registrarSaque, id)} disabled={saving}
+              className="bg-green-600 hover:bg-green-700 disabled:opacity-50 text-white text-sm px-3 py-1.5 rounded-lg">
+              Registrar saque
+            </button>
+            <HelpTip text={`Confere Ata ${current.ata_numero || ''} e saldo, e registra o resultado por fornecedor registrado (quantidade × preço da Ata). O contrato é gerado na aba Resultados e consome o saldo da Ata.`} />
           </>)}
           {transicoes.includes('Publicado') && isLicitante && (<>
             <button onClick={() => act(publicar, id)} disabled={saving}

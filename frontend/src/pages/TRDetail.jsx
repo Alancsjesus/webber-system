@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Fragment } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import useTrStore from '../stores/trStore'
 import useAuthStore from '../stores/authStore'
@@ -97,7 +97,6 @@ export default function TRDetail() {
         prazo_observacao:       form.prazo_observacao,
         local_entrega:          form.local_entrega,
         garantia_contrato:      form.garantia_contrato,
-        estimativa_valor:       form.estimativa_valor ? Number(form.estimativa_valor) : null,
         observacoes:            form.observacoes,
         // Checklist SSP-BA
         permite_consorcio:                              form.permite_consorcio,
@@ -399,18 +398,9 @@ export default function TRDetail() {
           )}
         </Section>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
-          <Section label="Estimativa de valor">
-            {editing
-              ? <input type="number" step="0.01" value={form.estimativa_valor || ''}
-                  onChange={(e) => set('estimativa_valor', e.target.value)} className={inp()} />
-              : <p className="text-sm text-gray-700">
-                  {current.estimativa_valor
-                    ? Number(current.estimativa_valor).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-                    : '—'}
-                </p>}
-          </Section>
-        </div>
+        <Section label="Estimativa de valor (consolidação do Mapa de Preços)">
+          <EstimativaConsolidada est={current.estimativa_consolidada} />
+        </Section>
 
         <Section label={current.tipo_objeto && ['servicos','servicos_engenharia','hibrido'].includes(current.tipo_objeto) ? 'Local de execução' : 'Local de entrega'}>
           {editing
@@ -1103,6 +1093,74 @@ function EtpDecisoesBanner({ etp }) {
             <span>{valor}</span>
           </div>
         ))}
+      </div>
+    </div>
+  )
+}
+
+// ── Estimativa: consolidação do Mapa de Preços aprovado (derivada dos lotes) ──
+function EstimativaConsolidada({ est }) {
+  if (!est || !est.lotes?.length) {
+    return <p className="text-sm text-gray-500">— Monte os lotes abaixo; a estimativa é a soma dos itens precificados pelo Mapa de Preços aprovado do DFD.</p>
+  }
+  const brl = (v) => Number(v).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+  const qtd = (v) => Number(v).toLocaleString('pt-BR', { maximumFractionDigits: 4 })
+  return (
+    <div className="space-y-2">
+      <p className="text-xs text-gray-500">
+        {est.mapa
+          ? <>Mapa Comparativo de Preços nº {est.mapa.id}{est.mapa.data_aprovacao && <>, aprovado em {new Date(est.mapa.data_aprovacao + 'T00:00').toLocaleDateString('pt-BR')}</>} — {est.mapa.metodo}.</>
+          : <span className="text-amber-700">Sem Mapa de Preços aprovado para o DFD — valores são a estimativa do DFD.</span>}
+        {est.itens_sem_mapa > 0 && (
+          <span className="ml-1 font-semibold text-amber-700">{est.itens_sem_mapa} item(ns) sem preço do Mapa — o TR não pode ser submetido assim.</span>
+        )}
+      </p>
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs border border-gray-200">
+          <thead className="bg-gray-50 text-gray-600">
+            <tr>
+              <th className="px-2 py-1.5 text-left">Lote</th>
+              <th className="px-2 py-1.5 text-left">Cód. SIMPAS</th>
+              <th className="px-2 py-1.5 text-left">Cód. interno</th>
+              <th className="px-2 py-1.5 text-left">Item</th>
+              <th className="px-2 py-1.5 text-center">Unid.</th>
+              <th className="px-2 py-1.5 text-right">Qtd.</th>
+              <th className="px-2 py-1.5 text-right">Vl. unitário</th>
+              <th className="px-2 py-1.5 text-right">Vl. total</th>
+            </tr>
+          </thead>
+          <tbody>
+            {est.lotes.map((lote) => (
+              <Fragment key={lote.id}>
+                {lote.itens.map((it) => (
+                  <tr key={it.item_lote_id} className="border-t border-gray-100">
+                    <td className="px-2 py-1.5 whitespace-nowrap">{lote.numero}{lote.cota && ' (cota)'}</td>
+                    <td className="px-2 py-1.5 font-mono">{it.codigo_simpas || '—'}</td>
+                    <td className="px-2 py-1.5 font-mono">{it.codigo_interno || '—'}</td>
+                    <td className="px-2 py-1.5">
+                      {it.descricao}
+                      {it.origem !== 'mapa' && <span className="ml-1 text-[10px] text-amber-700">(estimativa DFD)</span>}
+                    </td>
+                    <td className="px-2 py-1.5 text-center">{it.unidade}</td>
+                    <td className="px-2 py-1.5 text-right">{qtd(it.quantidade)}</td>
+                    <td className="px-2 py-1.5 text-right">{brl(it.valor_unitario)}</td>
+                    <td className="px-2 py-1.5 text-right">{brl(it.valor_total)}</td>
+                  </tr>
+                ))}
+                <tr className="bg-gray-50 border-t border-gray-200">
+                  <td colSpan={7} className="px-2 py-1.5 text-right font-semibold text-gray-600">
+                    Subtotal {lote.numero}{lote.cota && ' (recorte do lote de origem — não soma ao total)'}
+                  </td>
+                  <td className="px-2 py-1.5 text-right font-semibold">{brl(lote.subtotal)}</td>
+                </tr>
+              </Fragment>
+            ))}
+            <tr className="bg-teal-50 border-t-2 border-teal-200">
+              <td colSpan={7} className="px-2 py-2 text-right font-bold text-teal-800">Valor total estimado</td>
+              <td className="px-2 py-2 text-right font-bold text-teal-800">{brl(est.total)}</td>
+            </tr>
+          </tbody>
+        </table>
       </div>
     </div>
   )

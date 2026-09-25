@@ -106,7 +106,7 @@ class UserProfile(models.Model):
 
 @receiver(post_save, sender=User)
 def criar_perfil(sender, instance, created, **kwargs):
-    if created:
+    if created and not kwargs.get('raw'):  # raw: loaddata traz o perfil
         UserProfile.objects.create(user=instance)
 
 

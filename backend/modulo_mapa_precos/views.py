@@ -124,6 +124,11 @@ class MapaComparativoPrecosViewSet(viewsets.ModelViewSet):
         mapa.data_aprovacao = date.today()
         mapa.motivo_devolucao = ''
         mapa.save(update_fields=['aprovador', 'data_aprovacao', 'motivo_devolucao'])
+        if mapa.dfd_id:
+            from modulo_tr.models import TR
+            from modulo_tr.precos import atualizar_precos
+            for tr in TR.objects.filter(etp__dfd_id=mapa.dfd_id, status__in=('Rascunho', 'Devolvido')):
+                atualizar_precos(tr)
         return Response({'detail': 'Mapa aprovado pela Unidade Licitante.'})
 
     @action(detail=True, methods=['post'])

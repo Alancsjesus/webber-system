@@ -108,29 +108,32 @@ def _cadeia(nec):
         },
     ))
 
+    # ETP/TR só interrompem a cadeia quando é por eles que ela segue: contratação
+    # sem ETP/TR próprios (Saque de Ata, contratação direta) continua até o contrato.
+    tem_contratacao = dfd.procedimentos.exists() or dfd.contratos.exists()
     etp = _rel(dfd, 'etp')
-    if not etp:
+    if not etp and not tem_contratacao:
         return cadeia
+    if etp:
+        cadeia.append(_step(
+            etapa='ETP', status=etp.status,
+            obj_id=etp.id, objeto=str(etp),
+            data=etp.created_at, responsavel=_nome(etp.created_by),
+            url=f'/etp/etps/{etp.id}',
+            extras={'numero_sei': etp.numero_sei or None},
+        ))
 
-    cadeia.append(_step(
-        etapa='ETP', status=etp.status,
-        obj_id=etp.id, objeto=str(etp),
-        data=etp.created_at, responsavel=_nome(etp.created_by),
-        url=f'/etp/etps/{etp.id}',
-        extras={'numero_sei': etp.numero_sei or None},
-    ))
-
-    tr = _rel(etp, 'tr')
-    if not tr:
+    tr = _rel(etp, 'tr') if etp else None
+    if etp and not tr and not tem_contratacao:
         return cadeia
-
-    cadeia.append(_step(
-        etapa='TR', status=tr.status,
-        obj_id=tr.id, objeto=str(tr),
-        data=tr.created_at, responsavel=_nome(tr.created_by),
-        url=f'/analise-tecnica/trs/{tr.id}',
-        extras={'numero_sei': tr.numero_sei or None},
-    ))
+    if tr:
+        cadeia.append(_step(
+            etapa='TR', status=tr.status,
+            obj_id=tr.id, objeto=str(tr),
+            data=tr.created_at, responsavel=_nome(tr.created_by),
+            url=f'/analise-tecnica/trs/{tr.id}',
+            extras={'numero_sei': tr.numero_sei or None},
+        ))
 
     for proc in dfd.procedimentos.all():
         cadeia.append(_step(
