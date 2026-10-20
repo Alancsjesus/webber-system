@@ -27,6 +27,36 @@ const SITUACAO = {
   excessivo:   { label: 'Excessivo',   cls: 'bg-red-100 text-red-700' },
 }
 
+export const NATUREZA_OPTS = [
+  { value: 'auto',      label: 'Automática (detectada no item/mapa)' },
+  { value: 'aquisicao', label: 'Aquisição' },
+  { value: 'locacao',   label: 'Locação' },
+  { value: 'servico',   label: 'Serviço (manutenção, instalação…)' },
+  { value: 'qualquer',  label: 'Qualquer natureza' },
+]
+
+export function CampoNatureza({ value, onChange }) {
+  return (
+    <div>
+      <label className="block text-xs text-gray-600 mb-1">Natureza da contratação</label>
+      <select value={value} onChange={e => onChange(e.target.value)}
+        className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm">
+        {NATUREZA_OPTS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+      </select>
+      <p className="text-[11px] text-gray-400 mt-0.5">Resultados de outra natureza (ex.: locação numa aquisição) são ocultados.</p>
+    </div>
+  )
+}
+
+export function NaturezaUsada({ natureza }) {
+  if (!natureza) return null
+  return (
+    <p className="text-[11px] text-gray-600 mb-2">
+      Natureza considerada: <strong>{natureza.rotulo}</strong> ({natureza.origem}).
+    </p>
+  )
+}
+
 export function SimilBadge({ v }) {
   if (v === null || v === undefined) return <span className="text-gray-400">—</span>
   const cls = v >= 70 ? 'bg-green-100 text-green-700' : v >= 40 ? 'bg-amber-100 text-amber-800' : 'bg-gray-100 text-gray-500'
@@ -47,6 +77,7 @@ export default function ComprasGovImport({ mapaId, item, onImportado }) {
     tipo:   'material',
     codigo: '',
     uf:     '',
+    natureza: 'auto',
   })
   const [catalogo,     setCatalogo]     = useState(null)
   const [resultado,    setResultado]    = useState(null)
@@ -165,6 +196,7 @@ export default function ComprasGovImport({ mapaId, item, onImportado }) {
                 A API oficial não busca por texto — localize o código em catalogo.compras.gov.br.
               </p>
             </div>
+            <CampoNatureza value={filtros.natureza} onChange={v => setF('natureza', v)} />
             <div>
               <label className="block text-xs text-gray-600 mb-1">UF da compra (opcional)</label>
               <select value={filtros.uf} onChange={e => setF('uf', e.target.value)}
@@ -202,6 +234,7 @@ export default function ComprasGovImport({ mapaId, item, onImportado }) {
                 {resultado.uf ? ` em ${resultado.uf}` : ' (todo o Brasil)'}.
                 {resultado.truncado && ' Mostrando os mais recentes — refine pela UF para ver outros.'}
               </p>
+              <NaturezaUsada natureza={resultado.natureza} />
               {resultado.avisos?.length > 0 && (
                 <p className="text-[11px] text-amber-800 bg-amber-50 border border-amber-200 rounded px-2 py-1 mb-2">
                   {resultado.avisos.join(' ')}

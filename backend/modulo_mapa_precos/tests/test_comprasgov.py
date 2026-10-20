@@ -219,12 +219,30 @@ def _fake_pncp(urls):
     return _get
 
 
-def test_pncp_exige_item_e_uf_sem_cnpj(cliente, mapa, item):
+def test_pncp_exige_item(cliente, mapa, item):
     url = f'/api/pesquisa/mapa/{mapa.pk}/pncp/preview/'
     base = {'periodo_inicio': '2026-08-01', 'periodo_fim': '2026-10-01'}
     assert cliente.post(url, base, format='json').status_code == 404  # sem item do mapa
-    resp = cliente.post(url, {**base, 'item_mapa_id': item.pk, 'uf': ''}, format='json')
-    assert resp.status_code == 400 and 'UF' in resp.data['detail']
+
+
+def test_pncp_todo_brasil_sem_cnpj_usa_espelho_e_corta_sem_homologacao(cliente, mapa, item):
+    espelho = {'resultado': [
+        {'numeroControlePNCP': '11111111000111-1-000001/2026', 'objetoCompra': 'Aquisição de coletes balísticos',
+         'existeResultado': True, 'valorTotalHomologado': 5000, 'unidadeOrgaoUfSigla': 'SP'},
+        {'numeroControlePNCP': '11111111000111-1-000002/2026', 'objetoCompra': 'Aquisição de coletes balísticos femininos',
+         'existeResultado': False, 'valorTotalHomologado': None, 'unidadeOrgaoUfSigla': 'RJ'},
+        {'numeroControlePNCP': '11111111000111-1-000003/2026', 'objetoCompra': 'Locação de coletes balísticos',
+         'existeResultado': True, 'valorTotalHomologado': 900, 'unidadeOrgaoUfSigla': 'MG'},
+    ], 'totalPaginas': 1, 'totalRegistros': 3, 'paginasRestantes': 0}
+    with mock.patch('modulo_pncp.services._get_json_pncp') as pncp,          mock.patch('modulo_pncp.comprasgov._get_json', return_value=espelho):
+        resp = cliente.post(f'/api/pesquisa/mapa/{mapa.pk}/pncp/preview/', {
+            'item_mapa_id': item.pk, 'periodo_inicio': '2026-08-01', 'periodo_fim': '2026-10-01', 'uf': '',
+        }, format='json')
+    assert resp.status_code == 200, resp.data
+    pncp.assert_not_called()  # todo o Brasil: sem varredura do PNCP
+    assert [r['numero_pncp'][-11:] for r in resp.data['registros']] == ['000001/2026']
+    assert resp.data['natureza']['valor'] == 'aquisicao'
+    assert resp.data['ocultos_natureza'] == {'Locação': 1, 'sem preço homologado': 1}
 
 
 def test_pncp_sem_cnpj_ranqueia_por_similaridade_e_importa_no_item(cliente, mapa, item):
@@ -270,3 +288,28 @@ def test_similaridade_numeros_e_plural():
             {'t': 'coletes balísticos'}]
     out = ranquear(regs, 'Ar-condicionado split 24000 BTU', 't', minimo=1)
     assert [r['t'] for r in out][0].startswith('condicionadores') and len(out) == 2
+
+
+def test_natureza_demanda_e_compatibilidade():
+    from modulo_pncp.similaridade import natureza_demanda, compativel, naturezas
+    assert natureza_demanda('', 'Viatura SUV', 'Locação de viaturas para a PM') == ('locacao', 2)
+    assert natureza_demanda('Colete balístico') == ('aquisicao', -1)  # sem indicação: aquisição
+    assert not compativel('aquisicao', 'Locação de 8 viaturas SUV')
+    assert not compativel('locacao', 'Aquisição de viaturas SUV')
+    assert compativel('aquisicao', 'Aquisição e instalação de ar condicionado split')
+    assert not compativel('aquisicao', 'Prest. de serv. de manutenção de ar condicionado')
+    assert compativel('aquisicao', 'Aparelho de ar condicionado split')  # sem natureza: mantém
+    assert naturezas('Material para localização de veículos') == set()  # localização ≠ locação
+
+
+def test_natureza_escolhida_na_tela_prevalece(cliente, mapa, item):
+    chamadas = []
+    regs = [_reg('L1', 1000, descricaoDetalhadaItem='COLETE', objetoCompra='Locação de coletes'),
+            _reg('A1', 1100, objetoCompra='Aquisição de coletes')]
+    with mock.patch('urllib.request.urlopen', _fake_urlopen(regs, chamadas)):
+        url = f'/api/pesquisa/mapa/{mapa.pk}/comprasgov/precos/'
+        body = {'item_mapa_id': item.pk, 'tipo': 'material', 'codigo': '461633', 'uf': 'BA'}
+        auto = cliente.post(url, body, format='json')
+        loc = cliente.post(url, {**body, 'natureza': 'locacao'}, format='json')
+    assert [r['id'] for r in auto.data['registros']] == ['A1'] and auto.data['natureza']['valor'] == 'aquisicao'
+    assert [r['id'] for r in loc.data['registros']] == ['L1'] and loc.data['natureza']['origem'] == 'escolhida na pesquisa'

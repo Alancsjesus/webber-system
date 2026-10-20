@@ -271,6 +271,7 @@ def _normalizar_contratacao(item: dict) -> dict:
         'numero_pncp':    item.get('numeroControlePNCP', ''),
         'objeto':         item.get('objetoCompra', '') or '',
         'valor_global':   _dec(item.get('valorTotalHomologado') or item.get('valorTotalEstimado')),
+        'homologada':     bool(_dec(item.get('valorTotalHomologado'))),
         'valor_unitario': None,
         'quantidade':     None,
         'unidade_medida': '',
@@ -293,7 +294,7 @@ def _varrer_modalidade(base: dict, mod: int, timeout: int, prazo_final: float) -
     import time
     from django.core.cache import cache
     nome = MODALIDADES_PNCP.get(mod, str(mod))
-    prefixo = 'pncp:pag:' + urllib.parse.urlencode(sorted({**base, 'mod': mod}.items()))
+    prefixo = 'pncp:pag2:' + urllib.parse.urlencode(sorted({**base, 'mod': mod}.items()))
     registros = []
     situacao = {'modalidade': nome, 'paginas_lidas': 0, 'total_paginas': None, 'total_registros': None,
                 'completa': False, 'erro': ''}
@@ -330,14 +331,20 @@ def _varrer_modalidade(base: dict, mod: int, timeout: int, prazo_final: float) -
 ESPELHO_CONTRATACOES = '/modulo-contratacoes/1_consultarContratacoes_PNCP_14133'
 
 
-def _contratacoes_espelho(data_ini: date, data_fim: date, uf: str, cnpj: str, mod: int) -> list:
+MAX_PAGINAS_ESPELHO = 40     # 20.000 contratações (páginas de 500, ~1 s cada)
+
+
+def _contratacoes_espelho(data_ini: date, data_fim: date, uf: str, cnpj: str, mod: int,
+                          prazo_final: float | None = None) -> tuple[list, dict]:
     """
     Mesmas contratações do PNCP, pelo espelho do Dados Abertos Compras.gov.br: páginas
     de 500 e resposta em ~2 s, mas só cobre o que nasceu no Compras.gov.br (falta parte
     de estados/municípios que usam outras plataformas) — por isso complementa, não
     substitui, a varredura do PNCP.
     """
-    from .comprasgov import _get_json, COMPRASGOV_BASE  # noqa: F401 — mesmo cliente seguro
+    import time
+    from django.core.cache import cache
+    from .comprasgov import _get_json  # mesmo cliente seguro (host fixo, SSL verificado)
     params = {
         'tamanhoPagina': 500,
         'dataPublicacaoPncpInicial': data_ini.isoformat(),
@@ -349,8 +356,18 @@ def _contratacoes_espelho(data_ini: date, data_fim: date, uf: str, cnpj: str, mo
     if cnpj:
         params['orgaoEntidadeCnpj'] = ''.join(c for c in cnpj if c.isdigit())
     saida = []
-    for pagina in range(1, 11):
-        dados = _get_json(ESPELHO_CONTRATACOES, {**params, 'pagina': pagina})
+    situacao = {'paginas_lidas': 0, 'total_paginas': None, 'total_registros': None, 'completa': False}
+    prefixo = 'espelho:pag:' + urllib.parse.urlencode(sorted(params.items()))
+    for pagina in range(1, MAX_PAGINAS_ESPELHO + 1):
+        dados = cache.get(f'{prefixo}:{pagina}')
+        if dados is None:
+            if prazo_final and time.monotonic() > prazo_final:
+                break
+            dados = _get_json(ESPELHO_CONTRATACOES, {**params, 'pagina': pagina})
+            cache.set(f'{prefixo}:{pagina}', dados, CACHE_TTL)
+        situacao['paginas_lidas'] = pagina
+        situacao['total_paginas'] = int(dados.get('totalPaginas') or 0)
+        situacao['total_registros'] = int(dados.get('totalRegistros') or 0)
         for i in (dados.get('resultado') or []):
             if i.get('contratacaoExcluida'):
                 continue
@@ -358,6 +375,7 @@ def _contratacoes_espelho(data_ini: date, data_fim: date, uf: str, cnpj: str, mo
                 'numero_pncp':    i.get('numeroControlePNCP', ''),
                 'objeto':         i.get('objetoCompra', '') or '',
                 'valor_global':   _dec(i.get('valorTotalHomologado') or i.get('valorTotalEstimado')),
+                'homologada':     bool(i.get('existeResultado')) or bool(_dec(i.get('valorTotalHomologado'))),
                 'valor_unitario': None,
                 'quantidade':     None,
                 'unidade_medida': '',
@@ -370,21 +388,28 @@ def _contratacoes_espelho(data_ini: date, data_fim: date, uf: str, cnpj: str, mo
                 'tipo_registro':  'contratacao',
             })
         if not dados.get('paginasRestantes'):
+            situacao['completa'] = True
             break
-    return saida
+    return saida, situacao
 
 
 def buscar_contratacoes(data_ini: date, data_fim: date, uf: str = '', cnpj: str = '',
-                        termo: str = '', modalidades=(6,), similaridade_minima: int = 40) -> tuple[list, list, list]:
+                        termo: str = '', modalidades=(6,), similaridade_minima: int = 40,
+                        natureza: str = 'qualquer') -> tuple[list, list, list, dict]:
     """
     GET /contratacoes/publicacao — ao contrário de /contratos e /atas, este endpoint
     filtra UF, CNPJ e modalidade NO SERVIDOR. A palavra-chave (ou a descrição do item
     do mapa) não é filtro da API: o universo já reduzido é varrido e cada objeto
     recebe uma nota de similaridade (modulo_pncp.similaridade); ficam os de nota
     >= similaridade_minima, do mais parecido para o menos.
+
+    Sem UF e sem CNPJ (todo o Brasil) a varredura do PNCP é inviável (~65 mil pregões
+    em 60 dias, ~4 s por página): usa só o espelho do Dados Abertos, que cobre o que
+    passou pelo Compras.gov.br. Contratações sem resultado homologado são descartadas —
+    não têm preço praticado para importar.
     """
     import time
-    from .similaridade import ranquear
+    from .similaridade import ranquear, filtrar_natureza
     timeout = _get_timeout()
     base = {
         'dataInicial': data_ini.strftime('%Y%m%d'),
@@ -399,20 +424,37 @@ def buscar_contratacoes(data_ini: date, data_fim: date, uf: str = '', cnpj: str 
     from .comprasgov import ErroComprasGov
     prazo_final = time.monotonic() + ORCAMENTO_SEGUNDOS
     universo, avisos, situacoes = [], [], []
-    vistos = set()
+    vistos = {}
+    nacional = not uf and not cnpj
     for mod in modalidades:
         try:
-            espelho = _contratacoes_espelho(data_ini, data_fim, uf, cnpj, mod)
+            espelho, sit_esp = _contratacoes_espelho(data_ini, data_fim, uf, cnpj, mod, prazo_final)
         except ErroComprasGov as e:
-            espelho = []
+            espelho, sit_esp = [], {'completa': True}
             logger.warning('Espelho Dados Abertos mod=%s: %s', mod, e)
-        registros, sit = _varrer_modalidade(base, mod, timeout, prazo_final)
+        if nacional:
+            registros = []
+            sit = {'modalidade': MODALIDADES_PNCP.get(mod, str(mod)), 'paginas_lidas': sit_esp.get('paginas_lidas', 0),
+                   'total_paginas': sit_esp.get('total_paginas'), 'total_registros': sit_esp.get('total_registros'),
+                   'completa': sit_esp.get('completa', False), 'erro': '', 'nacional': True}
+            if not sit['completa'] and sit['total_paginas']:
+                avisos.append(
+                    f'{sit["modalidade"]}: {sit["total_registros"]} contratações no Brasil — lidas '
+                    f'{sit["paginas_lidas"] * 500}. Clique em Buscar novamente para continuar ou reduza o período.'
+                )
+        else:
+            registros, sit = _varrer_modalidade(base, mod, timeout, prazo_final)
         for r in espelho + registros:
-            if r['numero_pncp'] and r['numero_pncp'] not in vistos:
-                vistos.add(r['numero_pncp'])
-                universo.append(r)
+            n = r['numero_pncp']
+            if not n:
+                continue
+            # mesma contratação nas duas bases: prevalece a versão que já tem homologação
+            if n not in vistos or (vistos[n].get('homologada') is False and r.get('homologada')):
+                vistos[n] = r
         sit['do_espelho'] = len(espelho)
         situacoes.append(sit)
+        if sit.get('nacional'):
+            continue
         if sit['erro']:
             avisos.append(f'{sit["modalidade"]}: {sit["erro"]}')
         elif not sit['completa'] and sit['total_paginas']:
@@ -427,10 +469,21 @@ def buscar_contratacoes(data_ini: date, data_fim: date, uf: str = '', cnpj: str 
                     '(o PNCP limita a velocidade de consulta). Clique em Buscar novamente para continuar de onde parou.'
                 )
 
+    universo = list(vistos.values())
+    if nacional:
+        avisos.append(
+            'Busca em todo o Brasil: cobre as contratações publicadas pelo Compras.gov.br. '
+            'Para incluir estados e municípios de outras plataformas, escolha uma UF.'
+        )
+    sem_resultado = sum(1 for r in universo if r.get('homologada') is False)
+    universo = [r for r in universo if r.get('homologada') is not False]
+    universo, ocultos = filtrar_natureza(universo, natureza, lambda r: r['objeto'])
+    if sem_resultado:
+        ocultos['sem preço homologado'] = sem_resultado
     achados = ranquear(universo, termo, 'objeto', minimo=similaridade_minima if termo.strip() else 0)
     if len(achados) > MAX_RESULTADOS:
         achados = achados[:MAX_RESULTADOS]
-    return achados, avisos, situacoes
+    return achados, avisos, situacoes, ocultos
 
 
 def _partes_controle(numero_controle: str):
@@ -485,19 +538,22 @@ def buscar_preview(data_ini: date, data_fim: date,
                    termo: str = '',
                    incluir_contratos: bool = True,
                    incluir_atas: bool = True,
-                   modalidades=(6,)) -> dict:
+                   modalidades=(6,), natureza: str = 'qualquer') -> dict:
     """
     Consulta o PNCP e retorna preview sem salvar nada.
     Sem CNPJ: contratações filtradas por UF + modalidade no servidor e palavra-chave
     (obrigatória) na varredura. Atas pelo PNCP só com CNPJ — sem ele, atas de RP vêm
     pela pesquisa por código CATMAT/CATSER (painel Compras.gov.br).
     """
-    registros, erros, situacoes = [], [], []
+    from .similaridade import ranquear, filtrar_natureza
+    registros, erros, situacoes, ocultos = [], [], [], {}
 
     if incluir_contratos:
         try:
-            achados, avisos, situacoes = buscar_contratacoes(data_ini, data_fim, uf=uf, cnpj=cnpj,
-                                                             termo=termo, modalidades=modalidades)
+            achados, avisos, situacoes, ocultos = buscar_contratacoes(
+                data_ini, data_fim, uf=uf, cnpj=cnpj, termo=termo,
+                modalidades=modalidades, natureza=natureza,
+            )
             registros.extend(achados)
             erros.extend(avisos)
         except Exception as e:
@@ -513,14 +569,17 @@ def buscar_preview(data_ini: date, data_fim: date,
         else:
             try:
                 resp = PNCPClient().buscar_atas(data_ini, data_fim, cnpj=cnpj)
-                from .similaridade import ranquear
                 atas = [_normalizar_ata(item) for item in (resp.get('data') or [])]
+                atas, ocultos_atas = filtrar_natureza(atas, natureza, lambda r: r['objeto'])
+                for k, v in ocultos_atas.items():
+                    ocultos[k] = ocultos.get(k, 0) + v
                 registros.extend(ranquear(atas, termo, 'objeto', minimo=40 if termo.strip() else 0))
             except Exception as e:
                 erros.append(f'Atas: o PNCP não respondeu ({getattr(e, "reason", e)}). Tente novamente ou reduza o período.')
                 logger.warning('PNCP buscar_atas erro: %s', e)
 
-    return {'total': len(registros), 'registros': registros, 'erros': erros, 'varredura': situacoes}
+    return {'total': len(registros), 'registros': registros, 'erros': erros, 'varredura': situacoes,
+            'ocultos_natureza': ocultos}
 
 
 class ImportadorPNCP:

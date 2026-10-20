@@ -19,6 +19,39 @@ from .serializers import (
 )
 
 
+def _resolver_natureza(request, mapa, item, termo=''):
+    """
+    Natureza da demanda (aquisição/locação/serviço) usada para cruzar com os
+    resultados: a escolhida na tela ou, em "auto", detectada na palavra-chave,
+    na descrição do item, no objeto do mapa e na descrição do DFD, nessa ordem.
+    """
+    from modulo_pncp.similaridade import natureza_demanda, NATUREZA_ROTULO
+    escolhida = str(request.data.get('natureza') or request.query_params.get('natureza') or 'auto')
+    if escolhida in NATUREZA_ROTULO:
+        return {'valor': escolhida, 'rotulo': NATUREZA_ROTULO[escolhida], 'origem': 'escolhida na pesquisa'}
+    fontes = [
+        (termo, 'palavra-chave'),
+        (item.descricao, 'descrição do item'),
+        (mapa.objeto, 'objeto do mapa'),
+        (mapa.dfd.descricao if mapa.dfd_id else '', 'descrição do DFD'),
+    ]
+    valor, idx = natureza_demanda(*[t for t, _ in fontes])
+    origem = fontes[idx][1] if idx >= 0 else 'padrão (nenhum texto indica a natureza)'
+    return {'valor': valor, 'rotulo': NATUREZA_ROTULO[valor], 'origem': origem}
+
+
+def _texto_ocultos(ocultos):
+    ocultos = dict(ocultos or {})
+    sem_preco = ocultos.pop('sem preço homologado', 0)
+    textos = []
+    if ocultos:
+        partes = [f'{v} de {k.lower()}' for k, v in sorted(ocultos.items(), key=lambda kv: -kv[1])]
+        textos.append('Ocultados por natureza diferente da demandada: ' + ', '.join(partes) + '.')
+    if sem_preco:
+        textos.append(f'{sem_preco} publicação(ões) analisada(s) ainda sem preço homologado foram descartadas.')
+    return ' '.join(textos)
+
+
 class MapaComparativoPrecosViewSet(viewsets.ModelViewSet):
     serializer_class   = MapaComparativoPrecosSerializer
     permission_classes = [IsAuthenticated, IsMultiTenant]
@@ -568,7 +601,7 @@ class MapaComparativoPrecosViewSet(viewsets.ModelViewSet):
         Consulta o PNCP e retorna as contratações mais parecidas com o item do mapa.
         Body: {
             item_mapa_id (obrigatório), periodo_inicio, periodo_fim,
-            uf (obrigatória sem CNPJ), cnpj_orgao_referencia (opt),
+            uf (opt — vazio = todo o Brasil), cnpj_orgao_referencia (opt),
             termo_busca (opt — padrão: descrição do item), modalidades (opt, [6]),
             incluir_contratos (bool — contratações), incluir_atas (bool — só com CNPJ)
         }
@@ -599,10 +632,7 @@ class MapaComparativoPrecosViewSet(viewsets.ModelViewSet):
         cnpj = ''.join(c for c in str(request.data.get('cnpj_orgao_referencia', '')) if c.isdigit())
         if cnpj and len(cnpj) != 14:
             return Response({'detail': 'CNPJ deve ter 14 dígitos.'}, status=status.HTTP_400_BAD_REQUEST)
-        uf = str(request.data.get('uf', '')).strip().upper()[:2]
-        if not cnpj and not uf:
-            return Response({'detail': 'Sem CNPJ, informe a UF — é o filtro que o PNCP aplica no servidor.'},
-                            status=status.HTTP_400_BAD_REQUEST)
+        uf = str(request.data.get('uf', '')).strip().upper()[:2]  # vazio = todo o Brasil
         termo = (str(request.data.get('termo_busca') or '').strip() or item.descricao)[:200]
         try:
             modalidades = [int(m) for m in (request.data.get('modalidades') or [6]) if int(m) in MODALIDADES_PNCP]
@@ -612,12 +642,15 @@ class MapaComparativoPrecosViewSet(viewsets.ModelViewSet):
             modalidades = [6]
         incluir_contratos = bool(request.data.get('incluir_contratos', True))
         incluir_atas      = bool(request.data.get('incluir_atas', True))
+        natureza = _resolver_natureza(request, mapa, item, str(request.data.get('termo_busca') or ''))
 
         resultado = buscar_preview(
             d_ini, d_fim, cnpj=cnpj, uf=uf, termo=termo,
             incluir_contratos=incluir_contratos, incluir_atas=incluir_atas,
-            modalidades=modalidades,
+            modalidades=modalidades, natureza=natureza['valor'],
         )
+        if resultado.get('ocultos_natureza'):
+            resultado['erros'].append(_texto_ocultos(resultado['ocultos_natureza']))
 
         importacao = PNCPImportacao.objects.create(
             org_id_id  = request.org_id,
@@ -664,11 +697,14 @@ class MapaComparativoPrecosViewSet(viewsets.ModelViewSet):
                 'modalidade':    r.modalidade,
                 'tipo_registro': r.tipo_registro,
                 'similaridade':  reg.get('similaridade'),
+                'natureza':      reg.get('natureza', []),
             })
 
         return Response({
             'importacao_id': importacao.pk,
             'termo_usado':   termo,
+            'natureza':      natureza,
+            'ocultos_natureza': resultado.get('ocultos_natureza', {}),
             'total':         resultado['total'],
             'registros':     registros_criados,
             'erros_api':     resultado['erros'],
@@ -698,6 +734,9 @@ class MapaComparativoPrecosViewSet(viewsets.ModelViewSet):
         except Exception as e:
             return Response({'detail': f'O PNCP não respondeu ({getattr(e, "reason", e)}). Tente novamente.'},
                             status=status.HTTP_502_BAD_GATEWAY)
+        from modulo_pncp.similaridade import filtrar_natureza
+        natureza = _resolver_natureza(request, mapa, item)
+        linhas, ocultos = filtrar_natureza(linhas, natureza['valor'], lambda ln: ln['descricao'])
         linhas = ranquear(linhas, item.descricao, 'descricao')
         un_item = (item.unidade_medida or '').strip().upper()
 
@@ -733,7 +772,8 @@ class MapaComparativoPrecosViewSet(viewsets.ModelViewSet):
                 'similaridade': ln['similaridade'],
                 'importado': reg.importado,
             })
-        return Response({'registro_id': pai.pk, 'itens': saida})
+        return Response({'registro_id': pai.pk, 'itens': saida, 'natureza': natureza,
+                         'aviso': _texto_ocultos(ocultos)})
 
     @action(detail=True, methods=['post'], url_path='pncp/confirmar')
     def pncp_confirmar(self, request, pk=None):
@@ -797,7 +837,16 @@ class MapaComparativoPrecosViewSet(viewsets.ModelViewSet):
             item.precos.filter(observacao__startswith='[Compras.gov.br]')
             .values_list('numero_certame', flat=True)
         )
-        from modulo_pncp.similaridade import ranquear
+        from modulo_pncp.similaridade import ranquear, filtrar_natureza
+        natureza = _resolver_natureza(request, mapa, item)
+        resultado['registros'], ocultos = filtrar_natureza(
+            resultado['registros'], natureza['valor'],
+            lambda r: f"{r['descricao']} {r.get('objeto_compra', '')}",
+        )
+        resultado['natureza'] = natureza
+        resultado['ocultos_natureza'] = ocultos
+        if ocultos:
+            resultado['avisos'] = resultado.get('avisos', []) + [_texto_ocultos(ocultos)]
         resultado['estatistica'] = classificar(resultado['registros'], item.unidade_medida)
         resultado['registros'] = ranquear(resultado['registros'], item.descricao, 'descricao')
         for r in resultado['registros']:

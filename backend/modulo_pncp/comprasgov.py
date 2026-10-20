@@ -187,6 +187,7 @@ def _normalizar(reg: dict, tipo: str) -> dict | None:
         'unidade': unidade,
         'unidade_nome': unidade_nome,
         'descricao': _txt(reg.get('descricaoDetalhadaItem') or reg.get('descricaoItem'), 500),
+        'objeto_compra': _txt(reg.get('objetoCompra'), 500),
         'marca': _txt(reg.get('marca'), 120),
         'fornecedor': _txt(reg.get('nomeFornecedor'), 255),
         'fornecedor_ni': _txt(reg.get('niFornecedor'), 20),
@@ -227,6 +228,7 @@ def _normalizar_arp(reg: dict) -> dict | None:
         'unidade': '',  # a API de ARP não informa a unidade de fornecimento
         'unidade_nome': '',
         'descricao': _txt(reg.get('descricaoItem'), 500),
+        'objeto_compra': '',
         'marca': '',
         'fornecedor': _txt(reg.get('nomeRazaoSocialFornecedor'), 255),
         'fornecedor_ni': _txt(reg.get('niFornecedor'), 20),

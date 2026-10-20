@@ -98,8 +98,13 @@ class Ranqueador:
             for t in d:
                 df[t] = df.get(t, 0) + 1
         vocab = set(df) | set(self.consulta)
-        # IDF suavizado: termo ausente do universo recebe o peso máximo
-        self.peso = {q: math.log((n + 1) / (df.get(q, 0) + 0.5)) + 1 for q in self.consulta}
+        # IDF suavizado. Termo que não aparece em nenhum resultado (ex.: "nível III-A",
+        # detalhe de especificação ausente dos objetos de edital) não diferencia ninguém:
+        # peso baixo, para não derrubar todas as notas abaixo do corte.
+        self.peso = {
+            q: (math.log((n + 1) / (df[q] + 0.5)) + 1) if df.get(q) else 0.3
+            for q in self.consulta
+        }
         self.afinidade = {
             q: {t: s for t in vocab if (s := _parecido(q, t)) > 0}
             for q in self.consulta
@@ -133,3 +138,59 @@ def ranquear(registros: list[dict], consulta: str, campo: str, minimo: int = 0) 
     saida = [r for r in registros if r['similaridade'] >= minimo]
     saida.sort(key=lambda r: (-r['similaridade'], -(int(str(r.get('data_referencia') or '0000-00-00').replace('-', '')[:8] or 0))))
     return saida
+
+
+# ── Natureza da contratação: aquisição × locação × serviço ───────────────────
+# Cruzamento do objeto demandado com o objeto de cada resultado, para não
+# apresentar locação no lugar de aquisição (e vice-versa). Prefixos cobrem
+# flexões e abreviações comuns em edital ("prest. de serv. de instalaç...").
+NATUREZAS = {
+    'locacao':   re.compile(r'\b(loca(cao|coes|r|da|do|das|dos)\b|alug|arrendament|comodato)'),
+    'servico':   re.compile(r'\b(manuten|instala|desinstala|reparo|conserto|assistencia tecnica|higieniza'
+                            r'|limpeza|recarga|remanejament|presta|servic|serv\b)'),
+    'aquisicao': re.compile(r'\b(aquisi|adquiri|compra|fornecimento)'),
+}
+NATUREZA_ROTULO = {'aquisicao': 'Aquisição', 'locacao': 'Locação', 'servico': 'Serviço', 'qualquer': 'Qualquer'}
+
+
+def naturezas(texto: str) -> set[str]:
+    alvo = _sem_acento(texto)
+    return {n for n, rx in NATUREZAS.items() if rx.search(alvo)}
+
+
+def natureza_demanda(*textos) -> tuple[str, str]:
+    """
+    Natureza do objeto demandado: o primeiro texto (na ordem recebida) que indicar
+    uma natureza decide. Locação/serviço prevalecem sobre aquisição quando o mesmo
+    texto traz as duas ("locação com fornecimento de..."). Sem indicação, assume
+    aquisição — o caso mais comum — e a tela permite trocar.
+    """
+    for i, t in enumerate(textos):
+        ns = naturezas(t or '')
+        for n in ('locacao', 'servico', 'aquisicao'):
+            if n in ns:
+                return n, i
+    return 'aquisicao', -1
+
+
+def compativel(demanda: str, texto: str) -> bool:
+    """Resultado sem natureza identificável é mantido; com natureza, precisa conter a demandada."""
+    if demanda == 'qualquer':
+        return True
+    ns = naturezas(texto)
+    return not ns or demanda in ns
+
+
+def filtrar_natureza(registros: list[dict], demanda: str, texto_de) -> tuple[list[dict], dict]:
+    """Mantém os compatíveis e conta os ocultados por natureza encontrada."""
+    mantidos, ocultos = [], {}
+    for r in registros:
+        texto = texto_de(r)
+        ns = naturezas(texto)
+        r['natureza'] = sorted(ns)
+        if compativel(demanda, texto):
+            mantidos.append(r)
+        else:
+            chave = '/'.join(NATUREZA_ROTULO[n] for n in sorted(ns))
+            ocultos[chave] = ocultos.get(chave, 0) + 1
+    return mantidos, ocultos

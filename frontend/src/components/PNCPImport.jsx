@@ -4,7 +4,10 @@
  * dele é a palavra-chave padrão, a referência da similaridade e o destino dos preços.
  *
  * Fluxo:
- *  1. UF (ou CNPJ) + período + modalidade → o PNCP filtra no servidor
+ *  1. UF (ou todo o Brasil, ou CNPJ) + período + modalidade → filtrados no servidor
+ *     (todo o Brasil usa só a base Compras.gov.br; com UF, completa com o PNCP)
+ *     Descarta contratações sem preço homologado e de natureza diferente
+ *     (aquisição × locação × serviço) da demandada
  *  2. Backend varre as publicações e ordena por similaridade com o objeto demandado
  *  3. Usuário abre uma contratação → itens com valor unitário HOMOLOGADO,
  *     também ordenados por similaridade com o item do mapa
@@ -13,7 +16,7 @@
 import { useState } from 'react'
 import api from '../services/api'
 import { formatarMoeda } from '../utils/currencyMask'
-import { SimilBadge } from './ComprasGovImport'
+import { SimilBadge, CampoNatureza, NaturezaUsada } from './ComprasGovImport'
 
 const UF_OPTS = [
   'BA','SP','RJ','MG','RS','PR','SC','GO','DF','PE','CE','PA','MA','AM','ES',
@@ -44,6 +47,7 @@ export default function PNCPImport({ mapaId, item, onImportado }) {
     termo_busca:           item.descricao || '',
     modalidades:           [6],
     incluir_atas:          false,
+    natureza:              'auto',
   })
   const setF = (campo, val) => setFiltros(p => ({ ...p, [campo]: val }))
   const toggleMod = (m) => setF('modalidades',
@@ -87,8 +91,9 @@ export default function PNCPImport({ mapaId, item, onImportado }) {
     try {
       const { data } = await api.post(`/pesquisa/mapa/${mapaId}/pncp/itens/`, {
         importacao_id: busca.importacao_id, registro_id: reg.id, item_mapa_id: item.id,
+        natureza: busca.natureza?.valor || filtros.natureza,
       })
-      setItensPorReg(p => ({ ...p, [reg.id]: data.itens }))
+      setItensPorReg(p => ({ ...p, [reg.id]: data.itens, [`aviso_${reg.id}`]: data.aviso }))
     } catch (err) {
       setErro(err?.response?.data?.detail || 'Erro ao abrir os itens da contratação.')
     } finally {
@@ -176,13 +181,17 @@ export default function PNCPImport({ mapaId, item, onImportado }) {
                 className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm" />
             </div>
             <div>
-              <label className="block text-xs text-gray-600 mb-1">UF {filtros.cnpj_orgao_referencia ? '(opcional)' : '*'}</label>
+              <label className="block text-xs text-gray-600 mb-1">UF</label>
               <select value={filtros.uf} onChange={e => setF('uf', e.target.value)}
                 className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm">
-                <option value="">Todas (exige CNPJ)</option>
+                <option value="">Todo o Brasil</option>
                 {UF_OPTS.map(uf => <option key={uf} value={uf}>{uf}</option>)}
               </select>
-              <p className="text-[11px] text-gray-400 mt-0.5">Filtro aplicado pelo próprio PNCP.</p>
+              <p className="text-[11px] text-gray-400 mt-0.5">
+                {filtros.uf
+                  ? 'Completa: base Compras.gov.br + varredura do PNCP (inclui municípios de outras plataformas).'
+                  : 'Todo o Brasil: base Compras.gov.br (rápida). Para incluir municípios de outras plataformas, escolha uma UF.'}
+              </p>
             </div>
             <div>
               <label className="block text-xs text-gray-600 mb-1">CNPJ de um órgão específico (opcional)</label>
@@ -190,6 +199,7 @@ export default function PNCPImport({ mapaId, item, onImportado }) {
                 placeholder="00.000.000/0001-00"
                 className="w-full border border-gray-300 rounded-lg px-3 py-1.5 text-sm" />
             </div>
+            <CampoNatureza value={filtros.natureza} onChange={v => setF('natureza', v)} />
             <div className="col-span-2 flex flex-wrap items-center gap-4">
               {MODALIDADES.map(m => (
                 <label key={m.value} className="flex items-center gap-2 text-xs text-gray-600 cursor-pointer">
@@ -208,7 +218,7 @@ export default function PNCPImport({ mapaId, item, onImportado }) {
             </div>
           </div>
 
-          <button onClick={buscar} disabled={buscando || (!filtros.uf && !filtros.cnpj_orgao_referencia)}
+          <button onClick={buscar} disabled={buscando || filtros.modalidades.length === 0}
             className="px-4 py-2 bg-teal-700 hover:bg-teal-800 disabled:opacity-50 text-white text-sm font-medium rounded-lg">
             {buscando ? 'Consultando PNCP (pode levar até 1 min)…' : (parcial ? 'Continuar varredura' : 'Buscar no PNCP')}
           </button>
@@ -224,8 +234,9 @@ export default function PNCPImport({ mapaId, item, onImportado }) {
 
           {busca && (
             <div className="mt-4">
+              <NaturezaUsada natureza={busca.natureza} />
               <p className="text-xs text-gray-600 mb-2">
-                {registros.length} contratação(ões) semelhante(s) a “{busca.termo_usado}”
+                {registros.length} contratação(ões) com preço homologado semelhante(s) a “{busca.termo_usado}”
                 {(busca.varredura || []).map(v => v.total_registros != null &&
                   ` · ${v.modalidade}: ${v.total_registros} publicações analisadas${v.completa ? '' : ' (parcial)'}`)}
                 . Abra uma contratação para ver os itens com preço homologado.
@@ -255,6 +266,9 @@ export default function PNCPImport({ mapaId, item, onImportado }) {
 
                       {abertoId === reg.id && itensPorReg[reg.id] && (
                         <div className="px-3 pb-3">
+                          {itensPorReg[`aviso_${reg.id}`] && (
+                            <p className="text-[11px] text-amber-800 mb-1 pl-10">{itensPorReg[`aviso_${reg.id}`]}</p>
+                          )}
                           {itensPorReg[reg.id].length === 0 ? (
                             <p className="text-xs text-gray-500 pl-10">
                               Nenhum item com resultado homologado ainda — não há preço praticado para importar.
