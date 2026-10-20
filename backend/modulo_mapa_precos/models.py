@@ -516,6 +516,3 @@ class RespostaCotacao(models.Model):
 
     def __str__(self):
         return f'{self.fornecedor.nome_razao_social} — {self.solicitacao}'
-
-    def __str__(self):
-        return f'{self.fornecedor_nome} — {self.get_status_display()} ({self.data_envio})'

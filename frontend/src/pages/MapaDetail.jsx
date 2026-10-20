@@ -7,6 +7,7 @@ import useAuthStore from '../stores/authStore'
 import EncerrarPeca from '../components/EncerrarPeca'
 import LoadingSpinner from '../components/LoadingSpinner'
 import PNCPImport from '../components/PNCPImport'
+import ComprasGovImport from '../components/ComprasGovImport'
 import SugestoesItensDfd from '../components/SugestoesItensDfd'
 import FornecedorPicker from '../components/FornecedorPicker'
 import CampoMoeda from '../components/CampoMoeda'
@@ -48,14 +49,15 @@ export const pageHelp = {
     { label: 'Método',            texto: 'Seleciona o método de apuração: Média (preços homogêneos), Mediana (com outliers) ou Menor Preço Válido.' },
     { label: 'Recalcular',        texto: 'Atualiza o valor estimado com base nos preços válidos e no método selecionado.' },
     { label: 'Validar Prazos',    texto: 'Verifica se os preços coletados estão dentro do prazo de validade (180 dias para PNCP, 1 ano para outros).' },
-    { label: 'Importar PNCP',     texto: 'Busca preços de contratações similares no Portal Nacional de Compras Públicas (PNCP) para subsidiar a pesquisa.' },
+    { label: 'Pesquisar no Compras.gov.br', texto: 'No cartão de cada item: informe o código CATMAT/CATSER e veja os preços unitários homologados em compras e atas de RP de todo o país, com mediana, coeficiente de variação e a faixa de ±30%. Só o código, o período e a UF são enviados à API oficial — nenhum dado do mapa sai do sistema. Os selecionados entram como Parâmetro II no próprio item.' },
+    { label: 'Pesquisar no PNCP', texto: 'No cartão de cada item: busca contratações por UF (sem precisar de CNPJ), ordenadas pela semelhança com a descrição do item. Abra uma contratação para ver os itens com preço unitário homologado e registre os equivalentes no item. O valor global de contrato não é aceito como preço unitário.' },
     { label: '+ Solicitação de Cotação', texto: 'Registra o disparo formal de uma solicitação de cotação a TODOS os fornecedores cadastrados numa família SIMPAS (Parâmetro V, Art. 5º, IV). Não envia e-mail automaticamente — mostra os destinatários para copiar em BCC no seu cliente de e-mail, e depois anexe o comprovante do envio (obrigatório pelo Art. 7º, IV).' },
     { label: '+ Resposta',        texto: 'Registra a resposta de um fornecedor específico ao disparo — valor cotado ou recusa, com upload da proposta recebida. Marque "Usar como referência" na resposta escolhida para justificar a seleção (Art. 3º, VII).' },
     { label: 'Submeter',          texto: 'Envia o mapa para aprovação. Todos os itens devem ter pelo menos 3 preços válidos. Se nenhuma fonte válida for institucional (SIMPAS/Comprasnet, contratações públicas similares ou histórico Weber-e), é exigida a justificativa pela não combinação de parâmetros — o TCU prioriza preços públicos numa "cesta de preços" antes do mercado privado.' },
     { label: 'Aprovar',           texto: 'Homologa o mapa de preços. O valor resultante é usado como referência no procedimento licitatório.' },
     { label: 'Download PDF',      texto: 'Exporta o mapa completo em PDF para compor o processo SEI.' },
   ],
-  dica: 'Use preços do PNCP (Tipo I — SIMPAS/Comprasnet.BA) como primeira fonte — são os mais aceitos pelos órgãos de controle.',
+  dica: 'Comece pelas fontes públicas (Parâmetros I e II — SIMPAS/Comprasnet.BA, Compras.gov.br e PNCP): são as priorizadas pelos órgãos de controle. Pesquise item a item, confira a semelhança e a unidade antes de importar.',
   baseLegal: 'Lei 14.133/2021 — Art. 23 e IN SEGES nº 65/2021 (pesquisa de preços).',
 }
 // ──────────────────────────────────────────────────────────────────────────────
@@ -435,16 +437,6 @@ export default function MapaDetail() {
             />
           )}
           {isEditavel && (
-            <PNCPImport
-              mapaId={id}
-              itensDoMapa={current.itens || []}
-              onImportado={(msg) => {
-                setMsg({ type: 'success', text: msg })
-                fetchMapa(id)
-              }}
-            />
-          )}
-          {isEditavel && (
             <div className="bg-gray-50 border border-gray-200 rounded-xl p-4">
               <p className="text-sm font-semibold text-gray-700 mb-3">Adicionar item</p>
               <ItemForm onSave={async (payload) => { await act(() => addItem(id, payload), 'Item adicionado.') }} />
@@ -554,6 +546,19 @@ export default function MapaDetail() {
                           ))}
                         </tbody>
                       </table>
+                    </div>
+                  )}
+
+                  {/* Pesquisa externa — sempre ancorada neste item */}
+                  {isEditavel && (
+                    <div className="mb-4 flex flex-col gap-3">
+                      <p className="text-xs font-semibold text-gray-500 uppercase">Pesquisar preços para este item</p>
+                      <div className="flex flex-col gap-3">
+                        <ComprasGovImport mapaId={id} item={item}
+                          onImportado={(msg) => { setMsg({ type: 'success', text: msg }); fetchMapa(id) }} />
+                        <PNCPImport mapaId={id} item={item}
+                          onImportado={(msg) => { setMsg({ type: 'success', text: msg }); fetchMapa(id) }} />
+                      </div>
                     </div>
                   )}
 

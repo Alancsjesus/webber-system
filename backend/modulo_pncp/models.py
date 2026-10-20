@@ -78,7 +78,10 @@ class PNCPRegistro(models.Model):
     modalidade      = models.CharField(max_length=100, blank=True, default='')
     tipo_registro   = models.CharField(
         max_length=15, default='contrato',
-        choices=[('contrato', 'Contrato'), ('ata', 'Ata de Registro de Preços')],
+        choices=[
+            ('contrato', 'Contrato'), ('ata', 'Ata de Registro de Preços'),
+            ('contratacao', 'Contratação (edital/aviso)'), ('item', 'Item homologado de contratação'),
+        ],
     )
     # FK para o PrecoColetado criado após importação
     preco_coletado = models.OneToOneField(

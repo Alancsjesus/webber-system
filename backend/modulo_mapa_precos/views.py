@@ -217,6 +217,8 @@ class MapaComparativoPrecosViewSet(viewsets.ModelViewSet):
             media    = sum(precos_validos) / len(precos_validos)
             mediana  = float(_stats.median(precos_validos))
             variacao_pct = ((maximo - minimo) / minimo * 100) if minimo > 0 else 0
+            desvio   = _stats.stdev(precos_validos) if len(precos_validos) > 1 else 0.0
+            cv_pct   = (desvio / media * 100) if media else 0.0
             outliers = len([v for v in precos_validos if v > mediana * 1.30 or v < mediana * 0.70])
             abaixo_minimo = len([v for v in precos_validos if v < mediana * 0.70])
             acima_maximo  = len([v for v in precos_validos if v > mediana * 1.30])
@@ -237,6 +239,12 @@ class MapaComparativoPrecosViewSet(viewsets.ModelViewSet):
                 motivo = (
                     f'Variação de {variacao_pct:.1f}% entre os preços ({", ".join(partes)}). '
                     'A mediana é mais robusta a valores extremos e protege contra sobrepreço.'
+                )
+            elif cv_pct > 25:
+                metodo = 'mediana'
+                motivo = (
+                    f'Coeficiente de variação de {cv_pct:.1f}% (> 25%): amostra heterogênea. '
+                    'A mediana é indicada quando a dispersão é alta.'
                 )
             elif variacao_pct > 20:
                 metodo = 'mediana'
@@ -268,6 +276,8 @@ class MapaComparativoPrecosViewSet(viewsets.ModelViewSet):
                 'media':          round(media, 2),
                 'mediana':        round(mediana, 2),
                 'variacao_pct':   round(variacao_pct, 1),
+                'desvio_padrao':  round(desvio, 2),
+                'cv_pct':         round(cv_pct, 1),
                 'outliers':       outliers,
                 'abaixo_minimo':  abaixo_minimo,
                 'acima_maximo':   acima_maximo,
@@ -279,7 +289,7 @@ class MapaComparativoPrecosViewSet(viewsets.ModelViewSet):
         # Sugestão global: se qualquer item tem outliers ou variação alta → mediana
         itens_validos = [r for r in resultados if not r.get('sem_precos_validos')]
         metodo_global = 'mediana' if any(
-            r['outliers'] > 0 or r['variacao_pct'] > 20
+            r['outliers'] > 0 or r['variacao_pct'] > 20 or r['cv_pct'] > 25
             for r in itens_validos
         ) else 'media'
 
@@ -550,76 +560,65 @@ class MapaComparativoPrecosViewSet(viewsets.ModelViewSet):
         return resposta_pdf(pdf, f'Historico_Mapa_{mapa.pk}.pdf')
 
     # ── Integração PNCP ───────────────────────────────────────────────────────
+    # Toda pesquisa parte de um item do mapa: a descrição dele é a palavra-chave
+    # padrão, a referência da nota de similaridade e o destino dos preços.
     @action(detail=True, methods=['post'], url_path='pncp/preview')
     def pncp_preview(self, request, pk=None):
         """
-        Consulta o PNCP e retorna preview dos registros disponíveis.
-        Salva os registros em PNCPRegistro para seleção posterior.
+        Consulta o PNCP e retorna as contratações mais parecidas com o item do mapa.
         Body: {
-            periodo_inicio, periodo_fim,
-            cnpj_orgao_referencia (opt), uf (opt, default BA),
-            termo_busca (opt),
-            incluir_contratos (bool, default true),
-            incluir_atas (bool, default true)
+            item_mapa_id (obrigatório), periodo_inicio, periodo_fim,
+            uf (obrigatória sem CNPJ), cnpj_orgao_referencia (opt),
+            termo_busca (opt — padrão: descrição do item), modalidades (opt, [6]),
+            incluir_contratos (bool — contratações), incluir_atas (bool — só com CNPJ)
         }
         """
-        from modulo_pncp.services import buscar_preview
+        from modulo_pncp.services import buscar_preview, MODALIDADES_PNCP
         from modulo_pncp.models import PNCPImportacao, PNCPRegistro
-        from datetime import date
+        from datetime import date, timedelta
 
         mapa = self.get_object()
-
-        periodo_inicio = request.data.get('periodo_inicio')
-        periodo_fim    = request.data.get('periodo_fim')
-
-        if not periodo_inicio or not periodo_fim:
-            return Response(
-                {'detail': 'periodo_inicio e periodo_fim são obrigatórios (YYYY-MM-DD).'},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+        item = get_object_or_404(ItemMapa, pk=request.data.get('item_mapa_id'), mapa=mapa)
 
         def _d(s):
             try:
-                y, m, d = s.split('-')
-                return date(int(y), int(m), int(d))
-            except Exception:
+                return date.fromisoformat(str(s))
+            except (TypeError, ValueError):
                 return None
 
-        d_ini = _d(periodo_inicio)
-        d_fim = _d(periodo_fim)
+        d_ini = _d(request.data.get('periodo_inicio'))
+        d_fim = _d(request.data.get('periodo_fim'))
         if not d_ini or not d_fim:
-            return Response({'detail': 'Datas inválidas.'}, status=400)
+            return Response({'detail': 'Informe o período (AAAA-MM-DD).'}, status=status.HTTP_400_BAD_REQUEST)
         if d_fim < d_ini:
-            return Response({'detail': 'periodo_fim deve ser >= periodo_inicio.'}, status=400)
-
-        # Limite máximo de 180 dias para evitar timeout na API do PNCP
-        from datetime import timedelta
+            return Response({'detail': 'O fim do período deve ser posterior ao início.'}, status=status.HTTP_400_BAD_REQUEST)
         MAX_DIAS = 180
         if (d_fim - d_ini).days > MAX_DIAS:
-            return Response({
-                'detail': (
-                    f'Período máximo permitido: {MAX_DIAS} dias. '
-                    f'Intervalo solicitado: {(d_fim - d_ini).days} dias. '
-                    'Reduza o período para evitar timeout na API do PNCP.'
-                )
-            }, status=status.HTTP_400_BAD_REQUEST)
+            return Response({'detail': f'Período máximo: {MAX_DIAS} dias.'}, status=status.HTTP_400_BAD_REQUEST)
 
-        cnpj  = request.data.get('cnpj_orgao_referencia', '')
-        uf    = request.data.get('uf', 'BA')
-        termo = request.data.get('termo_busca', '')
-        incluir_contratos = request.data.get('incluir_contratos', True)
-        incluir_atas      = request.data.get('incluir_atas', True)
-        tipo_fonte        = request.data.get('tipo_fonte', 'II')
+        cnpj = ''.join(c for c in str(request.data.get('cnpj_orgao_referencia', '')) if c.isdigit())
+        if cnpj and len(cnpj) != 14:
+            return Response({'detail': 'CNPJ deve ter 14 dígitos.'}, status=status.HTTP_400_BAD_REQUEST)
+        uf = str(request.data.get('uf', '')).strip().upper()[:2]
+        if not cnpj and not uf:
+            return Response({'detail': 'Sem CNPJ, informe a UF — é o filtro que o PNCP aplica no servidor.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        termo = (str(request.data.get('termo_busca') or '').strip() or item.descricao)[:200]
+        try:
+            modalidades = [int(m) for m in (request.data.get('modalidades') or [6]) if int(m) in MODALIDADES_PNCP]
+        except (TypeError, ValueError):
+            modalidades = []
+        if not modalidades:
+            modalidades = [6]
+        incluir_contratos = bool(request.data.get('incluir_contratos', True))
+        incluir_atas      = bool(request.data.get('incluir_atas', True))
 
-        # Consulta a API
         resultado = buscar_preview(
-            d_ini, d_fim,
-            cnpj=cnpj, uf=uf, termo=termo,
-            incluir_contratos=bool(incluir_contratos),
-            incluir_atas=bool(incluir_atas),
+            d_ini, d_fim, cnpj=cnpj, uf=uf, termo=termo,
+            incluir_contratos=incluir_contratos, incluir_atas=incluir_atas,
+            modalidades=modalidades,
         )
 
-        # Cria registro de importação e salva os registros encontrados
         importacao = PNCPImportacao.objects.create(
             org_id_id  = request.org_id,
             created_by = request.user,
@@ -630,7 +629,7 @@ class MapaComparativoPrecosViewSet(viewsets.ModelViewSet):
             termo_busca    = termo,
             periodo_inicio = d_ini,
             periodo_fim    = d_fim,
-            tipo_fonte     = tipo_fonte,
+            tipo_fonte     = 'II',
             status         = 'pendente',
             total_consultados = resultado['total'],
         )
@@ -639,18 +638,18 @@ class MapaComparativoPrecosViewSet(viewsets.ModelViewSet):
         for reg in resultado['registros']:
             r = PNCPRegistro.objects.create(
                 importacao    = importacao,
-                numero_pncp   = reg['numero_pncp'] or '',
+                numero_pncp   = (reg['numero_pncp'] or '')[:150],
                 objeto        = reg['objeto'] or '',
                 valor_global  = reg['valor_global'],
                 valor_unitario= reg['valor_unitario'],
                 quantidade    = reg['quantidade'],
                 unidade_medida= reg['unidade_medida'] or '',
-                orgao_nome    = reg['orgao_nome'] or '',
-                orgao_cnpj    = reg['orgao_cnpj'] or '',
+                orgao_nome    = (reg['orgao_nome'] or '')[:255],
+                orgao_cnpj    = (reg['orgao_cnpj'] or '')[:18],
                 uf            = reg['uf'] or '',
                 data_referencia= reg['data_referencia'],
-                numero_certame = reg['numero_certame'] or '',
-                modalidade    = reg['modalidade'] or '',
+                numero_certame = (reg['numero_certame'] or '')[:100],
+                modalidade    = (reg['modalidade'] or '')[:100],
                 tipo_registro = reg['tipo_registro'],
             )
             registros_criados.append({
@@ -658,58 +657,245 @@ class MapaComparativoPrecosViewSet(viewsets.ModelViewSet):
                 'numero_pncp':   r.numero_pncp,
                 'objeto':        r.objeto,
                 'valor_global':  str(r.valor_global) if r.valor_global else None,
-                'valor_unitario':str(r.valor_unitario) if r.valor_unitario else None,
                 'orgao_nome':    r.orgao_nome,
                 'orgao_cnpj':    r.orgao_cnpj,
                 'uf':            r.uf,
                 'data_referencia': str(r.data_referencia) if r.data_referencia else None,
                 'modalidade':    r.modalidade,
                 'tipo_registro': r.tipo_registro,
+                'similaridade':  reg.get('similaridade'),
             })
 
         return Response({
             'importacao_id': importacao.pk,
+            'termo_usado':   termo,
             'total':         resultado['total'],
             'registros':     registros_criados,
             'erros_api':     resultado['erros'],
+            'varredura':     resultado.get('varredura', []),
         })
+
+    @action(detail=True, methods=['post'], url_path='pncp/itens')
+    def pncp_itens(self, request, pk=None):
+        """
+        Abre uma contratação encontrada e lista os itens com valor unitário homologado,
+        ordenados pela similaridade com o item do mapa.
+        Body: { importacao_id, registro_id, item_mapa_id }
+        """
+        from modulo_pncp.models import PNCPImportacao, PNCPRegistro
+        from modulo_pncp.services import itens_homologados
+        from modulo_pncp.similaridade import ranquear
+
+        mapa = self.get_object()
+        item = get_object_or_404(ItemMapa, pk=request.data.get('item_mapa_id'), mapa=mapa)
+        importacao = get_object_or_404(PNCPImportacao, pk=request.data.get('importacao_id'), mapa=mapa)
+        pai = get_object_or_404(PNCPRegistro, pk=request.data.get('registro_id'), importacao=importacao,
+                                tipo_registro='contratacao')
+        try:
+            linhas = itens_homologados(pai.numero_pncp)
+        except ValueError as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        except Exception as e:
+            return Response({'detail': f'O PNCP não respondeu ({getattr(e, "reason", e)}). Tente novamente.'},
+                            status=status.HTTP_502_BAD_GATEWAY)
+        linhas = ranquear(linhas, item.descricao, 'descricao')
+        un_item = (item.unidade_medida or '').strip().upper()
+
+        saida = []
+        for ln in linhas:
+            numero = f'{pai.numero_pncp}#{ln["numero_item"]}#{ln["fornecedor_ni"]}'[:150]
+            reg, _ = PNCPRegistro.objects.update_or_create(
+                importacao=importacao, numero_pncp=numero,
+                defaults={
+                    'objeto': ln['descricao'],
+                    'valor_unitario': ln['valor_unitario'],
+                    'quantidade': ln['quantidade'],
+                    'unidade_medida': ln['unidade_medida'],
+                    'orgao_nome': pai.orgao_nome,
+                    'orgao_cnpj': pai.orgao_cnpj,
+                    'uf': pai.uf,
+                    'data_referencia': ln['data_referencia'] or pai.data_referencia,
+                    'numero_certame': f'{pai.numero_pncp} item {ln["numero_item"]}'[:100],
+                    'modalidade': pai.modalidade,
+                    'tipo_registro': 'item',
+                },
+            )
+            unidade = (ln['unidade_medida'] or '').strip().upper()
+            saida.append({
+                'id': reg.pk,
+                'numero_item': ln['numero_item'],
+                'descricao': ln['descricao'],
+                'unidade_medida': ln['unidade_medida'],
+                'unidade_diverge': bool(un_item and unidade and unidade[:2] != un_item[:2]),
+                'quantidade': str(ln['quantidade'] or ''),
+                'valor_unitario': str(ln['valor_unitario']),
+                'fornecedor': ln['fornecedor'],
+                'similaridade': ln['similaridade'],
+                'importado': reg.importado,
+            })
+        return Response({'registro_id': pai.pk, 'itens': saida})
 
     @action(detail=True, methods=['post'], url_path='pncp/confirmar')
     def pncp_confirmar(self, request, pk=None):
         """
-        Efetiva a importação dos registros selecionados para o Mapa.
-        Body: { importacao_id: N, ids: [1, 2, 3], item_mapa_id: N (opt) }
+        Efetiva a importação dos itens homologados selecionados para o item do mapa.
+        Body: { importacao_id: N, ids: [1, 2, 3], item_mapa_id: N (obrigatório) }
         """
         from modulo_pncp.services import ImportadorPNCP
         from modulo_pncp.models import PNCPImportacao
 
         mapa = self.get_object()
-        importacao_id = request.data.get('importacao_id')
-        ids = request.data.get('ids', [])
-
-        if not importacao_id:
-            return Response({'detail': 'importacao_id é obrigatório.'}, status=400)
-        if not ids:
-            return Response({'detail': 'Selecione ao menos um registro.'}, status=400)
-
-        try:
-            importacao = PNCPImportacao.objects.get(pk=importacao_id, mapa=mapa)
-        except PNCPImportacao.DoesNotExist:
-            return Response({'detail': 'Importação não encontrada.'}, status=404)
-
-        # Se item_mapa_id fornecido, troca o item destino na importação
-        item_mapa_id = request.data.get('item_mapa_id')
-        if item_mapa_id:
-            from modulo_mapa_precos.models import ItemMapa
-            try:
-                item = ItemMapa.objects.get(pk=item_mapa_id, mapa=mapa)
-                # O ImportadorPNCP usa o primeiro item; redefinimos via monkey-patch simples
-                importacao._item_override = item
-            except ItemMapa.DoesNotExist:
-                pass
+        if mapa.status not in ('Rascunho', 'Devolvido'):
+            return Response({'detail': 'Só é possível importar preços com o mapa em Rascunho ou Devolvido.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        ids = request.data.get('ids') or []
+        if not isinstance(ids, list) or not ids:
+            return Response({'detail': 'Selecione ao menos um item homologado.'}, status=400)
+        importacao = get_object_or_404(PNCPImportacao, pk=request.data.get('importacao_id'), mapa=mapa)
+        item = get_object_or_404(ItemMapa, pk=request.data.get('item_mapa_id'), mapa=mapa)
+        importacao._item_override = item
 
         resultado = ImportadorPNCP().executar(importacao, ids)
+        item.calcular(metodo=mapa.metodo_calculo)
+        mapa.recalcular_total()
         return Response(resultado)
+
+    # ── Integração Compras.gov.br — preços unitários por CATMAT/CATSER ────────
+    # Só o código de catálogo, o período e a UF saem do sistema (ver modulo_pncp.comprasgov).
+    @action(detail=True, methods=['get'], url_path='comprasgov/catalogo')
+    def comprasgov_catalogo(self, request, pk=None):
+        from modulo_pncp.comprasgov import consultar_catalogo, ErroComprasGov
+        self.get_object()
+        try:
+            item = consultar_catalogo(request.query_params.get('tipo'), request.query_params.get('codigo'))
+        except ErroComprasGov as e:
+            return Response({'detail': str(e)}, status=status.HTTP_400_BAD_REQUEST)
+        if not item:
+            return Response({'detail': 'Código não encontrado no catálogo do Compras.gov.br.'},
+                            status=status.HTTP_404_NOT_FOUND)
+        return Response(item)
+
+    @action(detail=True, methods=['post'], url_path='comprasgov/precos')
+    def comprasgov_precos(self, request, pk=None):
+        """
+        Body: { item_mapa_id, tipo: material|servico, codigo, uf (opt), meses (opt) }
+        Retorna os preços homologados do item no período de validade do Parâmetro II,
+        já classificados pela faixa de ±30% da mediana. Nada é gravado.
+        """
+        from modulo_pncp.comprasgov import consultar_precos, classificar, ErroComprasGov
+        mapa = self.get_object()
+        item = get_object_or_404(ItemMapa, pk=request.data.get('item_mapa_id'), mapa=mapa)
+        try:
+            resultado = consultar_precos(
+                request.data.get('tipo'), request.data.get('codigo'),
+                uf=request.data.get('uf', ''), meses=request.data.get('meses'),
+            )
+        except (ErroComprasGov, ValueError, TypeError) as e:
+            msg = str(e) if isinstance(e, ErroComprasGov) else 'Parâmetros inválidos.'
+            return Response({'detail': msg}, status=status.HTTP_400_BAD_REQUEST)
+        ja_importados = set(
+            item.precos.filter(observacao__startswith='[Compras.gov.br]')
+            .values_list('numero_certame', flat=True)
+        )
+        from modulo_pncp.similaridade import ranquear
+        resultado['estatistica'] = classificar(resultado['registros'], item.unidade_medida)
+        resultado['registros'] = ranquear(resultado['registros'], item.descricao, 'descricao')
+        for r in resultado['registros']:
+            r['ja_importado'] = r['id'] in ja_importados
+        return Response(resultado)
+
+    @action(detail=True, methods=['post'], url_path='comprasgov/importar')
+    def comprasgov_importar(self, request, pk=None):
+        """
+        Body: { item_mapa_id, tipo, codigo, uf (opt), meses (opt), ids: [idCompraItem, ...] }
+        Os valores NÃO vêm do navegador: a consulta é refeita no servidor (cache de 15 min)
+        e só os ids selecionados que constam do retorno oficial são gravados.
+        """
+        from datetime import date
+        from django.db import transaction
+        from modulo_pncp.comprasgov import consultar_precos, classificar, valor_2_casas, ErroComprasGov
+
+        mapa = self.get_object()
+        if mapa.status not in ('Rascunho', 'Devolvido'):
+            return Response({'detail': 'Só é possível importar preços com o mapa em Rascunho ou Devolvido.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+        item = get_object_or_404(ItemMapa, pk=request.data.get('item_mapa_id'), mapa=mapa)
+        ids = request.data.get('ids') or []
+        if not isinstance(ids, list) or not ids or len(ids) > 200:
+            return Response({'detail': 'Selecione de 1 a 200 registros.'}, status=status.HTTP_400_BAD_REQUEST)
+        ids = {str(i) for i in ids}
+        try:
+            resultado = consultar_precos(
+                request.data.get('tipo'), request.data.get('codigo'),
+                uf=request.data.get('uf', ''), meses=request.data.get('meses'),
+            )
+        except (ErroComprasGov, ValueError, TypeError) as e:
+            msg = str(e) if isinstance(e, ErroComprasGov) else 'Parâmetros inválidos.'
+            return Response({'detail': msg}, status=status.HTTP_400_BAD_REQUEST)
+
+        classificar(resultado['registros'], item.unidade_medida)
+        selecionados = [r for r in resultado['registros'] if r['id'] in ids]
+        if not selecionados:
+            return Response({'detail': 'Nenhum dos registros selecionados consta da consulta oficial. Refaça a busca.'},
+                            status=status.HTTP_400_BAD_REQUEST)
+
+        rotulo = 'CATMAT' if resultado['tipo'] == 'material' else 'CATSER'
+        hoje = date.today()
+        ja_importados = set(
+            item.precos.filter(observacao__startswith='[Compras.gov.br]')
+            .values_list('numero_certame', flat=True)
+        )
+        criados, ignorados = 0, []
+        with transaction.atomic():
+            fonte, _ = FonteConsultada.objects.get_or_create(
+                mapa=mapa, tipo='II',
+                referencia=f'Compras.gov.br — {rotulo} {resultado["codigo"]} — consulta {hoje:%d/%m/%Y}',
+                defaults={
+                    'descricao': 'Compras.gov.br — Pesquisa de Preço (Dados Abertos, preços homologados)',
+                    'data_consulta': hoje,
+                },
+            )
+            for r in selecionados:
+                if r['id'] in ja_importados:
+                    ignorados.append(f'{r["id"]}: já importado neste item')
+                    continue
+                valor = valor_2_casas(r['preco_unitario'])
+                if valor <= 0:
+                    ignorados.append(f'{r["id"]}: valor abaixo de R$ 0,01')
+                    continue
+                origem = (
+                    f'item {r["numero_item"]} da {r["forma"]} (PNCP {r["ata_pncp"]})'
+                    if r['origem'] == 'ata' else f'item da compra {r["numero_item"]}'
+                )
+                observacao = (
+                    f'[Compras.gov.br] {rotulo} {resultado["codigo"]} · {origem} · '
+                    f'preço homologado R$ {r["preco_unitario"]} por {r["unidade"] or "—"} · '
+                    f'qtd {r["quantidade"] or "—"} · fornecedor {r["fornecedor"] or "—"}'
+                    f'{" (" + r["fornecedor_ni"] + ")" if r["fornecedor_ni"] else ""}'
+                    f'{" · marca " + r["marca"] if r["marca"] else ""} · forma {r["forma"] or "—"}.'
+                )
+                if r['unidade_diverge']:
+                    observacao += f' ATENÇÃO: unidade de origem ({r["unidade"]}) difere da do item ({item.unidade_medida}).'
+                PrecoColetado.objects.create(
+                    item=item, fonte=fonte, valor_unitario=valor,
+                    origem_orgao_empresa=(
+                        f'{r["orgao"] or r["uasg_nome"]} — UASG {r["uasg"]} '
+                        f'({r["municipio"]}/{r["uf"]})'
+                    )[:255],
+                    numero_certame=r['id'][:100],
+                    data_referencia=date.fromisoformat(r['data_referencia']) if r['data_referencia'] else hoje,
+                    observacao=observacao,
+                )
+                ja_importados.add(r['id'])
+                criados += 1
+            item.calcular(metodo=mapa.metodo_calculo)
+            mapa.recalcular_total()
+
+        return Response({
+            'importados': criados,
+            'ignorados': ignorados,
+            'detail': f'{criados} preço(s) importado(s) do Compras.gov.br para o item "{item.descricao[:60]}".',
+        })
 
     # ── CRUD de Solicitações de Cotação (Parâmetro V) ──────────────────────────
     @action(detail=True, methods=['get', 'post'], url_path='solicitacoes-cotacao')

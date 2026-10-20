@@ -27,10 +27,9 @@ def _get_timeout():
 
 
 def _ssl_ctx():
-    ctx = ssl.create_default_context()
-    ctx.check_hostname = False
-    ctx.verify_mode = ssl.CERT_NONE
-    return ctx
+    # Certificado e hostname verificados: desligar a verificação permitiria que um
+    # intermediário na rede injetasse preços falsos na pesquisa.
+    return ssl.create_default_context()
 
 
 def _get_json(url: str) -> dict:
@@ -213,92 +212,315 @@ def _filtrar_uf(registros: list, uf: str) -> list:
     return [r for r in registros if not r.get('uf') or r['uf'].upper() == uf.upper()]
 
 
+PNCP_ITENS_BASE = 'https://pncp.gov.br/api/pncp/v1'
+
+# Códigos de modalidade do PNCP (Manual de Integração, tabela "Modalidade de Contratação")
+MODALIDADES_PNCP = {
+    4: 'Concorrência - Eletrônica',
+    6: 'Pregão - Eletrônico',
+    8: 'Dispensa',
+    9: 'Inexigibilidade',
+}
+MAX_PAGINAS_VARREDURA = 120   # por modalidade (50 registros por página)
+MAX_RESULTADOS = 200
+ORCAMENTO_SEGUNDOS = 45       # tempo máximo de varredura do PNCP por busca (gunicorn corta em 120 s)
+CACHE_TTL = 15 * 60
+
+
+INTERVALO_MIN = 1.0   # segundos entre chamadas ao PNCP numa varredura
+_ultima_chamada = [0.0]
+
+
+def _get_json_pncp(url: str, timeout: int, tentativas: int = 3):
+    """
+    GET com ritmo controlado e nova tentativa em 429. O PNCP limita a taxa por
+    cliente: em rajada devolve "Too Many Requests" após ~13 chamadas, com
+    penalidade de ~10 s; em ritmo de ~1 chamada/s não bloqueia.
+    """
+    import time
+    req = urllib.request.Request(url, headers={'Accept': 'application/json', 'User-Agent': 'WEBBER-System/1.0'})
+    for n in range(tentativas):
+        espera = _ultima_chamada[0] + INTERVALO_MIN - time.monotonic()
+        if espera > 0:
+            time.sleep(espera)
+        _ultima_chamada[0] = time.monotonic()
+        try:
+            with urllib.request.urlopen(req, timeout=timeout, context=_ssl_ctx()) as resp:
+                corpo = resp.read()
+            return json.loads(corpo.decode('utf-8')) if corpo else None
+        except urllib.error.HTTPError as e:
+            if e.code != 429 or n == tentativas - 1:
+                raise
+            time.sleep(12)
+
+
+def _sem_acento(txt: str) -> str:
+    import unicodedata
+    return ''.join(c for c in unicodedata.normalize('NFD', txt or '') if unicodedata.category(c) != 'Mn').lower()
+
+
+def _bate_termo(objeto: str, palavras: list[str]) -> bool:
+    alvo = _sem_acento(objeto)
+    return all(p in alvo for p in palavras)
+
+
+def _normalizar_contratacao(item: dict) -> dict:
+    orgao = item.get('orgaoEntidade') or {}
+    unidade = item.get('unidadeOrgao') or {}
+    return {
+        'numero_pncp':    item.get('numeroControlePNCP', ''),
+        'objeto':         item.get('objetoCompra', '') or '',
+        'valor_global':   _dec(item.get('valorTotalHomologado') or item.get('valorTotalEstimado')),
+        'valor_unitario': None,
+        'quantidade':     None,
+        'unidade_medida': '',
+        'orgao_nome':     orgao.get('razaoSocial', ''),
+        'orgao_cnpj':     orgao.get('cnpj', ''),
+        'uf':             unidade.get('ufSigla', ''),
+        'data_referencia': _data(item.get('dataPublicacaoPncp')),
+        'numero_certame': item.get('numeroControlePNCP', ''),
+        'modalidade':     item.get('modalidadeNome', ''),
+        'tipo_registro':  'contratacao',
+    }
+
+
+def _varrer_modalidade(base: dict, mod: int, timeout: int, prazo_final: float) -> tuple[list, dict]:
+    """
+    Publicações de uma modalidade (UF/CNPJ/período já filtrados no servidor).
+    Cada página fica em cache: se o tempo da busca esgotar, a próxima busca com os
+    mesmos filtros retoma de onde parou, sem repetir chamadas ao PNCP.
+    """
+    import time
+    from django.core.cache import cache
+    nome = MODALIDADES_PNCP.get(mod, str(mod))
+    prefixo = 'pncp:pag:' + urllib.parse.urlencode(sorted({**base, 'mod': mod}.items()))
+    registros = []
+    situacao = {'modalidade': nome, 'paginas_lidas': 0, 'total_paginas': None, 'total_registros': None,
+                'completa': False, 'erro': ''}
+    pagina, total_pag = 1, 1
+    while pagina <= min(total_pag, MAX_PAGINAS_VARREDURA):
+        chave = f'{prefixo}:{pagina}'
+        dados = cache.get(chave)
+        if dados is None:
+            if time.monotonic() > prazo_final:
+                break
+            params = {**base, 'codigoModalidadeContratacao': mod, 'pagina': pagina}
+            try:
+                bruto = _get_json_pncp(f'{PNCP_BASE}/contratacoes/publicacao?{urllib.parse.urlencode(params)}', timeout) or {}
+            except Exception as e:
+                situacao['erro'] = f'PNCP interrompeu na página {pagina} ({getattr(e, "reason", e)}).'
+                logger.warning('PNCP contratacoes/publicacao mod=%s pag=%s erro: %s', mod, pagina, e)
+                break
+            dados = {
+                'total_paginas': int(bruto.get('totalPaginas') or 0),
+                'total_registros': int(bruto.get('totalRegistros') or 0),
+                'registros': [_normalizar_contratacao(i) for i in (bruto.get('data') or [])],
+            }
+            cache.set(chave, dados, CACHE_TTL)
+        total_pag = dados['total_paginas']
+        situacao['total_paginas'] = total_pag
+        situacao['total_registros'] = dados['total_registros']
+        registros.extend(dados['registros'])
+        situacao['paginas_lidas'] = pagina
+        pagina += 1
+    situacao['completa'] = situacao['paginas_lidas'] >= min(total_pag, MAX_PAGINAS_VARREDURA)
+    return registros, situacao
+
+
+ESPELHO_CONTRATACOES = '/modulo-contratacoes/1_consultarContratacoes_PNCP_14133'
+
+
+def _contratacoes_espelho(data_ini: date, data_fim: date, uf: str, cnpj: str, mod: int) -> list:
+    """
+    Mesmas contratações do PNCP, pelo espelho do Dados Abertos Compras.gov.br: páginas
+    de 500 e resposta em ~2 s, mas só cobre o que nasceu no Compras.gov.br (falta parte
+    de estados/municípios que usam outras plataformas) — por isso complementa, não
+    substitui, a varredura do PNCP.
+    """
+    from .comprasgov import _get_json, COMPRASGOV_BASE  # noqa: F401 — mesmo cliente seguro
+    params = {
+        'tamanhoPagina': 500,
+        'dataPublicacaoPncpInicial': data_ini.isoformat(),
+        'dataPublicacaoPncpFinal': data_fim.isoformat(),
+        'codigoModalidade': mod,
+    }
+    if uf:
+        params['unidadeOrgaoUfSigla'] = uf.upper()
+    if cnpj:
+        params['orgaoEntidadeCnpj'] = ''.join(c for c in cnpj if c.isdigit())
+    saida = []
+    for pagina in range(1, 11):
+        dados = _get_json(ESPELHO_CONTRATACOES, {**params, 'pagina': pagina})
+        for i in (dados.get('resultado') or []):
+            if i.get('contratacaoExcluida'):
+                continue
+            saida.append({
+                'numero_pncp':    i.get('numeroControlePNCP', ''),
+                'objeto':         i.get('objetoCompra', '') or '',
+                'valor_global':   _dec(i.get('valorTotalHomologado') or i.get('valorTotalEstimado')),
+                'valor_unitario': None,
+                'quantidade':     None,
+                'unidade_medida': '',
+                'orgao_nome':     i.get('orgaoEntidadeRazaoSocial', ''),
+                'orgao_cnpj':     i.get('orgaoEntidadeCnpj', ''),
+                'uf':             i.get('unidadeOrgaoUfSigla', ''),
+                'data_referencia': _data(i.get('dataPublicacaoPncp')),
+                'numero_certame': i.get('numeroControlePNCP', ''),
+                'modalidade':     i.get('modalidadeNome', ''),
+                'tipo_registro':  'contratacao',
+            })
+        if not dados.get('paginasRestantes'):
+            break
+    return saida
+
+
+def buscar_contratacoes(data_ini: date, data_fim: date, uf: str = '', cnpj: str = '',
+                        termo: str = '', modalidades=(6,), similaridade_minima: int = 40) -> tuple[list, list, list]:
+    """
+    GET /contratacoes/publicacao — ao contrário de /contratos e /atas, este endpoint
+    filtra UF, CNPJ e modalidade NO SERVIDOR. A palavra-chave (ou a descrição do item
+    do mapa) não é filtro da API: o universo já reduzido é varrido e cada objeto
+    recebe uma nota de similaridade (modulo_pncp.similaridade); ficam os de nota
+    >= similaridade_minima, do mais parecido para o menos.
+    """
+    import time
+    from .similaridade import ranquear
+    timeout = _get_timeout()
+    base = {
+        'dataInicial': data_ini.strftime('%Y%m%d'),
+        'dataFinal':   data_fim.strftime('%Y%m%d'),
+        'tamanhoPagina': 50,
+    }
+    if uf:
+        base['uf'] = uf.upper()
+    if cnpj:
+        base['cnpj'] = ''.join(c for c in cnpj if c.isdigit())
+
+    from .comprasgov import ErroComprasGov
+    prazo_final = time.monotonic() + ORCAMENTO_SEGUNDOS
+    universo, avisos, situacoes = [], [], []
+    vistos = set()
+    for mod in modalidades:
+        try:
+            espelho = _contratacoes_espelho(data_ini, data_fim, uf, cnpj, mod)
+        except ErroComprasGov as e:
+            espelho = []
+            logger.warning('Espelho Dados Abertos mod=%s: %s', mod, e)
+        registros, sit = _varrer_modalidade(base, mod, timeout, prazo_final)
+        for r in espelho + registros:
+            if r['numero_pncp'] and r['numero_pncp'] not in vistos:
+                vistos.add(r['numero_pncp'])
+                universo.append(r)
+        sit['do_espelho'] = len(espelho)
+        situacoes.append(sit)
+        if sit['erro']:
+            avisos.append(f'{sit["modalidade"]}: {sit["erro"]}')
+        elif not sit['completa'] and sit['total_paginas']:
+            if sit['total_paginas'] > MAX_PAGINAS_VARREDURA:
+                avisos.append(
+                    f'{sit["modalidade"]}: {sit["total_registros"]} publicações no período — acima do limite de '
+                    f'{MAX_PAGINAS_VARREDURA * 50}. Reduza o período para cobrir tudo.'
+                )
+            else:
+                avisos.append(
+                    f'{sit["modalidade"]}: varridas {sit["paginas_lidas"]} de {sit["total_paginas"]} páginas '
+                    '(o PNCP limita a velocidade de consulta). Clique em Buscar novamente para continuar de onde parou.'
+                )
+
+    achados = ranquear(universo, termo, 'objeto', minimo=similaridade_minima if termo.strip() else 0)
+    if len(achados) > MAX_RESULTADOS:
+        achados = achados[:MAX_RESULTADOS]
+    return achados, avisos, situacoes
+
+
+def _partes_controle(numero_controle: str):
+    """'07777800000162-1-000038/2026' → ('07777800000162', 2026, 38)."""
+    import re
+    m = re.fullmatch(r'(\d{14})-\d+-(\d{1,6})/(\d{4})', (numero_controle or '').strip())
+    if not m:
+        return None
+    return m.group(1), int(m.group(3)), int(m.group(2))
+
+
+def itens_homologados(numero_controle: str) -> list[dict]:
+    """
+    Itens de uma contratação com o valor unitário HOMOLOGADO de cada fornecedor
+    (GET /orgaos/{cnpj}/compras/{ano}/{seq}/itens e .../itens/{n}/resultados).
+    Itens sem resultado não entram: valor estimado de edital não é preço praticado.
+    """
+    partes = _partes_controle(numero_controle)
+    if not partes:
+        raise ValueError('Número de controle PNCP inválido.')
+    cnpj, ano, seq = partes
+    timeout = _get_timeout()
+    base = f'{PNCP_ITENS_BASE}/orgaos/{cnpj}/compras/{ano}/{seq}/itens'
+    itens = []
+    for pagina in range(1, 11):
+        lote = _get_json_pncp(f'{base}?pagina={pagina}&tamanhoPagina=500', timeout) or []
+        itens.extend(lote)
+        if len(lote) < 500:
+            break
+
+    saida = []
+    for item in [i for i in itens if i.get('temResultado')][:150]:
+        for r in (_get_json_pncp(f'{base}/{int(item["numeroItem"])}/resultados', timeout) or []):
+            valor = _dec(r.get('valorUnitarioHomologado'))
+            if not valor or valor <= 0 or r.get('dataCancelamento') or r.get('moedaEstrangeira'):
+                continue
+            saida.append({
+                'numero_item': int(item['numeroItem']),
+                'descricao': (item.get('descricao') or '')[:500],
+                'unidade_medida': (item.get('unidadeMedida') or '')[:30],
+                'quantidade': _dec(r.get('quantidadeHomologada')),
+                'valor_unitario': valor,
+                'fornecedor': (r.get('nomeRazaoSocialFornecedor') or '')[:200],
+                'fornecedor_ni': (r.get('niFornecedor') or '')[:20],
+                'data_referencia': _data(r.get('dataInclusao')),
+            })
+    return saida
+
+
 def buscar_preview(data_ini: date, data_fim: date,
                    cnpj: str = '', uf: str = '',
                    termo: str = '',
                    incluir_contratos: bool = True,
-                   incluir_atas: bool = True) -> dict:
+                   incluir_atas: bool = True,
+                   modalidades=(6,)) -> dict:
     """
-    Consulta a API do PNCP e retorna preview sem salvar nada.
-    Usada pelo frontend para o usuário validar antes de importar.
+    Consulta o PNCP e retorna preview sem salvar nada.
+    Sem CNPJ: contratações filtradas por UF + modalidade no servidor e palavra-chave
+    (obrigatória) na varredura. Atas pelo PNCP só com CNPJ — sem ele, atas de RP vêm
+    pela pesquisa por código CATMAT/CATSER (painel Compras.gov.br).
     """
-    client = PNCPClient()
-    registros = []
-    erros = []
-
-    # A API do PNCP não tem parâmetro de UF em /contratos nem em /atas — sem
-    # CNPJ, a página consultada vem de um universo nacional de ~300-600 mil
-    # registros no período, e a chance de algum bater com o objeto/UF
-    # procurados é próxima de zero. Avisar de antemão em vez de deixar o
-    # usuário concluir errado que "não tem resultado" ou esperar um timeout.
-    if not cnpj and (incluir_contratos or incluir_atas):
-        erros.append(
-            'Sem CNPJ, o PNCP retorna uma amostra de todo o Brasil (centenas de milhares de '
-            'registros no período) — UF e palavra-chave só filtram essa amostra pequena, '
-            'não a busca em si. Informe o CNPJ do órgão de referência para resultados relevantes.'
-        )
+    registros, erros, situacoes = [], [], []
 
     if incluir_contratos:
-        # Contratos usa timeout reduzido (8s) — sem filtro de objeto tende a ser lento
-        # Resultado parcial é aceito: se timeout, atas ainda funcionam
         try:
-            resp = client.buscar_contratos(
-                data_ini, data_fim, cnpj=cnpj,
-                termo=termo, timeout_override=12,
-            )
-            for item in (resp.get('data') or []):
-                registros.append(_normalizar_contrato(item))
-        except TimeoutError:
-            erros.append(
-                'Contratos: a API do PNCP não respondeu a tempo. Informe o CNPJ do órgão '
-                'de referência (é o único filtro que reduz o volume nesse endpoint) ou '
-                'desmarque "Contratos" e consulte apenas Atas de RP.'
-            )
-            logger.warning('PNCP buscar_contratos timeout')
+            achados, avisos, situacoes = buscar_contratacoes(data_ini, data_fim, uf=uf, cnpj=cnpj,
+                                                             termo=termo, modalidades=modalidades)
+            registros.extend(achados)
+            erros.extend(avisos)
         except Exception as e:
-            code = getattr(e, 'code', None)
-            if code in (422, 400):
-                erros.append(
-                    'Contratos: parâmetros rejeitados pela API do PNCP. '
-                    'Reduza o período ou informe o CNPJ do órgão.'
-                )
-            else:
-                erros.append(f'Contratos: {e}')
-            logger.warning('PNCP buscar_contratos erro: %s', e)
+            erros.append(f'Contratações: {e}')
+            logger.warning('PNCP buscar_contratacoes erro: %s', e)
 
     if incluir_atas:
-        try:
-            resp = client.buscar_atas(data_ini, data_fim, cnpj=cnpj)
-            for item in (resp.get('data') or []):
-                registros.append(_normalizar_ata(item))
-        except TimeoutError:
+        if not cnpj:
             erros.append(
-                'Atas: timeout na API do PNCP. Informe o CNPJ do órgão de referência — '
-                'é o único filtro que esse endpoint aceita além do período.'
+                'Atas de RP pelo PNCP exigem CNPJ (a API não filtra UF nem objeto). Para atas sem CNPJ, '
+                'use "Pesquisar preços no Compras.gov.br" pelo código CATMAT/CATSER — inclui atas de todo o país.'
             )
-        except Exception as e:
-            code = getattr(e, 'code', None)
-            if code == 422:
-                erros.append(
-                    'Atas: a API do PNCP retornou 422 — muitos registros ou parâmetros inválidos. '
-                    'Reduza o período para ≤ 90 dias ou informe o CNPJ do órgão.'
-                )
-            elif code == 400:
-                erros.append(f'Atas: parâmetro inválido na API do PNCP (400). Detalhe: {e}')
-            else:
-                erros.append(f'Atas: {e}')
-            logger.warning('PNCP buscar_atas erro: %s', e)
+        else:
+            try:
+                resp = PNCPClient().buscar_atas(data_ini, data_fim, cnpj=cnpj)
+                from .similaridade import ranquear
+                atas = [_normalizar_ata(item) for item in (resp.get('data') or [])]
+                registros.extend(ranquear(atas, termo, 'objeto', minimo=40 if termo.strip() else 0))
+            except Exception as e:
+                erros.append(f'Atas: o PNCP não respondeu ({getattr(e, "reason", e)}). Tente novamente ou reduza o período.')
+                logger.warning('PNCP buscar_atas erro: %s', e)
 
-    if uf:
-        registros = _filtrar_uf(registros, uf)
-    if termo:
-        registros = _filtrar_termo(registros, termo)
-
-    return {
-        'total': len(registros),
-        'registros': registros,
-        'erros': erros,
-    }
+    return {'total': len(registros), 'registros': registros, 'erros': erros, 'varredura': situacoes}
 
 
 class ImportadorPNCP:
@@ -319,8 +541,8 @@ class ImportadorPNCP:
         log      = []
         importados = 0
 
-        # Garante que existe ao menos um item no mapa para vincular os preços
-        item_mapa = mapa.itens.first()
+        # Item destino escolhido na tela (pncp_confirmar); senão, o primeiro do mapa
+        item_mapa = getattr(importacao, '_item_override', None) or mapa.itens.first()
         if not item_mapa:
             importacao.status = 'erro'
             importacao.erro_mensagem = (
@@ -349,17 +571,25 @@ class ImportadorPNCP:
                             f'Período: {importacao.periodo_inicio} a {importacao.periodo_fim}.'
                         ),
                         'data_consulta': importacao.periodo_fim,
-                        'infrutifera': False,
+                        'infrutífera': False,
                     }
                 )
 
-                # Calcula valor unitário: usa o informado; se não houver, usa valor_global
-                valor_unit = reg.valor_unitario or reg.valor_global
+                # Só preço unitário entra no mapa: o valor global de um contrato/ata não é
+                # preço do item e distorceria a estimativa (sobrepreço).
+                valor_unit = reg.valor_unitario
+                if not valor_unit or valor_unit <= 0:
+                    log.append(
+                        f'✗ {reg.numero_pncp or reg.objeto[:40]}: sem preço unitário no PNCP '
+                        f'(valor global R$ {reg.valor_global or "—"} não é preço do item). '
+                        'Use a consulta Compras.gov.br por CATMAT/CATSER.'
+                    )
+                    continue
 
                 preco = PrecoColetado.objects.create(
                     item=item_mapa,
                     fonte=fonte,
-                    valor_unitario=valor_unit or Decimal('0'),
+                    valor_unitario=valor_unit,
                     origem_orgao_empresa=reg.orgao_nome[:255] if reg.orgao_nome else 'PNCP',
                     numero_certame=reg.numero_certame[:100] if reg.numero_certame else '',
                     data_referencia=reg.data_referencia or importacao.periodo_fim,
